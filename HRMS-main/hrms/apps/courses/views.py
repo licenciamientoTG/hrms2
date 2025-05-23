@@ -93,9 +93,6 @@ def course_wizard(request):
         courses_config = CourseConfig.objects.all()
         today = datetime.now().date()
 
-    # Inicializamos el contador de cursos inactivos
-    inactive_courses_count = 0
-
     # Calculamos la fecha límite y la asignamos a cada curso
     inactive_courses_count = 0
     in_progress_courses_count = 0
@@ -106,7 +103,7 @@ def course_wizard(request):
             deadline_date = deadline_date.date()
             course.deadline_date = deadline_date
 
-            if deadline_date < today:
+            if deadline_date <= today:
                 inactive_courses_count += 1  # curso expirado (pasó la fecha)
             elif deadline_date >= today:
                 in_progress_courses_count += 1  # curso activo
