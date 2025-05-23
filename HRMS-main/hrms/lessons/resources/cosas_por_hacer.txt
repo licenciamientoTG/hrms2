@@ -1,0 +1,3 @@
+cambiar lenguaje 
+agregarle iconografia con font awesome 
+agregar alertas

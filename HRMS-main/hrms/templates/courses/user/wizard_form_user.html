@@ -1,0 +1,180 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+
+{% block page_title %}Cursos{% endblock %}
+{% block title %}{% endblock %}
+
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1>Cursos</h1>
+</div>
+    <div class="row">
+        <div class="col-12 d-flex">
+            <div class="w-100">
+                <div class="row">
+                    <div class="col-3">
+                        <div class="card col-12">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title"> Cursos asignados</h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-primary">
+                                            <i class="fa-solid fa-book align-middle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ totalcursos }}</h1>
+ 
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos cancelados </h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
+                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">0</h1>
+
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos en Progreso</h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
+                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                                <h1 class="mt-1 mb-3">0</h1>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos finalizados</h5>
+                                    </div>
+
+                                    <div class="col-auto">
+                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
+                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ inactive_courses_count }}</h1>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="card flex-fill">
+                <div class="card-header">
+                    
+
+                    <h5 class="card-title mb-0">Ultimos cursos</h5>
+                </div>
+                <table class="table table-hover my-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre del curso</th>
+                            <th class="d-none d-xl-table-cell">Fecha de inicio</th>
+                            <th class="d-none d-xl-table-cell">Fecha de término</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        {% for course in courses %}
+                        <tr>
+                            <td>{{ course.title }}</td>
+                            <td class="d-none d-xl-table-cell">{{ course.created_at|date:"j \d\e F \d\e Y" }}</td>
+                            <td class="d-none d-xl-table-cell">
+                                <p>{{ course.deadline_date|date:"j \d\e F \d\e Y" }}</p>  <!-- Mostrar la fecha límite calculada -->
+                            </td>
+                            <td>
+                                {% if course.deadline_date %}
+                                    {% if course.deadline_date <= today %}
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">No definido</span>
+                                {% endif %}
+                            </td>
+                            
+                        </tr>
+                    {% endfor %}
+                    
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/courses.css' %}">
+{% endblock %}
+
+
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $('.table').DataTable({
+            "paging": true,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "responsive": true,
+            "pageLength": 10,
+            "lengthMenu": [
+                [5, 10, 25, 50, -1],
+                [5, 10, 25, 50, "Todos"]
+            ],
+            "language": {
+                "lengthMenu": "Mostrar _MENU_ entradas por página",  // Cambia el texto de "entries per page"
+                "zeroRecords": "No se encontraron resultados",
+                "info": "Mostrando página _PAGE_ de _PAGES_",
+                "infoEmpty": "No hay registros disponibles",
+                "infoFiltered": "(filtrado de _MAX_ registros totales)"
+            }
+        });
+    });
+    
+
+
+</script>
+
+{% endblock %}

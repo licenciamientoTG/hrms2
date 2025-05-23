@@ -1,0 +1,196 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #f0f3f8, #ffffff);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        .header {
+            margin: 20px 0;
+        }
+
+        .header h1 {
+            color: #1a4b96;
+            font-size: 24px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 1px 0px 20px rgb(0 0 0 / 51%);
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            overflow: hidden;
+            margin-top: 100pxl;
+        }
+
+        .logo-section {
+            flex: 1;
+            background: white;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-section img {
+            max-width: 80%;
+            height: auto;
+        }
+
+        .form-section {
+            flex: 1;
+            background: #1a4b96;
+            padding: 40px;
+            color: white;
+        }
+
+        .welcome-text {
+            margin-bottom: 20px;
+        }
+
+        .welcome-text h2 {
+            color: #a5e65a;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+
+        }
+
+        .border-input {
+            border: solid 1px !important;
+            border-color: #A9CA48 !important;
+            border-radius: 7px !important;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .create-account {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .enter-button {
+            background: #a5e65a;
+            color: #1a4b96;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #signin{
+            display: block;
+            margin: 0 10px;
+            width: 40% !important;
+            background: #A9CA48;
+            border: solid 0.5px #A9CA48;
+            border-radius: 7px;
+            font-size: larger;
+            font-weight: 500;
+            padding:10px;
+            cursor:pointer;
+        }
+
+        #signin:hover{
+            background: #7bc5258f;
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                flex-direction: column;
+            }
+
+            .logo-section, .form-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="color: #2B57A4">HRMS</h1>
+    </div>
+
+    <div class="login-container">
+        <div class="logo-section">
+            <img src="{% static 'template//img/logos/LOGOTIPO.png' %}" alt="TotalGas Logo">
+        </div>
+
+        <div class="form-section">
+            <div class="welcome-text" style="margin-bottom: 20px">
+                <h2 style="color: #A9CA48 !important;">¡Bienvenid@!</h2>
+                <p>Ingresa tus datos para continuar</p>
+            </div>
+
+            <form method="POST" class="register-form" id="login-form" action="{% url 'login' %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="username"><i class="zmdi zmdi-account material-icons-name"></i></label>
+                    <input type="text" class="border-input" name="username" id="username" placeholder="Usuario" value="{{ username|default:'' }}"/>
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="zmdi zmdi-lock"></i></label>
+                    <input type="password" class="border-input" name="password" id="password" placeholder="Contraseña"/>
+                </div>
+                <div class="" style="margin-bottom: 2rem;">
+                    <input type="checkbox" name="remember-me" id="remember-me" class="agree-term" />
+                    <label for="remember-me" class="label-agree-term"><span><span></span></span>Recuerdame</label>
+                </div>
+                <div class="form-group form-button" style=" display: flex;    flex-direction: row;    flex-wrap: nowrap;    justify-content: space-between;    align-items: center;">
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                    <input type="submit" name="signin" id="signin" class="form-submit" value="Entrar" style="display:block; width: 100%;"/>
+                </div>
+            </form>
+            <a href="{% url 'password_reset' %}" class="signup-image-link" style="color: rgb(169,202,72)">¿Olvidaste tu contraseña?</a>
+        </div>
+    </div>
+</body>
+</html>

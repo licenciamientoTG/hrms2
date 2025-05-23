@@ -1,0 +1,12 @@
+{% extends 'layouts/base.html' %}
+{% block page_title %} Departamentos {% endblock %}
+{% block title %}Eliminar Departamento{% endblock %}
+
+{% block content %}
+<h1>¿Está seguro que desea eliminar el departamento "{{ department.name }}"?</h1>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit">Sí, eliminar</button>
+        <a href="/departments/">Cancelar</a>
+    </form>
+{% endblock %}

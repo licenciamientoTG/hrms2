@@ -1,0 +1,52 @@
+{% extends 'layouts/base.html' %}
+{% block page_title %} Departamentos {% endblock %}
+{% block title %}Lista de Departamentos{% endblock %}
+
+{% block content %}
+<a href="create/">Crear Departamento</a>
+<h1>Lista de Departamentos</h1>
+    <table id="myTable" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Abreviatura</th>
+                <th>Acciones</th>
+
+                <th>Fecha de creación</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for department in departments %}
+            <tr>
+                <td>{{ department.id }}</td>
+                <td>{{ department.name }}</td>
+                <td>{{ department.abbreviated }}</td>
+                <td>{{ department.created_at }}</td> <!-- Mostrar la fecha aquí -->
+
+                <td>
+                    <a href="{{ department.id }}/update/">Editar</a> |
+                    <a href="{{ department.id }}/delete/">Eliminar</a>
+                </td>
+
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let table = new DataTable('#myTable', {
+            paging: true,
+            searching: true,
+            ordering: true,
+            language: {
+                url: "//cdn.datatables.net/plug-ins/1.13.5/i18n/Spanish.json"
+            }
+        });
+    });
+</script>
+{% endblock %}
+

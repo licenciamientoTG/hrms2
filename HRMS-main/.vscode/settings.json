@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "./hrms"
+    ],
+    "files.exclude": {
+        "**/.git": false
+    }
+}
