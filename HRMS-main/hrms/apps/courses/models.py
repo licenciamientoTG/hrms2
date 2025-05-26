@@ -125,6 +125,12 @@ class Lesson(models.Model):
         help_text="Descripción de la lección.",
         verbose_name="Descripción"
     )
+    video_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="Enlace de video opcional (por ejemplo, YouTube).",
+        verbose_name="URL del video"
+    )
     resource = models.FileField(
         upload_to="lessons/", blank=True, null=True,
         help_text="Archivo adjunto o enlace a un recurso externo.",

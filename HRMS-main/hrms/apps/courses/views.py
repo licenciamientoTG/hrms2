@@ -244,7 +244,8 @@ def save_course_ajax(request):
                         module_content=new_module,
                         title=lesson.get("title"),
                         lesson_type=lesson.get("type"),
-                        description=lesson.get("description")
+                        description=lesson.get("description"),
+                        video_url=lesson.get("video_url"),
                     )
 
             return JsonResponse({"status": "success", "message": "Curso guardado correctamente."})
