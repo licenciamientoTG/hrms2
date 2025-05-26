@@ -239,6 +239,7 @@ function saveModule(moduleElement) {
 
     let moduleData = {
         id: moduleId,
+        created_at: Date.now(),
         course: moduleCourse.value.trim(),
         title: moduleTitle.value.trim(),
         description: moduleDescription.value.trim(),
@@ -490,8 +491,13 @@ function addLesson(lessonContainer, lessonData = null) {
 
     function loadModulesFromStorage() {
         let storedModules = JSON.parse(localStorage.getItem("modules")) || [];
+
+        // Solo ordenar si el campo created_at existe
+        storedModules.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
         storedModules.forEach(moduleData => addModule(moduleData));
     }
+
 
     function generateSummary() {
         let summaryContainer = document.getElementById("summary-container");
