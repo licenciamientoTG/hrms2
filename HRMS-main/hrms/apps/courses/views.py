@@ -236,9 +236,13 @@ def save_course_ajax(request):
                     description=module.get("description")
                 )
 
+                # 🔁 Guardar las lecciones del módulo actual aquí dentro
                 for lesson in module.get("lessons", []):
                     if not lesson.get("title") or not lesson.get("type") or not lesson.get("description"):
                         return JsonResponse({"status": "error", "message": "Cada lección debe tener título, tipo y descripción."}, status=400)
+
+                    resource_index = lesson.get("resource_index")
+                    resource_file = request.FILES.get(f"lesson_resource_{resource_index}") if resource_index is not None else None
 
                     Lesson.objects.create(
                         module_content=new_module,
@@ -246,7 +250,10 @@ def save_course_ajax(request):
                         lesson_type=lesson.get("type"),
                         description=lesson.get("description"),
                         video_url=lesson.get("video_url"),
+                        resource=resource_file  # ✅ Esto guardará el archivo en media/lessons/
                     )
+
+
 
             return JsonResponse({"status": "success", "message": "Curso guardado correctamente."})
 

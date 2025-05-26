@@ -248,7 +248,7 @@ function saveModule(moduleElement) {
     let hasEmptyLesson = false;
 
     // 🔴 Validar cada lección
-    lessons.forEach(lessonElement => {
+lessons.forEach((lessonElement, index) => {
         let lessonTitle = lessonElement.querySelector(".lesson-title");
         let lessonType = lessonElement.querySelector(".lesson-type");
         let lessonDescription = lessonElement.querySelector(".lesson-description");
@@ -276,7 +276,8 @@ function saveModule(moduleElement) {
                 title: lessonTitle.value.trim(),
                 type: lessonType.value,
                 description: lessonDescription.value.trim(),
-                video_url: lessonVideoURL.value.trim()
+                video_url: lessonVideoURL.value.trim(),
+                resource_index: index
             });
         }
     });
@@ -650,11 +651,22 @@ document.addEventListener("DOMContentLoaded", function () {
         formData.append("step2", JSON.stringify(step2));
         formData.append("modules", JSON.stringify(modules));
 
+        // ✅ Adjuntar archivo principal del curso
         let portraitInput = document.getElementById("id_portrait");
         if (portraitInput && portraitInput.files.length > 0) {
             formData.append("portrait", portraitInput.files[0]);
         }
 
+        // ✅ Adjuntar archivos de cada lección
+        let lessonFiles = document.querySelectorAll(".lesson-resource");
+        lessonFiles.forEach((input, index) => {
+            if (input.files.length > 0) {
+                formData.append(`lesson_resource_${index}`, input.files[0]);  // ← nombre esperable por backend
+            }
+        });
+
+
+        // Enviar al backend
         fetch('/courses/api/save-course/', {
             method: 'POST',
             headers: {
