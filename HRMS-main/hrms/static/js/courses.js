@@ -297,7 +297,6 @@ lessons.forEach((lessonElement, index) => {
     let storedModules = JSON.parse(localStorage.getItem("modules")) || [];
     storedModules = storedModules.filter(m => m.id !== moduleId); // Eliminar duplicado si ya existía
     storedModules.push(moduleData);
-    localStorage.setItem("modules", JSON.stringify(storedModules));
 
     Swal.fire({
         icon: "success",
@@ -644,66 +643,90 @@ function cancel_course(route) {
 
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("save-button").addEventListener("click", function (event) {
-        event.preventDefault(); // Evita el envío automático del formulario
+        event.preventDefault(); // ⛔ Evita envío automático
 
-        // Obtener los datos del localStorage
+        // 🧠 Obtener datos del localStorage
         let step1 = JSON.parse(localStorage.getItem("step1")) || {};
         let step2 = JSON.parse(localStorage.getItem("step2")) || {};
         let modules = JSON.parse(localStorage.getItem("modules")) || [];
 
-        // Convertir a JSON
+        // 🔢 Asegurar resource_index globalmente
+        let fileIndex = 0;
+        let lessonFileInputs = [];
+        modules.forEach(module => {
+            module.lessons.forEach((lesson, idx) => {
+                lesson.resource_index = fileIndex;
+                // Buscar el input correspondiente en el DOM
+                const moduleForms = document.querySelectorAll(".module-form, .card");
+                let foundInput = null;
+                moduleForms.forEach(modForm => {
+                    // Buscar por título de módulo y lección
+                    const modTitle = modForm.querySelector(".module-title")?.value || modForm.querySelector(".card-title")?.innerText;
+                    if (modTitle && modTitle.trim() === module.title.trim()) {
+                        const lessonInputs = modForm.querySelectorAll(".lesson-form");
+                        lessonInputs.forEach(lessonForm => {
+                            const lessonTitle = lessonForm.querySelector(".lesson-title")?.value;
+                            if (lessonTitle && lessonTitle.trim() === lesson.title.trim()) {
+                                foundInput = lessonForm.querySelector(".lesson-resource");
+                            }
+                        });
+                    }
+                });
+                lessonFileInputs.push(foundInput);
+                fileIndex++;
+            });
+        });
+
+        // 💾 Actualizar localStorage con los índices correctos
+        localStorage.setItem("modules", JSON.stringify(modules));
+
+        // 📦 Crear FormData
         let formData = new FormData();
         formData.append("step1", JSON.stringify(step1));
         formData.append("step2", JSON.stringify(step2));
         formData.append("modules", JSON.stringify(modules));
 
-        // ✅ Adjuntar archivo principal del curso
+        // 🖼️ Imagen del curso
         let portraitInput = document.getElementById("id_portrait");
         if (portraitInput && portraitInput.files.length > 0) {
             formData.append("portrait", portraitInput.files[0]);
         }
 
-        // ✅ Adjuntar archivos de cada lección
+        // 📎 Archivos de cada lección según índice global
         let lessonFiles = document.querySelectorAll(".lesson-resource");
         lessonFiles.forEach((input, index) => {
             if (input.files.length > 0) {
-                formData.append(`lesson_resource_${index}`, input.files[0]);  // ← nombre esperable por backend
+                formData.append(`lesson_resource_${index}`, input.files[0]);
             }
         });
 
-
-        // Enviar al backend
-        fetch('/courses/api/save-course/', {
-            method: 'POST',
+        // 🚀 Enviar al backend
+        fetch("/courses/api/save-course/", {
+            method: "POST",
             headers: {
-                'X-CSRFToken': getCSRFToken()  // No pongas 'Content-Type' con FormData
+                "X-CSRFToken": getCSRFToken()
             },
             body: formData
         })
-
         .then(response => response.json())
         .then(data => {
             console.log("✅ Respuesta del servidor:", data);
-            
+
             if (data.status === "success") {
                 Swal.fire({
                     icon: "success",
                     title: "¡Guardado!",
                     text: "El curso se ha guardado correctamente.",
-                    timer: 2000,  // Se cierra automáticamente en 2 segundos
+                    timer: 2000,
                     showConfirmButton: false
                 });
 
-                // 🔥 Limpiar localStorage después de guardar con éxito
                 localStorage.clear();
-                console.log("🗑️ localStorage eliminado.");
-
-                // Redirigir a la página principal de cursos después de 2 segundos
-                setTimeout(function () {
+                setTimeout(() => {
                     window.location.href = "/courses/course_wizard";
                 }, 2000);
             } else {
-                Swal.fire("Error", "No se pudo guardar el curso.", "error");
+                Swal.fire("Error", data.message || "No se pudo guardar el curso.", "error");
             }
         })
         .catch(error => {
@@ -712,6 +735,13 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+
+// ✅ CSRF Token helper
+function getCSRFToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+
 
 // 📌 Función para obtener el token CSRF
 function getCSRFToken() {

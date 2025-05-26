@@ -110,12 +110,6 @@ def course_wizard(request):
         else:
             course.deadline_date = None
 
-
-    # Depuración: Ver el conteo de cursos inactivos
-    # HttpResponse(f"Total de cursos inactivos: {inactive_courses_count}")
-    #print(f"Total de cursos inactivos: {inactive_courses_count}")
-
-
     return render(request, template_name, {
         'course_form': course_form,
         'config_form': config_form,
@@ -242,8 +236,7 @@ def save_course_ajax(request):
                         return JsonResponse({"status": "error", "message": "Cada lección debe tener título, tipo y descripción."}, status=400)
 
                     resource_index = lesson.get("resource_index")
-                    resource_file = request.FILES.get(f"lesson_resource_{resource_index}") if resource_index is not None else None
-
+                    resource_file = request.FILES.get(f"lesson_resource_{resource_index}")
                     Lesson.objects.create(
                         module_content=new_module,
                         title=lesson.get("title"),
