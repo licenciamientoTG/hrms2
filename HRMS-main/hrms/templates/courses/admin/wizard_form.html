@@ -200,7 +200,7 @@
             <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
                     {% csrf_token %}
-                    <button type="button" class="btn btn-success mx-2" id="save-button">Guardar</button>
+                    <button type="button" class="btn btn-primary btn-lg" id="save-button">Confirmar y publicar</button>
                 </form>
                 <button type="button" class="btn btn-danger ms-auto" id="cancel-button"
                     onclick="cancel_course('{% url 'course_wizard' %}')">

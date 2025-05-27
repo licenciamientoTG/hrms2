@@ -505,84 +505,133 @@ function addLesson(lessonContainer, lessonData = null) {
 
 function generateSummary() {
     let summaryContainer = document.getElementById("summary-container");
-    summaryContainer.innerHTML = ""; // Limpiar contenido previo
+    summaryContainer.innerHTML = "";
 
-    // Obtener los datos guardados en localStorage
+    // Obtener datos
     let step1Data = JSON.parse(localStorage.getItem("step1")) || {};
     let step2Data = JSON.parse(localStorage.getItem("step2")) || {};
     let modules = JSON.parse(localStorage.getItem("modules")) || [];
 
-    // Obtener el nombre de la categoría seleccionada
-    let categoryName = "No especificado";
-    const categorySelect = document.getElementById("id_category");
-    if (categorySelect && step1Data["category"]) {
-        const selectedOption = categorySelect.querySelector(`option[value="${step1Data["category"]}"]`);
-        if (selectedOption) {
-            categoryName = selectedOption.textContent;
-        }
-    }
-
+    // Diseño mejorado
     let summaryHTML = `
-        <h4>📌 Información del Curso</h4>
-        <p><strong>Nombre:</strong> ${step1Data["title"] || "No especificado"}</p>
-        <p><strong>Duración:</strong> ${step1Data["duration"] ? step1Data["duration"] + " minutos" : "No especificado"}</p>
-        <p><strong>Descripción:</strong> ${step1Data["description"] || "No especificado"}</p>
-        <p><strong>Categoría:</strong> ${categoryName}</p>
+    <div class="course-summary-container">
+        <!-- Encabezado con imagen -->
+        <div class="course-header mb-4">
+            <div class="course-thumbnail">
+                <img id="summary-preview-image" src="${document.getElementById('preview-image').src || 'https://via.placeholder.com/300x150?text=Sin+imagen'}" 
+                     alt="Miniatura del curso" class="img-fluid rounded">
+            </div>
+            <div class="course-meta">
+                <h2 class="course-title">${step1Data["title"] || "Nuevo Curso"}</h2>
+                <div class="badges-container">
+                    <span class="badge bg-primary">${step2Data["course_type"] ? getSelectedOptionText("id_course_type", step2Data["course_type"]) : "Tipo no definido"}</span>
+                    <span class="badge bg-secondary">${step1Data["duration"] || "0"} horas</span>
+                    <span class="badge bg-success">${step2Data["certification"] === "on" ? "Con certificado" : "Sin certificado"}</span>
+                </div>
+            </div>
+        </div>
 
-        <h4>⚙️ Configuración</h4>
-        <p><strong>Tipo de curso:</strong> ${getSelectedOptionText("id_course_type", step2Data["course_type"]) || "No especificado"}</p>
-        <p><strong>Es secuencial:</strong> ${step2Data["sequential"] === "on" ? "Sí" : "No"}</p>
-        <p><strong>Plazo límite:</strong> ${step2Data["deadline"] ? step2Data["deadline"] + " días" : "No especificado"}</p>
-        <p><strong>Público objetivo:</strong> ${getSelectedOptionText("id_audience", step2Data["audience"]) || "No especificado"}</p>
-        <p><strong>Certificación:</strong> ${step2Data["certification"] === "on" ? "Sí" : "No"}</p>
-        <p><strong>Requiere firma:</strong> ${step2Data["requires_signature"] === "on" ? "Sí" : "No"}</p>
+        <!-- Sección en 2 columnas -->
+        <div class="row">
+            <!-- Columna izquierda -->
+            <div class="col-md-6">
+                <div class="summary-card">
+                    <h3><i class="bi bi-info-circle"></i> Información básica</h3>
+                    <ul class="summary-list">
+                        <li><strong>Categoría:</strong> ${getSelectedOptionText("id_category", step1Data["category"]) || "No especificada"}</li>
+                        <li><strong>Modalidad:</strong> ${step2Data["sequential"] === "on" ? "Secuencial" : "Libre"}</li>
+                        <li><strong>Plazo:</strong> ${step2Data["deadline"] || "Sin"} días límite</li>
+                    </ul>
+                </div>
 
-        <h4>📚 Módulos y Lecciones</h4>
+                <div class="summary-card mt-3">
+                    <h3><i class="bi bi-people"></i> Público objetivo</h3>
+                    <p>${step2Data["audience"] === "segment" ? "Segmentado" : "Todos los usuarios"}</p>
+                </div>
+            </div>
+
+            <!-- Columna derecha -->
+            <div class="col-md-6">
+                <div class="summary-card">
+                    <h3><i class="bi bi-journal-text"></i> Descripción</h3>
+                    <p class="course-description">${step1Data["description"] || "Sin descripción proporcionada."}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulos acordeón -->
+        <div class="summary-card mt-4">
+            <h3><i class="bi bi-stack"></i> Estructura del curso</h3>
+            <div class="accordion" id="modulesAccordion">
     `;
 
-    // Resto del código para mostrar módulos...
+    // Módulos
     if (modules.length === 0) {
-        summaryHTML += `<p>No se han agregado módulos.</p>`;
+        summaryHTML += `<div class="alert alert-warning">No se han agregado módulos al curso.</div>`;
     } else {
         modules.forEach((module, index) => {
             summaryHTML += `
-                <div class="border p-2 mb-2 resumen-card" data-title="${module.title.toLowerCase()}">
-                    <h5>🔹 Módulo ${index + 1}: ${module.title}</h5>
-                    <p><strong>Descripción:</strong> ${module.description}</p>
-                    <p><strong>Lecciones:</strong></p>
-                    <ul>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="moduleHeading${index}">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#moduleCollapse${index}" aria-expanded="true">
+                        <span class="module-badge">Módulo ${index + 1}</span>
+                        ${module.title}
+                    </button>
+                </h2>
+                <div id="moduleCollapse${index}" class="accordion-collapse collapse show" 
+                     aria-labelledby="moduleHeading${index}" data-bs-parent="#modulesAccordion">
+                    <div class="accordion-body">
+                        <p>${module.description || "Sin descripción"}</p>
+                        <h5>Lecciones:</h5>
+                        <ol class="lesson-list">
             `;
 
-            if (module.lessons.length === 0) {
-                summaryHTML += `<li>No hay lecciones en este módulo.</li>`;
-            } else {
-                module.lessons.forEach(lesson => {
-                    summaryHTML += `<li>${lesson.title} - ${lesson.type}`;
-                    if (lesson.video_url) {
-                        summaryHTML += `<br><small>📺 <a href="${lesson.video_url}" target="_blank">${lesson.video_url}</a></small>`;
-                    }
-                    summaryHTML += `</li>`;
-                });
-            }
+            module.lessons.forEach(lesson => {
+                summaryHTML += `
+                <li>
+                    <strong>${lesson.title}</strong> (${lesson.type})
+                    ${lesson.video_url ? 
+                        `<div class="video-preview mt-2">
+                            <a href="${lesson.video_url}" target="_blank">
+                                <i class="bi bi-play-circle"></i> Ver video
+                            </a>
+                        </div>` : ''}
+                </li>
+                `;
+            });
 
-            summaryHTML += `</ul></div>`;
+            summaryHTML += `
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            `;
         });
     }
 
+    summaryHTML += `
+            </div>
+        </div>
+
+        <!-- Resumen final -->
+        <div class="summary-footer mt-4 p-3 bg-light rounded">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4>¿Todo listo?</h4>
+                    <p class="mb-0">Revisa que toda la información sea correcta antes de publicar.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
     summaryContainer.innerHTML = summaryHTML;
 
-    // Función para activar el filtro
-    const filtroInput = document.getElementById("filtroResumenCursos");
-    if (filtroInput) {
-        filtroInput.addEventListener("input", function () {
-            const filtro = filtroInput.value.toLowerCase();
-            const cards = document.querySelectorAll(".resumen-card");
-
-            cards.forEach(card => {
-                const title = card.getAttribute("data-title") || "";
-                card.style.display = title.includes(filtro) ? "" : "none";
-            });
-        });
+    // Actualizar imagen de resumen si existe
+    const previewImage = document.getElementById('preview-image');
+    if (previewImage && previewImage.src) {
+        document.getElementById('summary-preview-image').src = previewImage.src;
     }
 }
 
