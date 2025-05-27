@@ -16,7 +16,7 @@ import json
 from datetime import timedelta, datetime
 from departments.models import Department
 from django.contrib.auth.models import User
-
+import os
 
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
@@ -170,6 +170,8 @@ def save_course_ajax(request):
             step2_data = json.loads(step2_raw)
             modules_data = json.loads(modules_raw)
 
+            ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".mp4"]
+            
             # 🔹 2. Validaciones básicas
             required_fields_step1 = ["title", "description", "duration", "category"]
             missing_fields_step1 = [field for field in required_fields_step1 if not step1_data.get(field)]
@@ -237,6 +239,16 @@ def save_course_ajax(request):
 
                     resource_index = lesson.get("resource_index")
                     resource_file = request.FILES.get(f"lesson_resource_{resource_index}")
+
+                    # ✅ Validación del tipo de archivo
+                    if resource_file:
+                        ext = os.path.splitext(resource_file.name)[1].lower()
+                        if ext not in ALLOWED_EXTENSIONS:
+                            return JsonResponse({
+                                "status": "error",
+                                "message": f"El archivo '{resource_file.name}' no está permitido. Solo se aceptan PDF, DOCX, PPTX y MP4."
+                            }, status=400)
+                        
                     Lesson.objects.create(
                         module_content=new_module,
                         title=lesson.get("title"),
@@ -245,6 +257,7 @@ def save_course_ajax(request):
                         video_url=lesson.get("video_url"),
                         resource=resource_file  # ✅ Esto guardará el archivo en media/lessons/
                     )
+
 
 
 

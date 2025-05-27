@@ -417,7 +417,7 @@ function addLesson(lessonContainer, lessonData = null) {
         </div>
         <div class="mb-3">
             <label class="form-label">Recurso (Opcional):</label>
-            <input type="file" class="form-control lesson-resource" name="lesson_resource[]">
+            <input type="file" class="form-control lesson-resource" name="lesson_resource[]" accept=".pdf,.docx,.pptx,.mp4">
         </div>
         <div class="mb-3">
             <label class="form-label">URL de Video (YouTube, opcional):</label>
