@@ -503,72 +503,97 @@ function addLesson(lessonContainer, lessonData = null) {
     }
 
 
-    function generateSummary() {
-        let summaryContainer = document.getElementById("summary-container");
-        summaryContainer.innerHTML = ""; // Limpiar contenido previo
+function generateSummary() {
+    let summaryContainer = document.getElementById("summary-container");
+    summaryContainer.innerHTML = ""; // Limpiar contenido previo
 
-        // Obtener los datos guardados en localStorage
-        let step1Data = JSON.parse(localStorage.getItem("step1")) || {};
-        let step2Data = JSON.parse(localStorage.getItem("step2")) || {};
-        let modules = JSON.parse(localStorage.getItem("modules")) || [];
+    // Obtener los datos guardados en localStorage
+    let step1Data = JSON.parse(localStorage.getItem("step1")) || {};
+    let step2Data = JSON.parse(localStorage.getItem("step2")) || {};
+    let modules = JSON.parse(localStorage.getItem("modules")) || [];
 
-        let summaryHTML = `
-            <h4>📌 Información del Curso</h4>
-            <p><strong>Nombre:</strong> ${step1Data["course_name"] || "No especificado"}</p>
-            <p><strong>Descripción:</strong> ${step1Data["course_description"] || "No especificado"}</p>
-
-            <h4>⚙️ Configuración</h4>
-            <p><strong>Nivel:</strong> ${step2Data["course_level"] || "No especificado"}</p>
-            <p><strong>Categoría:</strong> ${step2Data["course_category"] || "No especificado"}</p>
-
-            <h4>📚 Módulos y Lecciones</h4>
-
-        `;
-
-        if (modules.length === 0) {
-            summaryHTML += `<p>No se han agregado módulos.</p>`;
-        } else {
-            modules.forEach((module, index) => {
-                summaryHTML += `
-                    <div class="border p-2 mb-2 resumen-card" data-title="${module.title.toLowerCase()}">
-                        <h5>🔹 Módulo ${index + 1}: ${module.title}</h5>
-                        <p><strong>Descripción:</strong> ${module.description}</p>
-                        <p><strong>Lecciones:</strong></p>
-                        <ul>
-                `;
-
-                if (module.lessons.length === 0) {
-                    summaryHTML += `<li>No hay lecciones en este módulo.</li>`;
-                } else {
-                    module.lessons.forEach(lesson => {
-                        summaryHTML += `<li>${lesson.title} - ${lesson.type}`;
-                        if (lesson.video_url) {
-                            summaryHTML += `<br><small>📺 <a href="${lesson.video_url}" target="_blank">${lesson.video_url}</a></small>`;
-                        }
-                        summaryHTML += `</li>`;
-                    });
-                }
-
-                summaryHTML += `</ul></div>`;
-            });
-        }
-
-        summaryContainer.innerHTML = summaryHTML;
-
-        // 🔍 Activar el filtro justo después de generar el HTML
-        const filtroInput = document.getElementById("filtroResumenCursos");
-        if (filtroInput) {
-            filtroInput.addEventListener("input", function () {
-                const filtro = filtroInput.value.toLowerCase();
-                const cards = document.querySelectorAll(".resumen-card");
-
-                cards.forEach(card => {
-                    const title = card.getAttribute("data-title") || "";
-                    card.style.display = title.includes(filtro) ? "" : "none";
-                });
-            });
+    // Obtener el nombre de la categoría seleccionada
+    let categoryName = "No especificado";
+    const categorySelect = document.getElementById("id_category");
+    if (categorySelect && step1Data["category"]) {
+        const selectedOption = categorySelect.querySelector(`option[value="${step1Data["category"]}"]`);
+        if (selectedOption) {
+            categoryName = selectedOption.textContent;
         }
     }
+
+    let summaryHTML = `
+        <h4>📌 Información del Curso</h4>
+        <p><strong>Nombre:</strong> ${step1Data["title"] || "No especificado"}</p>
+        <p><strong>Duración:</strong> ${step1Data["duration"] ? step1Data["duration"] + " minutos" : "No especificado"}</p>
+        <p><strong>Descripción:</strong> ${step1Data["description"] || "No especificado"}</p>
+        <p><strong>Categoría:</strong> ${categoryName}</p>
+
+        <h4>⚙️ Configuración</h4>
+        <p><strong>Tipo de curso:</strong> ${getSelectedOptionText("id_course_type", step2Data["course_type"]) || "No especificado"}</p>
+        <p><strong>Es secuencial:</strong> ${step2Data["sequential"] === "on" ? "Sí" : "No"}</p>
+        <p><strong>Plazo límite:</strong> ${step2Data["deadline"] ? step2Data["deadline"] + " días" : "No especificado"}</p>
+        <p><strong>Público objetivo:</strong> ${getSelectedOptionText("id_audience", step2Data["audience"]) || "No especificado"}</p>
+        <p><strong>Certificación:</strong> ${step2Data["certification"] === "on" ? "Sí" : "No"}</p>
+        <p><strong>Requiere firma:</strong> ${step2Data["requires_signature"] === "on" ? "Sí" : "No"}</p>
+
+        <h4>📚 Módulos y Lecciones</h4>
+    `;
+
+    // Resto del código para mostrar módulos...
+    if (modules.length === 0) {
+        summaryHTML += `<p>No se han agregado módulos.</p>`;
+    } else {
+        modules.forEach((module, index) => {
+            summaryHTML += `
+                <div class="border p-2 mb-2 resumen-card" data-title="${module.title.toLowerCase()}">
+                    <h5>🔹 Módulo ${index + 1}: ${module.title}</h5>
+                    <p><strong>Descripción:</strong> ${module.description}</p>
+                    <p><strong>Lecciones:</strong></p>
+                    <ul>
+            `;
+
+            if (module.lessons.length === 0) {
+                summaryHTML += `<li>No hay lecciones en este módulo.</li>`;
+            } else {
+                module.lessons.forEach(lesson => {
+                    summaryHTML += `<li>${lesson.title} - ${lesson.type}`;
+                    if (lesson.video_url) {
+                        summaryHTML += `<br><small>📺 <a href="${lesson.video_url}" target="_blank">${lesson.video_url}</a></small>`;
+                    }
+                    summaryHTML += `</li>`;
+                });
+            }
+
+            summaryHTML += `</ul></div>`;
+        });
+    }
+
+    summaryContainer.innerHTML = summaryHTML;
+
+    // Función para activar el filtro
+    const filtroInput = document.getElementById("filtroResumenCursos");
+    if (filtroInput) {
+        filtroInput.addEventListener("input", function () {
+            const filtro = filtroInput.value.toLowerCase();
+            const cards = document.querySelectorAll(".resumen-card");
+
+            cards.forEach(card => {
+                const title = card.getAttribute("data-title") || "";
+                card.style.display = title.includes(filtro) ? "" : "none";
+            });
+        });
+    }
+}
+
+// Función auxiliar para obtener el texto de una opción seleccionada
+function getSelectedOptionText(selectId, value) {
+    if (!value) return null;
+    const select = document.getElementById(selectId);
+    if (!select) return value;
+    const option = select.querySelector(`option[value="${value}"]`);
+    return option ? option.textContent : value;
+}
 
     addModuleBtn.addEventListener("click", function () {
         addModule();
