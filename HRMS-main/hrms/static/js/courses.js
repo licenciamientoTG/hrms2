@@ -1,3 +1,5 @@
+let lessonFileMap = {};  // { lessonId: File }
+
 document.addEventListener("DOMContentLoaded", function () {
     // 🔴 Al cargar la página, eliminar los módulos y lecciones del localStorage
     localStorage.removeItem("modules");
@@ -87,6 +89,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let imageInput = document.getElementById("id_portrait"); // Asegurar que este ID sea correcto
     let previewImage = document.getElementById("preview-image");
+    
 
     if (imageInput) {
         imageInput.addEventListener("change", function (event) {
@@ -207,7 +210,6 @@ function saveModule(moduleElement) {
     let moduleDescription = moduleElement.querySelector(".module-description");
     let lessons = moduleElement.querySelectorAll(".lesson-form");
 
-    // 🔴 Validar que los campos del módulo no estén vacíos
     if (!moduleCourse.value.trim() || !moduleTitle.value.trim() || !moduleDescription.value.trim()) {
         Swal.fire({
             icon: "error",
@@ -215,7 +217,6 @@ function saveModule(moduleElement) {
             text: "Por favor, completa todos los campos del módulo antes de guardarlo.",
         });
 
-        // Resaltar los campos vacíos
         [moduleCourse, moduleTitle, moduleDescription].forEach(field => {
             if (!field.value.trim()) {
                 field.classList.add("is-invalid");
@@ -224,17 +225,16 @@ function saveModule(moduleElement) {
             }
         });
 
-        return; // ❌ Bloquea el guardado
+        return;
     }
 
-    // 🔴 Validar que haya al menos una lección agregada
     if (lessons.length === 0) {
         Swal.fire({
             icon: "error",
             title: "Faltan lecciones",
             text: "Debes agregar al menos una lección antes de guardar el módulo.",
         });
-        return; // ❌ Bloquea el guardado
+        return;
     }
 
     let moduleData = {
@@ -248,16 +248,22 @@ function saveModule(moduleElement) {
 
     let hasEmptyLesson = false;
 
-    // 🔴 Validar cada lección
-lessons.forEach((lessonElement, index) => {
+    lessons.forEach((lessonElement, index) => {
+        let lessonId = lessonElement.getAttribute("data-lesson-id"); // ← el identificador único
         let lessonTitle = lessonElement.querySelector(".lesson-title");
         let lessonType = lessonElement.querySelector(".lesson-type");
         let lessonDescription = lessonElement.querySelector(".lesson-description");
+        let lessonVideoURL = lessonElement.querySelector(".lesson-video-url");
+        let lessonResource = lessonElement.querySelector(".lesson-resource");
+
+        // Guardar archivo seleccionado en el mapa global
+        if (lessonResource && lessonResource.files.length > 0) {
+            lessonFileMap[lessonId] = lessonResource.files[0];  // ✅ clave: lessonId
+        }
 
         if (!lessonTitle.value.trim() || !lessonType.value.trim() || !lessonDescription.value.trim()) {
             hasEmptyLesson = true;
 
-            // Resaltar los campos vacíos
             [lessonTitle, lessonType, lessonDescription].forEach(field => {
                 if (!field.value.trim()) {
                     field.classList.add("is-invalid");
@@ -266,37 +272,35 @@ lessons.forEach((lessonElement, index) => {
                 }
             });
         } else {
-            // Si los campos están completos, eliminar la clase de error
             [lessonTitle, lessonType, lessonDescription].forEach(field => {
                 field.classList.remove("is-invalid");
             });
 
-        let lessonVideoURL = lessonElement.querySelector(".lesson-video-url");
-
             moduleData.lessons.push({
+                id: lessonId,  // ← necesario para acceder al archivo en el paso final
                 title: lessonTitle.value.trim(),
                 type: lessonType.value,
                 description: lessonDescription.value.trim(),
                 video_url: lessonVideoURL.value.trim(),
-                resource_index: index
+                resource_index: index  // este lo usas para el backend
             });
         }
     });
 
-    // Si alguna lección tiene campos vacíos, bloquear el guardado
     if (hasEmptyLesson) {
         Swal.fire({
             icon: "error",
             title: "Campos incompletos en las lecciones",
             text: "Completa todos los campos de las lecciones antes de guardar el módulo.",
         });
-        return; // ❌ Bloquea el guardado
+        return;
     }
 
-    // ✅ Si pasa todas las validaciones, guardar el módulo
     let storedModules = JSON.parse(localStorage.getItem("modules")) || [];
-    storedModules = storedModules.filter(m => m.id !== moduleId); // Eliminar duplicado si ya existía
+    storedModules = storedModules.filter(m => m.id !== moduleId);
     storedModules.push(moduleData);
+
+    localStorage.setItem("modules", JSON.stringify(storedModules));
 
     Swal.fire({
         icon: "success",
@@ -306,6 +310,7 @@ lessons.forEach((lessonElement, index) => {
 
     renderModuleCard(moduleElement, moduleData);
 }
+
 
 
     // 📌 Función para renderizar un módulo como una card
@@ -650,29 +655,11 @@ document.addEventListener("DOMContentLoaded", function () {
         let step2 = JSON.parse(localStorage.getItem("step2")) || {};
         let modules = JSON.parse(localStorage.getItem("modules")) || [];
 
-        // 🔢 Asegurar resource_index globalmente
+        // 🔢 Asegurar resource_index globalmente y que cada lección tenga ID único
         let fileIndex = 0;
-        let lessonFileInputs = [];
         modules.forEach(module => {
-            module.lessons.forEach((lesson, idx) => {
+            module.lessons.forEach(lesson => {
                 lesson.resource_index = fileIndex;
-                // Buscar el input correspondiente en el DOM
-                const moduleForms = document.querySelectorAll(".module-form, .card");
-                let foundInput = null;
-                moduleForms.forEach(modForm => {
-                    // Buscar por título de módulo y lección
-                    const modTitle = modForm.querySelector(".module-title")?.value || modForm.querySelector(".card-title")?.innerText;
-                    if (modTitle && modTitle.trim() === module.title.trim()) {
-                        const lessonInputs = modForm.querySelectorAll(".lesson-form");
-                        lessonInputs.forEach(lessonForm => {
-                            const lessonTitle = lessonForm.querySelector(".lesson-title")?.value;
-                            if (lessonTitle && lessonTitle.trim() === lesson.title.trim()) {
-                                foundInput = lessonForm.querySelector(".lesson-resource");
-                            }
-                        });
-                    }
-                });
-                lessonFileInputs.push(foundInput);
                 fileIndex++;
             });
         });
@@ -692,12 +679,16 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("portrait", portraitInput.files[0]);
         }
 
-        // 📎 Archivos de cada lección según índice global
-        let lessonFiles = document.querySelectorAll(".lesson-resource");
-        lessonFiles.forEach((input, index) => {
-            if (input.files.length > 0) {
-                formData.append(`lesson_resource_${index}`, input.files[0]);
-            }
+        // 📎 Archivos de lecciones desde el mapa global `lessonFileMap`
+        modules.forEach(module => {
+            module.lessons.forEach(lesson => {
+                const resourceIndex = lesson.resource_index;
+                const file = lessonFileMap[lesson.id];  // ✅ usar lesson.id como clave
+
+                if (file) {
+                    formData.append(`lesson_resource_${resourceIndex}`, file);
+                }
+            });
         });
 
         // 🚀 Enviar al backend
@@ -735,6 +726,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+
 
 // ✅ CSRF Token helper
 function getCSRFToken() {
