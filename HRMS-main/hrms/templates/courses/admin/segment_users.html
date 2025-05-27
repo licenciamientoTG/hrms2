@@ -4,7 +4,7 @@
 {% block page_title %}Segmentar usuarios{% endblock %}
 
 {% block content %}
-<h1>Segmentación de usuarios para curso</h1>
+<h1>Segmentación de usuarios para el curso: <strong>{{ course.title }}</strong></h1>
 
 <form action="{% url 'process_assignments' %}" method="POST" id="form-assignation">
     {% csrf_token %}
