@@ -1,0 +1,21 @@
+{% for module in modules %}
+    <div class="card mb-3">
+        <div class="card-header"><strong>{{ module.title }}</strong></div>
+        <div class="card-body">
+            <p>{{ module.description }}</p>
+            {% for lesson in module.lesson_set.all %}
+                <div class="mb-2">
+                    <h6>{{ lesson.title }} ({{ lesson.lesson_type }})</h6>
+                    <p>{{ lesson.description }}</p>
+                    {% if lesson.video_url %}
+                        <a href="{{ lesson.video_url }}" target="_blank">Ver video</a>
+                    {% endif %}
+                    {% if lesson.resource %}
+                        <a href="{{ lesson.resource.url }}" download>Descargar recurso</a>
+                    {% endif %}
+                    <button class="btn btn-success btn-sm" onclick="markLessonCompleted({{ lesson.id }})">Completar</button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}

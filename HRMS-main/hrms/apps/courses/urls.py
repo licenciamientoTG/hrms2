@@ -14,8 +14,7 @@ urlpatterns = [
     path('process_assignments/', process_assignments, name='process_assignments'),
     path('segmentar-usuarios/<int:course_id>/', views.user_segmentation_view, name='segment_users'),
     path('run_assignments/<int:course_id>/', views.run_assignments, name='run_assignments'),
-    
-
+    path('my-courses/<int:course_id>/', views.view_course_content, name='view_course_content'), # Vista para los cursos del usuario
 ]
 
 if settings.DEBUG:

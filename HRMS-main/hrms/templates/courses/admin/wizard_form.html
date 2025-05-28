@@ -134,7 +134,8 @@
                 <div class="mb-3 form-check">
                     {{ config_form.certification }}
                     <label class="form-check-label" for="{{ config_form.certification.id_for_label }}">
-                        ¿Requiere certificación?
+                        Certificado de finalización <br>
+                        <small class="form-text text-muted">Los estudiantes recibirán un certificado al completar el curso</small>
                     </label>
                     {% if config_form.certification.errors %}
                         <div class="text-danger">
@@ -147,7 +148,8 @@
                 <div class="mb-3 form-check">
                     {{ config_form.requires_signature }}
                     <label class="form-check-label" for="{{ config_form.requires_signature.id_for_label }}">
-                        ¿Requiere firma del usuario?
+                        Firma <br>
+                        <small class="form-text text-muted">Los estudiantes deben firmar para confirmar su participación</small>
                     </label>
                     {% if config_form.requires_signature.errors %}
                         <div class="text-danger">

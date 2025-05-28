@@ -2,7 +2,7 @@ from django.forms import formset_factory
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.files.storage import DefaultStorage
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from pyexpat.errors import messages
@@ -11,7 +11,7 @@ from formtools.wizard.views import SessionWizardView
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
-from .models import CourseAssignment, CourseHeader, CourseConfig, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz
+from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz
 import json
 from datetime import timedelta, datetime
 from departments.models import Department
@@ -375,3 +375,25 @@ def run_assignments(request, course_id):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+@login_required
+def my_courses_view(request):
+    enrolled_courses = EnrolledCourse.objects.filter(user=request.user)
+    return render(request, 'courses/user/my_courses.html', {
+        'enrolled_courses': enrolled_courses
+    })
+
+@login_required
+def view_course_content(request, course_id):
+    course = get_object_or_404(CourseHeader, id=course_id)
+    enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
+
+    if not enrolled:
+        return HttpResponseForbidden("No tienes acceso a este curso.")
+
+    modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
+    return render(request, 'courses/user/view_course.html', {
+        'course': course,
+        'modules': modules,
+        'enrolled': enrolled
+    })
