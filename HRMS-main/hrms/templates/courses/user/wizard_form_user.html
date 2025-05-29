@@ -102,7 +102,7 @@
                 <button class="btn btn-outline-secondary filtro-estado" data-estado="inactivo">Inactivos</button>
  </div>
         
-       {% for course in courses %}
+       {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
                 data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-asignado="{{ course.config.audience }}">
