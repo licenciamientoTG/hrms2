@@ -6,32 +6,27 @@
 {% block content %}
 <h1>Editar Curso: {{ course.title }}</h1>
 
-<p><strong>Descripción:</strong> {{ course.description }}</p>
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <fieldset class="mb-4">
+        <legend>Datos del curso</legend>
+        {{ course_form.as_p }}
+    </fieldset>
 
-<!-- Aquí puedes poner formularios para editar el curso, módulos y lecciones -->
+    <fieldset>
+        <legend>Módulos</legend>
+        {{ module_formset.management_form }}
+        {% for form in module_formset %}
+            <div class="card mb-3 p-3">
+                {{ form.id }} <!-- Campo oculto de ID -->
+                {{ form.title.label_tag }} {{ form.title }}
+                {{ form.description.label_tag }} {{ form.description }}
+                <!-- Aquí puedes agregar botones para eliminar módulo si habilitas can_delete -->
+            </div>
+        {% endfor %}
+    </fieldset>
 
-{% for module in modules %}
-    <div class="card mb-3">
-        <div class="card-header bg-warning text-dark">
-            <h5>Modulo: {{ module.title }}</h5>
-            <!-- Botones para editar, eliminar módulo -->
-        </div>
-        <div class="card-body">
-            <p>{{ module.description }}</p>
-
-            {% for lesson in module.lesson_set.all %}
-                <div class="mb-2 border-bottom pb-2">
-                    <strong>Lección:</strong> {{ lesson.title }} ({{ lesson.lesson_type }})<br>
-                    {{ lesson.description }}<br>
-                    <!-- Botones para editar, eliminar lección -->
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-{% empty %}
-    <p>No hay módulos en este curso.</p>
-{% endfor %}
-
-<!-- Botón para agregar módulo, agregar lección, etc. -->
+    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+</form>
 
 {% endblock %}

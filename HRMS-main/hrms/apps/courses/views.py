@@ -17,6 +17,8 @@ from datetime import timedelta, datetime
 from departments.models import Department
 from django.contrib.auth.models import User
 from django.contrib.admin.views.decorators import staff_member_required
+from django.forms import modelformset_factory
+from django.shortcuts import redirect
 import os
 
 
@@ -413,14 +415,32 @@ def view_course_content(request, course_id):
     })
 
 
-@staff_member_required  # Solo admins (staff) pueden acceder
+@staff_member_required
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
-
-    # Aquí puedes incluir formularios para editar el curso y módulos, si quieres
+    
+    ModuleFormSet = modelformset_factory(ModuleContent, form=ModuleContentForm, extra=0)
+    LessonFormSet = modelformset_factory(Lesson, form=LessonForm, extra=0)
+    
+    if request.method == "POST":
+        course_form = CourseHeaderForm(request.POST, request.FILES, instance=course)
+        module_formset = ModuleFormSet(request.POST, queryset=modules)
+        
+        # Para las lecciones puedes manejar un formset por módulo (más complejo)
+        # Aquí solo doy un ejemplo básico de cómo podrías empezar
+        
+        if course_form.is_valid() and module_formset.is_valid():
+            course_form.save()
+            module_formset.save()
+            return redirect('admin_course_edit', course_id=course.id)
+    else:
+        course_form = CourseHeaderForm(instance=course)
+        module_formset = ModuleFormSet(queryset=modules)
 
     return render(request, 'courses/admin/admin_course_edit.html', {
+        'course_form': course_form,
+        'module_formset': module_formset,
         'course': course,
         'modules': modules,
     })
