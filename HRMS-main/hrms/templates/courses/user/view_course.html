@@ -1,21 +1,64 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Contenido del curso{% endblock %}
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ course.title }}</h1>
+    <span class="badge bg-secondary">Duración: {{ course.duration }}</span>
+</div>
+
+<p class="text-muted">{{ course.description }}</p>
+
 {% for module in modules %}
-    <div class="card mb-3">
-        <div class="card-header"><strong>{{ module.title }}</strong></div>
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ module.title }}</h5>
+        </div>
         <div class="card-body">
             <p>{{ module.description }}</p>
+            <hr>
             {% for lesson in module.lesson_set.all %}
-                <div class="mb-2">
-                    <h6>{{ lesson.title }} ({{ lesson.lesson_type }})</h6>
+                <div class="mb-4">
+                    <h6 class="fw-bold">{{ lesson.title }} <span class="badge bg-info">{{ lesson.lesson_type }}</span></h6>
                     <p>{{ lesson.description }}</p>
+                    
                     {% if lesson.video_url %}
-                        <a href="{{ lesson.video_url }}" target="_blank">Ver video</a>
+                        <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary me-2">
+                            <i class="fa-solid fa-video"></i> Ver video
+                        </a>
                     {% endif %}
+
                     {% if lesson.resource %}
-                        <a href="{{ lesson.resource.url }}" download>Descargar recurso</a>
+                        <a href="{{ lesson.resource.url }}" download class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="fa-solid fa-download"></i> Descargar recurso
+                        </a>
                     {% endif %}
-                    <button class="btn btn-success btn-sm" onclick="markLessonCompleted({{ lesson.id }})">Completar</button>
+
+                    <button class="btn btn-sm btn-success" onclick="markLessonCompleted({{ lesson.id }})">
+                        <i class="fa-solid fa-check"></i> Completar
+                    </button>
                 </div>
+                <hr>
             {% endfor %}
         </div>
     </div>
+{% empty %}
+    <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
 {% endfor %}
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/courses.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script>
+function markLessonCompleted(lessonId) {
+    alert("Simulando marcar como completada la lección " + lessonId);
+    // Aquí puedes implementar lógica AJAX para marcar como completado
+}
+</script>
+{% endblock %}

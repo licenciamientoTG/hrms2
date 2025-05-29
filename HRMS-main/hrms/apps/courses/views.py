@@ -377,18 +377,41 @@ def run_assignments(request, course_id):
 
 @login_required
 def my_courses_view(request):
-    enrolled_courses = EnrolledCourse.objects.filter(user=request.user)
+    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
+    courses = [enrolled.course for enrolled in enrolled_courses]  # 🔥 solo los asignados
+
+    today = datetime.now().date()
+    inactive_courses_count = 0
+    in_progress_courses_count = 0
+
+    for course in courses:
+        if hasattr(course, 'config'):
+            deadline_date = course.created_at + timedelta(days=course.config.deadline)
+            course.deadline_date = deadline_date.date()
+
+            if deadline_date <= today:
+                inactive_courses_count += 1
+            elif deadline_date > today:
+                in_progress_courses_count += 1
+        else:
+            course.deadline_date = None
+
     return render(request, 'courses/user/my_courses.html', {
-        'enrolled_courses': enrolled_courses
+        'enrolled_courses': enrolled_courses,
+        'courses': courses,
+        'today': today,
+        'totalcursos': len(courses),
+        'inactive_courses_count': inactive_courses_count,
+        'in_progress_courses_count': in_progress_courses_count,
     })
+
+
 
 @login_required
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
 
-    if not enrolled:
-        return HttpResponseForbidden("No tienes acceso a este curso.")
 
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
     return render(request, 'courses/user/view_course.html', {
