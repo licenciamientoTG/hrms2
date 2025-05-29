@@ -59,10 +59,8 @@ INSTALLED_APPS = [
     "apps.policies",
     "apps.career_plan",
     'formtools',
-    'apps.employee',
+    'apps.employee.apps.EmployeeConfig',
     'apps.location',
-
-
 ]
 
 MIDDLEWARE = [
