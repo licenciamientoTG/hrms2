@@ -19,6 +19,7 @@
         {% for form in module_formset %}
             <div class="card mb-3 p-3">
                 {{ form.id }} <!-- Campo oculto de ID -->
+                {{ form.course_header.as_hidden }}  <!-- Campo oculto para evitar error -->
                 {{ form.title.label_tag }} {{ form.title }}
                 {{ form.description.label_tag }} {{ form.description }}
                 <!-- Aquí puedes agregar botones para eliminar módulo si habilitas can_delete -->

@@ -421,19 +421,27 @@ def admin_course_edit(request, course_id):
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
     
     ModuleFormSet = modelformset_factory(ModuleContent, form=ModuleContentForm, extra=0)
-    LessonFormSet = modelformset_factory(Lesson, form=LessonForm, extra=0)
     
     if request.method == "POST":
         course_form = CourseHeaderForm(request.POST, request.FILES, instance=course)
         module_formset = ModuleFormSet(request.POST, queryset=modules)
-        
-        # Para las lecciones puedes manejar un formset por módulo (más complejo)
-        # Aquí solo doy un ejemplo básico de cómo podrías empezar
-        
+
         if course_form.is_valid() and module_formset.is_valid():
             course_form.save()
-            module_formset.save()
-            return redirect('admin_course_edit', course_id=course.id)
+
+            modules_saved = module_formset.save(commit=False)
+            for module in modules_saved:
+                module.course_header = course  # Asignar el curso al módulo
+                module.save()
+
+            # Si usas eliminación de módulos, recuerda manejar module_formset.deleted_objects
+
+            return redirect('course_wizard')  # O a la url que quieras
+        else:
+            print(course_form.errors)
+            print(module_formset.errors)
+
+
     else:
         course_form = CourseHeaderForm(instance=course)
         module_formset = ModuleFormSet(queryset=modules)
