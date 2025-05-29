@@ -28,8 +28,7 @@ def user_courses(request):
     """Vista para listar los cursos de un usuario."""
     course_form = CourseHeaderForm()
     config_form = CourseConfigForm()
-    return render(request, 'courses/admin/wizard_form.html', {"course_form": course_form,
-                                                              "config_form": config_form})
+    return render(request, 'courses/admin/wizard_form.html', {"course_form": course_form,"config_form": config_form})
 
 
 def course_wizard(request):

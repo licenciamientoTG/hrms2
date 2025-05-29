@@ -6,10 +6,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center">
-    <h1>Administrador de cursos</h1>
-    <a href="{% url 'user_courses' %}" class="btn btn-primary">
-        <i class="fa-solid fa-graduation-cap "></i> Crear curso
-    </a>
+    <h1>Mis cursos</h1>
 </div>
     <div class="row">
         <div class="col-12 d-flex">
@@ -105,68 +102,61 @@
                 <button class="btn btn-outline-secondary filtro-estado" data-estado="inactivo">Inactivos</button>
  </div>
         
-        {% for course in courses|dictsortreversed:"created_at" %}
+       {% for course in courses %}
             <div class="col-md-4 mb-4 course-card"
                 data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-asignado="{{ course.config.audience }}">
 
                 <div class="card h-100 shadow-sm curso-clickable">
+                    <a href="{% url 'view_course_content' course.id %}" class="text-decoration-none text-dark">
+                        {% if course.portrait %}
+                            <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
+                        {% else %}
+                            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 140px;">
+                                <i class="fa-solid fa-graduation-cap fa-3x text-secondary"></i>
+                            </div>
+                        {% endif %}
 
-                {#<a href="{% url 'course_progress' course.id %}" class="text-decoration-none text-dark">#}
-                <a class="text-decoration-none text-dark">
-                    {% if course.portrait %}
-                        <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
-                    {% else %}
-                        <div class="bg-light d-flex align-items-center justify-content-center" style="height: 140px;">
-                            <i class="fa-solid fa-graduation-cap fa-3x text-secondary"></i>
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title text-truncate">{{ course.title }}</h6>
+
+                            <div class="mb-2">
+                                {% if course.deadline_date %}
+                                    {% if course.deadline_date <= today %}
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">No definido</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="progress mb-2" style="height: 6px;">
+                                {% for enrolled in enrolled_courses %}
+                                    {% if enrolled.course.id == course.id %}
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                            style="width: {{ enrolled.progress }}%" 
+                                            aria-valuenow="{{ enrolled.progress }}" 
+                                            aria-valuemin="0" 
+                                            aria-valuemax="100"></div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <small class="text-muted">
+                                Inicio: {{ course.created_at|date:"j M Y" }}<br>
+                                {% if course.deadline_date %}
+                                    Fin: {{ course.deadline_date|date:"j M Y" }}
+                                {% else %}
+                                    Sin vencimiento
+                                {% endif %}
+                            </small>
                         </div>
-                    {% endif %}
-
-                    <div class="card-body d-flex flex-column">
-                    <h6 class="card-title text-truncate">{{ course.title }}</h6>
-
-                    <div class="mb-2">
-                        {% if course.deadline_date %}
-                        {% if course.deadline_date <= today %}
-                            <span class="badge bg-danger">Inactivo</span>
-                        {% else %}
-                            <span class="badge bg-success">Activo</span>
-                        {% endif %}
-                        {% else %}
-                        <span class="badge bg-secondary">No definido</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="progress mb-2" style="height: 6px;">
-                        <div class="progress-bar bg-info" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-
-                    <small class="text-muted">
-                        Inicio: {{ course.created_at|date:"j M Y" }}<br>
-                        {% if course.deadline_date %}
-                        Fin: {{ course.deadline_date|date:"j M Y" }}
-                        {% else %}
-                        Sin vencimiento
-                        {% endif %}
-                    </small>
-                    </div>
-                </a>
-
-                <div class="card-footer bg-transparent border-top-0">
-                    {% if course.config.audience == "segment" %}
-                    <a href="{% url 'segment_users' course.id %}" class="btn btn-outline-primary btn-sm w-100">
-                        <i class="fas fa-users"></i> Asignar
                     </a>
-                    {% else %}
-                    <span class="badge bg-info w-100">Asignado a todos</span>
-                    {% endif %}
-                </div>
-
                 </div>
             </div>
-            {% endfor %}
-
-
+        {% endfor %}
     </div>
   </div>
 </div>
