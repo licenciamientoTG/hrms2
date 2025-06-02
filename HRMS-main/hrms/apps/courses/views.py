@@ -82,10 +82,10 @@ def course_wizard(request):
         module_formset = formset_factory(ModuleContentForm, extra=1)()
         lesson_formset = LessonFormSet()
 
-        if request.user.is_superuser:
-            totalcursos = CourseHeader.objects.all().count()
-        else:
-            totalcursos = EnrolledCourse.objects.filter(user=request.user).count()
+    if request.user.is_superuser:
+        totalcursos = CourseHeader.objects.all().count()
+    else:
+        totalcursos = EnrolledCourse.objects.filter(user=request.user).count()
 
         if request.user.is_superuser:
             courses = CourseHeader.objects.all()
@@ -511,24 +511,17 @@ def admin_course_edit(request, course_id):
         'modules': modules,
     })
 
-
 @login_required
 def user_courses(request):
+    # Filtrar los cursos que están asignados al usuario actual
+    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
+
+    # Obtener los cursos
+    courses = [e.course for e in enrolled_courses]  # Extraemos solo los cursos asignados
+
+    # Calculamos la fecha límite para cada curso
     today = timezone.now().date()
 
-    # Cursos asignados directamente al usuario
-    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-    assigned_courses = [e.course for e in enrolled_courses]
-
-    # Cursos con audiencia global (no asignados específicamente)
-    global_courses = CourseHeader.objects.filter(
-        config__audience='all_users'
-    ).exclude(id__in=[c.id for c in assigned_courses])
-
-    # Unimos ambos conjuntos
-    courses = assigned_courses + list(global_courses)
-
-    # Calculamos fecha límite
     for course in courses:
         if hasattr(course, 'config') and course.config.deadline is not None:
             course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
@@ -536,11 +529,11 @@ def user_courses(request):
             course.deadline_date = None
 
     return render(request, 'courses/user/my_courses.html', {
-        'courses': courses,
+        'courses': courses,  # Solo los cursos asignados al usuario
         'enrolled_courses': enrolled_courses,
         'today': today,
     })
-    
+
 @login_required
 def admin_courses(request):
     if request.user.is_superuser:

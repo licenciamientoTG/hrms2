@@ -853,4 +853,3 @@ function getCSRFToken() {
         allUsersRadio.addEventListener("change", toggleSegmentationCard);
         segmentUsersRadio.addEventListener("change", toggleSegmentationCard);
     });
-    
