@@ -13,27 +13,19 @@ from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
 from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz
 import json
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from departments.models import Department
 from django.contrib.auth.models import User
 from django.contrib.admin.views.decorators import staff_member_required
 from django.forms import modelformset_factory
 from django.shortcuts import redirect
+from django.utils import timezone
 import os
 
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
-
 @login_required
-
-def user_courses(request):
-    """Vista para listar los cursos de un usuario."""
-    course_form = CourseHeaderForm()
-    config_form = CourseConfigForm()
-    return render(request, 'courses/admin/wizard_form.html', {"course_form": course_form,"config_form": config_form})
-
-
 def course_wizard(request):
     # Si el usuario es un superusuario, renderizar la vista de administrador
     if request.user.is_superuser:
@@ -90,10 +82,20 @@ def course_wizard(request):
         module_formset = formset_factory(ModuleContentForm, extra=1)()
         lesson_formset = LessonFormSet()
 
-        totalcursos = CourseHeader.objects.all().count()
-        courses = CourseHeader.objects.all()
+        if request.user.is_superuser:
+            totalcursos = CourseHeader.objects.all().count()
+        else:
+            totalcursos = EnrolledCourse.objects.filter(user=request.user).count()
+
+        if request.user.is_superuser:
+            courses = CourseHeader.objects.all()
+        else:
+            enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
+            courses = [enrollment.course for enrollment in enrolled_courses]
+
         courses_config = CourseConfig.objects.all()
         today = datetime.now().date()
+
 
     # Calculamos la fecha límite y la asignamos a cada curso
     inactive_courses_count = 0
@@ -130,6 +132,56 @@ def course_wizard(request):
         'locations': locations,
     })
 
+@login_required
+def visual_course_wizard(request):
+    course_form = CourseHeaderForm()
+    config_form = CourseConfigForm()
+    module_formset = formset_factory(ModuleContentForm, extra=1)()
+    lesson_formset = LessonFormSet()
+
+    totalcursos = CourseHeader.objects.all().count()
+    courses = CourseHeader.objects.all()
+    courses_config = CourseConfig.objects.all()
+    today = datetime.now().date()
+
+    inactive_courses_count = 0
+    in_progress_courses_count = 0
+
+    for course in courses:
+        if hasattr(course, 'config'):
+            deadline_date = course.created_at + timedelta(days=course.config.deadline)
+            deadline_date = deadline_date.date()
+            course.deadline_date = deadline_date
+
+            if deadline_date <= today:
+                inactive_courses_count += 1
+            elif deadline_date >= today:
+                in_progress_courses_count += 1
+        else:
+            course.deadline_date = None
+
+    employees = Employee.objects.filter(is_active=True)
+    departments = Department.objects.all()
+    job_positions = JobPosition.objects.all()
+    locations = Location.objects.all()
+
+    return render(request, 'courses/admin/wizard_form.html', {
+        'course_form': course_form,
+        'config_form': config_form,
+        'module_formset': module_formset,
+        'lesson_formset': lesson_formset,
+        'quiz_form': QuizForm(),
+        'totalcursos': totalcursos,
+        'courses': courses,
+        'courses_config': courses_config,
+        'today': today,
+        'inactive_courses_count': inactive_courses_count,
+        'in_progress_courses_count': in_progress_courses_count,
+        'employees': employees,
+        'departments': departments,
+        'job_positions': job_positions,
+        'locations': locations,
+    })
 
 
 def save_course(request):
@@ -155,6 +207,7 @@ def save_course(request):
             return JsonResponse({"status": "error", "message": "Error al procesar los datos."}, status=400)
 
     return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
+
 
 
 @csrf_exempt  # ⚠️ Solo para pruebas locales. En producción usa el token CSRF del frontend
@@ -331,7 +384,6 @@ def run_assignments(request, course_id):
             selected_positions = data.get('positions', [])
             selected_locations = data.get('locations', [])
 
-            # 🔐 Determinar tipo de asignación
             if all_users:
                 assignment_type = 'all_users'
             elif any([selected_departments, selected_positions, selected_locations]):
@@ -339,17 +391,24 @@ def run_assignments(request, course_id):
             else:
                 assignment_type = 'specific_users'
 
-            # 🛠 Crear asignación principal
             assignment = CourseAssignment.objects.create(
                 course=course,
                 assignment_type=assignment_type,
-                assigned_by=request.user  # Asegúrate que `request.user` esté autenticado
+                assigned_by=request.user
             )
 
-            # 🔗 Asociar relaciones ManyToMany
+            # ManyToMany
             if selected_users:
                 users = User.objects.filter(id__in=selected_users)
                 assignment.users.set(users)
+
+                # 🔁 Crear EnrolledCourse para cada usuario
+                for user in users:
+                    EnrolledCourse.objects.get_or_create(
+                        user=user,
+                        course=course,
+                        defaults={'status': 'pending', 'progress': 0.0}
+                    )
 
             if selected_departments:
                 departments = Department.objects.filter(id__in=selected_departments)
@@ -363,11 +422,10 @@ def run_assignments(request, course_id):
                 locations = Location.objects.filter(id__in=selected_locations)
                 assignment.locations.set(locations)
 
-            # ✅ Guardado exitoso
             return JsonResponse({
                 'success': True,
                 'message': 'Asignación guardada correctamente.',
-                'redirect_url': '/courses/course_wizard/'  # Ajusta si necesitas redirigir
+                'redirect_url': '/courses/course_wizard/'
             })
 
         except json.JSONDecodeError:
@@ -378,12 +436,14 @@ def run_assignments(request, course_id):
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
+
 @login_required
 def my_courses_view(request):
+    # Filtrar los cursos a los que el usuario está asignado
     enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-    courses = [e.course for e in enrolled_courses]
+    courses = [e.course for e in enrolled_courses]  # Extraemos solo los cursos asignados
 
-    # Calcula deadline_date para cada curso
+    # Calculamos la fecha límite para cada curso
     from datetime import datetime, timedelta
     today = datetime.now().date()
 
@@ -400,14 +460,12 @@ def my_courses_view(request):
     })
 
 
-
-
 @login_required
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
-
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
+
     return render(request, 'courses/user/view_course.html', {
         'course': course,
         'modules': modules,
@@ -451,4 +509,73 @@ def admin_course_edit(request, course_id):
         'module_formset': module_formset,
         'course': course,
         'modules': modules,
+    })
+
+
+@login_required
+def user_courses(request):
+    today = timezone.now().date()
+
+    # Cursos asignados directamente al usuario
+    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
+    assigned_courses = [e.course for e in enrolled_courses]
+
+    # Cursos con audiencia global (no asignados específicamente)
+    global_courses = CourseHeader.objects.filter(
+        config__audience='all_users'
+    ).exclude(id__in=[c.id for c in assigned_courses])
+
+    # Unimos ambos conjuntos
+    courses = assigned_courses + list(global_courses)
+
+    # Calculamos fecha límite
+    for course in courses:
+        if hasattr(course, 'config') and course.config.deadline is not None:
+            course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
+        else:
+            course.deadline_date = None
+
+    return render(request, 'courses/user/my_courses.html', {
+        'courses': courses,
+        'enrolled_courses': enrolled_courses,
+        'today': today,
+    })
+    
+@login_required
+def admin_courses(request):
+    if request.user.is_superuser:
+        # Si es un administrador, obtener todos los cursos
+        courses = CourseHeader.objects.all()
+        template_name = "courses/admin/admin_courses.html"
+    else:
+        # Si no es admin, obtener los cursos asignados al usuario
+        enrolled_courses = EnrolledCourse.objects.filter(user=request.user)
+        courses = [enrolled_course.course for enrolled_course in enrolled_courses]
+        template_name = "courses/user/my_courses.html"
+        
+    totalcursos = len(courses)
+    today = datetime.now().date()
+
+    # Filtra los cursos para ver si están activos o inactivos
+    inactive_courses_count = 0
+    in_progress_courses_count = 0
+    for course in courses:
+        if hasattr(course, 'config'):
+            deadline_date = course.created_at + timedelta(days=course.config.deadline)
+            deadline_date = deadline_date.date()
+            course.deadline_date = deadline_date
+
+            if deadline_date <= today:
+                inactive_courses_count += 1  # curso expirado
+            elif deadline_date >= today:
+                in_progress_courses_count += 1  # curso activo
+        else:
+            course.deadline_date = None
+
+    return render(request, template_name, {
+        'courses': courses,
+        'totalcursos': totalcursos,
+        'inactive_courses_count': inactive_courses_count,
+        'in_progress_courses_count': in_progress_courses_count,
+        'today': today,
     })

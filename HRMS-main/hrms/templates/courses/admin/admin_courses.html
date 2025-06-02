@@ -7,7 +7,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center">
     <h1>Administrador de cursos</h1>
-    <a href="{% url 'user_courses' %}" class="btn btn-primary">
+    <a href="{% url 'visual_course_wizard' %}" class="btn btn-primary">
         <i class="fa-solid fa-graduation-cap "></i> Crear curso
     </a>
 </div>
@@ -16,7 +16,7 @@
             <div class="w-100">
                 <div class="row">
                     <div class="col-3">
-                        <div class="card col-12">
+                        <div class="card col-12 filtro-card border-2 border-primary shadow" data-estado="all" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -29,7 +29,6 @@
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ totalcursos }}</h1>
- 
                             </div>
                         </div>
                         
@@ -54,11 +53,11 @@
                         
                     </div>
                     <div class="col-3">
-                        <div class="card col-12">
+                        <div class="card col-12 filtro-card border-2" data-estado="activo" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
-                                        <h5 class="card-title">Cursos en Progreso</h5>
+                                        <h5 class="card-title">Cursos activos</h5>
                                     </div>
                                     <div class="col-auto">
                                         <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
@@ -73,11 +72,11 @@
                         
                     </div>
                     <div class="col-3">
-                        <div class="card col-12">
+                        <div class="card col-12 filtro-card border-2" data-estado="inactivo" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
-                                        <h5 class="card-title">Cursos finalizados</h5>
+                                        <h5 class="card-title">Cursos inactivos</h5>
                                     </div>
 
                                     <div class="col-auto">
@@ -100,10 +99,7 @@
     <div class="row">
         <div class="d-flex gap-2 flex-wrap mb-3">
             <input type="text" id="filtroResumenCursos" class="form-control w-auto" placeholder="Buscar por nombre...">
-                <button class="btn btn-outline-secondary filtro-estado active" data-estado="all">Todos</button>
-                <button class="btn btn-outline-secondary filtro-estado" data-estado="activo">Activos</button>
-                <button class="btn btn-outline-secondary filtro-estado" data-estado="inactivo">Inactivos</button>
- </div>
+        </div>
         
         {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
@@ -230,7 +226,7 @@
 
 document.addEventListener("DOMContentLoaded", function () {
     const filtroInput = document.getElementById("filtroResumenCursos");
-    const estadoBtns = document.querySelectorAll(".filtro-estado");
+    const estadoBtns = document.querySelectorAll(".filtro-card");
     const asignacionBtns = document.querySelectorAll(".filtro-asignacion");
     const pagination = document.getElementById("pagination");
     const cards = document.querySelectorAll(".course-card");
@@ -299,21 +295,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
 const allFilterButtons = [...estadoBtns];
 
-    allFilterButtons.forEach(btn => {
-        btn.addEventListener("click", function () {
-            const isEstado = this.classList.contains("filtro-estado");
+const estadoCards = document.querySelectorAll(".filtro-card");
 
-            if (isEstado) {
-                filtroEstado = this.dataset.estado;
-                estadoBtns.forEach(b => b.classList.remove("active"));
-            }
+estadoCards.forEach(card => {
+    card.addEventListener("click", function () {
+        filtroEstado = this.dataset.estado;
 
-            this.classList.add("active");
-            currentPage = 1;
-            applyFilters();
-        });
+        // Quitar estilo activo de todas
+        estadoCards.forEach(c => c.classList.remove("border-primary", "shadow"));
+
+        // Agregar estilo activo a la tarjeta clicada
+        this.classList.add("border-primary", "shadow");
+
+        currentPage = 1;
+        applyFilters();
     });
-
+});
 
 
     applyFilters();

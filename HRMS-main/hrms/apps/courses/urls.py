@@ -16,6 +16,8 @@ urlpatterns = [
     path('run_assignments/<int:course_id>/', views.run_assignments, name='run_assignments'),
     path('my-courses/<int:course_id>/', views.view_course_content, name='view_course_content'), # Vista para los cursos del usuario
     path('admin/course/<int:course_id>/edit/', views.admin_course_edit, name='admin_course_edit'),  # Para admin
+    path('wizard_form/', views.visual_course_wizard, name='visual_course_wizard'),
+
 ]
 
 if settings.DEBUG:

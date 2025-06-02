@@ -67,7 +67,7 @@
                                         <input type="checkbox" class="btn-check" 
                                             id="user{{ employee.id }}" 
                                             name="users" 
-                                            value="{{ employee.id }}" 
+                                            value="{{ employee.user.id }}" 
                                             data-department="{{ employee.department.id }}" 
                                             data-job-position="{{ employee.job_position.id }}"  
                                             data-station="{{ employee.station.id }}"  
@@ -447,6 +447,7 @@ function clearStorageAndRedirect() {
 
                 // Marca para limpiar segmentación al recargar
                 sessionStorage.setItem("segment-cleared", "1");
+                localStorage.clear();
 
                 setTimeout(() => {
                     window.location.href = data.redirect_url || "{% url 'course_wizard' %}";
