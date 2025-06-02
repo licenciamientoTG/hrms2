@@ -25,11 +25,16 @@
                     <h6 class="fw-bold">{{ lesson.title }} <span class="badge bg-info">{{ lesson.lesson_type }}</span></h6>
                     <p>{{ lesson.description }}</p>
                     
-                    {% if lesson.video_url %}
-                        <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary me-2">
-                            <i class="fa-solid fa-video"></i> Ver video
-                        </a>
-                    {% endif %}
+                        {% if lesson.video_url %}
+                            <div class="ratio ratio-16x9 mb-3">
+                                <iframe
+                                    src="https://www.youtube.com/embed/{{ lesson.video_url|cut:'https://www.youtube.com/watch?v=' }}"
+                                    title="Video"
+                                    allowfullscreen
+                                ></iframe>
+                            </div>
+                        {% endif %}
+
 
                     {% if lesson.resource %}
                         <a href="{{ lesson.resource.url }}" download class="btn btn-sm btn-outline-secondary me-2">

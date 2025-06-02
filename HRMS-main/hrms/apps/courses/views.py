@@ -27,14 +27,11 @@ LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias l
 
 @login_required
 def course_wizard(request):
-    # Si el usuario es un superusuario, renderizar la vista de administrador
     if request.user.is_superuser:
-        # Vamos a obtener a todos los empleados activos is true
         employees = Employee.objects.filter(is_active=True)
         departments = Department.objects.all()
         job_positions = JobPosition.objects.all()
         locations = Location.objects.all()
-
         template_name = "courses/admin/admin_courses.html"
     else:
         employees = None
@@ -75,42 +72,36 @@ def course_wizard(request):
                 if form.cleaned_data:
                     form.save()
             return redirect('course_wizard')
-
     else:
         course_form = CourseHeaderForm()
         config_form = CourseConfigForm()
         module_formset = formset_factory(ModuleContentForm, extra=1)()
         lesson_formset = LessonFormSet()
 
+    # 🔧 Aquí definimos los cursos y totalcursos de forma segura
     if request.user.is_superuser:
-        totalcursos = CourseHeader.objects.all().count()
+        courses = CourseHeader.objects.all()
+        totalcursos = courses.count()
     else:
-        totalcursos = EnrolledCourse.objects.filter(user=request.user).count()
+        enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
+        courses = [enrollment.course for enrollment in enrolled_courses]
+        totalcursos = len(courses)
 
-        if request.user.is_superuser:
-            courses = CourseHeader.objects.all()
-        else:
-            enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-            courses = [enrollment.course for enrollment in enrolled_courses]
+    courses_config = CourseConfig.objects.all()
+    today = datetime.now().date()
 
-        courses_config = CourseConfig.objects.all()
-        today = datetime.now().date()
-
-
-    # Calculamos la fecha límite y la asignamos a cada curso
+    # 📆 Calculamos fechas de los cursos
     inactive_courses_count = 0
     in_progress_courses_count = 0
 
     for course in courses:
-        if hasattr(course, 'config'):
+        if hasattr(course, 'config') and course.config.deadline is not None:
             deadline_date = course.created_at + timedelta(days=course.config.deadline)
-            deadline_date = deadline_date.date()
-            course.deadline_date = deadline_date
-
-            if deadline_date <= today:
-                inactive_courses_count += 1  # curso expirado (pasó la fecha)
-            elif deadline_date >= today:
-                in_progress_courses_count += 1  # curso activo
+            course.deadline_date = deadline_date.date()
+            if course.deadline_date <= today:
+                inactive_courses_count += 1
+            else:
+                in_progress_courses_count += 1
         else:
             course.deadline_date = None
 
@@ -123,7 +114,7 @@ def course_wizard(request):
         'totalcursos': totalcursos,
         'courses': courses,
         'courses_config': courses_config,
-        'today': today,  # Pasamos la fecha actual al template
+        'today': today,
         'inactive_courses_count': inactive_courses_count,
         'in_progress_courses_count': in_progress_courses_count,
         'employees': employees,
