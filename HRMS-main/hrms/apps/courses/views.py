@@ -85,6 +85,9 @@ def course_wizard(request):
     else:
         enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course', 'course__config')
         assigned_courses = [e.course for e in enrolled_courses]
+        assigned_courses_count = len(assigned_courses)
+
+        assigned_courses_count = len(assigned_courses)  # ✅ Agrega esto
 
         public_courses = CourseHeader.objects.filter(config__audience="all_users")
 
@@ -116,7 +119,6 @@ def course_wizard(request):
     # 📆 Calculamos fechas de los cursos
     inactive_courses_count = 0
     in_progress_courses_count = 0
-
     for course in courses:
         if hasattr(course, 'config') and course.config.deadline is not None:
             deadline_date = course.created_at + timedelta(days=course.config.deadline)
@@ -144,6 +146,8 @@ def course_wizard(request):
         'departments': departments,
         'job_positions': job_positions,
         'locations': locations,
+        'assigned_courses_count': assigned_courses_count,
+
     })
 
 @login_required
