@@ -824,32 +824,28 @@ function getCSRFToken() {
         // Si la audiencia es 'segmentado', muestra el botón
         if (audience === "segment") {
             segmentButtonCell.style.display = "table-cell";  // Muestra el botón
-        } else {
-            segmentButtonCell.style.display = "none";  // Oculta el botón
-        }
+        } 
     });
 
     document.addEventListener("DOMContentLoaded", function () {
-        // Obtener los elementos de los radios
         const allUsersRadio = document.getElementById("allUsers");
         const segmentUsersRadio = document.getElementById("segmentUsers");
-        const segmentationCard = document.getElementById("segmentationCard");  // Tarjeta de segmentación
-    
-        // Función para mostrar u ocultar la tarjeta de segmentación
+        const segmentationCard = document.getElementById("segmentationCard");
+
         function toggleSegmentationCard() {
-            console.log("Segmentar está seleccionado: ", segmentUsersRadio.checked); // Verifica el estado
-    
-            if (segmentUsersRadio.checked) {
-                segmentationCard.classList.remove("d-none");  // Muestra la tarjeta de segmentación
-            } else {
-                segmentationCard.classList.add("d-none");  // Oculta la tarjeta de segmentación
+            if (segmentUsersRadio && segmentationCard) {
+                console.log("Segmentar está seleccionado: ", segmentUsersRadio.checked);
+                if (segmentUsersRadio.checked) {
+                    segmentationCard.classList.remove("d-none");
+                } else {
+                    segmentationCard.classList.add("d-none");
+                }
             }
         }
-    
-        // Asegurarse de que los radios están seleccionados al cargar la página
-        toggleSegmentationCard();
-    
-        // Escuchar los cambios en los radios
-        allUsersRadio.addEventListener("change", toggleSegmentationCard);
-        segmentUsersRadio.addEventListener("change", toggleSegmentationCard);
+
+        if (allUsersRadio && segmentUsersRadio) {
+            toggleSegmentationCard();
+            allUsersRadio.addEventListener("change", toggleSegmentationCard);
+            segmentUsersRadio.addEventListener("change", toggleSegmentationCard);
+        }
     });

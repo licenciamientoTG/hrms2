@@ -83,9 +83,32 @@ def course_wizard(request):
         courses = CourseHeader.objects.all()
         totalcursos = courses.count()
     else:
-        enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-        courses = [enrollment.course for enrollment in enrolled_courses]
+        enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course', 'course__config')
+        assigned_courses = [e.course for e in enrolled_courses]
+
+        public_courses = CourseHeader.objects.filter(config__audience="all_users")
+
+        assigned_by_type = CourseAssignment.objects.filter(
+            assignment_type="all_users"
+        ).values_list("course_id", flat=True)
+        type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
+
+        courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
         totalcursos = len(courses)
+
+        fake_enrollments = []
+        enrolled_ids = set(e.course.id for e in enrolled_courses)
+        for course in courses:
+            if hasattr(course, 'config') and course.config.deadline is not None:
+                course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
+            else:
+                course.deadline_date = None
+
+            if course.id not in enrolled_ids:
+                fake_enrollments.append(EnrolledCourse(course=course, user=request.user, progress=0))
+
+        all_enrollments = list(enrolled_courses) + fake_enrollments
+
 
     courses_config = CourseConfig.objects.all()
     today = datetime.now().date()
@@ -428,27 +451,6 @@ def run_assignments(request, course_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
 
-@login_required
-def my_courses_view(request):
-    # Filtrar los cursos a los que el usuario está asignado
-    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-    courses = [e.course for e in enrolled_courses]  # Extraemos solo los cursos asignados
-
-    # Calculamos la fecha límite para cada curso
-    from datetime import datetime, timedelta
-    today = datetime.now().date()
-
-    for course in courses:
-        if hasattr(course, 'config') and course.config.deadline is not None:
-            course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
-        else:
-            course.deadline_date = None
-
-    return render(request, 'courses/user/my_courses.html', {
-        'courses': courses,
-        'enrolled_courses': enrolled_courses,
-        'today': today,
-    })
 
 
 @login_required
@@ -502,27 +504,49 @@ def admin_course_edit(request, course_id):
         'modules': modules,
     })
 
+
 @login_required
 def user_courses(request):
-    # Filtrar los cursos que están asignados al usuario actual
-    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course')
-
-    # Obtener los cursos
-    courses = [e.course for e in enrolled_courses]  # Extraemos solo los cursos asignados
-
-    # Calculamos la fecha límite para cada curso
     today = timezone.now().date()
 
-    for course in courses:
+    # Cursos asignados directamente al usuario
+    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course', 'course__config')
+    assigned_courses = [e.course for e in enrolled_courses]
+
+    # Cursos con config.audience == "all_users"
+    public_courses = CourseHeader.objects.filter(config__audience="all_users")
+
+    # Cursos en CourseAssignment con tipo all_users
+    assigned_by_type = CourseAssignment.objects.filter(
+        assignment_type="all_users"
+    ).values_list("course_id", flat=True)
+    type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
+
+    # Unir todos, sin duplicados
+    all_courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
+
+    # Simular progreso si no existe EnrolledCourse
+    fake_enrollments = []
+    enrolled_ids = set(e.course.id for e in enrolled_courses)
+    for course in all_courses:
         if hasattr(course, 'config') and course.config.deadline is not None:
             course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
         else:
             course.deadline_date = None
 
-    return render(request, 'courses/user/my_courses.html', {
-        'courses': courses,  # Solo los cursos asignados al usuario
-        'enrolled_courses': enrolled_courses,
+        if course.id not in enrolled_ids:
+            fake_enrollments.append(EnrolledCourse(course=course, user=request.user, progress=0))
+
+    # Combinar con los reales
+    all_enrollments = list(enrolled_courses) + fake_enrollments
+
+    return render(request, 'courses/user/wizard_form_user.html', {
+        'courses': all_courses,
+        'enrolled_courses': all_enrollments,
         'today': today,
+        'totalcursos': len(all_courses),
+        'in_progress_courses_count': sum(1 for c in all_courses if c.deadline_date is None or c.deadline_date > today),
+        'inactive_courses_count': sum(1 for c in all_courses if c.deadline_date and c.deadline_date <= today),
     })
 
 @login_required

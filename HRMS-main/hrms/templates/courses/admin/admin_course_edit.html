@@ -4,7 +4,7 @@
 {% block page_title %}Editar curso: {{ course.title }}{% endblock %}
 
 {% block content %}
-<h1>Editar Curso: {{ course.title }}</h1>
+<h1 class="mb-4"><i class="fa-solid fa-pen-to-square me-2"></i>Editar Curso: <strong>{{ course.title }}</strong></h1>
 
 <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
