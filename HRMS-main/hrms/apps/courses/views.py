@@ -20,13 +20,17 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.forms import modelformset_factory
 from django.shortcuts import redirect
 from django.utils import timezone
+from django.db.models import Prefetch
 import os
 
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
 @login_required
+
 def course_wizard(request):
+    assigned_courses_count = 0  # ✅ Valor por defecto
+
     if request.user.is_superuser:
         employees = Employee.objects.filter(is_active=True)
         departments = Department.objects.all()
@@ -77,40 +81,73 @@ def course_wizard(request):
         config_form = CourseConfigForm()
         module_formset = formset_factory(ModuleContentForm, extra=1)()
         lesson_formset = LessonFormSet()
-
-    # 🔧 Aquí definimos los cursos y totalcursos de forma segura
     if request.user.is_superuser:
         courses = CourseHeader.objects.all()
         totalcursos = courses.count()
+        assigned_courses_count = 0
+        courses_with_all_users_assignment = set()
+        assigned_course_ids = set()  # ← esta línea evita el UnboundLocalError
+
     else:
-        enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course', 'course__config')
+        user = request.user
+
+        # Cursos asignados directamente al usuario
+        enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
         assigned_courses = [e.course for e in enrolled_courses]
-        assigned_courses_count = len(assigned_courses)
 
-        assigned_courses_count = len(assigned_courses)  # ✅ Agrega esto
+        # Cursos asignados por tipo "all_users"
+        all_user_assignments = CourseAssignment.objects.filter(
+            assignment_type="all_users"
+        ).select_related("course")
+        courses_with_all_users_assignment = set(a.course for a in all_user_assignments)
 
+        # Cursos con config.audience == "all_users"
         public_courses = CourseHeader.objects.filter(config__audience="all_users")
 
-        assigned_by_type = CourseAssignment.objects.filter(
-            assignment_type="all_users"
-        ).values_list("course_id", flat=True)
-        type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
+        # Cursos asignados por segmentación
+        segment_assignments = CourseAssignment.objects.filter(
+            assignment_type="by_department"
+        ).prefetch_related("departments", "positions", "locations", "course")
 
-        courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
-        totalcursos = len(courses)
+        segment_assigned_courses = set()
+        try:
+            employee = Employee.objects.get(user=user)
+            for assignment in segment_assignments:
+                if (
+                    assignment.departments.filter(id=employee.department_id).exists() or
+                    assignment.positions.filter(id=employee.job_position_id).exists() or
+                    assignment.locations.filter(id=employee.station_id).exists()
+                ):
+                    segment_assigned_courses.add(assignment.course)
+        except Employee.DoesNotExist:
+            pass
 
+        # Unir todos los cursos que debe ver el usuario
+        combined_courses = set(assigned_courses) | courses_with_all_users_assignment | set(public_courses) | segment_assigned_courses
+        courses = CourseHeader.objects.filter(id__in=[c.id for c in combined_courses]).select_related('config')
+        totalcursos = courses.count()
+
+        # Cursos realmente asignados (no públicos), para contadores o indicadores
+        assigned_courses_combined = set(assigned_courses) | courses_with_all_users_assignment | segment_assigned_courses
+        assigned_courses_count = len(assigned_courses_combined)
+
+        assigned_course_ids = set(c.id for c in assigned_courses_combined)
+
+        # Crear enrollments falsos si no están registrados en EnrolledCourse
+        real_enrolled_ids = set(e.course.id for e in enrolled_courses)
         fake_enrollments = []
-        enrolled_ids = set(e.course.id for e in enrolled_courses)
         for course in courses:
             if hasattr(course, 'config') and course.config.deadline is not None:
                 course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
             else:
                 course.deadline_date = None
 
-            if course.id not in enrolled_ids:
-                fake_enrollments.append(EnrolledCourse(course=course, user=request.user, progress=0))
+            if course.id not in real_enrolled_ids:
+                fake_enrollments.append(EnrolledCourse(course=course, user=user, progress=0))
 
         all_enrollments = list(enrolled_courses) + fake_enrollments
+
+
 
 
     courses_config = CourseConfig.objects.all()
@@ -129,6 +166,8 @@ def course_wizard(request):
                 in_progress_courses_count += 1
         else:
             course.deadline_date = None
+            in_progress_courses_count += 1  # Si no tiene deadline, lo tratamos como activo
+
 
     return render(request, template_name, {
         'course_form': course_form,
@@ -147,7 +186,8 @@ def course_wizard(request):
         'job_positions': job_positions,
         'locations': locations,
         'assigned_courses_count': assigned_courses_count,
-
+        'courses_with_all_users_assignment': courses_with_all_users_assignment,
+        'assigned_course_ids': assigned_course_ids,
     })
 
 @login_required
@@ -533,13 +573,15 @@ def user_courses(request):
     fake_enrollments = []
     enrolled_ids = set(e.course.id for e in enrolled_courses)
     for course in all_courses:
-        if hasattr(course, 'config') and course.config.deadline is not None:
-            course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
+        if hasattr(course, 'config') and course.config and course.config.deadline is not None:
+            deadline_date = course.created_at + timedelta(days=course.config.deadline)
+            course.deadline_date = deadline_date.date()
         else:
             course.deadline_date = None
 
         if course.id not in enrolled_ids:
             fake_enrollments.append(EnrolledCourse(course=course, user=request.user, progress=0))
+
 
     # Combinar con los reales
     all_enrollments = list(enrolled_courses) + fake_enrollments
@@ -551,6 +593,7 @@ def user_courses(request):
         'totalcursos': len(all_courses),
         'in_progress_courses_count': sum(1 for c in all_courses if c.deadline_date is None or c.deadline_date > today),
         'inactive_courses_count': sum(1 for c in all_courses if c.deadline_date and c.deadline_date <= today),
+        
     })
 
 @login_required
