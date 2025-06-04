@@ -38,9 +38,10 @@
                                     <div class="col mt-0">
                                         <h5 class="card-title">Cursos asignados </h5>
                                     </div>
+                                    
                                     <div class="col-auto">
-                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
-                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
+                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
+                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
                                         </div>
                                     </div>
                                 </div>
@@ -58,11 +59,10 @@
                                         <h5 class="card-title">Cursos activos</h5>
                                     </div>
                                     <div class="col-auto">
-                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
-                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
+                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
+                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
                                         </div>
-                                    </div>
-                                    
+                                    </div>                                    
                                 </div>
                                 <h1 class="mt-1 mb-3">{{in_progress_courses_count}}</h1>
                             </div>
@@ -76,10 +76,9 @@
                                     <div class="col mt-0">
                                         <h5 class="card-title">Cursos inactivos</h5>
                                     </div>
-
                                     <div class="col-auto">
-                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
-                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
+                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
+                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
                                         </div>
                                     </div>
                                 </div>
@@ -101,8 +100,7 @@
        {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
             
-                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %}inactivo{% elif course.deadline_date is None or course.deadline_date > today %}activo{% endif %}"
-                data-asignado="{{ course.config.audience }}">
+                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %} inactivo {% else %} activo {% endif %}">
 
                 <div class="card h-100 shadow-sm curso-clickable">
                     <a href="{% url 'view_course_content' course.id %}" class="text-decoration-none text-dark">
@@ -218,12 +216,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         cards.forEach(card => {
             const title = card.querySelector(".card-title").textContent.toLowerCase();
-            const estado = card.dataset.estado;
+            const estado = card.dataset.estado; // activo, inactivo
             const asignado = card.dataset.asignado;
 
             const matchTexto = title.includes(filtroTexto);
             const matchEstado = (filtroEstado === "all" || estado.includes(filtroEstado));
-            const matchAsignado = true; // 🔥 ignora el filtro de asignación por completo
+            const matchAsignado = (filtroAsignado === "todos" || asignado === filtroAsignado);
 
             if (matchTexto && matchEstado && matchAsignado) {
                 visibles.push(card);
