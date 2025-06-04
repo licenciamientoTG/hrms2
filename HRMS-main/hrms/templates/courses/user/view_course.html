@@ -5,55 +5,63 @@
 {% block title %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>{{ course.title }}</h1>
-    <span class="badge bg-secondary">Duración: {{ course.duration }}hrs</span>
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div>
+        <h1 class="mb-1">{{ course.title }}</h1>
+        <p class="text-muted">{{ course.description }}</p>
+    </div>
+    <span class="badge bg-primary fs-6 px-3 py-2">Duración: {{ course.duration }} hrs</span>
 </div>
 
-<p class="text-muted">{{ course.description }}</p>
 
 {% for module in modules %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <div class="card mb-4 shadow border-0">
+        <div class="card-header bg-primary text-white">
             <h5 class="mb-0">{{ module.title }}</h5>
         </div>
         <div class="card-body">
-            <p>{{ module.description }}</p>
-            <hr>
-            {% for lesson in module.lesson_set.all %}
-                <div class="mb-4">
-                    <h6 class="fw-bold">{{ lesson.title }} <span class="badge bg-info">{{ lesson.lesson_type }}</span></h6>
-                    <p>{{ lesson.description }}</p>
-                    
-                    {% if lesson.video_url %}
-                        <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary me-2">
-                            <i class="fa-solid fa-video"></i> Ver video
-                        </a>
-                    {% endif %}
-
-                    {% if lesson.resource %}
-                        <a href="{{ lesson.resource.url }}" download class="btn btn-sm btn-outline-secondary me-2">
-                            <i class="fa-solid fa-download"></i> Descargar recurso
-                        </a>
-                    {% endif %}
-
-                    <button class="btn btn-sm btn-success" onclick="markLessonCompleted({{ lesson.id }})">
-                        <i class="fa-solid fa-check"></i> Completar
-                    </button>
-                </div>
-                <hr>
-            {% endfor %}
+            <p class="text-muted">{{ module.description }}</p>
+            <div class="list-group list-group-flush mt-3">
+                {% for lesson in module.lesson_set.all %}
+                    <div class="list-group-item mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ lesson.title }}</h6>
+                                <span class="badge bg-info text-dark">{{ lesson.lesson_type }}</span>
+                                <p class="text-muted mt-2">{{ lesson.description }}</p>
+                            </div>
+                            <div class="text-end">
+                                {% if lesson.video_url %}
+                                    <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary mb-1 w-100">
+                                        <i class="fa-solid fa-video"></i> Video
+                                    </a><br>
+                                {% endif %}
+                                {% if lesson.resource %}
+                                    <a href="{{ lesson.resource.url }}" download class="btn btn-sm btn-outline-secondary mb-1 w-100">
+                                        <i class="fa-solid fa-download"></i> Recurso
+                                    </a><br>
+                                {% endif %}
+                                <button class="btn btn-sm btn-success w-100" onclick="markLessonCompleted({{ lesson.id }})">
+                                    <i class="fa-solid fa-check"></i> Completar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
+
 {% empty %}
     <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
 {% endfor %}
 
-<div class="mt-4">
-    <button onclick="window.history.back()" class="btn btn-secondary">
-        <i class="fa-solid fa-arrow-left"></i> Regresar a mis cursos
+<div class="text-center mt-5">
+    <button onclick="window.history.back()" class="btn btn-outline-secondary btn-lg px-5">
+        <i class="fa-solid fa-arrow-left"></i> Regresar
     </button>
 </div>
+
 
 
 {% endblock %}
