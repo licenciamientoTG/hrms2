@@ -46,13 +46,11 @@
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ assigned_courses_count }}</h1>
-
                             </div>
                         </div>
-                        
                     </div>
                     <div class="col-3">
-                        <div class="card col-12 filtro-card border-2" data-estado="activo" style="cursor: pointer;">
+                        <div class="card col-12 filtro-card border-2" data-estado=" activo" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -100,7 +98,7 @@
        {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
             
-                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %} inactivo {% else %} activo {% endif %}">
+                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %} inactivo {% else %} activo{% endif %}">
 
                 <div class="card h-100 shadow-sm curso-clickable">
                     <a href="{% url 'view_course_content' course.id %}" class="text-decoration-none text-dark">
