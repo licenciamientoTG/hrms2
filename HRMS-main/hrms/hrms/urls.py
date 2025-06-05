@@ -14,7 +14,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path("home/", home, name="home"), 
+    path("home/", home, name="home"),
     path("auth/", include("authapp.urls")),
     path('departments/', include('departments.urls')),
     path('news/', include('apps.news.urls')),

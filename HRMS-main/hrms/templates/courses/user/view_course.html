@@ -37,10 +37,21 @@
                                     </a><br>
                                 {% endif %}
                                 {% if lesson.resource %}
-                                    <a href="{{ lesson.resource.url }}" download class="btn btn-sm btn-outline-secondary mb-1 w-100">
-                                        <i class="fa-solid fa-download"></i> Recurso
-                                    </a><br>
+                                    {% if ".mp4" in lesson.resource.url|lower or ".webm" in lesson.resource.url|lower %}
+                                        <video controls width="100%" class="mb-3 rounded shadow">
+                                            <source src="{{ lesson.resource.url }}" type="video/mp4">
+                                        </video>
+                                    {% elif ".pdf" in lesson.resource.url|lower %}
+                                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
+                                    {% elif ".ppt" in lesson.resource.url|lower or ".pptx" in lesson.resource.url|lower %}
+                                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
+                                    {% else %}
+                                        <a href="{{ lesson.resource.url }}" download class="btn btn-outline-secondary w-100 mb-2">
+                                            <i class="fa-solid fa-download"></i> Descargar recurso
+                                        </a>
+                                    {% endif %}
                                 {% endif %}
+
                                 <button class="btn btn-sm btn-success w-100" onclick="markLessonCompleted({{ lesson.id }})">
                                     <i class="fa-solid fa-check"></i> Completar
                                 </button>

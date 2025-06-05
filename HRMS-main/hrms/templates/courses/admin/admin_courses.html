@@ -16,7 +16,7 @@
             <div class="w-100">
                 <div class="row">
                     <div class="col-3">
-                        <div class="card col-12 filtro-card border-2 border-primary shadow" data-estado="all" style="cursor: pointer;">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="all" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -34,7 +34,7 @@
                         
                     </div>
                     <div class="col-3">
-                        <div class="card col-12 ">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -53,7 +53,7 @@
                         
                     </div>
                     <div class="col-3">
-                        <div class="card col-12 filtro-card border-2" data-estado="activo" style="cursor: pointer;">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="activo" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -73,7 +73,7 @@
                         
                     </div>
                     <div class="col-3">
-                        <div class="card col-12 filtro-card border-2" data-estado="inactivo" style="cursor: pointer;">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="inactivo" style="cursor: pointer;">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col mt-0">
@@ -95,7 +95,6 @@
     </div>
 <div class="row">
   <div class="col-12">
-    <h5 class="mb-3">Todos los cursos</h5>
     <div class="row">
         <div class="d-flex gap-2 flex-wrap mb-3">
             <input type="text" id="filtroResumenCursos" class="form-control w-auto" placeholder="Buscar por nombre...">
@@ -106,7 +105,7 @@
                 data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-asignado="{{ course.config.audience }}">
 
-                <div class="card h-100 shadow-sm curso-clickable">
+                <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
                 <a href="{% url 'admin_course_edit' course.id %}" class="text-decoration-none text-dark">
                         {% if course.portrait %}
                             <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
