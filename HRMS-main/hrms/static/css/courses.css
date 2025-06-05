@@ -74,3 +74,29 @@
     color: #555;
 }
 
+.wizard-step {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    transition: all 0.3s ease-in-out;
+}
+
+.wizard-step.d-none {
+    display: none !important;
+}
+
+.wizard-step h3 {
+    color: #343a40;
+    margin-bottom: 20px;
+}
+
+#summary-container img {
+    max-width: 100%;
+    height: auto;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+

@@ -1,14 +1,6 @@
 let lessonFileMap = {};  // { lessonId: File }
 
 document.addEventListener("DOMContentLoaded", function () {
-    // 🔴 Al cargar la página, eliminar los módulos y lecciones del localStorage
-    localStorage.removeItem("modules");
-
-    // Continuar con la carga normal
-    loadModulesFromStorage(); // Esto ahora cargará una lista vacía
-});
-
-document.addEventListener("DOMContentLoaded", function () {
     let currentStep = 1;
     const steps = document.querySelectorAll(".wizard-step");
     const moduleContainer = document.getElementById("module-container");
