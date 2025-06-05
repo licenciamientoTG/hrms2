@@ -155,10 +155,6 @@ document.addEventListener("DOMContentLoaded", function () {
         newModule.innerHTML = `
             <h4>Módulo</h4>
             <div class="mb-3">
-                <label class="form-label">Curso:</label>
-                <input type="text" class="form-control module-course" name="module_course[]" value="${moduleData?.course || ''}" required>
-            </div>
-            <div class="mb-3">
                 <label class="form-label">Título del Módulo:</label>
                 <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}" required>
             </div>
@@ -197,19 +193,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function saveModule(moduleElement) {
     let moduleId = moduleElement.getAttribute("data-module-id");
-    let moduleCourse = moduleElement.querySelector(".module-course");
     let moduleTitle = moduleElement.querySelector(".module-title");
     let moduleDescription = moduleElement.querySelector(".module-description");
     let lessons = moduleElement.querySelectorAll(".lesson-form");
 
-    if (!moduleCourse.value.trim() || !moduleTitle.value.trim() || !moduleDescription.value.trim()) {
+    if (!moduleTitle.value.trim() || !moduleDescription.value.trim()) {
         Swal.fire({
             icon: "error",
             title: "Campos incompletos en el módulo",
             text: "Por favor, completa todos los campos del módulo antes de guardarlo.",
         });
 
-        [moduleCourse, moduleTitle, moduleDescription].forEach(field => {
+        [moduleTitle, moduleDescription].forEach(field => {
             if (!field.value.trim()) {
                 field.classList.add("is-invalid");
             } else {
@@ -219,6 +214,7 @@ function saveModule(moduleElement) {
 
         return;
     }
+
 
     if (lessons.length === 0) {
         Swal.fire({
@@ -232,7 +228,6 @@ function saveModule(moduleElement) {
     let moduleData = {
         id: moduleId,
         created_at: Date.now(),
-        course: moduleCourse.value.trim(),
         title: moduleTitle.value.trim(),
         description: moduleDescription.value.trim(),
         lessons: []
@@ -311,7 +306,6 @@ function saveModule(moduleElement) {
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">${moduleData.title}</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">${moduleData.course}</h6>
                     <p class="card-text">${moduleData.description}</p>
                     <button type="button" class="btn btn-warning edit-module">Editar</button>
                     <button type="button" class="btn btn-danger remove-module">Eliminar</button>
@@ -337,10 +331,6 @@ function saveModule(moduleElement) {
     
         newModule.innerHTML = `
             <h4>Módulo</h4>
-            <div class="mb-3">
-                <label class="form-label">Curso:</label>
-                <input type="text" class="form-control module-course" name="module_course[]" value="${moduleData.course}" required>
-            </div>
             <div class="mb-3">
                 <label class="form-label">Título del Módulo:</label>
                 <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData.title}" required>
@@ -462,7 +452,6 @@ function addLesson(lessonContainer, lessonData = null) {
         let modules = [];
         document.querySelectorAll(".module-form").forEach(moduleElement => {
             let moduleData = {
-                course: moduleElement.querySelector(".module-course").value,
                 title: moduleElement.querySelector(".module-title").value,
                 description: moduleElement.querySelector(".module-description").value,
                 lessons: []
