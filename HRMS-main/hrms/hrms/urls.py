@@ -8,7 +8,10 @@ from django.contrib.auth import views as auth_views
 
 @login_required
 def home(request):
-    return render(request, "authapp/home.html")
+    if request.user.is_superuser:
+        return render(request, "authapp/home.html")
+    else:
+        return render(request, "authapp/home_user.html")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
