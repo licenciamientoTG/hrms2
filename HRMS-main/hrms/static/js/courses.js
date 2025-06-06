@@ -831,7 +831,7 @@ function getCSRFToken() {
         }
     });
 
-    function addQuestion() {
+function addQuestion() {
     const container = document.getElementById("quiz-container");
     const index = container.children.length;
 
@@ -847,4 +847,29 @@ function getCSRFToken() {
     `;
 
     container.insertAdjacentHTML("beforeend", questionHTML);
+}
+
+let answerCount = 0;
+
+function addAnswerOption() {
+  const container = document.getElementById("answer-options");
+
+  const optionId = `option-${answerCount}`;
+  const html = `
+    <div class="input-group mb-2" id="${optionId}">
+      <input type="text" class="form-control" name="answers[]" placeholder="Opción ${answerCount + 1}">
+      <div class="input-group-text">
+        <input type="radio" name="correct_answer" value="${answerCount}" class="form-check-input mt-0">
+      </div>
+      <button class="btn btn-outline-danger" type="button" onclick="removeAnswerOption('${optionId}')">
+        <i class="fa fa-trash"></i>
+      </button>
+    </div>
+  `;
+  container.insertAdjacentHTML("beforeend", html);
+  answerCount++;
+}
+
+function removeAnswerOption(id) {
+  document.getElementById(id)?.remove();
 }
