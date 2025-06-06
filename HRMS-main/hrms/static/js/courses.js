@@ -873,3 +873,10 @@ function addAnswerOption() {
 function removeAnswerOption(id) {
   document.getElementById(id)?.remove();
 }
+
+document.getElementById('quizOffcanvas').addEventListener('show.bs.offcanvas', () => {
+  answerCount = 0;
+  const container = document.getElementById("answer-options");
+  container.innerHTML = ""; // Limpiar opciones anteriores
+  addAnswerOption();        // Agregar primera opción automáticamente
+});
