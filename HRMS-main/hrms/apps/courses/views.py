@@ -239,6 +239,7 @@ def visual_course_wizard(request):
         'departments': departments,
         'job_positions': job_positions,
         'locations': locations,
+        "course": course,
     })
 
 
