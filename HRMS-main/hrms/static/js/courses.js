@@ -851,7 +851,11 @@ function addQuestion() {
 
 let answerCount = 0;
 
-function addAnswerOption() {
+function addAnswerOption(inputType) {
+  if (!inputType) {
+    const selectedType = document.querySelector("select[name='question_type']").value;
+    inputType = selectedType === "Respuesta múltiple" ? "checkbox" : "radio";
+  }
   const container = document.getElementById("answer-options");
 
   const optionId = `option-${answerCount}`;
@@ -859,7 +863,7 @@ function addAnswerOption() {
     <div class="input-group mb-2" id="${optionId}">
       <input type="text" class="form-control" name="answers[]" placeholder="Opción ${answerCount + 1}">
       <div class="input-group-text">
-        <input type="radio" name="correct_answer" value="${answerCount}" class="form-check-input mt-0">
+        <input type="${inputType}" name="correct_answer" value="${answerCount}" class="form-check-input mt-0">
       </div>
       <button class="btn btn-outline-danger" type="button" onclick="removeAnswerOption('${optionId}')">
         <i class="fa fa-trash"></i>
@@ -874,24 +878,19 @@ function removeAnswerOption(id) {
   document.getElementById(id)?.remove();
 }
 
-document.getElementById('quizOffcanvas').addEventListener('hide.bs.offcanvas', () => {
-    answerCount = 0;
-    const container = document.getElementById("answer-options");
-    container.innerHTML = ""; // Limpiar opciones anteriores
-    addAnswerOption();        // Agregar primera opción automáticamente
-    // Limpiar campo de explicación
-    const explanationDiv = document.getElementById("explanationField");
-    const explanationInput = explanationDiv.querySelector("textarea");
+document.getElementById('quizOffcanvas').addEventListener('show.bs.offcanvas', () => {
+  answerCount = 0;
+  refreshAnswerOptions(); // Cargar opciones según tipo de pregunta actual
 
-    // Vaciar texto y ocultar campo
-    explanationInput.value = "";
-    explanationDiv.classList.add("d-none");
+  // Limpiar campos
+  document.querySelector("textarea[name='question_text']").value = "";
+  document.querySelector("select[name='question_type']").selectedIndex = 0;
 
-    // Desactivar el toggle
-    document.getElementById("explanationToggle").checked = false;
-
-        // 🔴 Limpiar la pregunta
-    document.querySelector("textarea[name='question_text']").value = "";
+  const explanationDiv = document.getElementById("explanationField");
+  const explanationInput = explanationDiv.querySelector("textarea");
+  explanationInput.value = "";
+  explanationDiv.classList.add("d-none");
+  document.getElementById("explanationToggle").checked = false;
 
     // 🔴 (Opcional) Resetear el tipo de pregunta al valor por defecto
     document.querySelector("select[name='question_type']").selectedIndex = 0;
@@ -905,3 +904,18 @@ document.getElementById("explanationToggle").addEventListener("change", function
     explanationDiv.classList.add("d-none");
   }
 });
+
+function refreshAnswerOptions() {
+  const questionType = document.querySelector("select[name='question_type']").value;
+  const inputType = questionType === "Respuesta múltiple" ? "checkbox" : "radio";
+
+  const container = document.getElementById("answer-options");
+  container.innerHTML = "";
+  answerCount = 0;
+
+  // Agrega 2 opciones mínimas por defecto
+  addAnswerOption(inputType);
+  addAnswerOption(inputType);
+}
+
+document.querySelector("select[name='question_type']").addEventListener("change", refreshAnswerOptions);
