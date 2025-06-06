@@ -11,7 +11,7 @@ from formtools.wizard.views import SessionWizardView
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
-from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz
+from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer
 import json
 from datetime import timedelta, datetime, timezone
 from departments.models import Department
@@ -634,3 +634,65 @@ def admin_courses(request):
         'in_progress_courses_count': in_progress_courses_count,
         'today': today,
     })
+
+
+@csrf_exempt
+def guardar_pregunta(request):
+    if request.method == 'POST':
+        try:
+            course_id = request.POST.get("course_id")
+            question_text = request.POST.get("question_text")
+            question_type = request.POST.get("question_type")
+            explanation = request.POST.get("explanation", "")
+
+            # Validación de curso
+            course = get_object_or_404(CourseHeader, id=course_id)
+
+            # Obtener o crear el quiz automáticamente
+            quiz, _ = Quiz.objects.get_or_create(
+                course_header=course,
+                defaults={"title": "Cuestionario automático", "description": "Generado desde el formulario"}
+            )
+
+            # Crear la pregunta
+            question = Question.objects.create(
+                quiz=quiz,
+                question_type=question_type,
+                question_text=question_text,
+                single_answer=explanation if question_type == "Texto" else None
+            )
+
+            # Procesar respuestas dinámicamente
+            answer_prefix = "answers["
+            answer_map = {}
+
+            for key in request.POST:
+                if key.startswith("answers["):
+                    # Extrae índice y campo
+                    import re
+                    match = re.match(r"answers\[(\d+)\]\[(text|correct)\]", key)
+                    if match:
+                        idx, field = match.groups()
+                        if idx not in answer_map:
+                            answer_map[idx] = {}
+                        answer_map[idx][field] = request.POST.get(key)
+
+            # Crear objetos Answer
+            for answer in answer_map.values():
+                text = answer.get("text")
+                is_correct = answer.get("correct") in ["true", "True", "1", "on"]
+                if text:
+                    Answer.objects.create(
+                        question=question,
+                        answer_text=text,
+                        is_correct=is_correct
+                    )
+
+            return JsonResponse({"success": True, "message": "Pregunta y respuestas guardadas."})
+
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    return JsonResponse({"success": False, "message": "Método no permitido"}, status=405)

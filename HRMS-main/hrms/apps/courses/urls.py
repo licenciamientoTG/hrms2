@@ -2,7 +2,7 @@ from django.urls import path
 from django.conf.urls.static import static
 from django.conf import settings
 from apps.courses import views
-from .views import course_wizard, user_courses, save_course, save_course_ajax, process_assignments
+from .views import course_wizard, guardar_pregunta, user_courses, save_course, save_course_ajax, process_assignments
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
 
 
@@ -17,6 +17,7 @@ urlpatterns = [
     path('my-courses/<int:course_id>/', views.view_course_content, name='view_course_content'), # Vista para los cursos del usuario
     path('admin/course/<int:course_id>/edit/', views.admin_course_edit, name='admin_course_edit'),  # Para admin
     path('wizard_form/', views.visual_course_wizard, name='visual_course_wizard'),
+    path('guardar-pregunta/', views.guardar_pregunta, name='guardar_pregunta'),
 
 ]
 

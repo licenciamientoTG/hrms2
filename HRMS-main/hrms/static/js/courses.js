@@ -782,14 +782,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-
-// ✅ CSRF Token helper
-function getCSRFToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]').value;
-}
-
-
-
 // 📌 Función para obtener el token CSRF
 function getCSRFToken() {
     return document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -919,3 +911,56 @@ function refreshAnswerOptions() {
 }
 
 document.querySelector("select[name='question_type']").addEventListener("change", refreshAnswerOptions);
+
+document.getElementById("quiz-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const formData = new FormData();
+  const questionText = document.querySelector("textarea[name='question_text']").value;
+  const questionType = document.querySelector("select[name='question_type']").value;
+  const explanation = document.querySelector("textarea[name='answer_explanation']").value;
+  const courseId = document.getElementById("quiz-form-container").dataset.courseId;
+
+  formData.append("question_text", questionText);
+  formData.append("question_type", questionType);
+  formData.append("explanation", explanation);
+  formData.append("course_id", courseId);
+
+  // Recorrer las respuestas
+  const options = document.querySelectorAll("#answer-options .input-group");
+  options.forEach((opt, index) => {
+    const answerText = opt.querySelector("input[type='text']").value;
+    const isCorrect = opt.querySelector("input[type='radio'], input[type='checkbox']").checked;
+    formData.append(`answers[${index}][text]`, answerText);
+    formData.append(`answers[${index}][correct]`, isCorrect);
+  });
+
+  fetch("/courses/guardar-pregunta/", {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": getCookie("csrftoken")  // Asegúrate de tener esta función
+    },
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log("Pregunta guardada:", data);
+    // Puedes cerrar el modal y resetear campos aquí
+  })
+  .catch(err => console.error("Error al guardar:", err));
+});
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith(name + "=")) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
