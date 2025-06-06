@@ -830,3 +830,21 @@ function getCSRFToken() {
             segmentUsersRadio.addEventListener("change", toggleSegmentationCard);
         }
     });
+
+    function addQuestion() {
+    const container = document.getElementById("quiz-container");
+    const index = container.children.length;
+
+    const questionHTML = `
+        <div class="card mb-3">
+            <div class="card-body">
+                <label class="form-label">Pregunta:</label>
+                <input type="text" class="form-control mb-2" name="quiz[${index}][question]" placeholder="Escribe la pregunta">
+                <label class="form-label">Respuesta correcta:</label>
+                <input type="text" class="form-control" name="quiz[${index}][answer]" placeholder="Respuesta correcta">
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML("beforeend", questionHTML);
+}

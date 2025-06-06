@@ -201,7 +201,7 @@
         <!-- paso4 -->
         <div class="wizard-step d-none" id="step-4">
             <h3>4. Revisión Final</h3>
-            <button type="button" class="btn btn-primary btn-lg float-end">Agregar encuesta</button>
+                <button type="button" class="btn btn-primary btn-lg float-end" data-bs-toggle="modal" data-bs-target="#quizModal">Agregar encuesta</button>
 
             <p>Por favor, revisa la información ingresada antes de guardar el curso.</p>
         
@@ -221,6 +221,26 @@
         </div>             
     </form>
 </div>
+<div class="modal fade" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="quizModalLabel">Agregar encuesta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="quiz-container">
+          <!-- Preguntas dinámicas -->
+        </div>
+        <button type="button" class="btn btn-outline-secondary mt-3" onclick="addQuestion()">Agregar pregunta</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
