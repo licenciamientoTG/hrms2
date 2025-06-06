@@ -874,9 +874,34 @@ function removeAnswerOption(id) {
   document.getElementById(id)?.remove();
 }
 
-document.getElementById('quizOffcanvas').addEventListener('show.bs.offcanvas', () => {
-  answerCount = 0;
-  const container = document.getElementById("answer-options");
-  container.innerHTML = ""; // Limpiar opciones anteriores
-  addAnswerOption();        // Agregar primera opción automáticamente
+document.getElementById('quizOffcanvas').addEventListener('hide.bs.offcanvas', () => {
+    answerCount = 0;
+    const container = document.getElementById("answer-options");
+    container.innerHTML = ""; // Limpiar opciones anteriores
+    addAnswerOption();        // Agregar primera opción automáticamente
+    // Limpiar campo de explicación
+    const explanationDiv = document.getElementById("explanationField");
+    const explanationInput = explanationDiv.querySelector("textarea");
+
+    // Vaciar texto y ocultar campo
+    explanationInput.value = "";
+    explanationDiv.classList.add("d-none");
+
+    // Desactivar el toggle
+    document.getElementById("explanationToggle").checked = false;
+
+        // 🔴 Limpiar la pregunta
+    document.querySelector("textarea[name='question_text']").value = "";
+
+    // 🔴 (Opcional) Resetear el tipo de pregunta al valor por defecto
+    document.querySelector("select[name='question_type']").selectedIndex = 0;
+});
+
+document.getElementById("explanationToggle").addEventListener("change", function () {
+  const explanationDiv = document.getElementById("explanationField");
+  if (this.checked) {
+    explanationDiv.classList.remove("d-none");
+  } else {
+    explanationDiv.classList.add("d-none");
+  }
 });
