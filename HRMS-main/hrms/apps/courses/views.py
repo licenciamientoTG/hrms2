@@ -697,3 +697,49 @@ def guardar_pregunta(request):
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     return JsonResponse({"success": False, "message": "Método no permitido"}, status=405)
+
+
+
+@csrf_exempt
+def obtener_preguntas(request, course_id):
+    try:
+        course = get_object_or_404(CourseHeader, id=course_id)
+        quiz = Quiz.objects.filter(course_header=course).first()
+        
+        if not quiz:
+            return JsonResponse({'questions': []})
+        
+        questions = Question.objects.filter(quiz=quiz).prefetch_related('answers')
+        
+        questions_data = []
+        for question in questions:
+            questions_data.append({
+                'id': question.id,
+                'question_text': question.question_text,
+                'question_type': question.get_question_type_display(),
+                'explanation': question.single_answer if question.question_type == "Texto" else "",
+                'answers': [
+                    {
+                        'text': answer.answer_text,
+                        'is_correct': answer.is_correct
+                    } for answer in question.answers.all()
+                ]
+            })
+        
+        return JsonResponse({'questions': questions_data})
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# views.py
+@csrf_exempt
+def eliminar_pregunta(request, question_id):
+    if request.method == 'DELETE':
+        try:
+            question = get_object_or_404(Question, id=question_id)
+            course_id = question.quiz.course_header.id
+            question.delete()
+            return JsonResponse({'success': True, 'course_id': course_id})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)

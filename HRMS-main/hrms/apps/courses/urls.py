@@ -18,7 +18,8 @@ urlpatterns = [
     path('admin/course/<int:course_id>/edit/', views.admin_course_edit, name='admin_course_edit'),  # Para admin
     path('wizard_form/', views.visual_course_wizard, name='visual_course_wizard'),
     path('guardar-pregunta/', views.guardar_pregunta, name='guardar_pregunta'),
-
+    path('obtener_preguntas/<int:course_id>/', views.obtener_preguntas, name='obtener_preguntas'),
+    path('eliminar_pregunta/<int:question_id>/', views.eliminar_pregunta, name='eliminar_pregunta'),
 ]
 
 if settings.DEBUG:

@@ -912,59 +912,6 @@ function refreshAnswerOptions() {
 
 document.querySelector("select[name='question_type']").addEventListener("change", refreshAnswerOptions);
 
-document.getElementById("quiz-form").addEventListener("submit", function (e) {
-  e.preventDefault();
-
-  const formData = new FormData();
-  const questionText = document.querySelector("textarea[name='question_text']").value;
-  const questionType = document.querySelector("select[name='question_type']").value;
-  const explanation = document.querySelector("textarea[name='answer_explanation']").value;
-  const courseId = document.getElementById("quiz-form-container").dataset.courseId;
-
-  formData.append("question_text", questionText);
-  formData.append("question_type", questionType);
-  formData.append("explanation", explanation);
-  formData.append("course_id", courseId);
-
-  // Recorrer las respuestas
-  const options = document.querySelectorAll("#answer-options .input-group");
-  options.forEach((opt, index) => {
-    const answerText = opt.querySelector("input[type='text']").value;
-    const isCorrect = opt.querySelector("input[type='radio'], input[type='checkbox']").checked;
-    formData.append(`answers[${index}][text]`, answerText);
-    formData.append(`answers[${index}][correct]`, isCorrect);
-  });
-
-  fetch("/courses/guardar-pregunta/", {
-    method: "POST",
-    headers: {
-      "X-CSRFToken": getCookie("csrftoken")  // Asegúrate de tener esta función
-    },
-    body: formData
-  })
-  .then(response => response.json())
-.then(data => {
-    console.log("→ Tipo:", typeof data.success, "| Valor:", data.success, "| Comparación:", String(data.success).toLowerCase() === "true");
-    console.log("Pregunta guardada:", data);
-
-if (data.success === true || data.success === "true") {
-
-    // ✅ Cerrar el offcanvas programáticamente
-    const offcanvasElement = document.getElementById('quizOffcanvas');
-    // Siempre crear nueva instancia si no existe o si getInstance falla
-    const offcanvasInstance = bootstrap.Offcanvas.getOrCreateInstance(offcanvasElement);
-        offcanvasInstance.hide();
-
-
-    // (Opcional) Limpiar campos si quieres
-    document.getElementById("quiz-form").reset();
-    refreshAnswerOptions();
-    document.getElementById("explanationField").classList.add("d-none");
-  }
-})
-  .catch(err => console.error("Error al guardar:", err));
-});
-
 function getCookie(name) {
   let cookieValue = null;
   if (document.cookie && document.cookie !== "") {
@@ -979,3 +926,135 @@ function getCookie(name) {
   }
   return cookieValue;
 }
+
+// Función para actualizar el preview de preguntas
+function updateQuestionsPreview(courseId) {
+  fetch(`/obtener_preguntas/${courseId}/`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken'),
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    const previewContainer = document.getElementById('questions-preview-container');
+    previewContainer.innerHTML = '';
+    
+    if (data.error) {
+      previewContainer.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+      return;
+    }
+    
+    if (data.questions.length === 0) {
+      previewContainer.innerHTML = '<div class="alert alert-info">No hay preguntas guardadas aún.</div>';
+      return;
+    }
+    
+    data.questions.forEach((question, index) => {
+      const questionHtml = `
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <h5 class="card-title">Pregunta ${index + 1}: ${question.question_text}</h5>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteQuestion(${question.id}, ${courseId})">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+            <p class="card-text"><small>Tipo: ${question.question_type}</small></p>
+            
+            ${question.question_type === 'Texto' ? `
+              <div class="alert alert-secondary">
+                <strong>Respuesta esperada:</strong> ${question.single_answer || 'Sin explicación'}
+              </div>
+            ` : `
+              <ul class="list-group list-group-flush mb-2">
+                ${question.answers.map(answer => `
+                  <li class="list-group-item ${answer.is_correct ? 'list-group-item-success' : ''}">
+                    ${answer.text}
+                    ${answer.is_correct ? ' <span class="badge bg-success">Correcta</span>' : ''}
+                  </li>
+                `).join('')}
+              </ul>
+              ${question.explanation ? `
+                <div class="alert alert-info mt-2">
+                  <strong>Explicación:</strong> ${question.explanation}
+                </div>
+              ` : ''}
+            `}
+          </div>
+        </div>
+      `;
+      previewContainer.insertAdjacentHTML('beforeend', questionHtml);
+    });
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    document.getElementById('questions-preview-container').innerHTML = `
+      <div class="alert alert-danger">Error al cargar las preguntas: ${error.message}</div>
+    `;
+  });
+}
+
+// Función para eliminar una pregunta
+function deleteQuestion(questionId, courseId) {
+  if (!confirm('¿Estás seguro de que deseas eliminar esta pregunta?')) return;
+  
+  fetch(`/eliminar_pregunta/${questionId}/`, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      updateQuestionsPreview(courseId);
+    } else {
+      alert(data.error || 'Error al eliminar la pregunta');
+    }
+  })
+  .catch(error => console.error('Error:', error));
+}
+
+// Modifica tu evento de envío del formulario
+document.getElementById('quiz-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  const courseId = document.getElementById('course-id').value; // Asegúrate de tener este campo oculto
+  
+  fetch('/guardar_pregunta/', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if(data.success) {
+      updateQuestionsPreview(courseId);
+      // Limpiar el formulario
+      this.reset();
+      document.getElementById('answer-options').innerHTML = '';
+      answerCount = 0;
+      // Agregar 2 opciones por defecto
+      addAnswerOption();
+      addAnswerOption();
+    } else {
+      alert(data.error || 'Error al guardar la pregunta');
+    }
+  })
+  .catch(error => console.error('Error:', error));
+});
+
+// Llama a updateQuestionsPreview cuando se muestre el paso 4
+document.querySelectorAll('.step-trigger').forEach(trigger => {
+  trigger.addEventListener('click', function() {
+    if(this.getAttribute('data-step') === '4') {
+      const courseId = document.getElementById('course-id').value;
+      updateQuestionsPreview(courseId);
+    }
+  });
+});
