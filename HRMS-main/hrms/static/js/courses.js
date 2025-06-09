@@ -960,7 +960,7 @@ function getCookie(name) {
 
 // Función para actualizar el preview de preguntas
 function updateQuestionsPreview(courseId) {
-  fetch(`/obtener_preguntas/${courseId}/`, {
+  fetch(`/courses/obtener-preguntas/${courseId}/`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
