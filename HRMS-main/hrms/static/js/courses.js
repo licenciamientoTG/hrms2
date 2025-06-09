@@ -1055,7 +1055,7 @@ document.getElementById('quiz-form').addEventListener('submit', function(e) {
   const formData = new FormData(this);
   const courseId = document.getElementById('course-id').value; // Asegúrate de tener este campo oculto
   
-  fetch('/guardar_pregunta/', {
+fetch('/courses/guardar_pregunta/', {
     method: 'POST',
     body: formData,
     headers: {
