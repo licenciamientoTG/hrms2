@@ -755,9 +755,12 @@ def obtener_preguntas_curso(request, course_id):
         for q in quiz.question_set.all():
             respuestas = list(q.answer_set.values("answer_text", "is_correct"))
             preguntas.append({
-                "text": q.question_text,
-                "type": q.question_type,
-                "answers": respuestas
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "answers": [
+                    {"text": r["answer_text"], "is_correct": r["is_correct"]} for r in respuestas
+                ],
+                "explanation": q.single_answer if q.question_type == "Texto" else ""
             })
 
         return JsonResponse({"questions": preguntas})
