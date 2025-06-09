@@ -595,6 +595,18 @@ function generateSummary() {
             </div>
         </div>
 
+        <!-- Cuestionario -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="mb-0">Cuestionario del curso</h4>
+            </div>
+            <div class="card-body">
+                <div id="questions-preview-container">
+                    <div class="alert alert-info">Cargando preguntas...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Resumen final -->
         <div class="summary-footer mt-4 p-3 bg-light rounded">
             <div class="d-flex justify-content-between align-items-center">
@@ -614,7 +626,26 @@ function generateSummary() {
     if (previewImage && previewImage.src) {
         document.getElementById('summary-preview-image').src = previewImage.src;
     }
+
+    // Obtener preguntas desde el backend y renderizarlas
+    const courseId = document.getElementById('quiz-form-container')?.dataset.courseId;
+    if (courseId) {
+        fetch(`/courses/obtener-preguntas/${courseId}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.questions) {
+                    renderPreguntasEnResumen(data.questions);
+                } else {
+                    renderPreguntasEnResumen([]);
+                }
+            })
+            .catch(err => {
+                document.getElementById("questions-preview-container").innerHTML =
+                    '<div class="alert alert-danger">Error al cargar preguntas.</div>';
+            });
+    }
 }
+
 
 // Función auxiliar para obtener el texto de una opción seleccionada
 function getSelectedOptionText(selectId, value) {
@@ -1061,23 +1092,24 @@ document.querySelectorAll('.step-trigger').forEach(trigger => {
 
 function renderPreguntasEnResumen(questions) {
     const container = document.getElementById("questions-preview-container");
-    if (!container) return;
+    container.innerHTML = "";
 
     if (questions.length === 0) {
-        container.innerHTML = '<div class="alert alert-warning">Aún no se han agregado preguntas al cuestionario.</div>';
+        container.innerHTML = '<div class="alert alert-warning">No se han agregado preguntas al cuestionario.</div>';
         return;
     }
 
-    let html = '<ol class="list-group list-group-numbered">';
-    questions.forEach((q, idx) => {
-        html += `<li class="list-group-item">
-                    <strong>Pregunta ${idx + 1}:</strong> ${q.text}
-                    <ul>`;
-        q.answers.forEach(a => {
-            html += `<li>${a.answer_text} ${a.is_correct ? '(✔️)' : ''}</li>`;
-        });
-        html += `</ul></li>`;
+    questions.forEach((q, i) => {
+        container.innerHTML += `
+        <div class="card mb-2">
+            <div class="card-body">
+                <h5 class="card-title">Pregunta ${i + 1}: ${q.question_text}</h5>
+                <p class="text-muted">Tipo: ${q.question_type}</p>
+                <ul>
+                    ${q.answers.map(a => `<li>${a.text}${a.is_correct ? ' ✅' : ''}</li>`).join("")}
+                </ul>
+                ${q.explanation ? `<div class="mt-2"><strong>Explicación:</strong> ${q.explanation}</div>` : ""}
+            </div>
+        </div>`;
     });
-    html += '</ol>';
-    container.innerHTML = html;
 }
