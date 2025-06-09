@@ -943,10 +943,25 @@ document.getElementById("quiz-form").addEventListener("submit", function (e) {
     body: formData
   })
   .then(response => response.json())
-  .then(data => {
+.then(data => {
+    console.log("→ Tipo:", typeof data.success, "| Valor:", data.success, "| Comparación:", String(data.success).toLowerCase() === "true");
     console.log("Pregunta guardada:", data);
-    // Puedes cerrar el modal y resetear campos aquí
-  })
+
+if (data.success === true || data.success === "true") {
+
+    // ✅ Cerrar el offcanvas programáticamente
+    const offcanvasElement = document.getElementById('quizOffcanvas');
+    // Siempre crear nueva instancia si no existe o si getInstance falla
+    const offcanvasInstance = bootstrap.Offcanvas.getOrCreateInstance(offcanvasElement);
+        offcanvasInstance.hide();
+
+
+    // (Opcional) Limpiar campos si quieres
+    document.getElementById("quiz-form").reset();
+    refreshAnswerOptions();
+    document.getElementById("explanationField").classList.add("d-none");
+  }
+})
   .catch(err => console.error("Error al guardar:", err));
 });
 
