@@ -743,3 +743,23 @@ def eliminar_pregunta(request, question_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+
+def obtener_preguntas_curso(request, course_id):
+    try:
+        quiz = Quiz.objects.filter(course_header_id=course_id).first()
+        if not quiz:
+            return JsonResponse({"questions": []})
+        
+        preguntas = []
+        for q in quiz.question_set.all():
+            respuestas = list(q.answer_set.values("answer_text", "is_correct"))
+            preguntas.append({
+                "text": q.question_text,
+                "type": q.question_type,
+                "answers": respuestas
+            })
+
+        return JsonResponse({"questions": preguntas})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

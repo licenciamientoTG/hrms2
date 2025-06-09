@@ -20,6 +20,8 @@ urlpatterns = [
     path('guardar-pregunta/', views.guardar_pregunta, name='guardar_pregunta'),
     path('obtener_preguntas/<int:course_id>/', views.obtener_preguntas, name='obtener_preguntas'),
     path('eliminar_pregunta/<int:question_id>/', views.eliminar_pregunta, name='eliminar_pregunta'),
+    path('obtener-preguntas/<int:course_id>/', views.obtener_preguntas_curso, name='obtener_preguntas'),
+
 ]
 
 if settings.DEBUG:

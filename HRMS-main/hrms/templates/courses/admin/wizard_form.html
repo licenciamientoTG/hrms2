@@ -211,6 +211,18 @@
                 <!-- Aquí se insertará dinámicamente el resumen -->
             </div>
 
+              <!-- Sección de preguntas del quiz -->
+            <div class="card mt-4">
+                <div class="card-header">
+                <h4 class="mb-0">Cuestionario del curso</h4>
+                </div>
+                <div class="card-body">
+                <div id="questions-preview-container">
+                    <div class="alert alert-info">Cargando preguntas...</div>
+                </div>
+                </div>
+            </div>
+            
             <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
                     {% csrf_token %}

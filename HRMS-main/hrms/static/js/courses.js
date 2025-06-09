@@ -1058,3 +1058,26 @@ document.querySelectorAll('.step-trigger').forEach(trigger => {
     }
   });
 });
+
+function renderPreguntasEnResumen(questions) {
+    const container = document.getElementById("questions-preview-container");
+    if (!container) return;
+
+    if (questions.length === 0) {
+        container.innerHTML = '<div class="alert alert-warning">Aún no se han agregado preguntas al cuestionario.</div>';
+        return;
+    }
+
+    let html = '<ol class="list-group list-group-numbered">';
+    questions.forEach((q, idx) => {
+        html += `<li class="list-group-item">
+                    <strong>Pregunta ${idx + 1}:</strong> ${q.text}
+                    <ul>`;
+        q.answers.forEach(a => {
+            html += `<li>${a.answer_text} ${a.is_correct ? '(✔️)' : ''}</li>`;
+        });
+        html += `</ul></li>`;
+    });
+    html += '</ol>';
+    container.innerHTML = html;
+}
