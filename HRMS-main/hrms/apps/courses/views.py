@@ -645,6 +645,8 @@ def guardar_pregunta(request):
             question_text = request.POST.get("question_text")
             question_type = request.POST.get("question_type")
             explanation = request.POST.get("explanation", "")
+            question_score = int(request.POST.get("question_score", 1))  # valor por defecto = 1
+
 
             # Validación de curso
             course = get_object_or_404(CourseHeader, id=course_id)
@@ -661,7 +663,9 @@ def guardar_pregunta(request):
                 question_type=question_type,
                 question_text=question_text,
                 single_answer=explanation if question_type == "Texto" else None,
-                explanation=explanation  # 🔁 guardamos la explicación
+                explanation=explanation,  # 🔁 guardamos la explicación
+                score=question_score  # <--- este es el nuevo campo
+
 
             )
 

@@ -228,13 +228,14 @@
 <div class="offcanvas offcanvas-end rounded-start-5" tabindex="-1" id="quizOffcanvas" aria-labelledby="quizOffcanvasLabel">
   <div class="offcanvas-header">
     <h5 class="offcanvas-title" id="quizOffcanvasLabel">Agregar pregunta</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
   </div>
   <div class="offcanvas-body">
     <div id="quiz-form-container" data-course-id="{{ course.id }}">
         <form id="quiz-form">
             <input type="hidden" id="course-id" name="course_id" value="{{ course.id }}">
         <div class="mb-3">
+            <label for="question_score" class="form-label">Puntaje</label>
+            <input type="number" name="question_score" class="form-control w-25" min="1" value="1" required>
             <label class="form-label">Tipo de pregunta</label>
             <select class="form-select" name="question_type">
             <option>Respuesta única</option>

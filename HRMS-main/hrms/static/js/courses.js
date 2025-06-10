@@ -1135,7 +1135,4 @@ function renderPreguntasEnResumen(questions) {
     `;
     container.insertAdjacentHTML('beforeend', questionHtml);
     });
-
 }
-
-

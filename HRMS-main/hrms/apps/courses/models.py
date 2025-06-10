@@ -218,6 +218,10 @@ class Question(models.Model):
         help_text="Explicación de la respuesta (opcional).",
         verbose_name="Explicación"
     )
+    score = models.PositiveIntegerField(
+        default=1, help_text="Puntaje que vale esta pregunta"
+    )
+    
     single_answer = models.TextField(
         null=True, blank=True,
         help_text="Respuesta única en caso de ser de tipo 'Texto'.",
@@ -259,6 +263,40 @@ class Answer(models.Model):
 
     def __str__(self):
         return self.answer_text
+    
+    
+class QuizConfig(models.Model):
+    quiz = models.OneToOneField(
+        'Quiz',
+        on_delete=models.CASCADE,
+        related_name='config',
+        verbose_name="Cuestionario"
+    )
+    passing_score = models.PositiveIntegerField(
+        default=60, 
+        help_text="Porcentaje mínimo para aprobar (0-100)"
+    )
+    max_attempts = models.PositiveIntegerField(
+        null=True, 
+        blank=True, 
+        help_text="Número máximo de intentos (en blanco = sin límite)"
+    )
+    time_limit_minutes = models.PositiveIntegerField(
+        null=True, 
+        blank=True, 
+        help_text="Límite de tiempo en minutos (opcional)"
+    )
+    show_correct_answers = models.BooleanField(
+        default=True,
+        help_text="Mostrar respuestas correctas al finalizar"
+    )
+
+    class Meta:
+        verbose_name = "Configuración del Cuestionario"
+        verbose_name_plural = "Configuraciones de Cuestionarios"
+
+    def __str__(self):
+        return f"Configuración de '{self.quiz.title}'"
 
 class EnrolledCourse(models.Model):
     """
