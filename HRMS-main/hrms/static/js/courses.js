@@ -877,25 +877,28 @@ let answerCount = 0;
 function addAnswerOption(inputType) {
   if (!inputType) {
     const selectedType = document.querySelector("select[name='question_type']").value;
-    inputType = selectedType === "Respuesta múltiple" ? "checkbox" : "radio";
+    inputType = selectedType === "Respuesta Múltiple" ? "checkbox" : "radio";
   }
-  const container = document.getElementById("answer-options");
 
+  const container = document.getElementById("answer-options");
   const optionId = `option-${answerCount}`;
+
   const html = `
     <div class="input-group mb-2" id="${optionId}">
-      <input type="text" class="form-control" name="answers[]" placeholder="Opción ${answerCount + 1}">
+      <input type="text" class="form-control" name="answers[${answerCount}][text]" placeholder="Opción ${answerCount + 1}">
       <div class="input-group-text">
-        <input type="${inputType}" name="correct_answer" value="${answerCount}" class="form-check-input mt-0">
+        <input type="${inputType}" name="answers[${answerCount}][correct]" class="form-check-input mt-0">
       </div>
       <button class="btn btn-outline-danger" type="button" onclick="removeAnswerOption('${optionId}')">
         <i class="fa fa-trash"></i>
       </button>
     </div>
   `;
+
   container.insertAdjacentHTML("beforeend", html);
   answerCount++;
 }
+
 
 function removeAnswerOption(id) {
   document.getElementById(id)?.remove();
@@ -956,6 +959,27 @@ function getCookie(name) {
     }
   }
   return cookieValue;
+}
+
+// Función para eliminar una pregunta
+function deleteQuestion(questionId, courseId) {
+  if (!confirm('¿Estás seguro de que deseas eliminar esta pregunta?')) return;
+  
+  fetch(`/courses/eliminar_pregunta/${questionId}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      updateQuestionsPreview(courseId);
+    } else {
+      alert(data.error || 'Error al eliminar la pregunta');
+    }
+  })
+  .catch(error => console.error('Error:', error));
 }
 
 // Función para actualizar el preview de preguntas
@@ -1027,26 +1051,6 @@ function updateQuestionsPreview(courseId) {
   });
 }
 
-// Función para eliminar una pregunta
-function deleteQuestion(questionId, courseId) {
-  if (!confirm('¿Estás seguro de que deseas eliminar esta pregunta?')) return;
-  
-  fetch(`/eliminar_pregunta/${questionId}/`, {
-    method: 'DELETE',
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      updateQuestionsPreview(courseId);
-    } else {
-      alert(data.error || 'Error al eliminar la pregunta');
-    }
-  })
-  .catch(error => console.error('Error:', error));
-}
 
 // Modifica tu evento de envío del formulario
 document.getElementById('quiz-form').addEventListener('submit', function(e) {
