@@ -210,7 +210,57 @@
             <div id="summary-container">
                 <!-- Aquí se insertará dinámicamente el resumen -->
             </div>
+            <div class="card mt-4">
+  <div class="card-header">
+    <h5 class="mb-0">Configuración del cuestionario</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label for="min_score" class="form-label">Porcentaje mínimo para aprobar</label>
+        <select name="min_score" id="min_score" class="form-select">
+          <option value="50">50%</option>
+          <option value="60" selected>60%</option>
+          <option value="70">70%</option>
+          <option value="80">80%</option>
+          <option value="90">90%</option>
+          <option value="100">100%</option>
+        </select>
+      </div>
 
+      <div class="col-md-6 mb-3">
+        <label for="max_attempts" class="form-label">Cantidad máxima de intentos</label>
+        <select name="max_attempts" id="max_attempts" class="form-select">
+          <option value="">Sin límite</option>
+          <option value="1">1 intento</option>
+          <option value="2">2 intentos</option>
+          <option value="3">3 intentos</option>
+          <option value="5">5 intentos</option>
+        </select>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="time_limit" class="form-label">Límite de tiempo</label>
+        <select name="time_limit" id="time_limit" class="form-select">
+          <option value="">Sin límite</option>
+          <option value="300">5 minutos</option>
+          <option value="600">10 minutos</option>
+          <option value="900">15 minutos</option>
+          <option value="1800">30 minutos</option>
+          <option value="3600">1 hora</option>
+        </select>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="show_correct_answers" class="form-label">Mostrar respuestas correctas</label>
+        <select name="show_correct_answers" id="show_correct_answers" class="form-select">
+          <option value="true" selected>Sí</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
 
             <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
