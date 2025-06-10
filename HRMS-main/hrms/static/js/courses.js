@@ -783,7 +783,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const minScore = document.getElementById("min_score")?.value || "60";
         const maxAttempts = document.getElementById("max_attempts")?.value || "";
         const timeLimit = document.getElementById("time_limit")?.value || "";
-        const showCorrect = document.getElementById("show_correct_answers")?.value || "true";
+        const showCorrect = document.getElementById("show_correct_answers")?.checked ? "true" : "false";
 
         // ✅ Agregar al FormData
         formData.append("min_score", minScore);

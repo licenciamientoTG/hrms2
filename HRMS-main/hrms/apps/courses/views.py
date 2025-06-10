@@ -339,12 +339,11 @@ def save_course_ajax(request):
                 description="Generado automáticamente"
             )
 
-            # 🔹 5.2 Guardar configuración del Quiz (si existe en step2)
-            quiz_config = step2_data.get("quiz_config", {})
-            passing_score = int(quiz_config.get("passing_score", 60))
-            max_attempts = quiz_config.get("max_attempts") or None
-            time_limit_minutes = quiz_config.get("time_limit_minutes") or None
-            show_correct = quiz_config.get("show_correct_answers") in ["true", True, "on"]
+            passing_score = int(request.POST.get("min_score", 60))
+            max_attempts = request.POST.get("max_attempts") or None
+            time_limit_minutes = request.POST.get("time_limit") or None
+            show_correct = request.POST.get("show_correct_answers") in ["true", "on", True]
+
 
             QuizConfig.objects.update_or_create(
                 quiz=quiz,
