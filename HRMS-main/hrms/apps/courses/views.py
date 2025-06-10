@@ -11,7 +11,7 @@ from formtools.wizard.views import SessionWizardView
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
-from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer
+from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizConfig
 import json
 from datetime import timedelta, datetime, timezone
 from departments.models import Department
@@ -330,6 +330,30 @@ def save_course_ajax(request):
                 audience=step2_data.get("audience"),
                 certification=step2_data.get("certification") == "on",
                 requires_signature=step2_data.get("requires_signature") == "on"
+            )
+
+            # 🔹 5.1 Crear Quiz para el curso
+            quiz = Quiz.objects.create(
+                course_header=course,
+                title="Cuestionario del curso",
+                description="Generado automáticamente"
+            )
+
+            # 🔹 5.2 Guardar configuración del Quiz (si existe en step2)
+            quiz_config = step2_data.get("quiz_config", {})
+            passing_score = int(quiz_config.get("passing_score", 60))
+            max_attempts = quiz_config.get("max_attempts") or None
+            time_limit_minutes = quiz_config.get("time_limit_minutes") or None
+            show_correct = quiz_config.get("show_correct_answers") in ["true", True, "on"]
+
+            QuizConfig.objects.update_or_create(
+                quiz=quiz,
+                defaults={
+                    "passing_score": passing_score,
+                    "max_attempts": int(max_attempts) if max_attempts else None,
+                    "time_limit_minutes": int(time_limit_minutes) if time_limit_minutes else None,
+                    "show_correct_answers": show_correct
+                }
             )
 
             # 🔹 6. Guardar módulos y lecciones

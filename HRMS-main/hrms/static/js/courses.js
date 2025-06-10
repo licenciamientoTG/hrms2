@@ -753,11 +753,13 @@ document.addEventListener("DOMContentLoaded", function () {
         // 💾 Actualizar localStorage con los índices correctos
         localStorage.setItem("modules", JSON.stringify(modules));
 
+        
         // 📦 Crear FormData
         let formData = new FormData();
         formData.append("step1", JSON.stringify(step1));
         formData.append("step2", JSON.stringify(step2));
         formData.append("modules", JSON.stringify(modules));
+        
 
         // 🖼️ Imagen del curso
         let portraitInput = document.getElementById("id_portrait");
@@ -776,6 +778,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             });
         });
+
+        // 🧩 Configuración del cuestionario (capturada desde inputs/selects del paso 4)
+        const minScore = document.getElementById("min_score")?.value || "60";
+        const maxAttempts = document.getElementById("max_attempts")?.value || "";
+        const timeLimit = document.getElementById("time_limit")?.value || "";
+        const showCorrect = document.getElementById("show_correct_answers")?.value || "true";
+
+        // ✅ Agregar al FormData
+        formData.append("min_score", minScore);
+        formData.append("max_attempts", maxAttempts);
+        formData.append("time_limit", timeLimit);
+        formData.append("show_correct_answers", showCorrect);
 
         // 🚀 Enviar al backend
         fetch("/courses/api/save-course/", {
