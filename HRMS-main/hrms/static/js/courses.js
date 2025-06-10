@@ -877,28 +877,27 @@ let answerCount = 0;
 function addAnswerOption(inputType) {
   if (!inputType) {
     const selectedType = document.querySelector("select[name='question_type']").value;
-    inputType = selectedType === "Respuesta Múltiple" ? "checkbox" : "radio";
+    inputType = selectedType === "Respuesta múltiple" ? "checkbox" : "radio";
   }
-
   const container = document.getElementById("answer-options");
-  const optionId = `option-${answerCount}`;
 
+  const optionId = `option-${answerCount}`;
   const html = `
     <div class="input-group mb-2" id="${optionId}">
       <input type="text" class="form-control" name="answers[${answerCount}][text]" placeholder="Opción ${answerCount + 1}">
+
       <div class="input-group-text">
-        <input type="${inputType}" name="answers[${answerCount}][correct]" class="form-check-input mt-0">
+        <input type="${inputType}" name="answers[${answerCount}][correct] value="${answerCount}" class="form-check-input mt-0">
+
       </div>
       <button class="btn btn-outline-danger" type="button" onclick="removeAnswerOption('${optionId}')">
         <i class="fa fa-trash"></i>
       </button>
     </div>
   `;
-
   container.insertAdjacentHTML("beforeend", html);
   answerCount++;
 }
-
 
 function removeAnswerOption(id) {
   document.getElementById(id)?.remove();
@@ -1104,18 +1103,39 @@ function renderPreguntasEnResumen(questions) {
     }
 
     questions.forEach((q, i) => {
-        container.innerHTML += `
-        <div class="card mb-2">
-            <div class="card-body">
-                <h5 class="card-title">Pregunta ${i + 1}: ${q.question_text}</h5>
-                <p class="text-muted">Tipo: ${q.question_type}</p>
-                <ul>
-                    ${q.answers.map(a => `<li>${a.text}${a.is_correct ? ' ✅' : ''}</li>`).join("")}
-                </ul>
-                ${q.explanation ? `<div class="mt-2"><strong>Explicación:</strong> ${q.explanation}</div>` : ""}
+    const questionHtml = `
+        <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+            <h5 class="card-title">Pregunta ${i + 1}: ${q.question_text}</h5>
             </div>
-        </div>`;
+            <p class="card-text"><small>Tipo: ${q.question_type}</small></p>
+
+            ${q.question_type === 'Texto' ? `
+            <div class="alert alert-secondary">
+                <strong>Respuesta esperada:</strong> ${q.single_answer || 'Sin explicación'}
+            </div>
+            ` : `
+            <ul class="list-group list-group-flush mb-2">
+                ${q.answers.map(a => `
+                <li class="list-group-item ${a.is_correct ? 'list-group-item-success' : ''}">
+                    ${a.text}
+                    ${a.is_correct ? ' <span class="badge bg-success">Correcta</span>' : ''}
+                </li>
+                `).join('')}
+            </ul>
+            ${q.explanation ? `
+                <div class="alert alert-info mt-2">
+                <strong>Explicación:</strong> ${q.explanation}
+                </div>
+            ` : ''}
+            `}
+        </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', questionHtml);
     });
+
 }
 
 
