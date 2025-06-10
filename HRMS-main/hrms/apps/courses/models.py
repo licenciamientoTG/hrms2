@@ -213,6 +213,11 @@ class Question(models.Model):
         help_text="Texto de la pregunta.",
         verbose_name="Pregunta"
     )
+    explanation = models.TextField(
+        null=True, blank=True,
+        help_text="Explicación de la respuesta (opcional).",
+        verbose_name="Explicación"
+    )
     single_answer = models.TextField(
         null=True, blank=True,
         help_text="Respuesta única en caso de ser de tipo 'Texto'.",

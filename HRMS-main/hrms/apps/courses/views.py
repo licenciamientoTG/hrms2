@@ -660,7 +660,9 @@ def guardar_pregunta(request):
                 quiz=quiz,
                 question_type=question_type,
                 question_text=question_text,
-                single_answer=explanation if question_type == "Texto" else None
+                single_answer=explanation if question_type == "Texto" else None,
+                explanation=explanation  # 🔁 guardamos la explicación
+
             )
 
             # Procesar respuestas dinámicamente
