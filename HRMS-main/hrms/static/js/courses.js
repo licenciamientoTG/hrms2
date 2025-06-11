@@ -327,20 +327,33 @@ function saveModule(moduleElement) {
         newModule.classList.add("module-form", "border", "p-3", "mb-3");
         newModule.setAttribute("data-module-id", moduleData.id);
     
-        newModule.innerHTML = `
-            <h4>Módulo</h4>
-            <div class="mb-3">
-                <label class="form-label">Título del Módulo:</label>
-                <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData.title}" required>
+    newModule.innerHTML = `
+        <div class="card shadow-sm border-start border-primary border-4 mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-primary mb-0">🧩 Módulo</h5>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Título del Módulo:</label>
+                    <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Descripción:</label>
+                    <textarea class="form-control module-description" name="module_description[]" rows="3" required>${moduleData?.description || ''}</textarea>
+                </div>
+                <div class="lesson-container mt-4"></div>
+                <div class="d-flex justify-content-between mt-3">
+                    <button type="button" class="btn btn-outline-success add-lesson">
+                        <i class="fa-solid fa-plus"></i> Agregar Lección
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm save-module">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Módulo
+                    </button>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Descripción:</label>
-                <textarea class="form-control module-description" name="module_description[]" rows="3" required>${moduleData.description}</textarea>
-            </div>
-            <button type="button" class="btn btn-outline-success add-lesson">Agregar Lección</button>
-            <div class="lesson-container mt-3"></div>
-            <button type="button" class="btn btn-primary btn-sm save-module mt-3">Guardar Módulo</button>
-        `;
+        </div>
+    `;
+
     
         // Reemplazar el módulo en el DOM
         moduleElement.replaceWith(newModule);
@@ -379,31 +392,40 @@ function addLesson(lessonContainer, lessonData = null) {
     newLesson.setAttribute("data-lesson-id", lessonId);
 
     newLesson.innerHTML = `
-        <div class="mb-3">
-            <label class="form-label">Título de la Lección:</label>
-            <input type="text" class="form-control lesson-title" name="lesson_title[]" value="${lessonData?.title || ''}" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Tipo de Lección:</label>
-            <select class="form-control lesson-type" name="lesson_type[]" required>
-                <option value="Video" ${lessonData?.type === "Video" ? "selected" : ""}>Video</option>
-                <option value="Lectura" ${lessonData?.type === "Lectura" ? "selected" : ""}>Lectura</option>
-                <option value="Artículo" ${lessonData?.type === "Artículo" ? "selected" : ""}>Artículo</option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Descripción:</label>
-            <textarea class="form-control lesson-description" name="lesson_description[]" rows="3" required>${lessonData?.description || ''}</textarea>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Recurso (Opcional):</label>
-            <input type="file" class="form-control lesson-resource" name="lesson_resource[]" accept=".pdf,.docx,.pptx,.mp4">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">URL de Video (YouTube, opcional):</label>
-            <input type="url" class="form-control lesson-video-url" name="lesson_video_url[]" placeholder="https://www.youtube.com/watch?v=..." value="${lessonData?.video_url || ''}">
+        <div class="card bg-light border-0 shadow-sm rounded mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-dark mb-0">📚 Lección</h6>
+
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Título de la Lección:</label>
+                    <input type="text" class="form-control lesson-title" name="lesson_title[]" value="${lessonData?.title || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tipo de Lección:</label>
+                    <select class="form-select lesson-type" name="lesson_type[]" required>
+                        <option value="Video" ${lessonData?.type === "Video" ? "selected" : ""}>Video</option>
+                        <option value="Lectura" ${lessonData?.type === "Lectura" ? "selected" : ""}>Lectura</option>
+                        <option value="Artículo" ${lessonData?.type === "Artículo" ? "selected" : ""}>Artículo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción:</label>
+                    <textarea class="form-control lesson-description" name="lesson_description[]" rows="3" required>${lessonData?.description || ''}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Recurso (opcional):</label>
+                    <input type="file" class="form-control lesson-resource" name="lesson_resource[]" accept=".pdf,.docx,.pptx,.mp4">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">URL de Video (YouTube, opcional):</label>
+                    <input type="url" class="form-control lesson-video-url" name="lesson_video_url[]" placeholder="https://www.youtube.com/watch?v=..." value="${lessonData?.video_url || ''}">
+                </div>
+            </div>
         </div>
     `;
+
 
 
 
