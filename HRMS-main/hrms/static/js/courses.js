@@ -298,8 +298,6 @@ function saveModule(moduleElement) {
     renderModuleCard(moduleElement, moduleData);
 }
 
-
-
     // 📌 Función para renderizar un módulo como una card
     function renderModuleCard(moduleElement, moduleData) {
         moduleElement.innerHTML = `
@@ -405,17 +403,9 @@ function addLesson(lessonContainer, lessonData = null) {
             <label class="form-label">URL de Video (YouTube, opcional):</label>
             <input type="url" class="form-control lesson-video-url" name="lesson_video_url[]" placeholder="https://www.youtube.com/watch?v=..." value="${lessonData?.video_url || ''}">
         </div>
-        <button type="button" class="btn btn-danger btn-sm remove-lesson">Eliminar Lección</button>
     `;
 
-    // Evento para eliminar
-    newLesson.querySelector(".remove-lesson").addEventListener("click", function () {
-        Swal.fire({ /* ... */ }).then(result => {
-            if (result.isConfirmed) {
-                removeLesson(newLesson);
-            }
-        });
-    });
+
 
     lessonContainer.appendChild(newLesson);
 }
@@ -1142,3 +1132,4 @@ function renderPreguntasEnResumen(questions) {
     container.insertAdjacentHTML('beforeend', questionHtml);
     });
 }
+

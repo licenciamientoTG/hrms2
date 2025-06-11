@@ -764,3 +764,4 @@ def obtener_preguntas_curso(request, course_id):
         return JsonResponse({"questions": preguntas})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
