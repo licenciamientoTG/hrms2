@@ -525,12 +525,16 @@ def run_assignments(request, course_id):
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
+    course_quiz = Quiz.objects.filter(course_header=course).first()
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
+
 
     return render(request, 'courses/user/view_course.html', {
         'course': course,
         'modules': modules,
-        'enrolled': enrolled
+        'enrolled': enrolled,
+        'course_quiz': course_quiz,
+
     })
 
 
@@ -765,3 +769,85 @@ def obtener_preguntas_curso(request, course_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+@login_required
+def submit_course_quiz(request, course_id):
+    if request.method == 'POST':
+        try:
+            course = get_object_or_404(CourseHeader, id=course_id)
+            user = request.user
+            course_quiz = get_object_or_404(Quiz, course_header=course)
+            quiz_config = getattr(course_quiz, 'config', None) # Obtener la configuración del quiz
+            
+            score = 0
+            total_score_possible = 0 # Para calcular el porcentaje basado en el puntaje total posible
+            
+            # Recopila y califica las respuestas
+            for question in course_quiz.question_set.all():
+                total_score_possible += question.score # Suma el puntaje máximo de cada pregunta
+                
+                # Obtén las respuestas del usuario para esta pregunta
+                user_answers_submitted = request.POST.getlist(f'question_{question.id}')
+
+                if question.question_type == 'Respuesta Unica':
+                    if user_answers_submitted: # Solo debe haber una si se usa radio
+                        selected_choice_id = int(user_answers_submitted[0])
+                        try:
+                            selected_choice = Answer.objects.get(id=selected_choice_id, question=question)
+                            if selected_choice.is_correct:
+                                score += question.score
+                        except Answer.DoesNotExist:
+                            pass # La opción seleccionada no existe para esta pregunta
+                    
+                elif question.question_type == 'Respuesta Multiple':
+                    # Obtén las IDs de las respuestas correctas para esta pregunta
+                    correct_answer_ids = set(Answer.objects.filter(question=question, is_correct=True).values_list('id', flat=True))
+                    
+                    # Convierte las respuestas enviadas por el usuario a un set de enteros
+                    submitted_answer_ids = set(int(ans_id) for ans_id in user_answers_submitted)
+
+                    # Si todas las respuestas correctas fueron seleccionadas y solo esas
+                    if correct_answer_ids == submitted_answer_ids and correct_answer_ids:
+                        score += question.score
+
+                elif question.question_type == 'Texto':
+                    text_answer = request.POST.get(f'question_{question.id}', '').strip()
+                    # Aquí la lógica para calificar preguntas de texto es más compleja.
+                    # Por simplicidad, comparamos directamente con `single_answer` si existe.
+                    # En un caso real, esto podría requerir revisión manual o algoritmos de coincidencia.
+                    if question.single_answer and text_answer.lower() == question.single_answer.lower():
+                        score += question.score
+            
+            percentage_score = (score / total_score_possible) * 100 if total_score_possible > 0 else 0
+
+            # --- Lógica para guardar el resultado del quiz del usuario ---
+            # Puedes actualizar el `EnrolledCourse` o crear un nuevo modelo para registrar el intento de quiz
+            # Ejemplo: Actualizar el progreso en EnrolledCourse (o un campo de "calificación del quiz")
+            enrolled_course = get_object_or_404(EnrolledCourse, user=user, course=course)
+            
+            # Puedes decidir cómo almacenar el puntaje del quiz.
+            # Por ejemplo, si añades un campo `quiz_score` a EnrolledCourse, o si creas un modelo `UserQuizAttempt`.
+
+            # Si quieres que el curso se marque como completado automáticamente si aprueba el quiz final:
+            if quiz_config and percentage_score >= quiz_config.passing_score:
+                enrolled_course.status = 'completed'
+                enrolled_course.completed_at = timezone.now()
+                enrolled_course.progress = 100.00 # Asume 100% al aprobar el quiz final
+                enrolled_course.save()
+                message = "¡Cuestionario aprobado y curso completado!"
+            else:
+                message = f"Cuestionario enviado. Necesitas un {quiz_config.passing_score}% para aprobar." if quiz_config else "Cuestionario enviado."
+                # Aquí podrías manejar los reintentos si `max_attempts` está configurado.
+                # enrolled_course.status = 'failed' o 'in_progress'
+                # enrolled_course.save()
+
+
+            return JsonResponse({'success': True, 'message': message, 'score': score, 'percentage_score': percentage_score})
+
+        except ObjectDoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Curso o Cuestionario no encontrado.'}, status=404)
+        except Exception as e:
+            import traceback
+            print(f"Error al procesar el cuestionario: {e}")
+            print(traceback.format_exc()) # Imprime el stack trace completo
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)

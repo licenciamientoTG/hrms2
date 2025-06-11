@@ -614,7 +614,6 @@ function generateSummary() {
             </div>
             <div class="card-body">
                 <div id="questions-preview-container">
-                    <div class="alert alert-info">Cargando preguntas...</div>
                 </div>
             </div>
         </div>

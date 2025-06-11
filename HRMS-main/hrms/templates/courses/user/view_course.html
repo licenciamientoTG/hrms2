@@ -68,6 +68,61 @@
     <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
 {% endfor %}
 
+<p>Quiz ID en template: {{ course_quiz.id }}</p>
+{# Sección para el Cuestionario del Curso #}
+{% if course_quiz %}
+    <div class="card mb-4 shadow border-0" id="quiz-section">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0">{{ course_quiz.title }}</h4>
+            <p class="mb-0">{{ course_quiz.description }}</p>
+        </div>
+        <div class="card-body">
+            <form id="course-quiz-form" method="post" action="{% url 'submit_course_quiz' course.id %}">
+                {% csrf_token %}
+                {% for question in course_quiz.question_set.all %}
+                    <div class="card mb-3 bg-light border-secondary">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+                            {% if question.question_type == 'Respuesta Unica' %}
+                                {% for answer in question.answer_set.all %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                                        <label class="form-check-label" for="answer_{{ answer.id }}">
+                                            {{ answer.answer_text }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            {% elif question.question_type == 'Respuesta Multiple' %}
+                                {% for answer in question.answer_set.all %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                                        <label class="form-check-label" for="answer_{{ answer.id }}">
+                                            {{ answer.answer_text }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            {% elif question.question_type == 'Texto' %}
+                                <div class="form-group">
+                                    <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta aquí..." required></textarea>
+                                </div>
+                            {% else %}
+                                <p class="text-danger">Tipo de pregunta no soportado para el usuario.</p>
+                            {% endif %}
+                            {% if question.explanation %}
+                                <p class="text-muted mt-2 small">Explicación: {{ question.explanation }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="alert alert-info">Este cuestionario aún no tiene preguntas.</div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">Enviar Cuestionario</button>
+            </form>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-info mt-4">Este curso no tiene un cuestionario final asociado.</div>
+{% endif %}
 
 <div class="text-center mt-5">
     <button onclick="window.history.back()" class="btn btn-outline-secondary btn-lg px-5">
@@ -85,6 +140,56 @@
 
 {% block scripts %}
 <script>
+
+// Función para manejar el envío del formulario del cuestionario (con AJAX)
+document.addEventListener('DOMContentLoaded', function() {
+    const quizForm = document.getElementById('course-quiz-form');
+    if (quizForm) {
+        quizForm.addEventListener('submit', function(event) {
+            event.preventDefault(); // Previene el envío normal del formulario
+
+            const formData = new FormData(quizForm); // Recopila todos los datos del formulario
+            const courseId = {{ course.id }}; // Obtén el ID del curso de la plantilla
+
+            fetch(`/courses/submit_course_quiz/${courseId}/`, { // Usa la URL correcta para tu vista de envío
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': quizForm.querySelector('[name=csrfmiddlewaretoken]').value // Asegúrate de enviar el token CSRF
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Cuestionario Enviado!',
+                        html: `Tu puntaje: **${data.score}** puntos. <br> Porcentaje: **${data.percentage_score.toFixed(2)}%** <br> Estado: **${data.message}**`,
+                        confirmButtonText: 'Ok'
+                    });
+                    // Aquí puedes añadir lógica adicional, como deshabilitar el formulario,
+                    // mostrar resultados detallados, o redirigir al usuario.
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al enviar',
+                        text: 'Hubo un problema al procesar tus respuestas.',
+                        confirmButtonText: 'Cerrar'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error al enviar el cuestionario:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo enviar el cuestionario. Por favor, inténtalo de nuevo.',
+                    confirmButtonText: 'Cerrar'
+                });
+            });
+        });
+    }
+});
 function markLessonCompleted(lessonId) {
     alert("Simulando marcar como completada la lección " + lessonId);
     // Aquí puedes implementar lógica AJAX para marcar como completado
