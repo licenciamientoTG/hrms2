@@ -630,23 +630,10 @@ function generateSummary() {
         document.getElementById('summary-preview-image').src = previewImage.src;
     }
 
-    // Obtener preguntas desde el backend y renderizarlas
-    const courseId = document.getElementById('quiz-form-container')?.dataset.courseId;
-    if (courseId) {
-        fetch(`/courses/obtener-preguntas/${courseId}/`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.questions) {
-                    renderPreguntasEnResumen(data.questions);
-                } else {
-                    renderPreguntasEnResumen([]);
-                }
-            })
-            .catch(err => {
-                document.getElementById("questions-preview-container").innerHTML =
-                    '<div class="alert alert-danger">Error al cargar preguntas.</div>';
-            });
-    }
+    // Obtener preguntas desde localStorage y renderizarlas
+    const storedQuestions = JSON.parse(localStorage.getItem("quiz_questions")) || [];
+    renderPreguntasEnResumen(storedQuestions);
+
 }
 
 
@@ -787,12 +774,14 @@ document.addEventListener("DOMContentLoaded", function () {
         const maxAttempts = document.getElementById("max_attempts")?.value || "";
         const timeLimit = document.getElementById("time_limit")?.value || "";
         const showCorrect = document.getElementById("show_correct_answers")?.checked ? "true" : "false";
+        const quizQuestions = JSON.parse(localStorage.getItem("quizquestions") || "[]");
 
         // ✅ Agregar al FormData
         formData.append("min_score", minScore);
         formData.append("max_attempts", maxAttempts);
         formData.append("time_limit", timeLimit);
         formData.append("show_correct_answers", showCorrect);
+        formData.append("quiz_questions", JSON.stringify(quizQuestions));
 
         // 🚀 Enviar al backend
         fetch("/courses/api/save-course/", {
@@ -816,8 +805,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     timer: 2000,
                     showConfirmButton: false
                 });
+                
+                /////////////////localStorage.clear();
 
-                localStorage.clear();
                 setTimeout(() => {
                     window.location.href = "/courses/course_wizard";
                 }, 2000);
@@ -1073,34 +1063,52 @@ function updateQuestionsPreview(courseId) {
 // Modifica tu evento de envío del formulario
 document.getElementById('quiz-form').addEventListener('submit', function(e) {
   e.preventDefault();
-  
-  const formData = new FormData(this);
-  const courseId = document.getElementById('course-id').value; // Asegúrate de tener este campo oculto
-  
-fetch('/courses/guardar_pregunta/', {
-    method: 'POST',
-    body: formData,
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
+
+  const questionType = document.querySelector("select[name='question_type']").value;
+  const questionText = document.querySelector("textarea[name='question_text']").value;
+  const explanation = document.querySelector("textarea[name='explanation']")?.value || "";
+  const score = parseInt(document.querySelector("input[name='question_score']")?.value || 1);
+
+  const answers = [];
+  document.querySelectorAll("#answer-options .input-group").forEach((group, i) => {
+    const textInput = group.querySelector(`input[name^='answers']`);
+    const correctInput = group.querySelector("input[type='checkbox'], input[type='radio']");
+    const text = textInput?.value?.trim();
+    const isCorrect = correctInput?.checked || false;
+
+    if (text) {
+      answers.push({ text, is_correct: isCorrect });
     }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if(data.success) {
-      updateQuestionsPreview(courseId);
-      // Limpiar el formulario
-      this.reset();
-      document.getElementById('answer-options').innerHTML = '';
-      answerCount = 0;
-      // Agregar 2 opciones por defecto
-      addAnswerOption();
-      addAnswerOption();
-    } else {
-      alert(data.error || 'Error al guardar la pregunta');
-    }
-  })
-  .catch(error => console.error('Error:', error));
+  });
+
+  if (!questionText || answers.length === 0) {
+    alert("Debes ingresar una pregunta y al menos una respuesta.");
+    return;
+  }
+
+  const question = {
+    question_text: questionText,
+    question_type: questionType,
+    explanation: explanation,
+    score: score,
+    answers: answers
+  };
+
+  // Guardar en localStorage
+  const existing = JSON.parse(localStorage.getItem("quiz_questions") || "[]");
+  existing.push(question);
+  localStorage.setItem("quiz_questions", JSON.stringify(existing));
+
+  // Renderizar en resumen (si ya está visible)
+  renderPreguntasEnResumen(existing);
+
+  // Limpiar el formulario
+  this.reset();
+  document.getElementById("answer-options").innerHTML = "";
+  addAnswerOption();
+  addAnswerOption();
 });
+
 
 // Llama a updateQuestionsPreview cuando se muestre el paso 4
 document.querySelectorAll('.step-trigger').forEach(trigger => {

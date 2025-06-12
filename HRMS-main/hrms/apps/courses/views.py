@@ -355,6 +355,31 @@ def save_course_ajax(request):
                 }
             )
 
+            # 🔹 5.2 Guardar preguntas del cuestionario desde localStorage
+            quiz_questions_raw = request.POST.get("quiz_questions", "[]")
+            try:
+                quiz_questions = json.loads(quiz_questions_raw)
+            except json.JSONDecodeError:
+                quiz_questions = []
+
+            for q in quiz_questions:
+                question = Question.objects.create(
+                    quiz=quiz,
+                    question_type=q.get("question_type"),
+                    question_text=q.get("question_text"),
+                    explanation=q.get("explanation", ""),
+                    score=q.get("score", 1),
+                    single_answer=q.get("single_answer", "") if q.get("question_type") == "Texto" else None
+                )
+
+                for answer in q.get("answers", []):
+                    Answer.objects.create(
+                        question=question,
+                        answer_text=answer.get("text"),
+                        is_correct=answer.get("is_correct", False)
+                    )
+
+
             # 🔹 6. Guardar módulos y lecciones
             if not isinstance(modules_data, list):
                 return JsonResponse({"status": "error", "message": "Los módulos deben estar en una lista."}, status=400)
@@ -395,10 +420,12 @@ def save_course_ajax(request):
                         resource=resource_file  # ✅ Esto guardará el archivo en media/lessons/
                     )
 
+            return JsonResponse({
+                "status": "success",
+                "message": "Curso guardado correctamente.",
+                "course_id": course.id  # 👈 Agrega esto
+            })
 
-
-
-            return JsonResponse({"status": "success", "message": "Curso guardado correctamente."})
 
         except json.JSONDecodeError:
             return JsonResponse({"status": "error", "message": "Error al procesar los datos JSON."}, status=400)
@@ -526,6 +553,8 @@ def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
     course_quiz = Quiz.objects.filter(course_header=course).first()
+
+    # return HttpResponse(course_quiz)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
 
 
@@ -682,17 +711,27 @@ def guardar_pregunta(request):
             quiz = get_object_or_404(Quiz, course_header=course)
 
 
-            # Crear la pregunta
-            question = Question.objects.create(
-                quiz=quiz,
-                question_type=question_type,
-                question_text=question_text,
-                single_answer=explanation if question_type == "Texto" else None,
-                explanation=explanation,  # 🔁 guardamos la explicación
-                score=question_score  # <--- este es el nuevo campo
+            # 🔹 5.2 Guardar preguntas desde el localStorage
+            quiz_questions_raw = request.POST.get("quiz_questions", "[]")
+            quiz_questions = json.loads(quiz_questions_raw)
+
+            for q in quiz_questions:
+                question = Question.objects.create(
+                    quiz=quiz,
+                    question_text=q.get("question_text"),
+                    question_type=q.get("question_type"),
+                    explanation=q.get("explanation", ""),
+                    score=q.get("score", 1)
+                )
+
+                for ans in q.get("answers", []):
+                    Answer.objects.create(
+                        question=question,
+                        answer_text=ans.get("text"),
+                        is_correct=ans.get("is_correct", False)
+                    )
 
 
-            )
 
             # Procesar respuestas dinámicamente
             answer_prefix = "answers["

@@ -187,8 +187,8 @@ class Quiz(models.Model):
         verbose_name = "Cuestionario"
         verbose_name_plural = "Cuestionarios"
 
-    def __str__(self):
-        return self.title
+    def __int__(self):
+        return self.id
 
 
 class Question(models.Model):
