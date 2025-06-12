@@ -806,7 +806,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     showConfirmButton: false
                 });
                 
-                /////////////////localStorage.clear();
+                localStorage.clear();
 
                 setTimeout(() => {
                     window.location.href = "/courses/course_wizard";
