@@ -774,7 +774,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const maxAttempts = document.getElementById("max_attempts")?.value || "";
         const timeLimit = document.getElementById("time_limit")?.value || "";
         const showCorrect = document.getElementById("show_correct_answers")?.checked ? "true" : "false";
-        const quizQuestions = JSON.parse(localStorage.getItem("quizquestions") || "[]");
+        const quizQuestions = JSON.parse(localStorage.getItem("quiz_questions") || "[]");
 
         // ✅ Agregar al FormData
         formData.append("min_score", minScore);
@@ -1093,6 +1093,12 @@ document.getElementById('quiz-form').addEventListener('submit', function(e) {
     score: score,
     answers: answers
   };
+
+    // ⬅️ Agrega esto solo si es tipo texto:
+    if (questionType === "Texto") {
+    const singleAnswer = answers.find(a => a.is_correct)?.text || "";
+    question.single_answer = singleAnswer;
+    }
 
   // Guardar en localStorage
   const existing = JSON.parse(localStorage.getItem("quiz_questions") || "[]");

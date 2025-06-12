@@ -279,6 +279,7 @@ def save_course_ajax(request):
             step2_raw = request.POST.get("step2", "{}")
             modules_raw = request.POST.get("modules", "[]")
             portrait_file = request.FILES.get("portrait")
+            quiz_questions_raw = request.POST.get("quiz_questions", "[]")
 
             step1_data = json.loads(step1_raw)
             step2_data = json.loads(step2_raw)
@@ -356,7 +357,6 @@ def save_course_ajax(request):
             )
 
             # 🔹 5.2 Guardar preguntas del cuestionario desde localStorage
-            quiz_questions_raw = request.POST.get("quiz_questions", "[]")
             try:
                 quiz_questions = json.loads(quiz_questions_raw)
             except json.JSONDecodeError:
