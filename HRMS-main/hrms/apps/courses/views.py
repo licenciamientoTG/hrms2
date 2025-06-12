@@ -679,10 +679,8 @@ def guardar_pregunta(request):
             course = get_object_or_404(CourseHeader, id=course_id)
 
             # Obtener o crear el quiz automáticamente
-            quiz, _ = Quiz.objects.get_or_create(
-                course_header=course,
-                defaults={"title": "Cuestionario automático", "description": "Generado desde el formulario"}
-            )
+            quiz = get_object_or_404(Quiz, course_header=course)
+
 
             # Crear la pregunta
             question = Question.objects.create(

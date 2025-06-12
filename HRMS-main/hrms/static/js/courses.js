@@ -807,6 +807,8 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("✅ Respuesta del servidor:", data);
 
             if (data.status === "success") {
+                localStorage.setItem("currentCourseId", data.course_id);
+
                 Swal.fire({
                     icon: "success",
                     title: "¡Guardado!",
