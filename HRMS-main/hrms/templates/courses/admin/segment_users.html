@@ -449,9 +449,11 @@ function clearStorageAndRedirect() {
                 sessionStorage.setItem("segment-cleared", "1");
                 localStorage.clear();
 
+                
                 setTimeout(() => {
                     window.location.href = data.redirect_url || "{% url 'course_wizard' %}";
                 }, 2000); // Espera a que se muestre la alerta
+                
             } else {
                 Swal.fire('Error', data.error || 'Error desconocido', 'error');
             }

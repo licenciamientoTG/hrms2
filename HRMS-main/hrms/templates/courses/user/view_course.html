@@ -13,116 +13,142 @@
     <span class="badge bg-primary fs-6 px-3 py-2">Duración: {{ course.duration }} hrs</span>
 </div>
 
-
-{% for module in modules %}
-    <div class="card mb-4 shadow border-0">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">{{ module.title }}</h5>
-        </div>
-        <div class="card-body">
-            <p class="text-muted">{{ module.description }}</p>
-            <div class="list-group list-group-flush mt-3">
-                {% for lesson in module.lesson_set.all %}
-                    <div class="list-group-item mb-3">
-                        <div class="d-flex flex-column">
-                            <div>
-                                <h6 class="mb-1">{{ lesson.title }}</h6>
-                                <span class="badge bg-info text-dark">{{ lesson.lesson_type }}</span>
-                                <p class="text-muted mt-2">{{ lesson.description }}</p>
+<div class="accordion" id="modulesAccordion">
+    {% for module in modules %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-{{ module.id }}">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#collapse-{{ module.id }}"
+                        aria-expanded="false"
+                        aria-controls="collapse-{{ module.id }}">
+                    {{ module.title }}
+                </button>
+            </h2>
+            <div id="collapse-{{ module.id }}" class="accordion-collapse collapse"
+                 aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
+                <div class="accordion-body">
+                    <p class="text-muted">{{ module.description }}</p>
+                    <div class="list-group list-group-flush mt-3">
+                        {% for lesson in module.lesson_set.all %}
+                            <div class="list-group-item mb-3">
+                                <div class="d-flex flex-column">
+                                    <div>
+                                        <h6 class="mb-1">{{ lesson.title }}</h6>
+                                        <p class="text-muted mt-2">{{ lesson.description }}</p>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if lesson.video_url %}
+                                            <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary mb-1 w-100">
+                                                <i class="fa-solid fa-video"></i> Video
+                                            </a><br>
+                                        {% endif %}
+                                        {% if lesson.resource %}
+                                            {% if ".mp4" in lesson.resource.url|lower or ".webm" in lesson.resource.url|lower %}
+                                                <video controls width="100%" class="mb-3 rounded-5 shadow">
+                                                    <source src="{{ lesson.resource.url }}" type="video/mp4">
+                                                </video>
+                                            {% elif ".pdf" in lesson.resource.url|lower %}
+                                                <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
+                                            {% elif ".ppt" in lesson.resource.url|lower or ".pptx" in lesson.resource.url|lower %}
+                                                <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
+                                            {% else %}
+                                                <a href="{{ lesson.resource.url }}" download class="btn btn-outline-secondary w-100 mb-2">
+                                                    <i class="fa-solid fa-download"></i> Descargar recurso
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-success w-100" onclick="markLessonCompleted({{ lesson.id }})">
+                                            <i class="fa-solid fa-check"></i> Completar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="text-end">
-                                {% if lesson.video_url %}
-                                    <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary mb-1 w-100">
-                                        <i class="fa-solid fa-video"></i> Video
-                                    </a><br>
-                                {% endif %}
-                                {% if lesson.resource %}
-                                    {% if ".mp4" in lesson.resource.url|lower or ".webm" in lesson.resource.url|lower %}
-                                        <video controls width="100%" class="mb-3 rounded-5 shadow">
-                                            <source src="{{ lesson.resource.url }}" type="video/mp4">
-                                        </video>
-                                    {% elif ".pdf" in lesson.resource.url|lower %}
-                                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
-                                    {% elif ".ppt" in lesson.resource.url|lower or ".pptx" in lesson.resource.url|lower %}
-                                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
-                                    {% else %}
-                                        <a href="{{ lesson.resource.url }}" download class="btn btn-outline-secondary w-100 mb-2">
-                                            <i class="fa-solid fa-download"></i> Descargar recurso
-                                        </a>
-                                    {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
+    {% endfor %}
+</div>
+
+
+{% if course_quiz %}
+    <div class="alert alert-info mt-4">
+        Este curso incluye un cuestionario final. Asegúrate de completarlo al finalizar el curso.
+    </div>
+{% else %}
+    <div class="alert alert-warning mt-4">
+        Este curso no tiene un cuestionario final asociado.
+    </div>
+{% endif %}
+
+{# Sección para el Cuestionario del Curso #}
+{% if course_quiz %}
+<div class="accordion mb-4" id="quizAccordion">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="quizHeading">
+            <button class="accordion-button collapsed bg-secondary text-white" type="button" data-bs-toggle="collapse" data-bs-target="#quizCollapse" aria-expanded="false" aria-controls="quizCollapse">
+                {{ course_quiz.title }} — Cuestionario Final
+            </button>
+        </h2>
+        <div id="quizCollapse" class="accordion-collapse collapse" aria-labelledby="quizHeading" data-bs-parent="#quizAccordion">
+            <div class="accordion-body">
+                <p>{{ course_quiz.description }}</p>
+                <form id="course-quiz-form" method="post" action="{% url 'submit_course_quiz' course.id %}">
+                    {% csrf_token %}
+                    {% for question in course_quiz.question_set.all %}
+                        <div class="card mb-3 bg-light border-secondary">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+
+                                {% if question.question_type %}
+                                    {% for answer in question.answer_set.all %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                                            <label class="form-check-label" for="answer_{{ answer.id }}">
+                                                {{ answer.answer_text }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+
+                                {% elif question.question_type == 'Respuesta Multiple' %}
+                                    {% for answer in question.answer_set.all %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                                            <label class="form-check-label" for="answer_{{ answer.id }}">
+                                                {{ answer.answer_text }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+
+                                {% elif question.question_type == 'Texto' %}
+                                    <div class="form-group">
+                                        <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta aquí..." required></textarea>
+                                    </div>
+
+                                {% else %}
+                                    <p class="text-danger">Tipo de pregunta no soportado para el usuario.</p>
                                 {% endif %}
 
-                                <button class="btn btn-sm btn-success w-100" onclick="markLessonCompleted({{ lesson.id }})">
-                                    <i class="fa-solid fa-check"></i> Completar
-                                </button>
+                                {% if question.explanation %}
+                                    <p class="text-muted mt-2 small">Explicación: {{ question.explanation }}</p>
+                                {% endif %}
                             </div>
                         </div>
-                    </div>
-                {% endfor %}
+                    {% empty %}
+                        <div class="alert alert-info">Este cuestionario aún no tiene preguntas.</div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">Enviar Cuestionario</button>
+                </form>
             </div>
         </div>
     </div>
-
-
-{% empty %}
-    <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
-{% endfor %}
-
-<p>Quiz ID en template: {{ course_quiz.id }}</p>
-{# Sección para el Cuestionario del Curso #}
-{% if course_quiz %}
-    <div class="card mb-4 shadow border-0" id="quiz-section">
-        <div class="card-header bg-secondary text-white">
-            <h4 class="mb-0">{{ course_quiz.title }}</h4>
-            <p class="mb-0">{{ course_quiz.description }}</p>
-        </div>
-        <div class="card-body">
-            <form id="course-quiz-form" method="post" action="{% url 'submit_course_quiz' course.id %}">
-                {% csrf_token %}
-                {% for question in course_quiz.question_set.all %}
-                    <div class="card mb-3 bg-light border-secondary">
-                        <div class="card-body">
-                            <h6 class="card-title mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
-                            {% if question.question_type == 'Respuesta Unica' %}
-                                {% for answer in question.answer_set.all %}
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
-                                        <label class="form-check-label" for="answer_{{ answer.id }}">
-                                            {{ answer.answer_text }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            {% elif question.question_type == 'Respuesta Multiple' %}
-                                {% for answer in question.answer_set.all %}
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
-                                        <label class="form-check-label" for="answer_{{ answer.id }}">
-                                            {{ answer.answer_text }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            {% elif question.question_type == 'Texto' %}
-                                <div class="form-group">
-                                    <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta aquí..." required></textarea>
-                                </div>
-                            {% else %}
-                                <p class="text-danger">Tipo de pregunta no soportado para el usuario.</p>
-                            {% endif %}
-                            {% if question.explanation %}
-                                <p class="text-muted mt-2 small">Explicación: {{ question.explanation }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% empty %}
-                    <div class="alert alert-info">Este cuestionario aún no tiene preguntas.</div>
-                {% endfor %}
-                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">Enviar Cuestionario</button>
-            </form>
-        </div>
-    </div>
-{% else %}
-    <div class="alert alert-info mt-4">Este curso no tiene un cuestionario final asociado.</div>
+</div>
 {% endif %}
+
 
 <div class="text-center mt-5">
     <button onclick="window.history.back()" class="btn btn-outline-secondary btn-lg px-5">

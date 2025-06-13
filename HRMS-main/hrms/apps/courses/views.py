@@ -534,7 +534,8 @@ def run_assignments(request, course_id):
             return JsonResponse({
                 'success': True,
                 'message': 'Asignación guardada correctamente.',
-                'redirect_url': '/courses/course_wizard/'
+                'redirect_url': '/courses/course_wizard/',
+                'has_users': True
             })
 
         except json.JSONDecodeError:
