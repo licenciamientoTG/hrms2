@@ -780,7 +780,6 @@ def guardar_pregunta(request):
 
     return JsonResponse({"success": False, "message": "Método no permitido"}, status=405)
 
-
 @staff_member_required
 @csrf_protect
 def eliminar_pregunta(request, question_id):
