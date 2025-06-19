@@ -838,6 +838,7 @@ def submit_course_quiz(request, course_id):
                     'message': f'Has alcanzado el máximo de {config.max_attempts} intentos permitidos para este cuestionario.'
                 }, status=403)
 
+
     except CourseHeader.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Curso no encontrado'}, status=404)
 
