@@ -1,0 +1,286 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Cursos{% endblock %}
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1>Mis cursos</h1>
+</div>
+    <div class="row">
+        <div class="col-12 d-flex">
+            <div class="w-100">
+                <div class="row">
+                    <div class="col-3">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="all" style="cursor: pointer;">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title"> Total de cursos</h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-primary">
+                                            <i class="fa-solid fa-book align-middle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ totalcursos }}</h1>
+ 
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12 filtro-card border-2 shadow rounded-4" data-estado="asignado" style="cursor: pointer;">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos asignados </h5>
+                                    </div>
+                                    
+                                    <div class="col-auto">
+                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
+                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ assigned_courses_count }}</h1>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado=" activo" style="cursor: pointer;">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos activos</h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
+                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
+                                        </div>
+                                    </div>                                    
+                                </div>
+                                <h1 class="mt-1 mb-3">{{in_progress_courses_count}}</h1>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="col-3">
+                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="inactivo" style="cursor: pointer;">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col mt-0">
+                                        <h5 class="card-title">Cursos inactivos</h5>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
+                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ inactive_courses_count }}</h1>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<div class="row">
+  <div class="col-12">
+    <div class="row">
+        <div class="d-flex gap-2 flex-wrap mb-3">
+            <input type="text" id="filtroResumenCursos" class="form-control w-auto" placeholder="Buscar por nombre...">
+        </div>
+       {% for course in courses|dictsortreversed:"created_at" %}
+            <div class="col-md-4 mb-4 course-card"
+            
+                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %} inactivo {% else %} activo{% endif %}">
+
+                <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
+                    <a href="{% url 'view_course_content' course.id %}" class="text-decoration-none text-dark">
+                        {% if course.portrait %}
+                            <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
+                        {% else %}
+                            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 140px;">
+                                <i class="fa-solid fa-graduation-cap fa-3x text-secondary"></i>
+                            </div>
+                        {% endif %}
+
+                        <div class="card-body d-flex flex-column">
+
+                            <h6 class="card-title text-truncate">{{ course.title }}</h6>
+
+                            <div class="mb-2 d-flex justify-content-between align-items-center">
+                                <!-- Estado del curso -->
+                                {% if course.deadline_date %}
+                                    {% if course.deadline_date <= today %}
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">No definido</span>
+                                {% endif %}
+
+                                <!-- Estado de cuestionario 
+                                {% if course.id in completed_quiz_ids %}
+                                    <span class="badge bg-primary">Finalizado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% endif %}-->
+                            </div>
+
+                            <hr style="height: 6px; background-color:rgb(156, 156, 156); border: none; border-radius: 3px;">
+
+                            <small class="text-muted">
+                                Inicio: {{ course.created_at|date:"j M Y" }}<br>
+                                {% if course.deadline_date %}
+                                    Fin: {{ course.deadline_date|date:"j M Y" }}
+                                {% else %}
+                                    Sin vencimiento
+                                {% endif %}
+                            </small>
+
+                            <!-- 🏷️ Etiqueta si es público para todos los usuarios -->
+                            {% if course.config.audience == "all_users" or course.id in courses_with_all_users_assignment %}
+                                    <span class="badge bg-primary mb-1">Público</span>
+                                {% else %}
+                                    <span class="badge bg-success mb-1">Para tí</span>
+                            {% endif %} 
+                        </div>
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+  </div>
+</div>
+<div id="pagination" class="d-flex justify-content-center mt-3"></div>
+
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/courses.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $('.table').DataTable({
+            "paging": true,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "responsive": true,
+            "pageLength": 10,
+            "lengthMenu": [
+                [5, 10, 25, 50, -1],
+                [5, 10, 25, 50, "Todos"]
+            ],
+            "language": {
+                "lengthMenu": "Mostrar _MENU_ entradas por página",  // Cambia el texto de "entries per page"
+                "zeroRecords": "No se encontraron resultados",
+                "info": "Mostrando página _PAGE_ de _PAGES_",
+                "infoEmpty": "No hay registros disponibles",
+                "infoFiltered": "(filtrado de _MAX_ registros totales)"
+            }
+        });
+    });
+
+document.addEventListener("DOMContentLoaded", function () {
+    const filtroInput = document.getElementById("filtroResumenCursos");
+    const estadoBtns = document.querySelectorAll(".filtro-card");
+    const asignacionBtns = document.querySelectorAll(".filtro-asignacion");
+    const pagination = document.getElementById("pagination");
+    const cards = document.querySelectorAll(".course-card");
+    const itemsPerPage = 6;
+
+    let filtroTexto = "";
+    let filtroEstado = "all";
+    let filtroAsignado = "todos";
+    let currentPage = 1;
+
+    function applyFilters() {
+        let visibles = [];
+
+        cards.forEach(card => {
+            const title = card.querySelector(".card-title").textContent.toLowerCase();
+            const estado = card.dataset.estado; // activo, inactivo
+            const asignado = card.dataset.asignado;
+
+            const matchTexto = title.includes(filtroTexto);
+            const matchEstado = (filtroEstado === "all" || estado.includes(filtroEstado));
+            const matchAsignado = (filtroAsignado === "todos" || asignado === filtroAsignado);
+
+            if (matchTexto && matchEstado && matchAsignado) {
+                visibles.push(card);
+            }
+
+            card.style.display = "none";
+        });
+
+        renderPage(visibles, currentPage);
+        renderPagination(visibles);
+    }
+
+    function renderPage(cardsFiltradas, page) {
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+
+        cardsFiltradas.forEach((card, i) => {
+            card.style.display = (i >= start && i < end) ? "" : "none";
+        });
+    }
+
+    function renderPagination(cardsFiltradas) {
+        const totalPages = Math.ceil(cardsFiltradas.length / itemsPerPage);
+        pagination.innerHTML = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement("button");
+            btn.className = `btn btn-sm mx-1 ${i === currentPage ? "btn-primary" : "btn-outline-primary"}`;
+            btn.textContent = i;
+            btn.addEventListener("click", () => {
+                currentPage = i;
+                renderPage(cardsFiltradas, i);
+                renderPagination(cardsFiltradas); // ✅ esto es lo que faltaba
+
+            });
+            pagination.appendChild(btn);
+        }
+    }
+
+    filtroInput.addEventListener("input", function () {
+        filtroTexto = this.value.toLowerCase();
+        currentPage = 1;
+        applyFilters();
+    });
+
+    const estadoCards = document.querySelectorAll(".filtro-card");
+
+estadoCards.forEach(card => {
+    card.addEventListener("click", function () {
+        filtroEstado = this.dataset.estado;
+
+        // Quitar estilo activo de todas
+        estadoCards.forEach(c => c.classList.remove("border-primary", "shadow"));
+
+        // Agregar estilo activo a la tarjeta clicada
+        this.classList.add("border-primary", "shadow");
+
+        currentPage = 1;
+        applyFilters();
+    });
+});
+
+
+    applyFilters();
+});
+
+
+</script>
+
+{% endblock %}

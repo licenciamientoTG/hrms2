@@ -1,0 +1,20 @@
+# Archivos de Python
+*.pyc
+__pycache__/
+
+# Base de datos local
+*.sqlite3
+
+# Entorno virtual
+HRMS-main/vhrms/Lib/
+HRMS-main/vhrms/Scripts/
+HRMS-main/vhrms/include/
+HRMS-main/vhrms/pyvenv.cfg
+
+# VS Code settings
+.vscode/
+
+# Binarios de Windows
+*.exe
+*.bat
+*.dll

@@ -1,0 +1,136 @@
+    {% load static %}
+    <head>   
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+        <style>
+            #sidebar,
+            #sidebar .sidebar-content {
+            background-color: #1197D5 !important;
+            }
+        </style>
+    </head>
+    
+    
+    <nav id="sidebar" class="sidebar js-sidebar">
+        <div class="sidebar-content js-simplebar">
+            <a class="sidebar-brand" href="{% url 'home' %}">
+                <img src="{% static "template/img/logos/ISOLOGO.png" %}" class="avatar img-fluid rounded me-1" alt="Logo" style="width: 300px; height: auto; ">
+            </a>
+
+            <ul class="sidebar-nav">
+                <li class="sidebar-header">
+                    Apartados
+                </li>
+
+            {% if user.is_superuser %}
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'user_dashboard' %}">
+                        <i class="fa-solid fa-user"></i></i><span class="align-middle">Generar usuarios</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'news_list' %}">
+                        <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
+                        <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'request_form' %}">
+                        <i class="fa-brands fa-wpforms"></i><span class="align-middle">Formularios y trámites</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'vacation_request' %}">
+                        <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'performance_review' %}">
+                        <i class="fa-solid fa-chart-line"></i> <span class="align-middle">Evaluación de desempeño</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'objective_dashboard' %}">
+                        <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'org_chart' %}">
+                        <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
+                        <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
+                    </a>
+                </li>
+            {% endif %}
+
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'course_wizard' %}">
+                        <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
+                    </a>
+                </li>
+
+            {% if user.is_superuser %}
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
+                        <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
+                        <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'document_dashboard' %}">
+                        <i class="fa-solid fa-folder-open"></i><span class="align-middle">Mis documentos</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">
+                        <i class="fa-solid fa-briefcase"></i><span class="align-middle">Vacantes</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'policies_dashboard' %}">
+                        <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
+                    </a>
+                </li>
+                
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
+                        <i class="fa-solid fa-road"></i> <span class="align-middle">Plan de carrera</span>
+                    </a>
+                </li>
+
+                </li>
+
+                <li class="sidebar-header">
+                    Catálogos
+                </li>
+
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url "department_list" %}">
+                    <i class="align-middle" data-feather="square"></i> <span class="align-middle">Departamentos</span>
+                    </a>
+                </li> 
+            {% endif %}
+        </div>
+    </nav>

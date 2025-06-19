@@ -1,0 +1,331 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Contenido del curso{% endblock %}
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div>
+        <h1 class="mb-1">{{ course.title }}</h1>
+        <p class="text-muted">{{ course.description }}</p>
+    </div>
+    <span class="badge bg-primary fs-6 px-3 py-2">Duración: {{ course.duration }} hrs</span>
+</div>
+<div class="progress mt-3">
+  <div class="progress-bar" id="courseProgressBar" style="width: 0%;">0%</div>
+</div><br>
+
+<div class="accordion" id="modulesAccordion">
+    {% for module in modules %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-{{ module.id }}">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#collapse-{{ module.id }}"
+                        aria-expanded="false"
+                        aria-controls="collapse-{{ module.id }}">
+                    {{ module.title }}
+                </button>
+            </h2>
+            <div id="collapse-{{ module.id }}" class="accordion-collapse collapse"
+                 aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
+                <div class="accordion-body">
+                    <p class="text-muted">{{ module.description }}</p>
+                    <div class="list-group list-group-flush mt-3">
+                        {% for lesson in module.lesson_set.all %}
+                            <div class="list-group-item mb-3">
+                                <div class="d-flex flex-column">
+                                    <div>
+                                        <h6 class="mb-1">{{ lesson.title }}</h6>
+
+                                        {% if lesson.resource %}
+                                            {% with lesson.resource.url|lower as res_url %}
+                                                {% if ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
+                                                    <img src="{{ lesson.resource.url }}" alt="Imagen de la lección" class="img-fluid rounded mb-3 shadow-sm"
+                                                        style="width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto;">
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% endif %}
+
+                                        <p class="text-muted mt-2">{{ lesson.description }}</p>
+
+                                    </div>
+                                    <div class="text-end">
+                                        {% if lesson.video_url %}
+                                            <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary mb-1 w-100">
+                                                <i class="fa-solid fa-video"></i> Video
+                                            </a><br>
+                                        {% endif %}
+                                            {% if lesson.resource %}
+                                                {% with lesson.resource.url|lower as res_url %}
+                                                    {% if ".mp4" in res_url or ".webm" in res_url %}
+                                                        <video controls width="100%" class="mb-3 rounded-5 shadow">
+                                                            <source src="{{ lesson.resource.url }}" type="video/mp4">
+                                                        </video>
+                                                    {% elif ".pdf" in res_url %}
+                                                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
+                                                    {% elif ".ppt" in res_url or ".pptx" in res_url %}
+                                                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}"
+                                                                width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
+                                                    {% elif not ".jpg" in res_url and not ".jpeg" in res_url and not ".png" in res_url and not ".gif" in res_url and not ".webp" in res_url %}
+                                                        <a href="{{ lesson.resource.url }}" download class="btn btn-outline-secondary w-100 mb-2">
+                                                            <i class="fa-solid fa-download"></i> Descargar recurso
+                                                        </a>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        <button class="btn btn-outline-primary btn-sm mark-complete" data-lesson-id="{{ lesson.id }}">Marcar como vista</button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div> 
+        </div>
+    {% empty %}
+        <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
+    {% endfor %}
+</div>
+
+
+{% if course_quiz %}
+    <div class="alert alert-info mt-4">
+        Este curso incluye un cuestionario final. Asegúrate de completarlo al finalizar el curso.
+    </div>
+{% else %}
+    <div class="alert alert-warning mt-4">
+        Este curso no tiene un cuestionario final asociado.
+    </div>
+{% endif %}
+
+{# Sección para el Cuestionario del Curso #}
+{% if course_quiz %}
+<div id="quizSectionWrapper" class="mt-4 d-none">
+    <div class="accordion mb-4" id="quizAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="quizHeading">
+                <button class="accordion-button collapsed bg-secondary text-white" type="button" data-bs-toggle="collapse" data-bs-target="#quizCollapse" aria-expanded="false" aria-controls="quizCollapse">
+                    {{ course_quiz.title }} — Cuestionario Final
+                </button>
+            </h2>
+            <div id="quizCollapse" class="accordion-collapse collapse" aria-labelledby="quizHeading" data-bs-parent="#quizAccordion">
+                <div class="accordion-body">
+                    <p>{{ course_quiz.description }}</p>
+                    <form id="course-quiz-form" method="post" action="{% url 'submit_course_quiz' course.id %}">
+                        {% csrf_token %}
+                        {% for question in course_quiz.question_set.all %}
+                            <div class="card mb-3 bg-light border-secondary">
+                                <div class="card-body">
+                                    <h6 class="card-title mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+
+                                    {% if question.question_type %}
+                                        {% for answer in question.answer_set.all %}
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                                                <label class="form-check-label" for="answer_{{ answer.id }}">
+                                                    {{ answer.answer_text }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+
+                                    {% elif question.question_type == 'Respuesta Multiple' %}
+                                        {% for answer in question.answer_set.all %}
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                                                <label class="form-check-label" for="answer_{{ answer.id }}">
+                                                    {{ answer.answer_text }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+
+                                    {% elif question.question_type == 'Texto' %}
+                                        <div class="form-group">
+                                            <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta aquí..." required></textarea>
+                                        </div>
+
+                                    {% else %}
+                                        <p class="text-danger">Tipo de pregunta no soportado para el usuario.</p>
+                                    {% endif %}
+
+                                    {% if question.explanation %}
+                                        <p class="text-muted mt-2 small">Explicación: {{ question.explanation }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="alert alert-info">Este cuestionario aún no tiene preguntas.</div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-4"
+                            {% if attempts_left is not None and attempts_left <= 0 %}disabled{% endif %}>
+                            Enviar Cuestionario
+                        </button>
+                        {% if attempts_left is not None and attempts_left <= 0 %}
+                            <div class="alert alert-danger text-center">
+                                Has agotado el número máximo de intentos permitidos para este cuestionario.
+                            </div>
+                        {% elif attempts_left is not None %}
+                            <div class="alert alert-warning text-center">
+                                Intentos restantes: <strong>{{ attempts_left }}</strong>
+                            </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<div class="text-center mt-5">
+    <button onclick="clearProgressAndGoBack()" class="btn btn-outline-secondary btn-lg px-5">
+        <i class="fa-solid fa-arrow-left"></i> Regresar
+    </button>
+</div>
+
+
+
+
+{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/courses.css' %}">
+{% endblock %}
+
+{% block scripts %}
+
+<script src="{% static 'js/courses.js' %}"></script>
+
+<script>
+document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("mark-complete")) {
+        const lessonId = e.target.getAttribute("data-lesson-id");
+        let completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+
+        if (!completedLessons.includes(lessonId)) {
+            completedLessons.push(lessonId);
+            localStorage.setItem("completedLessons", JSON.stringify(completedLessons));
+        }
+
+        e.target.classList.add("btn-success");
+        e.target.classList.remove("btn-outline-primary");
+        e.target.textContent = "Vista";
+        checkIfCourseIsComplete(); // ⬅️ Nuevo
+        updateProgressBar();  
+    }
+});
+
+
+
+// Función para manejar el envío del formulario del cuestionario (con AJAX)
+document.addEventListener('DOMContentLoaded', function() {
+    const quizForm = document.getElementById('course-quiz-form');
+    if (quizForm) {
+        quizForm.addEventListener('submit', function(event) {
+            event.preventDefault(); // Previene el envío normal del formulario
+            updateProgressBar();
+
+            const formData = new FormData(quizForm); // Recopila todos los datos del formulario
+            const courseId = {{ course.id }}; // Obtén el ID del curso de la plantilla
+
+            fetch(`/courses/submit_course_quiz/${courseId}/`, { // Usa la URL correcta para tu vista de envío
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': quizForm.querySelector('[name=csrfmiddlewaretoken]').value // Asegúrate de enviar el token CSRF
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '{{course.title|escapejs}}<br>¡Cuestionario Enviado!',
+                        html: `Respuestas correctas: ${data.score} <br> Porcentaje: ${data.percentage_score.toFixed(2)}% <br> Estado: ${data.message}`,
+                        confirmButtonText: 'Ok'
+                        }).then(() => {
+                            // ✅ Borrar progreso del curso (localStorage) y regresar
+                            localStorage.removeItem("completedLessons"); // o localStorage.clear() si quieres todo
+                            window.location.href = "{% url 'course_wizard' %}";
+                    });
+                    // Aquí puedes añadir lógica adicional, como deshabilitar el formulario,
+                    // mostrar resultados detallados, o redirigir al usuario.
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al enviar',
+                        text: 'Hubo un problema al procesar tus respuestas.',
+                        confirmButtonText: 'Cerrar'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error al enviar el cuestionario:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo enviar el cuestionario. Por favor, inténtalo de nuevo.',
+                    confirmButtonText: 'Cerrar'
+                });
+            });
+        });
+    }
+});
+
+
+function checkIfCourseIsComplete() {
+    const allLessons = document.querySelectorAll("[data-lesson-id]");
+    const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+    const total = allLessons.length;
+    const completed = completedLessons.length;
+
+    const quizWrapper = document.getElementById("quizSectionWrapper");
+    const alert = document.getElementById("quizLockedAlert");
+
+    const allCompleted = total > 0 && completed === total;
+
+    if (allCompleted) {
+        if (quizWrapper) quizWrapper.classList.remove("d-none");
+        if (alert) alert.classList.add("d-none");
+    } else {
+        if (quizWrapper) quizWrapper.classList.add("d-none");
+        if (alert) alert.classList.remove("d-none");
+    }
+}
+
+
+function updateProgressBar() {
+    const allLessons = document.querySelectorAll("[data-lesson-id]");
+    const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+    const total = allLessons.length;
+    const completed = completedLessons.length;
+    const percent = total ? Math.round((completed / total) * 100) : 0;
+
+    const bar = document.getElementById("courseProgressBar");
+    bar.style.width = `${percent}%`;
+    bar.textContent = `${percent}%`;
+}
+
+function updateProgressBar() {
+    const allLessons = document.querySelectorAll("[data-lesson-id]");
+    const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+    const total = allLessons.length;
+    const completed = completedLessons.length;
+    const percent = total ? Math.round((completed / total) * 100) : 0;
+
+    const bar = document.getElementById("courseProgressBar");
+    bar.style.width = `${percent}%`;
+    bar.textContent = `${percent}%`;
+}
+
+function clearProgressAndGoBack() {
+    // Borrar solo el progreso del curso
+    localStorage.removeItem("completedLessons");
+
+    window.location.href = "{% url 'course_wizard' %}";
+}
+
+</script>
+{% endblock %}

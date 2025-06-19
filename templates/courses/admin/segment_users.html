@@ -1,0 +1,468 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Segmentar usuarios{% endblock %}
+
+{% block content %}
+<h1>Segmentación de usuarios para el curso: <strong>{{ course.title }}</strong></h1>
+
+<form action="{% url 'process_assignments' %}" method="POST" id="form-assignation">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+            <h3>Asignar curso a:</h3>
+            <button type="button" id="selectedCount" class="btn btn-outline-info btn-sm">
+                0 seleccionados
+            </button>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="userSelection" id="allUsers" value="all" checked>
+            <label class="form-check-label" for="allUsers">Todos los usuarios</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="userSelection" id="segmentUsers" value="segment">
+            <label class="form-check-label" for="segmentUsers">Segmentar</label>
+        </div>
+    </div>
+
+    <div class="card d-none" id="segmentationCard">
+        <div class="card-body">
+            <!-- Tabs -->
+            <div class="d-flex align-items-start">
+                <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <button class="nav-link active" id="v-pills-user-tab" data-bs-toggle="pill" data-bs-target="#v-pills-user" type="button">Usuario</button>
+                    <button class="nav-link" id="v-pills-department-tab" data-bs-toggle="pill" data-bs-target="#v-pills-department" type="button">Departamento</button>
+                    <button class="nav-link" id="v-pills-position-tab" data-bs-toggle="pill" data-bs-target="#v-pills-position" type="button">Posición</button>
+                    <button class="nav-link" id="v-pills-location-tab" data-bs-toggle="pill" data-bs-target="#v-pills-location" type="button">Ubicación</button>
+                </div>
+
+                <div class="tab-content w-100" id="v-pills-tabContent">
+
+                    <!-- Departamento -->
+                    <div class="tab-pane fade" id="v-pills-department" role="tabpanel" aria-labelledby="v-pills-department-tab" tabindex="0">
+                        <input type="text" class="form-control mb-3" placeholder="Buscar departamento..." onkeyup="filterItems(this, 'department')">
+                        <div class="mb-3 row">
+                            <div class="col-12">
+                                <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
+                                    {% for department in departments %}
+                                    <div class="col-6 mb-2 filter-item" data-filter="{{ department.name|lower }}">
+                                        <input type="checkbox" class="btn-check" id="dept{{ department.id }}" name="departments" value="{{ department.id }}" autocomplete="off">
+                                        <label class="btn btn-outline-primary w-100 py-2" for="dept{{ department.id }}">{{ department.name }}</label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usuario -->
+                    <div class="tab-pane fade show active w-100" id="v-pills-user" role="tabpanel" aria-labelledby="v-pills-user-tab" tabindex="0">
+                        <div class="mb-3 row">
+                            <div class="col-12">
+                                <input type="text" class="form-control mb-3" placeholder="Buscar usuario..." onkeyup="filterItems(this, 'user')">
+                                    <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
+                                    {% for employee in employees %}
+                                    <div class="col-6 mb-2 filter-item user-item {% if forloop.counter > 8 %}d-none extra-user{% endif %}" data-filter="{{ employee.first_name|lower }} {{ employee.last_name|lower }}">
+                                        <input type="checkbox" class="btn-check" 
+                                            id="user{{ employee.id }}" 
+                                            name="users" 
+                                            value="{{ employee.user.id }}" 
+                                            data-department="{{ employee.department.id }}" 
+                                            data-job-position="{{ employee.job_position.id }}"  
+                                            data-station="{{ employee.station.id }}"  
+                                            autocomplete="off">
+                                        <label class="btn btn-outline-primary w-100 py-2" for="user{{ employee.id }}">
+                                            {{ employee.first_name }} {{ employee.last_name }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Posición -->
+                    <div class="tab-pane fade" id="v-pills-position" role="tabpanel" aria-labelledby="v-pills-position-tab" tabindex="0">
+                        <div class="mb-3 row">
+                            <div class="col-12">
+                                <input type="text" class="form-control mb-3" placeholder="Buscar posición..." onkeyup="filterItems(this, 'position')">
+                                <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
+                                    {% for position in job_positions %}
+                                    <div class="col-6 mb-2 filter-item" data-filter="{{ position.title|lower }}">
+                                        <input type="checkbox" class="btn-check" id="pos{{ position.id }}" name="positions" value="{{ position.id }}" autocomplete="off" tabindex="-1">
+                                        <label class="btn btn-outline-primary w-100 py-2" for="pos{{ position.id }}">{{ position.title }}</label>
+                                    </div>                                  
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ubicación -->
+                    <div class="tab-pane fade" id="v-pills-location" role="tabpanel" aria-labelledby="v-pills-location-tab" tabindex="0">
+                        <div class="mb-3 row">
+                            <div class="col-12">
+                                <input type="text" class="form-control mb-3" placeholder="Buscar ubicación..." onkeyup="filterItems(this, 'location')">
+                                <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
+                                    {% for location in locations %}
+                                    <div class="col-6 mb-2 filter-item" data-filter="{{ location.name|lower }}">
+                                        <input type="checkbox" class="btn-check" id="loc{{ location.id }}" name="locations" value="{{ location.id }}" autocomplete="off" tabindex="-1">
+                                        <label class="btn btn-outline-primary w-100 py-2" for="loc{{ location.id }}">{{ location.name }}</label>
+                                    </div>                                  
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary" >Guardar asignación</button>
+        <a href="{% url 'course_wizard' %}" class="btn btn-secondary" onclick="clearStorageAndRedirect()">Cancelar</a>    
+    </div>
+</form>
+
+<!-- Modal -->
+<div class="modal fade" id="selectedModal" tabindex="-1" aria-labelledby="selectedModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="selectedModalLabel">Empleados seleccionados</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="selectedList">No hay empleados seleccionados.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Datos de empleados por filtros (con IDs)
+const employeesData = {
+    departments: {
+        {% for department in departments %}
+            "{{ department.id }}": [
+                {% for emp in employees %}
+                    {% if emp.department.id == department.id %}
+                        "{{ emp.id }}", // Guardamos ID
+                    {% endif %}
+                {% endfor %}
+            ],
+        {% endfor %}
+    },
+    positions: {
+        {% for position in job_positions %}
+            "{{ position.id }}": [
+                {% for emp in employees %}
+                    {% if emp.job_position.id == position.id %}
+                        "{{ emp.id }}", // Guardamos ID
+                    {% endif %}
+                {% endfor %}
+            ],
+        {% endfor %}
+    },
+    locations: {
+        {% for location in locations %}
+            "{{ location.id }}": [
+                {% for emp in employees %}
+                    {% if emp.station.id == location.id %}
+                        "{{ emp.id }}", // Guardamos ID
+                    {% endif %}
+                {% endfor %}
+            ],
+        {% endfor %}
+    }
+};
+
+// Claves para el localStorage
+const STORAGE_KEYS = {
+    USERS: 'selectedUserIds',
+    DEPARTMENTS: 'selectedDeptIds',
+    POSITIONS: 'selectedPositionIds',
+    LOCATIONS: 'selectedLocationIds',
+    ALL_USERS: 'allUsersSelected'
+};
+
+// Función para guardar en localStorage
+function saveSelections() {
+    const selections = {
+        users: getSelectedUserIds(),
+        departments: getSelectedDepartmentIds(),
+        positions: getSelectedPositionIds(),
+        locations: getSelectedLocationIds(),
+        allUsers: document.getElementById("allUsers").checked
+    };
+    
+    Object.entries(selections).forEach(([key, value]) => {
+        if (key === 'allUsers') {
+            localStorage.setItem(STORAGE_KEYS.ALL_USERS, value);
+        } else {
+            localStorage.setItem(STORAGE_KEYS[key.toUpperCase()], JSON.stringify(value || []));
+        }
+    });
+}
+
+// Función para cargar desde localStorage
+function loadSelections() {
+    return {
+        users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]'),
+        departments: JSON.parse(localStorage.getItem(STORAGE_KEYS.DEPARTMENTS) || '[]'),
+        positions: JSON.parse(localStorage.getItem(STORAGE_KEYS.POSITIONS) || '[]'),
+        locations: JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCATIONS) || '[]'),
+        allUsers: localStorage.getItem(STORAGE_KEYS.ALL_USERS) === 'true'
+    };
+}
+
+// Funciones para obtener IDs seleccionados
+function getSelectedUserIds() {
+    return Array.from(document.querySelectorAll('input[name="users"]:checked:not([data-manually-unchecked])')).map(cb => cb.value);
+}
+
+function getSelectedDepartmentIds() {
+    return Array.from(document.querySelectorAll('input[name="departments"]:checked')).map(cb => cb.value);
+}
+
+function getSelectedPositionIds() {
+    return Array.from(document.querySelectorAll('input[name="positions"]:checked')).map(cb => cb.value);
+}
+
+function getSelectedLocationIds() {
+    return Array.from(document.querySelectorAll('input[name="locations"]:checked')).map(cb => cb.value);
+}
+
+// Función para filtrar los elementos
+function filterItems(input, prefix) {
+    const search = input.value.toLowerCase();
+    const items = input.closest('.tab-pane').querySelectorAll('.filter-item');
+
+    items.forEach(item => {
+        const text = item.getAttribute('data-filter');
+        item.style.display = text.includes(search) ? '' : 'none';
+    });
+}
+
+// Función para actualizar el modal con los seleccionados
+function updateSelectedModal() {
+    const selectedUsers = new Set();
+    const allUsersRadio = document.getElementById("allUsers");
+
+    if (allUsersRadio.checked) {
+        {% for emp in employees %}
+            selectedUsers.add("{{ emp.first_name }} {{ emp.last_name }}");
+        {% endfor %}
+    } else {
+        document.querySelectorAll('input[name="users"]:checked').forEach(checkbox => {
+            if (!checkbox.hasAttribute('data-manually-unchecked')) {
+                const label = document.querySelector(`label[for="${checkbox.id}"]`);
+                if (label) selectedUsers.add(label.textContent.trim());
+            }
+        });
+    }
+
+    const selectedList = document.getElementById('selectedList');
+    selectedList.innerHTML = selectedUsers.size > 0 
+        ? '<ul>' + Array.from(selectedUsers).map(name => `<li>${name}</li>`).join('') + '</ul>'
+        : "Ningún empleado ha sido seleccionado.";
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Elementos UI
+    const allUsersRadio = document.getElementById("allUsers");
+    const segmentUsersRadio = document.getElementById("segmentUsers");
+    const segmentationCard = document.getElementById("segmentationCard");
+    const userCheckboxes = document.querySelectorAll('input[name="users"]');
+
+    // Cargar selecciones guardadas
+    const savedSelections = loadSelections();
+    
+    // Aplicar selecciones guardadas
+    allUsersRadio.checked = savedSelections.allUsers;
+    segmentUsersRadio.checked = !savedSelections.allUsers;
+    
+    if (!savedSelections.allUsers) {
+        savedSelections.departments.forEach(deptId => {
+            const cb = document.querySelector(`input[name="departments"][value="${deptId}"]`);
+            if (cb) cb.checked = true;
+        });
+        
+        savedSelections.positions.forEach(posId => {
+            const cb = document.querySelector(`input[name="positions"][value="${posId}"]`);
+            if (cb) cb.checked = true;
+        });
+        
+        savedSelections.locations.forEach(locId => {
+            const cb = document.querySelector(`input[name="locations"][value="${locId}"]`);
+            if (cb) cb.checked = true;
+        });
+        
+        savedSelections.users.forEach(userId => {
+            const cb = document.querySelector(`input[name="users"][value="${userId}"]`);
+            if (cb) cb.checked = true;
+        });
+    }
+
+    // Mostrar/ocultar card de segmentación
+    function toggleSegmentationCard() {
+        segmentationCard.classList.toggle("d-none", !segmentUsersRadio.checked);
+    }
+
+    // Sincronizar usuarios según filtros
+    function syncUsers() {
+        if (allUsersRadio.checked) return;
+        
+        const selectedDepts = new Set(getSelectedDepartmentIds());
+        const selectedPositions = new Set(getSelectedPositionIds());
+        const selectedLocations = new Set(getSelectedLocationIds());
+
+        userCheckboxes.forEach(checkbox => {
+            if (checkbox.hasAttribute('data-manually-unchecked')) return;
+            
+            const shouldCheck = 
+                selectedDepts.has(checkbox.dataset.department) ||
+                selectedPositions.has(checkbox.dataset.jobPosition) ||
+                selectedLocations.has(checkbox.dataset.station);
+                
+            checkbox.checked = shouldCheck;
+        });
+        
+        updateSelection();
+    }
+
+    // Actualizar contador y guardar selecciones
+    function updateSelection() {
+        const count = allUsersRadio.checked 
+            ? {{ employees.count }}
+            : getSelectedUserIds().length;
+            
+        document.getElementById("selectedCount").textContent = `${count} seleccionados`;
+        updateSelectedModal();
+        saveSelections();
+    }
+
+    // Event listeners
+    allUsersRadio.addEventListener("change", () => {
+        toggleSegmentationCard();
+        updateSelection();
+    });
+
+    segmentUsersRadio.addEventListener("change", () => {
+        toggleSegmentationCard();
+        updateSelection();
+    });
+
+    document.querySelectorAll(
+        'input[name="departments"], input[name="positions"], input[name="locations"]'
+    ).forEach(input => {
+        input.addEventListener('change', syncUsers);
+    });
+
+    userCheckboxes.forEach(input => {
+        input.addEventListener('change', function() {
+            if (!this.checked) {
+                this.setAttribute('data-manually-unchecked', 'true');
+            } else {
+                this.removeAttribute('data-manually-unchecked');
+            }
+            updateSelection();
+        });
+    });
+
+    document.getElementById('selectedCount').addEventListener('click', () => {
+        updateSelectedModal();
+        new bootstrap.Modal(document.getElementById('selectedModal')).show();
+    });
+
+    // Inicialización
+    toggleSegmentationCard();
+    syncUsers();
+    updateSelection();
+});
+
+function clearStorageAndRedirect() {
+ // Alternativa más agresiva (borra todo)
+    localStorage.clear();
+    // Redirigir
+
+    window.location.href = "{% url 'course_wizard' %}";
+    return false;
+}
+</script>
+<script>
+    function getStoredSelections() {
+        return {
+            users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]'),
+            departments: JSON.parse(localStorage.getItem(STORAGE_KEYS.DEPARTMENTS) || '[]'),
+            positions: JSON.parse(localStorage.getItem(STORAGE_KEYS.POSITIONS) || '[]'),
+            locations: JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCATIONS) || '[]'),
+            allUsers: localStorage.getItem(STORAGE_KEYS.ALL_USERS) === 'true'
+        };
+    }
+
+    $("#form-assignation").on('submit', function(e) {
+        e.preventDefault();
+
+        // Cachar el localstorage llamado
+        // Agregar el CSRF token para Django
+        const csrfToken = $('[name=csrfmiddlewaretoken]').val();
+
+        // Obtener datos del localStorage
+        const selections = getStoredSelections();
+
+        // Agregar el course_id si lo necesitas
+        selections.course_id = {{ course.id }}
+        
+        fetch("{% url 'run_assignments' course.id %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(selections)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Asignación exitosa',
+                    text: 'La asignación fue guardada correctamente.',
+                    confirmButtonText: 'Continuar',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+
+                // Marca para limpiar segmentación al recargar
+                sessionStorage.setItem("segment-cleared", "1");
+                localStorage.clear();
+
+                
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || "{% url 'course_wizard' %}";
+                }, 2000); // Espera a que se muestre la alerta
+                
+            } else {
+                Swal.fire('Error', data.error || 'Error desconocido', 'error');
+            }
+        })
+
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al enviar los datos');
+        });
+    });
+</script>
+{% endblock %}
