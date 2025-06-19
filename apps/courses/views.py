@@ -564,9 +564,15 @@ def view_course_content(request, course_id):
 
     # Lógica para calcular los intentos restantes
     attempts_left = None
+    is_passed = False
+
     if course_quiz and hasattr(course_quiz, 'config') and course_quiz.config.max_attempts is not None:
         total_attempts = QuizAttempt.objects.filter(user=request.user, quiz=course_quiz).count()
         attempts_left = max(0, course_quiz.config.max_attempts - total_attempts)
+
+        # ✅ Verifica si hay al menos un intento aprobado
+        is_passed = QuizAttempt.objects.filter(user=request.user, quiz=course_quiz, passed=True).exists()
+
 
     return render(request, 'courses/user/view_course.html', {
         'course': course,
@@ -574,6 +580,7 @@ def view_course_content(request, course_id):
         'enrolled': enrolled,
         'course_quiz': course_quiz,
         'attempts_left': attempts_left,
+        'is_passed': is_passed,
     })
 
 

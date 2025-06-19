@@ -161,21 +161,21 @@
                         {% if attempts_left is not None and attempts_left <= 0 %}disabled{% endif %}>
                             Enviar Cuestionario
                         </button>
-{% if attempts_left is not None and attempts_left <= 0 %}
-    {% if is_passed %}
-        <div class="alert alert-success text-center">
-            Has agotado los intentos, pero <strong>aprobaste</strong> el cuestionario. ¡Felicidades!
-        </div>
-    {% else %}
-        <div class="alert alert-danger text-center">
-            Has agotado el número máximo de intentos permitidos para este cuestionario.
-        </div>
-    {% endif %}
-{% elif attempts_left is not None %}
-    <div class="alert alert-warning text-center">
-        Intentos restantes: <strong>{{ attempts_left }}</strong>
-    </div>
-{% endif %}
+                        {% if attempts_left is not None and attempts_left <= 0 %}
+                            {% if is_passed %}
+                                <div class="alert alert-success text-center">
+                                    Has agotado los intentos, pero <strong>aprobaste</strong> el cuestionario. ¡Felicidades!
+                                </div>
+                            {% else %}
+                                <div class="alert alert-danger text-center">
+                                    Has agotado el número máximo de intentos permitidos para este cuestionario.
+                                </div>
+                            {% endif %}
+                        {% elif attempts_left is not None %}   
+                            <div class="alert alert-warning text-center">
+                                Intentos restantes: <strong>{{ attempts_left }}</strong>
+                            </div>
+                        {% endif %}
 
                     </form>
                 </div>
