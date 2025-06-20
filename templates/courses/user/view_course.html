@@ -60,7 +60,7 @@
                                             {% if lesson.resource %}
                                                 {% with lesson.resource.url|lower as res_url %}
                                                     {% if ".mp4" in res_url or ".webm" in res_url %}
-                                                        <video class="lesson-video" data-lesson-id="{{ lesson.id }}" controls>
+                                                        <video controls width="100%" class="mb-3 rounded-5 shadow">
                                                             <source src="{{ lesson.resource.url }}" type="video/mp4">
                                                         </video>
                                                     {% elif ".pdf" in res_url %}
@@ -278,89 +278,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    const videos = document.querySelectorAll('video.lesson-video');
-
-    videos.forEach((video) => {
-        video.addEventListener('ended', () => {
-            if (isFullscreen()) {
-                const nextVideo = getNextVideoInSameModule(video);
-
-                if (nextVideo) {
-                    // Salir del fullscreen actual primero
-                    exitFullscreen().then(() => {
-                        setTimeout(() => {
-                            nextVideo.scrollIntoView({ behavior: "smooth", block: "center" });
-
-                                requestFullscreen(nextVideo);
-
-                        }, 500); // Pequeño delay tras salir del fullscreen
-                    });
-                } else {
-                    // No hay más videos → salir de fullscreen
-                    exitFullscreen().then(() => {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Fin del módulo',
-                            text: 'Selecciona el siguiente módulo para continuar.',
-                            confirmButtonText: 'Aceptar'
-                        });
-                    });
-                }
-            }
-        });
-    });
-
-    function isFullscreen() {
-        return document.fullscreenElement ||
-               document.webkitFullscreenElement ||
-               document.mozFullScreenElement ||
-               document.msFullscreenElement;
-    }
-
-    function requestFullscreen(element) {
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-        } else if (element.webkitRequestFullscreen) {
-            element.webkitRequestFullscreen();
-        } else if (element.mozRequestFullScreen) {
-            element.mozRequestFullScreen();
-        } else if (element.msRequestFullscreen) {
-            element.msRequestFullscreen();
-        }
-    }
-
-    function exitFullscreen() {
-        if (document.exitFullscreen) {
-            return document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-            return document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            return document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-            return document.msExitFullscreen();
-        }
-        return Promise.resolve(); // fallback
-    }
-
-    function getNextVideoInSameModule(currentVideo) {
-        const allVideos = Array.from(document.querySelectorAll('video.lesson-video'));
-        const currentIndex = allVideos.indexOf(currentVideo);
-        const currentModule = currentVideo.closest('.accordion-item');
-
-        for (let i = currentIndex + 1; i < allVideos.length; i++) {
-            const nextVideo = allVideos[i];
-            const nextModule = nextVideo.closest('.accordion-item');
-
-            if (nextModule === currentModule) {
-                return nextVideo;
-            } else {
-                break;
-            }
-        }
-        return null;
-    }
-});
 
 
 
