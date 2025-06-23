@@ -15,7 +15,9 @@ urlpatterns = [
     path('segmentar-usuarios/<int:course_id>/', views.user_segmentation_view, name='segment_users'),
     path('run_assignments/<int:course_id>/', views.run_assignments, name='run_assignments'),
     path('my-courses/<int:course_id>/', views.view_course_content, name='view_course_content'), # Vista para los cursos del usuario
-    path('admin/course/<int:course_id>/edit/', views.admin_course_edit, name='admin_course_edit'),  # Para admin
+    path('admin/course/<int:course_id>/stats/', views.admin_course_stats, name='admin_course_stats'),
+    path('admin/course/<int:course_id>/edit/', views.admin_course_edit, name='admin_course_edit'),
+
     path('wizard_form/', views.visual_course_wizard, name='visual_course_wizard'),
     path('guardar_pregunta/', views.guardar_pregunta, name='guardar_pregunta'),
     path('eliminar_pregunta/<int:question_id>/', views.eliminar_pregunta, name='eliminar_pregunta'),

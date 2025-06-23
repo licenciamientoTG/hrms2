@@ -1,0 +1,90 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Estadísticas del Curso{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Estadísticas: {{ course.title }}</h1>
+        <a href="{% url 'admin_course_edit' course.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-edit"></i> Editar curso
+        </a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body text-center">
+                    <h6>Total asignados</h6>
+                    <h3>{{ total_users }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body text-center">
+                    <h6>Completaron curso</h6>
+                    <h3>{{ completed_users }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body text-center">
+                    <h6>Aprobaron cuestionario</h6>
+                    <h3>{{ approved_users }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body text-center">
+                    <h6>Intentos promedio</h6>
+                    <h3>{{ avg_attempts }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3">Detalle por usuario</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Progreso</th>
+                            <th>Intentos</th>
+                            <th>Último resultado</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in user_progress %}
+                        <tr>
+                            <td>{{ record.user.get_full_name }}</td>
+                            <td>{{ record.user.email }}</td>
+                            <td>{{ record.progress }}%</td>
+                            <td>{{ record.attempts }}</td>
+                            <td>{{ record.last_score }}%</td>
+                            <td>
+                                {% if record.passed %}
+                                    <span class="badge bg-success">Aprobado</span>
+                                {% else %}
+                                    <span class="badge bg-danger">No aprobado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center">No hay datos disponibles.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

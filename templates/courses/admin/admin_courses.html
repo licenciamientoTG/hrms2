@@ -104,7 +104,7 @@
                 data-asignado="{{ course.config.audience }}">
 
                 <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
-                <a href="{% url 'admin_course_edit' course.id %}" class="text-decoration-none text-dark">
+                <a href="{% url 'admin_course_stats' course.id %}" class="text-decoration-none text-dark">
                         {% if course.portrait %}
                             <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
                         {% else %}

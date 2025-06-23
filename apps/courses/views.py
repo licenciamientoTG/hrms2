@@ -21,7 +21,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.forms import modelformset_factory
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count, Avg, Q
 import os
 
 
@@ -586,6 +586,48 @@ def view_course_content(request, course_id):
 
 
 @staff_member_required
+def admin_course_stats(request, course_id):
+    course = get_object_or_404(CourseHeader, id=course_id)
+
+    # Usuarios inscritos al curso
+    enrolled = EnrolledCourse.objects.filter(course=course)
+    total_users = enrolled.count()
+    completed_users = enrolled.filter(status='completed').count()
+
+    # Intentos del cuestionario relacionados con este curso
+    quiz_attempts = QuizAttempt.objects.filter(course=course)
+    approved_users = quiz_attempts.filter(passed=True).values('user').distinct().count()
+
+    # Intentos promedio por usuario
+    avg_attempts = quiz_attempts.values('user').annotate(num=Count('id')).aggregate(avg=Avg('num'))['avg'] or 0
+
+    # Progreso detallado por usuario
+    user_progress = []
+    for record in enrolled.select_related('user'):
+        attempts = quiz_attempts.filter(user=record.user)
+        last_attempt = attempts.order_by('-submitted_at').first()
+        last_score = last_attempt.percentage if last_attempt else 0
+        passed = last_attempt.passed if last_attempt else False
+
+        user_progress.append({
+            'user': record.user,
+            'progress': float(record.progress),
+            'attempts': attempts.count(),
+            'last_score': last_score,
+            'passed': passed,
+        })
+
+    return render(request, 'courses/admin/admin_course_stats.html', {
+        'course': course,
+        'total_users': total_users,
+        'completed_users': completed_users,
+        'approved_users': approved_users,
+        'avg_attempts': round(avg_attempts, 1),
+        'user_progress': user_progress,
+    })
+    
+
+@staff_member_required
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
@@ -622,6 +664,7 @@ def admin_course_edit(request, course_id):
         'course': course,
         'modules': modules,
     })
+
 
 
 @login_required
