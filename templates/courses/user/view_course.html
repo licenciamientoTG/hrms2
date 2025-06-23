@@ -5,193 +5,217 @@
 {% block title %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-    <div>
-        <h1 class="mb-1">{{ course.title }}</h1>
-        <p class="text-muted">{{ course.description }}</p>
-    </div>
-    <span class="badge bg-primary fs-6 px-3 py-2">Duración: {{ course.duration }} hrs</span>
-</div>
-<div class="progress mt-3">
-  <div class="progress-bar" id="courseProgressBar" style="width: 0%;">0%</div>
-</div><br>
+<div class="container py-4">
+  <div class="row g-4">
+    <!-- Columna izquierda: resumen -->
+        <div class="col-lg-4">
+        <div class="card shadow-sm rounded-4 p-4">
+            <h3 class="fw-bold">{{ course.title }}</h3>
+            <p class="text-muted small">{{ course.description }}</p>
 
-<div class="accordion" id="modulesAccordion">
-    {% for module in modules %}
-        <div class="accordion-item">
+            <!-- Duración -->
+            <div class="d-flex align-items-center justify-content-between mt-4">
+            <span class="badge bg-primary">Duración: {{ course.duration }} hrs</span>
+            </div>
+
+            <!-- Progreso del curso -->
+            <div class="progress mt-3 w-100" style="height: 28px; border-radius: 12px; background-color: #e9ecef;">
+            <div id="courseProgressBar" class="progress-bar bg-success fw-bold" role="progressbar"
+                style="width: 0%; font-size: 16px; line-height: 28px;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                0%
+            </div>
+            </div>
+        </div>
+
+        <!-- Mensaje del cuestionario -->
+        <div class="card shadow-sm rounded-4 mt-4 p-3">
+{% if course_quiz and course_quiz.question_set.count > 0 %}
+    <div id="quizLockedAlert" class="alert alert-info mt-4 text-center">
+        Debes completar todas las lecciones antes de acceder al cuestionario final.
+    </div>
+
+    <!-- Cuestionario visible cuando se completa el curso -->
+    <div id="quizSectionWrapper" class="d-none mt-4 text-center">
+        <!-- Botón para abrir el modal -->
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quizModal">
+            Realizar cuestionario
+        </button>
+    </div>
+
+    <!-- Aquí va el modal fuera del div anterior -->
+    <!-- Modal -->
+<div class="modal fade" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+    <form method="post" action="{% url 'submit_course_quiz' course.id %}" id="course-quiz-form" data-course-id="{{ course.id }}">
+        {% csrf_token %}
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="quizModalLabel">Cuestionario Final</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p>{{ course_quiz.description }}</p>
+
+          {% for question in course_quiz.question_set.all %}
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+
+                {% if question.question_type %}
+                  {% for answer in question.answer_set.all %}
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                      <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                    </div>
+                  {% endfor %}
+                {% elif question.question_type == 'Respuesta Multiple' %}
+                  {% for answer in question.answer_set.all %}
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                      <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                    </div>
+                  {% endfor %}
+                {% elif question.question_type == 'Texto' %}
+                  <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
+                {% else %}
+                  <p class="text-danger">Tipo de pregunta no soportado.</p>
+                {% endif %}
+
+                {% if question.explanation %}
+                  <small class="text-muted d-block mt-2">Explicación: {{ question.explanation }}</small>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="alert alert-warning">No hay preguntas aún en este cuestionario.</div>
+          {% endfor %}
+        </div>
+
+        <div class="modal-footer d-flex flex-column align-items-stretch">
+          {% if attempts_left is not None and attempts_left <= 0 %}
+            <div class="alert alert-danger w-100 text-center">
+              Has agotado los intentos permitidos.
+            </div>
+          {% elif is_passed %}
+            <div class="alert alert-success w-100 text-center">
+              Ya has aprobado este cuestionario. ¡Felicidades!
+            </div>
+          {% else %}
+            {% if attempts_left is not None %}
+              <div class="alert alert-warning w-100 text-center">
+                Intentos restantes: <strong>{{ attempts_left }}</strong>
+              </div>
+            {% endif %}
+            <button type="submit" class="btn btn-success w-100">
+              Enviar Cuestionario
+            </button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{% else %}
+    <div class="alert alert-warning mb-0">
+        Este curso no tiene un cuestionario final.
+    </div>
+{% endif %}
+
+        </div>
+        </div>
+
+
+    <!-- Columna derecha: contenido del curso -->
+    <div class="col-lg-8">
+      <div class="accordion" id="modulesAccordion">
+        {% for module in modules %}
+          <div class="accordion-item mb-3 rounded-4 overflow-hidden border-0 shadow-sm">
             <h2 class="accordion-header" id="heading-{{ module.id }}">
-                <button class="accordion-button collapsed" type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#collapse-{{ module.id }}"
-                        aria-expanded="false"
-                        aria-controls="collapse-{{ module.id }}">
-                    {{ module.title }}
-                </button>
+              <button class="accordion-button collapsed fw-bold" type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#collapse-{{ module.id }}"
+                      aria-expanded="false"
+                      aria-controls="collapse-{{ module.id }}">
+                {{ module.title }}
+              </button>
             </h2>
             <div id="collapse-{{ module.id }}" class="accordion-collapse collapse"
                  aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
-                <div class="accordion-body">
-                    <p class="text-muted">{{ module.description }}</p>
-                    <div class="list-group list-group-flush mt-3">
-                        {% for lesson in module.lesson_set.all %}
-                            <div class="list-group-item mb-3">
-                                <div class="d-flex flex-column">
-                                    <div>
-                                        <h6 class="mb-1">{{ lesson.title }}</h6>
+              <div class="accordion-body">
+                <p class="text-muted small">{{ module.description }}</p>
 
-                                        {% if lesson.resource %}
-                                            {% with lesson.resource.url|lower as res_url %}
-                                                {% if ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
-                                                    <img src="{{ lesson.resource.url }}" alt="Imagen de la lección" class="img-fluid rounded mb-3 shadow-sm"
-                                                        style="width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto;">
-                                                {% endif %}
-                                            {% endwith %}
-                                        {% endif %}
-
-                                        <p class="text-muted mt-2">{{ lesson.description }}</p>
-
-                                    </div>
-                                    <div class="text-end">
-                                        {% if lesson.video_url %}
-                                            <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary mb-1 w-100">
-                                                <i class="fa-solid fa-video"></i> Video
-                                            </a><br>
-                                        {% endif %}
-                                            {% if lesson.resource %}
-                                                {% with lesson.resource.url|lower as res_url %}
-                                                    {% if ".mp4" in res_url or ".webm" in res_url %}
-                                                        <video controls width="100%" class="mb-3 rounded-5 shadow">
-                                                            <source src="{{ lesson.resource.url }}" type="video/mp4">
-                                                        </video>
-                                                    {% elif ".pdf" in res_url %}
-                                                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
-                                                    {% elif ".ppt" in res_url or ".pptx" in res_url %}
-                                                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}"
-                                                                width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
-                                                    {% elif not ".jpg" in res_url and not ".jpeg" in res_url and not ".png" in res_url and not ".gif" in res_url and not ".webp" in res_url %}
-                                                        <a href="{{ lesson.resource.url }}" download class="btn btn-outline-secondary w-100 mb-2">
-                                                            <i class="fa-solid fa-download"></i> Descargar recurso
-                                                        </a>
-                                                    {% endif %}
-                                                {% endwith %}
-                                            {% endif %}
-                                        <button class="btn btn-outline-primary btn-sm mark-complete" data-lesson-id="{{ lesson.id }}">Marcar como vista</button>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
+                {% for lesson in module.lesson_set.all %}
+                  <div class="lesson-card p-3 mb-2 rounded border d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="mb-1">{{ lesson.title }}</h6>
                     </div>
-                </div>
-            </div> 
-        </div>
-    {% empty %}
-        <div class="alert alert-warning">Este curso aún no tiene módulos o lecciones.</div>
-    {% endfor %}
-</div>
-
-
-{% if course_quiz %}
-    <div class="alert alert-info mt-4">
-        Este curso incluye un cuestionario final. Asegúrate de completarlo al finalizar el curso.
-    </div>
-{% else %}
-    <div class="alert alert-warning mt-4">
-        Este curso no tiene un cuestionario final asociado.
-    </div>
-{% endif %}
-
-{# Sección para el Cuestionario del Curso #}
-{% if course_quiz %}
-<div id="quizSectionWrapper" class="mt-4 d-none">
-    <div class="accordion mb-4" id="quizAccordion">
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="quizHeading">
-                <button class="accordion-button collapsed bg-secondary text-white" type="button" data-bs-toggle="collapse" data-bs-target="#quizCollapse" aria-expanded="false" aria-controls="quizCollapse">
-                    Cuestionario Final
-                </button>
-            </h2>
-            <div id="quizCollapse" class="accordion-collapse collapse" aria-labelledby="quizHeading" data-bs-parent="#quizAccordion">
-                <div class="accordion-body">
-                    <p>{{ course_quiz.description }}</p>
-                    <form id="course-quiz-form" method="post" action="{% url 'submit_course_quiz' course.id %}">
-                        {% csrf_token %}
-                        {% for question in course_quiz.question_set.all %}
-                            <div class="card mb-3 bg-light border-secondary">
-                                <div class="card-body">
-                                    <h6 class="card-title mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
-
-                                    {% if question.question_type %}
-                                        {% for answer in question.answer_set.all %}
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
-                                                <label class="form-check-label" for="answer_{{ answer.id }}">
-                                                    {{ answer.answer_text }}
-                                                </label>
-                                            </div>
-                                        {% endfor %}
-
-                                    {% elif question.question_type == 'Respuesta Multiple' %}
-                                        {% for answer in question.answer_set.all %}
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
-                                                <label class="form-check-label" for="answer_{{ answer.id }}">
-                                                    {{ answer.answer_text }}
-                                                </label>
-                                            </div>
-                                        {% endfor %}
-
-                                    {% elif question.question_type == 'Texto' %}
-                                        <div class="form-group">
-                                            <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta aquí..." required></textarea>
-                                        </div>
-
-                                    {% else %}
-                                        <p class="text-danger">Tipo de pregunta no soportado para el usuario.</p>
-                                    {% endif %}
-
-                                    {% if question.explanation %}
-                                        <p class="text-muted mt-2 small">Explicación: {{ question.explanation }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% empty %}
-                            <div class="alert alert-info">Este cuestionario aún no tiene preguntas.</div>
-                        {% endfor %}
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-4"
-                            {% if attempts_left is not None and attempts_left <= 0 or is_passed %}disabled{% endif %}>
-                            Enviar Cuestionario
+                       <button class="btn btn-outline-success btn-sm btn-view-lesson"
+                            data-bs-toggle="modal"
+                            data-bs-target="#lessonModal{{ lesson.id }}"
+                            data-lesson-id="{{ lesson.id }}"
+                            id="view-btn-{{ lesson.id }}">
+                        Ver lección
                         </button>
-                        {% if is_passed %}
-                            <div class="alert alert-success text-center">
-                                Has <strong>aprobado</strong> el cuestionario. ¡Felicidades!
-                            </div>
-                        {% elif attempts_left is not None and attempts_left <= 0 %}
-                            <div class="alert alert-danger text-center">
-                                Has agotado el número máximo de intentos permitidos para este cuestionario.
-                            </div>
-                        {% elif attempts_left is not None %}
-                            <div class="alert alert-warning text-center">
-                                Intentos restantes: <strong>{{ attempts_left }}</strong>
-                            </div>
-                        {% endif %}
-                    </form>
+                    </div>
+                           <div class="modal fade" id="lessonModal{{ lesson.id }}" tabindex="-1" aria-labelledby="lessonModalLabel{{ lesson.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                  <h5 class="modal-title" id="lessonModalLabel{{ lesson.id }}">{{ lesson.title }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
+                <div class="modal-body">
+                  <p class="text-muted">{{ lesson.description }}</p>
+
+                  {% if lesson.resource %}
+                    {% with lesson.resource.url|lower as res_url %}
+                      {% if ".mp4" in res_url or ".webm" in res_url %}
+                        <video controls width="100%" class="mb-3 rounded shadow">
+                          <source src="{{ lesson.resource.url }}" type="video/mp4">
+                        </video>
+                      {% elif ".pdf" in res_url %}
+                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
+                      {% elif ".ppt" in res_url or ".pptx" in res_url %}
+                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
+                      {% elif ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
+                        <img src="{{ lesson.resource.url }}" alt="Imagen" class="img-fluid rounded shadow mb-3">
+                      {% else %}
+                        <a href="{{ lesson.resource.url }}" class="btn btn-outline-secondary" download>
+                          Descargar recurso
+                        </a>
+                      {% endif %}
+                    {% endwith %}
+                  {% endif %}
+
+                  {% if lesson.video_url %}
+                    <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-outline-primary mt-2">
+                      <i class="fa fa-video"></i> Ver video externo
+                    </a>
+                  {% endif %}
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                  <button class="btn btn-success mark-complete" data-lesson-id="{{ lesson.id }}">Marcar como vista</button>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="text-center mt-4">
+        <button onclick="clearProgressAndGoBack()" class="btn btn-outline-secondary">
+          <i class="fa-solid fa-arrow-left"></i> Regresar
+        </button>
+      </div>
     </div>
+  </div>
 </div>
-{% endif %}
-
-
-<div class="text-center mt-5">
-    <button onclick="clearProgressAndGoBack()" class="btn btn-outline-secondary btn-lg px-5">
-        <i class="fa-solid fa-arrow-left"></i> Regresar
-    </button>
-</div>
-
-
-
-
 {% endblock %}
 
 {% block styles %}
@@ -213,49 +237,72 @@ document.addEventListener("click", function (e) {
             localStorage.setItem("completedLessons", JSON.stringify(completedLessons));
         }
 
+        // Cambiar botón dentro del modal
         e.target.classList.add("btn-success");
         e.target.classList.remove("btn-outline-primary");
         e.target.textContent = "Vista";
-        checkIfCourseIsComplete(); // ⬅️ Nuevo
-        updateProgressBar();  
+
+        // ✅ Cambiar el botón externo sin desactivarlo
+        const externalBtn = document.getElementById(`view-btn-${lessonId}`);
+        if (externalBtn) {
+            externalBtn.classList.remove("btn-outline-success");
+            externalBtn.classList.add("btn-success");
+            externalBtn.textContent = "Vista";
+        }
+
+        checkIfCourseIsComplete();
+        updateProgressBar();
     }
 });
 
 
 
-// Función para manejar el envío del formulario del cuestionario (con AJAX)
-document.addEventListener('DOMContentLoaded', function() {
+
+document.addEventListener('DOMContentLoaded', function () {
     const quizForm = document.getElementById('course-quiz-form');
+
     if (quizForm) {
-        quizForm.addEventListener('submit', function(event) {
-            event.preventDefault(); // Previene el envío normal del formulario
+        quizForm.addEventListener('submit', function (event) {
+            event.preventDefault();
             updateProgressBar();
 
-            const formData = new FormData(quizForm); // Recopila todos los datos del formulario
-            const courseId = {{ course.id }}; // Obtén el ID del curso de la plantilla
+            const formData = new FormData(quizForm);
+            const courseId = {{ course.id }};  // Django inyecta el ID
 
-            fetch(`/courses/submit_course_quiz/${courseId}/`, { // Usa la URL correcta para tu vista de envío
+            fetch(`/courses/submit_course_quiz/${courseId}/`, {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRFToken': quizForm.querySelector('[name=csrfmiddlewaretoken]').value // Asegúrate de enviar el token CSRF
+                    'X-CSRFToken': quizForm.querySelector('[name=csrfmiddlewaretoken]').value
                 }
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // ✅ Cierra el modal Bootstrap antes de mostrar SweetAlert
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('quizModal'));
+                    if (modal) modal.hide();
+
+                    // ✅ Muestra el resultado en un SweetAlert limpio
                     Swal.fire({
-                        icon: 'success',
-                        title: '{{course.title|escapejs}}<br>¡Cuestionario Enviado!',
-                        html: `Respuestas correctas: ${data.score} <br> Porcentaje: ${data.percentage_score.toFixed(2)}% <br> Estado: ${data.message}`,
-                        confirmButtonText: 'Ok'
-                        }).then(() => {
-                            // ✅ Borrar progreso del curso (localStorage) y regresar
-                            localStorage.removeItem("completedLessons"); // o localStorage.clear() si quieres todo
-                            window.location.href = "{% url 'course_wizard' %}";
+                        icon: data.message === "Aprobado" ? 'success' : 'warning',
+                        title: '¡Cuestionario Enviado!',
+                        html: `
+                            <div class="text-start">
+                                <p><strong>Curso:</strong> {{ course.title|escapejs }}</p>
+                                <p><strong>Respuestas correctas:</strong> ${data.score}</p>
+                                <p><strong>Porcentaje obtenido:</strong> ${data.percentage_score.toFixed(2)}%</p>
+                                <div class="alert alert-${data.message === "Aprobado" ? "success" : "danger"} mt-3">
+                                    <strong>${data.message}</strong>
+                                </div>
+                            </div>
+                        `,
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        localStorage.removeItem("completedLessons");
+                        window.location.href = "{% url 'course_wizard' %}";
                     });
-                    // Aquí puedes añadir lógica adicional, como deshabilitar el formulario,
-                    // mostrar resultados detallados, o redirigir al usuario.
+
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -279,12 +326,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-
-
 function checkIfCourseIsComplete() {
-    const allLessons = document.querySelectorAll("[data-lesson-id]");
+    const lessonIds = new Set();
+    document.querySelectorAll("[data-lesson-id]").forEach(el => {
+        lessonIds.add(el.getAttribute("data-lesson-id"));
+    });
+
     const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
-    const total = allLessons.length;
+    const total = lessonIds.size;
     const completed = completedLessons.length;
 
     const quizWrapper = document.getElementById("quizSectionWrapper");
@@ -302,10 +351,15 @@ function checkIfCourseIsComplete() {
 }
 
 
+
 function updateProgressBar() {
-    const allLessons = document.querySelectorAll("[data-lesson-id]");
+    const lessonIds = new Set();
+    document.querySelectorAll("[data-lesson-id]").forEach(el => {
+        lessonIds.add(el.getAttribute("data-lesson-id"));
+    });
+
     const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
-    const total = allLessons.length;
+    const total = lessonIds.size;
     const completed = completedLessons.length;
     const percent = total ? Math.round((completed / total) * 100) : 0;
 
@@ -314,24 +368,12 @@ function updateProgressBar() {
     bar.textContent = `${percent}%`;
 }
 
-function updateProgressBar() {
-    const allLessons = document.querySelectorAll("[data-lesson-id]");
-    const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
-    const total = allLessons.length;
-    const completed = completedLessons.length;
-    const percent = total ? Math.round((completed / total) * 100) : 0;
-
-    const bar = document.getElementById("courseProgressBar");
-    bar.style.width = `${percent}%`;
-    bar.textContent = `${percent}%`;
-}
 
 function clearProgressAndGoBack() {
-    // Borrar solo el progreso del curso
     localStorage.removeItem("completedLessons");
-
     window.location.href = "{% url 'course_wizard' %}";
 }
+
 
 </script>
 {% endblock %}
