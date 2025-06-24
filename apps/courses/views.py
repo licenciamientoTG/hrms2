@@ -588,24 +588,42 @@ def view_course_content(request, course_id):
 @staff_member_required
 def admin_course_stats(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
+    config = CourseConfig.objects.filter(course=course).first()
+    assignments = CourseAssignment.objects.filter(course=course)
 
-    # Obtener asignación
-    assignment = CourseAssignment.objects.filter(course=course).first()
+    # 🛡️ Por defecto: ningún usuario
+    users = User.objects.none()
 
-    # Determinar usuarios asignados
-    if assignment:
-        if assignment.assignment_type == "all_users":
-            users = User.objects.select_related('employee').all()
-        elif assignment.assignment_type == "specific_users":
-            users = assignment.users.select_related('employee').all()
-        elif assignment.assignment_type == "by_department":
-            users = User.objects.select_related('employee').filter(
-                employee__department__in=assignment.departments.all()
-            ).distinct()
-        else:
-            users = User.objects.none()
-    else:
-        users = User.objects.none()
+    if config:
+        if config.audience == "all_users":
+            # Si el curso está configurado como para todos
+            users = User.objects.all()
+
+        elif config.audience == "segment":
+            # Acumular todos los usuarios segmentados
+            user_ids = set()
+
+            for assignment in assignments:
+                if assignment.assignment_type == "specific_users":
+                    user_ids.update(assignment.users.values_list('id', flat=True))
+
+                elif assignment.assignment_type == "by_department":
+                    dept_users = User.objects.filter(
+                        employee__department__in=assignment.departments.all()
+                    ).values_list('id', flat=True)
+                    user_ids.update(dept_users)
+
+                    pos_users = User.objects.filter(
+                        employee__job_position__in=assignment.positions.all()
+                    ).values_list('id', flat=True)
+                    user_ids.update(pos_users)
+
+                    loc_users = User.objects.filter(
+                        employee__station__in=assignment.locations.all()
+                    ).values_list('id', flat=True)
+                    user_ids.update(loc_users)
+
+            users = User.objects.filter(id__in=user_ids)
 
     total_users = users.count()
 
@@ -624,19 +642,15 @@ def admin_course_stats(request, course_id):
                 'passed': quiz_attempts.filter(user_id=uid, passed=True).exists()
             }
 
-    # Métricas
     approved_users = quiz_attempts.filter(passed=True).values('user').distinct().count()
     avg_attempts = quiz_attempts.values('user').annotate(n=Count('id')).aggregate(avg=Avg('n'))['avg'] or 0
 
-    # Datos por usuario
     user_progress = []
     for user in users:
         data = attempt_map.get(user.id, {})
-        employee = getattr(user, 'employee', None)
-        full_name = f"{employee.first_name} {employee.last_name}" if employee else user.get_full_name()
         user_progress.append({
             'user': user,
-            'employee_name': full_name,
+            'employee_name': user.get_full_name(),
             'progress': 0,
             'attempts': data.get('count', 0),
             'last_score': round(data.get('last_score', 0), 1),
@@ -646,11 +660,14 @@ def admin_course_stats(request, course_id):
     return render(request, 'courses/admin/admin_course_stats.html', {
         'course': course,
         'total_users': total_users,
-        'completed_users': 0,  # No manejas EnrolledCourse
+        'completed_users': 0,
         'approved_users': approved_users,
         'avg_attempts': round(avg_attempts, 1),
         'user_progress': user_progress,
     })
+
+
+
     
 
 @staff_member_required
