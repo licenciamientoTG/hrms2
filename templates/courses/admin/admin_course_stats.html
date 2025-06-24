@@ -65,7 +65,7 @@
                     <tbody>
                         {% for record in user_progress %}
                         <tr>
-                            <td>{{ record.user.get_full_name }}</td>
+                            <td>{{ record.employee_name }}</td>
                             <td>{{ record.user.email }}</td>
                             <td>{{ record.progress }}%</td>
                             <td>{{ record.attempts }}</td>
@@ -83,6 +83,11 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div class="mt-4 text-center">
+                    <a href="javascript:history.back()" class="btn btn-outline-primary px-5">
+                        <i class="fas fa-arrow-left me-2"></i> Regresar a mis cursos
+                    </a>
+                </div>
             </div>
         </div>
     </div>

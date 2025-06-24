@@ -4,31 +4,62 @@
 {% block page_title %}Editar curso: {{ course.title }}{% endblock %}
 
 {% block content %}
-<h1 class="mb-4"><i class="fa-solid fa-pen-to-square me-2"></i>Editar Curso: <strong>{{ course.title }}</strong></h1>
+<div class="container py-4">
+    <h1 class="h3 mb-4 fw-bold">
+        <i class="fas fa-pen-to-square me-2"></i>Editar Curso: <strong>{{ course.title }}</strong>
+    </h1>
 
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    <fieldset class="mb-4">
-        <legend>Datos del curso</legend>
-        {{ course_form.as_p }}
-    </fieldset>
+    <form method="POST" enctype="multipart/form-data" class="bg-white p-4 shadow-sm rounded-4">
+        {% csrf_token %}
 
-    <fieldset>
-        <legend>Módulos</legend>
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <label class="form-label">Título del curso</label>
+                {{ course_form.title }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Duración (horas)</label>
+                {{ course_form.duration }}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            {{ course_form.description }}
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Categoría</label>
+                {{ course_form.category }}
+            </div>
+        </div>
+
+        <hr class="my-4">
+        <h5 class="fw-bold">Módulos</h5>
         {{ module_formset.management_form }}
         {% for form in module_formset %}
-            <div class="card mb-3 p-3">
-                {{ form.id }} <!-- Campo oculto de ID -->
-                {{ form.course_header.as_hidden }}  <!-- Campo oculto para evitar error -->
-                {{ form.title.label_tag }} {{ form.title }}
-                {{ form.description.label_tag }} {{ form.description }}
-                <!-- Aquí puedes agregar botones para eliminar módulo si habilitas can_delete -->
+            <div class="border p-3 mb-3 rounded bg-light">
+                {{ form.id }} {{ form.course_header }}
+                <div class="mb-2">
+                    <label class="form-label">Título del módulo</label>
+                    {{ form.title }}
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Descripción</label>
+                    {{ form.description }}
+                </div>
             </div>
         {% endfor %}
-    </fieldset>
-    
-    <a href="{% url 'course_wizard' %}" class="btn btn-secondary me-2">Cancelar</a>
-    <button type="submit" class="btn btn-primary">Guardar cambios</button>
-</form>
 
+        <div class="d-flex justify-content-end">
+            <a href="{% url 'course_wizard' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Guardar cambios
+            </button>
+        </div>
+    </form>
+</div>
 {% endblock %}

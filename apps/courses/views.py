@@ -21,7 +21,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.forms import modelformset_factory
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.db.models import Prefetch, Count, Avg, Q
+from django.db.models import Prefetch, Count, Avg, Q, Max
 import os
 
 
@@ -589,38 +589,64 @@ def view_course_content(request, course_id):
 def admin_course_stats(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
 
-    # Usuarios inscritos al curso
-    enrolled = EnrolledCourse.objects.filter(course=course)
-    total_users = enrolled.count()
-    completed_users = enrolled.filter(status='completed').count()
+    # Obtener asignación
+    assignment = CourseAssignment.objects.filter(course=course).first()
 
-    # Intentos del cuestionario relacionados con este curso
-    quiz_attempts = QuizAttempt.objects.filter(course=course)
+    # Determinar usuarios asignados
+    if assignment:
+        if assignment.assignment_type == "all_users":
+            users = User.objects.select_related('employee').all()
+        elif assignment.assignment_type == "specific_users":
+            users = assignment.users.select_related('employee').all()
+        elif assignment.assignment_type == "by_department":
+            users = User.objects.select_related('employee').filter(
+                employee__department__in=assignment.departments.all()
+            ).distinct()
+        else:
+            users = User.objects.none()
+    else:
+        users = User.objects.none()
+
+    total_users = users.count()
+
+    # Obtener intentos de cuestionario
+    quiz = Quiz.objects.filter(course_header=course).first()
+    quiz_attempts = QuizAttempt.objects.filter(course=course) if quiz else QuizAttempt.objects.none()
+
+    # Mapa de intentos por usuario
+    attempt_map = {}
+    if quiz:
+        for a in quiz_attempts.values('user_id').annotate(count=Count('id'), last_score=Max('percentage')):
+            uid = a['user_id']
+            attempt_map[uid] = {
+                'count': a['count'],
+                'last_score': a['last_score'],
+                'passed': quiz_attempts.filter(user_id=uid, passed=True).exists()
+            }
+
+    # Métricas
     approved_users = quiz_attempts.filter(passed=True).values('user').distinct().count()
+    avg_attempts = quiz_attempts.values('user').annotate(n=Count('id')).aggregate(avg=Avg('n'))['avg'] or 0
 
-    # Intentos promedio por usuario
-    avg_attempts = quiz_attempts.values('user').annotate(num=Count('id')).aggregate(avg=Avg('num'))['avg'] or 0
-
-    # Progreso detallado por usuario
+    # Datos por usuario
     user_progress = []
-    for record in enrolled.select_related('user'):
-        attempts = quiz_attempts.filter(user=record.user)
-        last_attempt = attempts.order_by('-submitted_at').first()
-        last_score = last_attempt.percentage if last_attempt else 0
-        passed = last_attempt.passed if last_attempt else False
-
+    for user in users:
+        data = attempt_map.get(user.id, {})
+        employee = getattr(user, 'employee', None)
+        full_name = f"{employee.first_name} {employee.last_name}" if employee else user.get_full_name()
         user_progress.append({
-            'user': record.user,
-            'progress': float(record.progress),
-            'attempts': attempts.count(),
-            'last_score': last_score,
-            'passed': passed,
+            'user': user,
+            'employee_name': full_name,
+            'progress': 0,
+            'attempts': data.get('count', 0),
+            'last_score': round(data.get('last_score', 0), 1),
+            'passed': data.get('passed', False),
         })
 
     return render(request, 'courses/admin/admin_course_stats.html', {
         'course': course,
         'total_users': total_users,
-        'completed_users': completed_users,
+        'completed_users': 0,  # No manejas EnrolledCourse
         'approved_users': approved_users,
         'avg_attempts': round(avg_attempts, 1),
         'user_progress': user_progress,
