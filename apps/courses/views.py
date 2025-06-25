@@ -988,3 +988,16 @@ def submit_course_quiz(request, course_id):
         'percentage_score': percentage,
         'message': 'Aprobado' if passed else 'Reprobado'
     })
+
+@login_required
+def unread_course_count(request):
+    unread_count = EnrolledCourse.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'unread_count': unread_count})
+
+from django.views.decorators.http import require_POST
+
+@require_POST
+@login_required
+def mark_all_courses_read(request):
+    EnrolledCourse.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return JsonResponse({'success': True})

@@ -44,7 +44,7 @@
 
     <!-- Modal -->
 <div class="modal fade" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
     <form method="post" action="{% url 'submit_course_quiz' course.id %}" id="course-quiz-form" data-course-id="{{ course.id }}">
         {% csrf_token %}
@@ -162,7 +162,7 @@
                         Ver lección
                         </button>
                     </div>
-                           <div class="modal fade" id="lessonModal{{ lesson.id }}" tabindex="-1" aria-labelledby="lessonModalLabel{{ lesson.id }}" aria-hidden="true">
+                        <div class="modal fade" id="lessonModal{{ lesson.id }}" tabindex="-1" aria-labelledby="lessonModalLabel{{ lesson.id }}" aria-hidden="true">
             <div class="modal-dialog modal-xl modal-dialog-scrollable">
               <div class="modal-content">
                 <div class="modal-header bg-success text-white">
@@ -228,25 +228,24 @@
 {% block styles %}
     <link rel="stylesheet" href="{% static 'css/courses.css' %}">
 <style>
+.modal-dialog {
+    max-width: 90vw;
+    width: auto;
+}
+
 .modal-body {
-    overflow-y: hidden !important;
+    overflow: hidden !important;
+    max-height: unset;
+    padding: 0;
 }
 
 .pdf-scroll-container {
-    max-height: 80vh; /* Mejor que 600px para responsividad */
+    max-height: 75vh;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 10px;
+    padding: 10px;
 }
 
-.pdf-scroll-container canvas {
-    display: block;
-    max-width: 100%;
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 auto 20px auto;
-    box-sizing: border-box;
-}
 
 
 
