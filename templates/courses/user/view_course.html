@@ -179,7 +179,11 @@
                           <source src="{{ lesson.resource.url }}" type="video/mp4">
                         </video>
                       {% elif ".pdf" in res_url %}
-                        <iframe src="{{ lesson.resource.url }}" width="100%" height="500px" class="mb-3 border rounded shadow"></iframe>
+                        <div id="pdf-container-{{ lesson.id }}" 
+                            class="pdf-scroll-container" 
+                            data-pdf-url="http://{{ request.get_host }}{{ lesson.resource.url }}">
+                        </div>
+
                       {% elif ".ppt" in res_url or ".pptx" in res_url %}
                         <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
                       {% elif ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
@@ -223,6 +227,30 @@
 
 {% block styles %}
     <link rel="stylesheet" href="{% static 'css/courses.css' %}">
+<style>
+.modal-body {
+    overflow-y: hidden !important;
+}
+
+.pdf-scroll-container {
+    max-height: 80vh; /* Mejor que 600px para responsividad */
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 10px;
+}
+
+.pdf-scroll-container canvas {
+    display: block;
+    max-width: 100%;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 auto 20px auto;
+    box-sizing: border-box;
+}
+
+
+
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -435,6 +463,54 @@ function clearProgressAndGoBack() {
       showStep(currentStep);
     });
   });
+
+document.addEventListener("DOMContentLoaded", function () {
+  const modals = document.querySelectorAll(".modal");
+
+  modals.forEach(modal => {
+    modal.addEventListener("shown.bs.modal", function () {
+      const container = modal.querySelector("div[id^='pdf-container']");
+      if (!container) return;
+
+      const url = container.getAttribute("data-pdf-url");
+
+      if (container.dataset.loaded === "true") return;
+      container.dataset.loaded = "true";
+
+      container.style.overflowX = "auto";  // permite scroll horizontal si se requiere
+      container.style.overflowY = "auto";  // por si quieres scroll vertical también
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+      pdfjsLib.getDocument(url).promise.then(pdf => {
+        const totalPages = pdf.numPages;
+
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          pdf.getPage(pageNum).then(page => {
+            const scale = 1.2;  // Ajusta según necesites
+            const viewport = page.getViewport({ scale });
+
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            // Mantén cada página como bloque para evitar diseño horizontal
+            canvas.style.display = "block";
+            canvas.style.margin = "0 auto 20px auto";  // centrado + separación
+
+            container.appendChild(canvas);
+            page.render({ canvasContext: context, viewport });
+          });
+        }
+      }).catch(error => {
+        console.error("Error al renderizar el PDF:", error);
+        container.innerHTML = `<div class="alert alert-danger">No se pudo cargar el PDF</div>`;
+      });
+    });
+  });
+});
+
 
 </script>
 {% endblock %}

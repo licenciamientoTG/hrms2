@@ -581,6 +581,7 @@ def view_course_content(request, course_id):
         'course_quiz': course_quiz,
         'attempts_left': attempts_left,
         'is_passed': is_passed,
+        'request': request
     })
 
 
