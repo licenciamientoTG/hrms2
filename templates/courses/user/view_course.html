@@ -42,7 +42,6 @@
         </button>
     </div>
 
-    <!-- Aquí va el modal fuera del div anterior -->
     <!-- Modal -->
 <div class="modal fade" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -53,45 +52,46 @@
           <h5 class="modal-title" id="quizModalLabel">Cuestionario Final</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
-        <div class="modal-body">
-          <p>{{ course_quiz.description }}</p>
+          <div class="modal-body">
+            <p>{{ course_quiz.description }}</p>
 
-          {% for question in course_quiz.question_set.all %}
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+            <div id="quiz-steps-container">
+              {% for question in course_quiz.question_set.all %}
+                <div class="quiz-question-step d-none" data-step="{{ forloop.counter }}">
+                  <div class="card mb-3">
+                    <div class="card-body">
+                      <h6 class="mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
 
-                {% if question.question_type %}
-                  {% for answer in question.answer_set.all %}
-                    <div class="form-check">
-                      <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
-                      <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                      {% if question.question_type %}
+                        {% for answer in question.answer_set.all %}
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                            <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                          </div>
+                        {% endfor %}
+                      {% elif question.question_type == 'Respuesta Multiple' %}
+                        {% for answer in question.answer_set.all %}
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                            <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                          </div>
+                        {% endfor %}
+                      {% elif question.question_type == 'Texto' %}
+                        <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
+                      {% else %}
+                        <p class="text-danger">Tipo de pregunta no soportado.</p>
+                      {% endif %}
+
+                      {% if question.explanation %}
+                        <small class="text-muted d-block mt-2">Explicación: {{ question.explanation }}</small>
+                      {% endif %}
                     </div>
-                  {% endfor %}
-                {% elif question.question_type == 'Respuesta Multiple' %}
-                  {% for answer in question.answer_set.all %}
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
-                      <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
-                    </div>
-                  {% endfor %}
-                {% elif question.question_type == 'Texto' %}
-                  <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
-                {% else %}
-                  <p class="text-danger">Tipo de pregunta no soportado.</p>
-                {% endif %}
-
-                {% if question.explanation %}
-                  <small class="text-muted d-block mt-2">Explicación: {{ question.explanation }}</small>
-                {% endif %}
-              </div>
+                  </div>
+                </div>
+              {% endfor %}
             </div>
-          {% empty %}
-            <div class="alert alert-warning">No hay preguntas aún en este cuestionario.</div>
-          {% endfor %}
-        </div>
-
-        <div class="modal-footer d-flex flex-column align-items-stretch">
+          </div>
+          <div class="modal-footer d-flex flex-column align-items-stretch">
           {% if attempts_left is not None and attempts_left <= 0 %}
             <div class="alert alert-danger w-100 text-center">
               Has agotado los intentos permitidos.
@@ -106,9 +106,12 @@
                 Intentos restantes: <strong>{{ attempts_left }}</strong>
               </div>
             {% endif %}
-            <button type="submit" class="btn btn-success w-100">
-              Enviar Cuestionario
-            </button>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+              <button type="button" class="btn btn-secondary" id="prevQuestionBtn" style="display: none;">Anterior</button>
+              <button type="button" class="btn btn-primary" id="nextQuestionBtn">Siguiente</button>
+              <button type="submit" class="btn btn-success d-none" id="submitQuizBtn">Enviar Cuestionario</button>
+            </div>
+
           {% endif %}
         </div>
       </form>
@@ -374,6 +377,64 @@ function clearProgressAndGoBack() {
     window.location.href = "{% url 'course_wizard' %}";
 }
 
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const steps = document.querySelectorAll(".quiz-question-step");
+    const nextBtn = document.getElementById("nextQuestionBtn");
+    const prevBtn = document.getElementById("prevQuestionBtn");
+    const submitBtn = document.getElementById("submitQuizBtn");
+
+    let currentStep = 0;
+
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.toggle("d-none", i !== index);
+      });
+
+      prevBtn.style.display = index > 0 ? "inline-block" : "none";
+      nextBtn.style.display = index < steps.length - 1 ? "inline-block" : "none";
+      submitBtn.classList.toggle("d-none", index !== steps.length - 1);
+    }
+
+    function validateCurrentStep() {
+      const current = steps[currentStep];
+      const inputs = current.querySelectorAll("input, textarea");
+      for (let input of inputs) {
+        if (input.type === "radio" || input.type === "checkbox") {
+          const name = input.name;
+          const checked = current.querySelector(`input[name="${name}"]:checked`);
+          if (!checked && input.required) return false;
+        } else {
+          if (input.required && !input.value.trim()) return false;
+        }
+      }
+      return true;
+    }
+
+    nextBtn.addEventListener("click", () => {
+      if (!validateCurrentStep()) {
+        alert("Responde la pregunta antes de continuar.");
+        return;
+      }
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    });
+
+    prevBtn.addEventListener("click", () => {
+      if (currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    });
+
+    // Mostrar la primera pregunta al abrir el modal
+    $('#quizModal').on('shown.bs.modal', function () {
+      currentStep = 0;
+      showStep(currentStep);
+    });
+  });
 
 </script>
 {% endblock %}
