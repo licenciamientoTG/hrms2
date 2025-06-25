@@ -285,7 +285,7 @@ def save_course_ajax(request):
             step2_data = json.loads(step2_raw)
             modules_data = json.loads(modules_raw)
 
-            ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".mp4", ".jpg", ".jpeg", ".png", ".gif", ".webp"]
+            ALLOWED_EXTENSIONS = [".pdf", ".mp4", ".jpg", ".jpeg", ".png", ".gif", ".webp"]
 
             
             # 🔹 2. Validaciones básicas
@@ -409,7 +409,7 @@ def save_course_ajax(request):
                         if ext not in ALLOWED_EXTENSIONS:
                             return JsonResponse({
                                 "status": "error",
-                                "message": f"El archivo '{resource_file.name}' no está permitido. Solo se aceptan PDF, DOCX, PPTX, MP4 e imágenes (JPG, PNG, etc.)."
+                                "message": f"El archivo '{resource_file.name}' no está permitido. Solo se aceptan PDF, MP4 e imágenes (JPG, PNG, etc.)."
                             }, status=400)
 
                         
