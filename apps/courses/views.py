@@ -597,7 +597,7 @@ def admin_course_stats(request, course_id):
     if config:
         if config.audience == "all_users":
             # Si el curso está configurado como para todos
-            users = User.objects.all()
+            users = User.objects.filter(is_staff=False, is_superuser=False)
 
         elif config.audience == "segment":
             # Acumular todos los usuarios segmentados
@@ -623,7 +623,7 @@ def admin_course_stats(request, course_id):
                     ).values_list('id', flat=True)
                     user_ids.update(loc_users)
 
-            users = User.objects.filter(id__in=user_ids)
+            users = User.objects.filter(id__in=user_ids, is_staff=False, is_superuser=False)
 
     total_users = users.count()
 
