@@ -29,7 +29,7 @@ LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias l
 
 @login_required
 def course_wizard(request):
-    assigned_courses_count = 0  # ✅ Valor por defecto
+    assigned_courses_count = 0
 
     if request.user.is_superuser:
         employees = Employee.objects.filter(is_active=True)
@@ -38,10 +38,7 @@ def course_wizard(request):
         locations = Location.objects.all()
         template_name = "courses/admin/admin_courses.html"
     else:
-        employees = None
-        departments = None
-        job_positions = None
-        locations = None
+        employees = departments = job_positions = locations = None
         template_name = "courses/user/wizard_form_user.html"
 
     if request.method == "POST":
@@ -76,35 +73,30 @@ def course_wizard(request):
                 if form.cleaned_data:
                     form.save()
             return redirect('course_wizard')
+
     else:
         course_form = CourseHeaderForm()
         config_form = CourseConfigForm()
         module_formset = formset_factory(ModuleContentForm, extra=1)()
         lesson_formset = LessonFormSet()
+
+    today = datetime.now().date()
+    courses_config = CourseConfig.objects.all()
+
     if request.user.is_superuser:
         courses = CourseHeader.objects.all()
         totalcursos = courses.count()
-        assigned_courses_count = 0
-        courses_with_all_users_assignment = set()
-        assigned_course_ids = set()  # ← esta línea evita el UnboundLocalError
-
+        assigned_course_ids = set()
     else:
         user = request.user
-
-        # Cursos asignados directamente al usuario
         enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
         assigned_courses = [e.course for e in enrolled_courses]
 
-        # Cursos asignados por tipo "all_users"
-        all_user_assignments = CourseAssignment.objects.filter(
-            assignment_type="all_users"
-        ).select_related("course")
+        all_user_assignments = CourseAssignment.objects.filter(assignment_type="all_users").select_related("course")
         courses_with_all_users_assignment = set(a.course for a in all_user_assignments)
 
-        # Cursos con config.audience == "all_users"
         public_courses = CourseHeader.objects.filter(config__audience="all_users")
 
-        # Cursos asignados por segmentación
         segment_assignments = CourseAssignment.objects.filter(
             assignment_type="by_department"
         ).prefetch_related("departments", "positions", "locations", "course")
@@ -122,18 +114,14 @@ def course_wizard(request):
         except Employee.DoesNotExist:
             pass
 
-        # Unir todos los cursos que debe ver el usuario
         combined_courses = set(assigned_courses) | courses_with_all_users_assignment | set(public_courses) | segment_assigned_courses
         courses = CourseHeader.objects.filter(id__in=[c.id for c in combined_courses]).select_related('config')
         totalcursos = courses.count()
 
-        # Cursos realmente asignados (no públicos), para contadores o indicadores
         assigned_courses_combined = set(assigned_courses) | courses_with_all_users_assignment | segment_assigned_courses
         assigned_courses_count = len(assigned_courses_combined)
-
         assigned_course_ids = set(c.id for c in assigned_courses_combined)
 
-        # Crear enrollments falsos si no están registrados en EnrolledCourse
         real_enrolled_ids = set(e.course.id for e in enrolled_courses)
         fake_enrollments = []
         for course in courses:
@@ -147,15 +135,10 @@ def course_wizard(request):
 
         all_enrollments = list(enrolled_courses) + fake_enrollments
 
-
-
-
-    courses_config = CourseConfig.objects.all()
-    today = datetime.now().date()
-
-    # 📆 Calculamos fechas de los cursos
     inactive_courses_count = 0
     in_progress_courses_count = 0
+    completed_courses_count = 0
+
     for course in courses:
         if hasattr(course, 'config') and course.config.deadline is not None:
             deadline_date = course.created_at + timedelta(days=course.config.deadline)
@@ -166,8 +149,18 @@ def course_wizard(request):
                 in_progress_courses_count += 1
         else:
             course.deadline_date = None
-            in_progress_courses_count += 1  # Si no tiene deadline, lo tratamos como activo
+            in_progress_courses_count += 1
 
+        # 🎯 Verificar completados solo si es superuser
+        if request.user.is_superuser:
+            quiz = Quiz.objects.filter(course_header=course).first()
+            if not quiz:
+                continue
+            assigned_users = User.objects.filter(enrolled_courses__course=course).distinct()
+            total_users = assigned_users.count()
+            passed_users = QuizAttempt.objects.filter(course=course, passed=True).values('user').distinct().count()
+            if total_users > 0 and passed_users == total_users:
+                completed_courses_count += 1
 
     return render(request, template_name, {
         'course_form': course_form,
@@ -181,12 +174,12 @@ def course_wizard(request):
         'today': today,
         'inactive_courses_count': inactive_courses_count,
         'in_progress_courses_count': in_progress_courses_count,
+        'completed_courses_count': completed_courses_count,
         'employees': employees,
         'departments': departments,
         'job_positions': job_positions,
         'locations': locations,
         'assigned_courses_count': assigned_courses_count,
-        'courses_with_all_users_assignment': courses_with_all_users_assignment,
         'assigned_course_ids': assigned_course_ids,
     })
 

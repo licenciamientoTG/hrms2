@@ -25,6 +25,7 @@ urlpatterns = [
     path('submit_course_quiz/<int:course_id>/', views.submit_course_quiz, name='submit_course_quiz'),
     path("unread_count/", views.unread_course_count, name="unread_course_count"),
     path("mark_all_read/", views.mark_all_courses_read, name="mark_all_courses_read"),
+    path('admin/courses/', views.admin_courses, name='admin_courses'),
 
 ]
 
