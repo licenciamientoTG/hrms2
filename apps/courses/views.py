@@ -654,7 +654,7 @@ def admin_course_stats(request, course_id):
     return render(request, 'courses/admin/admin_course_stats.html', {
         'course': course,
         'total_users': total_users,
-        'completed_users': 0,
+        'completed_users': quiz_attempts.values('user').distinct().count(),
         'approved_users': approved_users,
         'avg_attempts': round(avg_attempts, 1),
         'user_progress': user_progress,

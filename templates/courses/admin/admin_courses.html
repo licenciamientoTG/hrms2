@@ -100,7 +100,7 @@
         </div>
         {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
-                data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
+                data-estado="{% if course.id in completed_course_ids %}completado{% elif course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-asignado="{{ course.config.audience }}">
 
                 <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
