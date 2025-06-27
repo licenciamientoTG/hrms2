@@ -545,9 +545,6 @@ def run_assignments(request, course_id):
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
-
-
-
 @login_required
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
@@ -576,8 +573,6 @@ def view_course_content(request, course_id):
         'is_passed': is_passed,
         'request': request
     })
-
-
 
 @staff_member_required
 def admin_course_stats(request, course_id):
