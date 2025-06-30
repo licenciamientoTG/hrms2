@@ -177,6 +177,20 @@ class Employee(models.Model):
         help_text=_("Notas internas o comentarios generales sobre el empleado")
     )
 
+    rehire_eligible = models.BooleanField(
+        default=False,
+        verbose_name=_("Elegible para recontratar"),
+        help_text=_("Indica si puede ser recontratado")
+    )
+    
+    termination_reason = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("Motivo de baja"),
+        help_text=_("Razón de la baja del empleado")
+    )
+
     class Meta:
         verbose_name = _("Empleado")
         verbose_name_plural = _("Empleados")

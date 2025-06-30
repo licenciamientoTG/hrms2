@@ -1,8 +1,86 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block page_title %}Panel de Usuarios{% endblock %}
-{% block title %}Panel de Usuarios{% endblock %}
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'css/users.css' %}">
+{% endblock %}
 
 {% block content %}
-Aquí va a ir el panel de usuarios.
+<div class="container">
+  <h1>Usuarios</h1>
+
+    <div class="search-bar">
+    <input type="text" placeholder="Buscar por nombre o usuario">
+
+    <select>
+        <option value="todos">Todos</option>
+    </select>
+
+    <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form">
+        {% csrf_token %}
+        <input type="file" name="csv_file" accept=".csv">
+        <button type="submit" class="btn btn-primary">Subir CSV</button>
+    </form>
+    </div>
+
+
+  <table class="user-table">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Usuario</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+        <th>Permisos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in empleados %}
+      <tr id="row-{{ emp.user.id }}">
+        <td class="user-info">
+          <div class="details">
+            <div class="name">{{ emp.first_name }} {{ emp.last_name }}</div>
+            <div class="email">{{ emp.email }}</div>
+          </div>
+        </td>
+        <td>{% if emp.user %} {{ emp.user.username }} {% else %} — {% endif %}</td>
+        <td>
+          {% if emp.user %}
+            <span class="status {% if emp.user.is_active %}active{% else %}inactive{% endif %}">
+              {% if emp.user.is_active %}
+                ✅ Activo
+              {% else %}
+                ● Inactivo
+              {% endif %}
+            </span>
+          {% endif %}
+        </td>
+        <td>
+          {% if emp.user %}
+            <button onclick="toggleStatus({{ emp.user.id }})" class="action-btn">
+              {% if emp.user.is_active %} Desactivar {% else %} Activar {% endif %}
+            </button>
+          {% endif %}
+        </td>
+        <td>
+        {% if emp.user %}
+            <a href="{% url 'manage_user_permissions' emp.user.id %}" class="config-btn">
+            ⚙️ Configurar
+            </a>
+        {% endif %}
+        </td>
+
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No hay empleados registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const csrfToken = "{{ csrf_token }}";
+  const toggleUrl = "{% url 'toggle_user_status' %}";
+</script>
+<script src="{% static 'js/users.js' %}"></script>
 {% endblock %}
