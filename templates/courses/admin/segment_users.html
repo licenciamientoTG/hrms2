@@ -63,7 +63,7 @@
                                 <input type="text" class="form-control mb-3" placeholder="Buscar usuario..." onkeyup="filterItems(this, 'user')">
                                     <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
                                     {% for employee in employees %}
-                                    <div class="col-6 mb-2 filter-item user-item {% if forloop.counter > 8 %}d-none extra-user{% endif %}" data-filter="{{ employee.first_name|lower }} {{ employee.last_name|lower }}">
+                                    <div class="col-6 mb-2 filter-item user-item" data-filter="{{ employee.first_name|lower }} {{ employee.last_name|lower }}">
                                         <input type="checkbox" class="btn-check" 
                                             id="user{{ employee.id }}" 
                                             name="users" 
