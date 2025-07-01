@@ -9,22 +9,17 @@
 <div class="container">
   <h1>Usuarios</h1>
 
-    <div class="search-bar">
-    <input type="text" placeholder="Buscar por nombre o usuario">
+  <div class="search-bar mb-3">
+    <input id="searchUsuarios" type="text" placeholder="Buscar por nombre o usuario" class="form-control w-auto">
 
-    <select>
-        <option value="todos">Todos</option>
-    </select>
-
-    <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form">
-        {% csrf_token %}
-        <input type="file" name="csv_file" accept=".csv">
-        <button type="submit" class="btn btn-primary">Subir CSV</button>
+    <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form d-inline-block ms-3">
+      {% csrf_token %}
+      <input type="file" name="csv_file" accept=".csv">
+      <button type="submit" class="btn btn-primary btn-sm">Subir CSV</button>
     </form>
-    </div>
+  </div>
 
-
-  <table class="user-table">
+  <table class="user-table table">
     <thead>
       <tr>
         <th>Nombre</th>
@@ -43,36 +38,29 @@
             <div class="email">{{ emp.email }}</div>
           </div>
         </td>
-        <td>{% if emp.user %} {{ emp.user.username }} {% else %} — {% endif %}</td>
+        <td>{% if emp.user %}{{ emp.user.username }}{% else %}—{% endif %}</td>
         <td>
           {% if emp.user %}
-            <span class="status {% if emp.user.is_active %}active{% else %}inactive{% endif %}">
-              {% if emp.user.is_active %}
-                ✅ Activo
-              {% else %}
-                ● Inactivo
-              {% endif %}
-            </span>
+          <span class="status {% if emp.user.is_active %}active{% else %}inactive{% endif %}">
+            {% if emp.user.is_active %}✅ Activo{% else %}🚫 Inactivo{% endif %}
+          </span>
           {% endif %}
         </td>
         <td>
           {% if emp.user %}
-            <button onclick="toggleStatus({{ emp.user.id }})" class="action-btn">
-              {% if emp.user.is_active %} Desactivar {% else %} Activar {% endif %}
-            </button>
+          <button onclick="toggleStatus({{ emp.user.id }})" class="btn btn-sm btn-outline-secondary">
+            {% if emp.user.is_active %}Desactivar{% else %}Activar{% endif %}
+          </button>
           {% endif %}
         </td>
         <td>
-        {% if emp.user %}
-            <a href="{% url 'manage_user_permissions' emp.user.id %}" class="config-btn">
-            ⚙️ Configurar
-            </a>
-        {% endif %}
+          {% if emp.user %}
+          <a href="{% url 'manage_user_permissions' emp.user.id %}" class="btn btn-sm btn-outline-primary">⚙️ Configurar</a>
+          {% endif %}
         </td>
-
       </tr>
       {% empty %}
-      <tr><td colspan="4">No hay empleados registrados.</td></tr>
+      <tr><td colspan="5">No hay empleados registrados.</td></tr>
       {% endfor %}
     </tbody>
   </table>

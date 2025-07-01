@@ -61,22 +61,42 @@ def upload_employees_csv(request):
         reader = csv.DictReader(decoded_file)
 
         for row in reader:
-            emp_number = (row.get('N�mero') or "").strip()[:20]
-            first_name = (row.get('Nombre') or "").strip()[:255]
+            # 🔑 Separar nombre
+            raw_name = (row.get('Nombre') or "").strip()
+            parts = raw_name.split(',')
+            if len(parts) == 2:
+                last_name = parts[0].strip()
+                first_name = parts[1].strip()
+            else:
+                last_name = raw_name.strip()
+                first_name = ""
 
-            department_name = (row.get('Departamento') or "").strip()[:100]
-            job_position_name = (row.get('Puesto') or "").strip()[:100]
+            # Recortar según modelo Employee
+            first_name = first_name[:Employee._meta.get_field('first_name').max_length]
+            last_name = last_name[:Employee._meta.get_field('last_name').max_length]
+
+            emp_number = (row.get('N�mero') or "").strip()
+            emp_number = emp_number[:Employee._meta.get_field('employee_number').max_length]
+
+            department_name = (row.get('Departamento') or "").strip()
+            job_position_name = (row.get('Puesto') or "").strip()
+
             start_date_raw = row.get('Fecha de Ingreso')
             activo_raw = (row.get('Activo') or "").strip().upper()
             termination_date_raw = row.get('Fecha de Baja')
             rehire_raw = (row.get('Recontratar') or "").strip().upper()
-            termination_reason = (row.get('Motivo de Baja') or "").strip()[:255]
+            termination_reason = (row.get('Motivo de Baja') or "").strip()
+            termination_reason = termination_reason[:Employee._meta.get_field('termination_reason').max_length]
 
-            rfc = (row.get('RFC') or "").strip().upper()[:13]
+            rfc = (row.get('RFC') or "").strip().upper()
+            rfc = rfc[:Employee._meta.get_field('rfc').max_length]
+
             imss_raw = (row.get('IMSS') or "").strip().upper()
-            imss = imss_raw.replace("IMSS", "").strip()[:11]
+            imss = imss_raw.replace("IMSS", "").strip()
+            imss = imss[:Employee._meta.get_field('imss').max_length]
 
-            curp = (row.get('CURP') or "").strip().upper()[:18]
+            curp = (row.get('CURP') or "").strip().upper()
+            curp = curp[:Employee._meta.get_field('curp').max_length]
 
             gender_raw = (row.get('G�nero') or "").strip().lower()
             if gender_raw.startswith("masc"):
@@ -88,9 +108,11 @@ def upload_employees_csv(request):
 
             vacation_balance = float(row.get('SaldodeVacaciones') or "0")
 
-            phone_number = "".join(filter(str.isdigit, (row.get('Tel�fono') or "")))[:10]
+            phone_number = "".join(filter(str.isdigit, (row.get('Tel�fono') or "")))
+            phone_number = phone_number[:Employee._meta.get_field('phone_number').max_length]
 
             address = (row.get('Direcci�n') or "").strip()
+            address = address[:Employee._meta.get_field('address').max_length]
 
             # ✅ Parse fechas
             start_date = None
@@ -107,16 +129,21 @@ def upload_employees_csv(request):
                 except Exception as e:
                     print(f"Error parsing Fecha de Baja: {e}")
 
-            # ✅ Parse booleans
             is_active = True if activo_raw == "SI" else False
             rehire_eligible = True if rehire_raw == "SI" else False
 
             # ✅ FK: Department
             department_obj = None
             if department_name:
+                dep_name_max = Department._meta.get_field('name').max_length
+                dep_abbr_max = Department._meta.get_field('abbreviated').max_length
+
+                department_name = department_name[:dep_name_max]
+                department_abbr = department_name[:dep_abbr_max]
+
                 department_obj, _ = Department.objects.get_or_create(
                     name=department_name,
-                    defaults={'abbreviated': department_name[:5]}
+                    defaults={'abbreviated': department_abbr}
                 )
 
             # ✅ FK: JobCategory
@@ -125,9 +152,12 @@ def upload_employees_csv(request):
                 defaults={'description': 'Cargado desde CSV'}
             )
 
-            # ✅ FK: JobPosition con department + category
+            # ✅ FK: JobPosition
             job_position_obj = None
             if job_position_name and department_obj:
+                job_title_max = JobPosition._meta.get_field('title').max_length
+                job_position_name = job_position_name[:job_title_max]
+
                 job_position_obj, _ = JobPosition.objects.get_or_create(
                     title=job_position_name,
                     department=department_obj,
@@ -149,6 +179,7 @@ def upload_employees_csv(request):
                 employee_number=emp_number,
                 defaults={
                     'first_name': first_name,
+                    'last_name': last_name,
                     'start_date': start_date,
                     'department': department_obj,
                     'job_position': job_position_obj,
@@ -168,6 +199,7 @@ def upload_employees_csv(request):
 
             if not created:
                 emp.first_name = first_name
+                emp.last_name = last_name
                 emp.start_date = start_date
                 emp.department = department_obj
                 emp.job_position = job_position_obj
