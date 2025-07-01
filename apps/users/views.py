@@ -9,15 +9,22 @@ from datetime import datetime
 from departments.models import Department
 from apps.employee.models import Employee, JobPosition, JobCategory
 from apps.location.models import Location
+from django.core.paginator import Paginator
 
 import csv
 
 @login_required
 def user_dashboard(request):
-    empleados = Employee.objects.all().select_related('user')
+    empleados = Employee.objects.all().select_related('user').order_by('last_name')
+    paginator = Paginator(empleados, 10)  # ✅ 10 empleados por página
+
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'users/user_dashboard.html', {
-        'empleados': empleados
+        'page_obj': page_obj  # 🔑 Solo pasa page_obj
     })
+
 
 @login_required
 @require_POST
@@ -219,3 +226,4 @@ def upload_employees_csv(request):
         return redirect('user_dashboard')
 
     return redirect('user_dashboard')
+
