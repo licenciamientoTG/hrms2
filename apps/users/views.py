@@ -15,15 +15,11 @@ import csv
 
 @login_required
 def user_dashboard(request):
-    empleados = Employee.objects.all().select_related('user').order_by('last_name')
-    paginator = Paginator(empleados, 10)  # ✅ 10 empleados por página
-
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
+    empleados = Employee.objects.select_related('user')
     return render(request, 'users/user_dashboard.html', {
-        'page_obj': page_obj  # 🔑 Solo pasa page_obj
+        'empleados': empleados
     })
+
 
 
 @login_required
