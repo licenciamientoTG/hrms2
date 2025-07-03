@@ -246,6 +246,7 @@ def visual_course_wizard(request):
 
     inactive_courses_count = 0
     in_progress_courses_count = 0
+    course = None
 
     for course in courses:
         if hasattr(course, 'config'):

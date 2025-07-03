@@ -6,14 +6,25 @@ from apps.employee.models import Employee
 @receiver(post_save, sender=Employee)
 def create_user_for_employee(sender, instance, created, **kwargs):
     if created and instance.user is None:
-        # Obtener inicial, apellido y número de empleado
-        first_initial = instance.first_name[0].upper() if instance.first_name else "X"
-        last_name_clean = instance.last_name.capitalize() if instance.last_name else "Empleado"
-        emp_number = instance.employee_number
+        emp_number = str(instance.employee_number)
 
-        base_username = f"{first_initial}{last_name_clean}{emp_number}"
+        # Obtener fecha de nacimiento desde la CURP: posiciones 5 a 10 (6 dígitos)
+        # Ejemplo: SDAE980603JSJOWQ01 → '980603'
+        birth_date_part = ""
+        if instance.curp and len(instance.curp) >= 11:
+            birth_date_part = instance.curp[4:10]  # 5 a 10 (index base 0)
 
-        username = base_username
+            # Invertir orden: '980603' → '030698'
+            birth_date_part = birth_date_part[::-1]
+        else:
+            birth_date_part = "000000"  # Valor por defecto si no hay CURP
+
+        # Construir username y contraseña
+        username = emp_number
+        password = f"{emp_number}{birth_date_part}"
+
+        # Evitar duplicados de username
+        base_username = username
         counter = 1
         while User.objects.filter(username=username).exists():
             username = f"{base_username}{counter}"
@@ -23,7 +34,7 @@ def create_user_for_employee(sender, instance, created, **kwargs):
         user = User.objects.create_user(
             username=username,
             email=instance.email or "",
-            password="cambiame123",
+            password=password,
             first_name=instance.first_name,
             last_name=instance.last_name
         )
@@ -31,3 +42,5 @@ def create_user_for_employee(sender, instance, created, **kwargs):
         # Vincular usuario con el empleado
         instance.user = user
         instance.save()
+
+        print(f"✅ Usuario creado: {username} / Contraseña: {password}")

@@ -10,6 +10,7 @@ from departments.models import Department
 from apps.employee.models import Employee, JobPosition, JobCategory
 from apps.location.models import Location
 from django.core.paginator import Paginator
+from django.contrib import messages
 
 import csv
 
@@ -58,8 +59,13 @@ def manage_user_permissions(request, user_id):
 
 @login_required
 def upload_employees_csv(request):
-    if request.method == 'POST' and request.FILES['csv_file']:
-        csv_file = request.FILES['csv_file']
+    if request.method == 'POST':
+        # ✅ Usa .get() para evitar MultiValueDictKeyError
+        csv_file = request.FILES.get('csv_file')
+
+        if not csv_file:
+            return redirect('user_dashboard')
+
         decoded_file = csv_file.read().decode('utf-8').splitlines()
         reader = csv.DictReader(decoded_file)
 
