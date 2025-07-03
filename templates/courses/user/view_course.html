@@ -463,7 +463,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
           pdf.getPage(pageNum).then(page => {
-            const scale = 1.2;  // Ajusta según necesites
+            const scale = 1;  // Ajusta según necesites
             const viewport = page.getViewport({ scale });
 
             const canvas = document.createElement("canvas");
@@ -472,8 +472,10 @@ document.addEventListener("DOMContentLoaded", function () {
             canvas.height = viewport.height;
 
             // Mantén cada página como bloque para evitar diseño horizontal
+            canvas.style.width = "100%";
+            canvas.style.height = "auto";
             canvas.style.display = "block";
-            canvas.style.margin = "0 auto 20px auto";  // centrado + separación
+            canvas.style.margin = "0 auto 20px auto";
 
             container.appendChild(canvas);
             page.render({ canvasContext: context, viewport });
