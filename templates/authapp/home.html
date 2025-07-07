@@ -9,52 +9,89 @@
     position: relative;
     z-index: 0;
     overflow: hidden;
-    min-height: 100vh; 
+    min-height: 100vh;
   }
 
   .background-wrapper::before {
     content: "";
-    background: url("{% static 'template/img/wallpaper/Certificado top tier.jpg' %}") no-repeat center center / cover;
+    background: url("{% static 'template/img/wallpaper/Certificado_top_tier.jpg' %}") no-repeat center center / cover;
     opacity: 0.1;
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: -1;
   }
 
-  #widget-clima, #widget-dolar {
-    flex: 1 1 45%;
-    max-width: 400px;
-    min-width: 300px;
-    box-sizing: border-box;
+  .quick-access-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
 
-  #widget-dolar {
-    display: flex;
-    justify-content: center;
+  .notification-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.1);
   }
 </style>
 
-<div class="background-wrapper">
-<h1>
-  Bienvenido administrador!!!<br>
-  Selecciona el apartado de Cursos o Usuarios para continuar descubriendo.
-</h1>
-  <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start;">
-    <div id="widget-clima">
-      <div id="ww_a63b0c985aba5" v='1.3' loc='auto'
-        a='{"t":"horizontal","lang":"es","sl_lpl":1,"ids":[],"font":"Arial","sl_ics":"one_a","sl_sot":"celsius","cl_bkg":"image","cl_font":"#FFFFFF","cl_cloud":"#FFFFFF","cl_persp":"#81D4FA","cl_sun":"#FFC107","cl_moon":"#FFC107","cl_thund":"#FF5722"}'>
-        Más previsiones: <a href="https://oneweather.org/es/seville/" id="ww_a63b0c985aba5_u" target="_blank">Clima Sevilla por horas</a>
+<div class="background-wrapper p-4">
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="quick-access-card">
+        <h6>Totál de colaboradores</h6>
+        <p>próximamente</p>
+        <a href="#" class="btn btn-success btn-sm">Ir →</a>
       </div>
-      <script async src="https://app3.weatherwidget.org/js/?id=ww_a63b0c985aba5"></script>
+    </div>
+    <div class="col-md-3">
+      <div class="quick-access-card">
+        <h6>Rotación anual</h6>
+        <p>próximamente</p>
+        <a href="#" class="btn btn-success btn-sm">Ir →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="quick-access-card">
+        <h6>Antigüedad promedio</h6>
+        <p>próximamente</p>
+        <a href="#" class="btn btn-success btn-sm">Ir →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="quick-access-card">
+        <h6>Ausentismos del mes</h6>
+        <p>próximamente</p>
+        <a href="#" class="btn btn-success btn-sm mt-2">→</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Comunicados -->
+    <div class="col-md-6">
+      <h5>Comunicados</h5>
+      <div class="notification-card">
+        <p><strong>Nombre de usuario</strong> | Hace 15 minutos</p>
+        <p>Estimado equipo,<br>En Recursos Humanos creemos que la evolución no es exclusiva de las especies...</p>
+      </div>
+      <!-- Puedes repetir más comunicados -->
     </div>
 
-    <div id="widget-dolar">
-      <fxwidget-er inverse="false" amount="1" decimals="2" large="true" shadow="true" symbol="true" flag="true" changes="true"
-        grouping="true" border="false" main-curr="USD" sel-curr="MXN"
-        background-color="#2980B9" background="linear-gradient(111deg,#2980B9,#6DD5FA,#FFFFFF)" border-radius="0.5">
-      </fxwidget-er>
-      <script async src="https://s.fx-w.io/widgets/exchange-rates/latest.js"></script>
+    <!-- Últimas notificaciones -->
+    <div class="col-md-6">
+      <h5>Últimas notificaciones</h5>
+      <div class="notification-card">
+        <p><strong>Título de notificación</strong><br>Descripción de la notificación.<br><small>Hoy 9:11 hrs</small></p>
+      </div>
+      <!-- Puedes repetir más notificaciones -->
     </div>
   </div>
 </div>
+
+
+
 {% endblock %}

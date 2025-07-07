@@ -6,12 +6,52 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
 
+from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
+from django.utils import timezone
+from datetime import timedelta
+from apps.employee.models import Employee
+
 @login_required
 def home(request):
     if request.user.is_superuser:
         return render(request, "authapp/home.html")
-    else:
-        return render(request, "authapp/home_user.html")
+
+    user = request.user
+    today = timezone.now().date()
+
+    # Cursos directos
+    enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
+    assigned_courses = [e.course for e in enrolled_courses]
+
+    # Cursos públicos
+    public_courses = CourseHeader.objects.filter(config__audience="all_users")
+
+    # Cursos asignados tipo all_users
+    assigned_by_type = CourseAssignment.objects.filter(
+        assignment_type="all_users"
+    ).values_list("course_id", flat=True)
+    type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
+
+    # Combinar todos
+    all_courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
+
+    # Calcular fecha límite
+    for course in all_courses:
+        if hasattr(course, 'config') and course.config and course.config.deadline is not None:
+            deadline_date = course.created_at + timedelta(days=course.config.deadline)
+            course.deadline_date = deadline_date.date()
+        else:
+            course.deadline_date = None
+
+    # Contar solo cursos activos
+    in_progress_courses_count = sum(
+        1 for c in all_courses if c.deadline_date is None or c.deadline_date > today
+    )
+
+    return render(request, "authapp/home_user.html", {
+        'in_progress_courses_count': in_progress_courses_count
+    })
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),

@@ -4,6 +4,52 @@
 <html lang="es">
 
 <head>
+<style>
+  /* Botón flotante */
+  #mi-boton-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: #ff0800;
+    color: white;
+    font-size: 12px;
+    text-align: center;
+    line-height: 60px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: background 0.3s;
+    z-index: 9999;
+  }
+  #mi-boton-widget:hover {
+    background: #1b1b1b;
+  }
+
+  /* Panel de contenido */
+  #mi-panel-widget {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: auto;
+    height: auto;
+    padding: 50px;
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    border-radius: 8px;
+    display: none;
+    z-index: 9998;
+    overflow: hidden;
+    font-size: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+  }
+</style>
+
 	<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.css">
 	<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 	<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.js"></script>
@@ -81,6 +127,32 @@
 
     {% block scripts %}
     {% endblock %}
+
+<!-- Botón flotante -->
+<div id="mi-boton-widget" onclick="toggleWidget()">
+  BUG
+</div>
+
+<!-- Panel de contenido oculto -->
+<div id="mi-panel-widget">
+  Este botón estará solo disponible en la versión de pruebas del HRMS, para hacer capturas de errores o bugs. <br><br>
+  Versión V0.1 por Aplicaciones y Software <br> TotalGas
+  <br><br>
+  <a href="https://totalgas-developments.atlassian.net/jira/software/form/c10b6246-6526-4783-8987-32a816174804?atlOrigin=eyJpIjoiNmI2MzEwNDE0NzdiNDcxOWEyYWFmYzg5YjdmYzhmMjEiLCJwIjoiaiJ9"  target="_blank">
+    <button>CAPTURAR ERROR</button>
+  </a>
+</div>
+
+<script>
+	function toggleWidget() {
+		var panel = document.getElementById('mi-panel-widget');
+		if (panel.style.display === 'none' || panel.style.display === '') {
+			panel.style.display = 'flex'; // ✅ Para usar flex
+		} else {
+			panel.style.display = 'none';
+		}
+	}
+</script>
 
 </body>
 
