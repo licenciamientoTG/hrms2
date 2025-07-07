@@ -131,96 +131,101 @@
 
 
     <!-- Columna derecha: contenido del curso -->
-    <div class="col-lg-8">
-      <div class="accordion" id="modulesAccordion">
-        {% for module in modules %}
-          <div class="accordion-item mb-3 rounded-4 overflow-hidden border-0 shadow-sm">
-            <h2 class="accordion-header" id="heading-{{ module.id }}">
-              <button class="accordion-button collapsed fw-bold" type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#collapse-{{ module.id }}"
-                      aria-expanded="false"
-                      aria-controls="collapse-{{ module.id }}">
-                {{ module.title }}
-              </button>
-            </h2>
-            <div id="collapse-{{ module.id }}" class="accordion-collapse collapse"
-                 aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
-              <div class="accordion-body">
-                <p class="text-muted small">{{ module.description }}</p>
+<div class="col-lg-8">
+  <div class="accordion" id="modulesAccordion">
+    {% for module in modules %}
+      <div class="accordion-item mb-3 rounded-4 overflow-hidden border-0 shadow-sm">
+        <h2 class="accordion-header" id="heading-{{ module.id }}">
+          <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold" type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapse-{{ module.id }}"
+                  aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                  aria-controls="collapse-{{ module.id }}">
+            {{ module.title }}
+          </button>
+        </h2>
+        <div id="collapse-{{ module.id }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+             aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
+          <div class="accordion-body">
+            <p class="text-muted small">{{ module.description }}</p>
 
-                {% for lesson in module.lesson_set.all %}
-                  <div class="lesson-card p-3 mb-2 rounded border d-flex justify-content-between align-items-center">
-                    <div>
-                      <h6 class="mb-1">{{ lesson.title }}</h6>
-                    </div>
-                       <button class="btn btn-outline-success btn-sm btn-view-lesson"
-                            data-bs-toggle="modal"
-                            data-bs-target="#lessonModal{{ lesson.id }}"
-                            data-lesson-id="{{ lesson.id }}"
-                            id="view-btn-{{ lesson.id }}">
-                        Ver lección
-                        </button>
-                    </div>
-                        <div class="modal fade" id="lessonModal{{ lesson.id }}" tabindex="-1" aria-labelledby="lessonModalLabel{{ lesson.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-scrollable">
-              <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                  <h5 class="modal-title" id="lessonModalLabel{{ lesson.id }}">{{ lesson.title }}</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            {% for lesson in module.lesson_set.all %}
+              <div class="lesson-card p-3 mb-2 rounded border d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">{{ lesson.title }}</h6>
                 </div>
-                <div class="modal-body">
-                  <p class="text-muted">{{ lesson.description }}</p>
+                <button class="btn btn-outline-success btn-sm btn-view-lesson"
+                        data-bs-toggle="modal"
+                        data-bs-target="#lessonModal{{ lesson.id }}"
+                        data-lesson-id="{{ lesson.id }}"
+                        id="view-btn-{{ lesson.id }}">
+                  Ver lección
+                </button>
+              </div>
 
-                  {% if lesson.resource %}
-                    {% with lesson.resource.url|lower as res_url %}
-                      {% if ".mp4" in res_url or ".webm" in res_url %}
-                        <video controls width="100%" class="mb-3 rounded shadow">
-                          <source src="{{ lesson.resource.url }}" type="video/mp4">
-                        </video>
-                      {% elif ".pdf" in res_url %}
-                        <div id="pdf-container-{{ lesson.id }}" 
-                            class="pdf-scroll-container" 
-                            data-pdf-url="http://{{ request.get_host }}{{ lesson.resource.url }}">
-                        </div>
+              <div class="modal fade" id="lessonModal{{ lesson.id }}" tabindex="-1"
+                   aria-labelledby="lessonModalLabel{{ lesson.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                  <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                      <h5 class="modal-title" id="lessonModalLabel{{ lesson.id }}">{{ lesson.title }}</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                      <p class="text-muted">{{ lesson.description }}</p>
 
-                      {% elif ".ppt" in res_url or ".pptx" in res_url %}
-                        <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}" width="100%" height="600px" frameborder="0" class="mb-3 border rounded shadow"></iframe>
-                      {% elif ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
-                        <img src="{{ lesson.resource.url }}" alt="Imagen" class="img-fluid rounded shadow mb-3">
-                      {% else %}
-                        <a href="{{ lesson.resource.url }}" class="btn btn-outline-secondary" download>
-                          Descargar recurso
+                      {% if lesson.resource %}
+                        {% with lesson.resource.url|lower as res_url %}
+                          {% if ".mp4" in res_url or ".webm" in res_url %}
+                            <video controls width="100%" class="mb-3 rounded shadow">
+                              <source src="{{ lesson.resource.url }}" type="video/mp4">
+                            </video>
+                          {% elif ".pdf" in res_url %}
+                            <div id="pdf-container-{{ lesson.id }}"
+                                 class="pdf-scroll-container"
+                                 data-pdf-url="http://{{ request.get_host }}{{ lesson.resource.url }}">
+                            </div>
+                          {% elif ".ppt" in res_url or ".pptx" in res_url %}
+                            <iframe src="https://view.officeapps.live.com/op/view.aspx?src={{ lesson.resource.url|urlencode }}"
+                                    width="100%" height="600px" frameborder="0"
+                                    class="mb-3 border rounded shadow"></iframe>
+                          {% elif ".jpg" in res_url or ".jpeg" in res_url or ".png" in res_url or ".gif" in res_url or ".webp" in res_url %}
+                            <img src="{{ lesson.resource.url }}" alt="Imagen" class="img-fluid rounded shadow mb-3">
+                          {% else %}
+                            <a href="{{ lesson.resource.url }}" class="btn btn-outline-secondary" download>
+                              Descargar recurso
+                            </a>
+                          {% endif %}
+                        {% endwith %}
+                      {% endif %}
+
+                      {% if lesson.video_url %}
+                        <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-outline-primary mt-2">
+                          <i class="fa fa-video"></i> Ver video externo
                         </a>
                       {% endif %}
-                    {% endwith %}
-                  {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                      <button class="btn btn-success mark-complete" data-lesson-id="{{ lesson.id }}">Marcar como vista</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
 
-                  {% if lesson.video_url %}
-                    <a href="{{ lesson.video_url }}" target="_blank" class="btn btn-outline-primary mt-2">
-                      <i class="fa fa-video"></i> Ver video externo
-                    </a>
-                  {% endif %}
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                  <button class="btn btn-success mark-complete" data-lesson-id="{{ lesson.id }}">Marcar como vista</button>
-                </div>
-              </div>
-            </div>
-          </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-      <div class="text-center mt-4">
-        <button onclick="clearProgressAndGoBack()" class="btn btn-outline-secondary">
-          <i class="fa-solid fa-arrow-left"></i> Regresar
-        </button>
-      </div>
-    </div>
+  <div class="text-center mt-4">
+    <button onclick="clearProgressAndGoBack()" class="btn btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Regresar
+    </button>
+  </div>
+</div>
+
   </div>
 </div>
 {% endblock %}
