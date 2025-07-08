@@ -1,0 +1,74 @@
+{% extends 'layouts/base.html' %}
+
+{% block page_title %}Solicitud de Vacaciones{% endblock %}
+{% block title %}Solicitud de Vacaciones{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <!-- Tipos de solicitudes -->
+  <div class="row mb-4">
+    <div class="col">
+      <h4>Tipos de solicitudes</h4>
+    </div>
+    <div class="col text-end">
+      <a href="#" class="btn btn-primary">Solicitar</a>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Descanso médico</p>
+        <h2>0 Días</h2>
+        <small class="text-muted">Tiempo utilizado</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Días de estudio</p>
+        <h2>18 Días</h2>
+        <small class="text-muted">Tiempo disponible</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Licencia por maternidad</p>
+        <h2>0 Días</h2>
+        <small class="text-muted">Tiempo utilizado</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Vacaciones</p>
+        <h2>28 Días</h2>
+        <small class="text-muted">Tiempo disponible</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solicitudes realizadas -->
+  <div class="mt-5">
+    <h4>Solicitudes realizadas</h4>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tipo de solicitud</th>
+          <th>Estado</th>
+          <th>Solicitud</th>
+          <th>Fechas</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Vacaciones</td>
+          <td><span class="badge bg-secondary">En proceso</span></td>
+          <td>19 nov 2024</td>
+          <td>19 nov 2024 → 22 nov 2024</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

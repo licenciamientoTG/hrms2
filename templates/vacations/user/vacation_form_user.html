@@ -1,0 +1,132 @@
+{% extends 'layouts/base.html' %}
+
+{% block page_title %}Solicitud de Vacaciones{% endblock %}
+{% block title %}Solicitud de Vacaciones{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <!-- Tipos de solicitudes -->
+  <div class="row mb-4">
+    <div class="col">
+      <h4>Tipos de solicitudes</h4>
+    </div>
+    <div class="col text-end">
+      <!-- Botón que abre el OFFCANVAS -->
+      <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#vacationOffcanvas">
+        Solicitar
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Descanso médico</p>
+        <h2>0 Días</h2>
+        <small class="text-muted">Tiempo utilizado</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Días de estudio</p>
+        <h2>18 Días</h2>
+        <small class="text-muted">Tiempo disponible</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Licencia por maternidad</p>
+        <h2>0 Días</h2>
+        <small class="text-muted">Tiempo utilizado</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 text-center">
+        <p class="mb-1">Vacaciones</p>
+        <h2>28 Días</h2>
+        <small class="text-muted">Tiempo disponible</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solicitudes realizadas -->
+  <div class="mt-5">
+    <h4>Solicitudes realizadas</h4>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tipo de solicitud</th>
+          <th>Estado</th>
+          <th>Solicitud</th>
+          <th>Fechas</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Vacaciones</td>
+          <td><span class="badge bg-secondary">En proceso</span></td>
+          <td>19 nov 2024</td>
+          <td>19 nov 2024 → 22 nov 2024</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- OFFCANVAS lateral derecho -->
+<div class="offcanvas offcanvas-end w-40 my-offcanvas" tabindex="-1" id="vacationOffcanvas" aria-labelledby="vacationOffcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="vacationOffcanvasLabel">Solicitar vacaciones o permisos</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="offcanvas-body">
+
+      <!-- Tipo de solicitud -->
+      <div class="mb-3">
+        <label for="tipo_solicitud" class="form-label">Tipo de solicitud</label>
+        <select name="tipo_solicitud" id="tipo_solicitud" class="form-select" required>
+          <option value="">Seleccione una opción</option>
+          <option value="Descanso médico">Descanso médico</option>
+          <option value="Días de estudio">Días de estudio</option>
+          <option value="Licencia por maternidad">Licencia por maternidad</option>
+          <option value="Vacaciones">Vacaciones</option>
+        </select>
+      </div>
+
+      <!-- Desde cuándo -->
+      <div class="mb-3">
+        <label for="fecha_inicio" class="form-label">¿Desde cuándo?</label>
+        <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control" required>
+      </div>
+
+      <!-- Hasta cuándo -->
+      <div class="mb-3">
+        <label for="fecha_fin" class="form-label">¿Hasta cuándo?</label>
+        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control" required>
+      </div>
+
+      <!-- Observaciones -->
+      <div class="mb-3">
+        <label for="observaciones" class="form-label">Observaciones</label>
+        <textarea name="observaciones" id="observaciones" rows="3" class="form-control"></textarea>
+      </div>
+
+      <!-- Archivo -->
+      <div class="mb-3">
+        <label for="documento" class="form-label">Documentación</label>
+        <input type="file" name="documento" id="documento" class="form-control">
+      </div>
+
+    </div>
+    <div class="offcanvas-footer px-4 pb-4">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
