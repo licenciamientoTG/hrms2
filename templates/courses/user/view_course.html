@@ -61,27 +61,29 @@
                   <div class="card mb-3">
                     <div class="card-body">
                       <h6 class="mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
+                        {% if question.question_type == 'Opción Única' %}
+                          {% for answer in question.answer_set.all %}
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
+                              <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                            </div>
+                          {% endfor %}
 
-                      {% if question.question_type %}
-                        {% for answer in question.answer_set.all %}
-                          <div class="form-check">
-                            <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
-                            <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
-                          </div>
-                        {% endfor %}
-                      {% elif question.question_type == 'Respuesta Multiple' %}
-                        {% for answer in question.answer_set.all %}
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}">
-                            <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
-                          </div>
-                        {% endfor %}
-                      {% elif question.question_type == 'Texto' %}
-                        <textarea class="form-control" name="question_{{ question.id }}" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
-                      {% else %}
-                        <p class="text-danger">Tipo de pregunta no soportado.</p>
-                      {% endif %}
+                        {% elif question.question_type == 'Respuesta múltiple' %}
+                          {% for answer in question.answer_set.all %}
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" name="question_{{ question.id }}[]" id="answer_{{ answer.id }}" value="{{ answer.id }}">
+                              <label class="form-check-label" for="answer_{{ answer.id }}">{{ answer.answer_text }}</label>
+                            </div>
+                          {% endfor %}
 
+                        {% elif question.question_type == 'Texto' %}
+                          <!-- Texto abierto -->
+                        {% else %}
+                        <p>Tipo: {{ question.question_type }}</p>
+
+                          <p class="text-danger">Tipo de pregunta no soportado.</p>
+                        {% endif %}
                       {% if question.explanation %}
                         <small class="text-muted d-block mt-2">Explicación: {{ question.explanation }}</small>
                       {% endif %}
@@ -405,20 +407,30 @@ function clearProgressAndGoBack() {
       submitBtn.classList.toggle("d-none", index !== steps.length - 1);
     }
 
-    function validateCurrentStep() {
-      const current = steps[currentStep];
-      const inputs = current.querySelectorAll("input, textarea");
-      for (let input of inputs) {
-        if (input.type === "radio" || input.type === "checkbox") {
-          const name = input.name;
-          const checked = current.querySelector(`input[name="${name}"]:checked`);
-          if (!checked && input.required) return false;
-        } else {
-          if (input.required && !input.value.trim()) return false;
-        }
+  function validateCurrentStep() {
+    const current = steps[currentStep];
+    const inputs = current.querySelectorAll("input, textarea");
+
+    for (let input of inputs) {
+      const name = input.name;
+
+      if (input.type === "radio") {
+        const checked = current.querySelector(`input[name="${name}"]:checked`);
+        if (!checked && input.required) return false;
+
+      } else if (input.type === "checkbox") {
+        // ✅ Agrupa todos los checkboxes con este name (incluyendo [])
+        const group = current.querySelectorAll(`input[name="${name}"]`);
+        const anyChecked = Array.from(group).some(chk => chk.checked);
+        if (!anyChecked && input.required) return false;
+
+      } else {
+        if (input.required && !input.value.trim()) return false;
       }
-      return true;
     }
+
+    return true;
+  }
 
     nextBtn.addEventListener("click", () => {
       if (!validateCurrentStep()) {

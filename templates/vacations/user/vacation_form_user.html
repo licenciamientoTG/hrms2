@@ -1,7 +1,12 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block page_title %}Solicitud de Vacaciones{% endblock %}
 {% block title %}Solicitud de Vacaciones{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/vacations.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container my-4">
@@ -30,7 +35,7 @@
     <div class="col-md-3 mb-3">
       <div class="card p-3 text-center">
         <p class="mb-1">Días de estudio</p>
-        <h2>18 Días</h2>
+        <h2>0 Días</h2>
         <small class="text-muted">Tiempo disponible</small>
       </div>
     </div>
@@ -44,7 +49,7 @@
     <div class="col-md-3 mb-3">
       <div class="card p-3 text-center">
         <p class="mb-1">Vacaciones</p>
-        <h2>28 Días</h2>
+        <h2>0 Días</h2>
         <small class="text-muted">Tiempo disponible</small>
       </div>
     </div>
@@ -129,4 +134,8 @@
   </form>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/vacations.js' %}"></script>
 {% endblock %}

@@ -978,7 +978,7 @@ def submit_course_quiz(request, course_id):
     correct_count = 0
 
     for question in questions:
-        field_name = f"question_{question.id}"
+        field_name = f"question_{question.id}[]"
         user_answers = request.POST.getlist(field_name)
         user_answers_set = set(map(str, user_answers))
 
