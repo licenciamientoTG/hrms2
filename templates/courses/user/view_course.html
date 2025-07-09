@@ -61,7 +61,7 @@
                   <div class="card mb-3">
                     <div class="card-body">
                       <h6 class="mb-3">{{ forloop.counter }}. {{ question.question_text }}</h6>
-                        {% if question.question_type == 'Opción Única' %}
+                        {% if question.question_type == 'Respuesta única' %}
                           {% for answer in question.answer_set.all %}
                             <div class="form-check">
                               <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="answer_{{ answer.id }}" value="{{ answer.id }}" required>
@@ -81,7 +81,6 @@
                           <!-- Texto abierto -->
                         {% else %}
                         <p>Tipo: {{ question.question_type }}</p>
-
                           <p class="text-danger">Tipo de pregunta no soportado.</p>
                         {% endif %}
                       {% if question.explanation %}
