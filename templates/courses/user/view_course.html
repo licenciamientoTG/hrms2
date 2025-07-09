@@ -357,7 +357,6 @@ function checkIfCourseIsComplete() {
   const quizWrapper = document.getElementById("quizSectionWrapper");
   const alert = document.getElementById("quizLockedAlert");
 
-  // 👇 👇 👇 CAMBIO CRÍTICO
   const allCompleted = total > 0 ? completed === total : true;
 
   if (allCompleted) {
