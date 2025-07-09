@@ -540,26 +540,36 @@ document.addEventListener("click", function (e) {
     }
 });
 
-document.addEventListener("DOMContentLoaded", function() {
-  const viewedLessons = {{ viewed_lessons|safe }}; // << inyectado por Django
+  document.addEventListener("DOMContentLoaded", function () {
+    const viewedLessons = {{ viewed_lessons|safe }};
+    const lessonIds = document.querySelectorAll("[data-lesson-id]");
 
-  if (viewedLessons && viewedLessons.length > 0) {
-    viewedLessons.forEach(lessonId => {
-      const modalBtn = document.querySelector(`.mark-complete[data-lesson-id="${lessonId}"]`);
-      if (modalBtn) {
-        modalBtn.classList.remove("btn-outline-primary");
-        modalBtn.classList.add("btn-success");
-        modalBtn.textContent = "Vista";
-      }
+    let completedCount = 0;
 
-      const externalBtn = document.getElementById(`view-btn-${lessonId}`);
-      if (externalBtn) {
-        externalBtn.classList.remove("btn-outline-success");
-        externalBtn.classList.add("btn-success");
-        externalBtn.textContent = "Vista";
+    lessonIds.forEach(btn => {
+      const lessonId = btn.getAttribute("data-lesson-id");
+      if (viewedLessons.includes(lessonId)) {
+        const modalBtn = document.querySelector(`.mark-complete[data-lesson-id='${lessonId}']`);
+        if (modalBtn) {
+          modalBtn.classList.add("btn-success");
+          modalBtn.classList.remove("btn-outline-primary");
+          modalBtn.textContent = "Vista";
+        }
+
+        const externalBtn = document.getElementById(`view-btn-${lessonId}`);
+        if (externalBtn) {
+          externalBtn.classList.add("btn-success");
+          externalBtn.classList.remove("btn-outline-success");
+          externalBtn.textContent = "Vista";
+        }
+
+        completedCount++;
       }
     });
-  }
-});
+
+    const total = lessonIds.length;
+    const percent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+    updateProgressBar(percent);
+  });
 </script>
 {% endblock %}
