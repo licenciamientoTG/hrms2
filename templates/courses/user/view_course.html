@@ -245,6 +245,8 @@
 <script src="{% static 'js/courses.js' %}"></script>
 
 <script>
+window.viewedLessons = {{ viewed_lessons|safe }};
+
 document.addEventListener("click", function (e) {
     if (e.target.classList.contains("mark-complete")) {
         const lessonId = e.target.getAttribute("data-lesson-id");
@@ -343,16 +345,23 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-
 function checkIfCourseIsComplete() {
   const lessonIds = new Set();
   document.querySelectorAll("[data-lesson-id]").forEach(el => {
     lessonIds.add(el.getAttribute("data-lesson-id"));
   });
 
-  const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+  // ✅ Combinar: localStorage + lo guardado en servidor
+  const localLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+
+  // ⚡ La lista que viene de Django:
+  const serverLessons = window.viewedLessons || [];
+
+  // ✅ Combina ambos
+  const combined = new Set([...localLessons, ...serverLessons]);
+
   const total = lessonIds.size;
-  const completed = completedLessons.length;
+  const completed = combined.size;
 
   const quizWrapper = document.getElementById("quizSectionWrapper");
   const alert = document.getElementById("quizLockedAlert");
