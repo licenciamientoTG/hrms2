@@ -29,17 +29,17 @@ LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias l
 
 @login_required
 def course_wizard(request):
+    # ✅ Si NO es superuser, redirige a user_courses para que use la lógica correcta
+    if not request.user.is_superuser:
+        return redirect('user_courses')
+
     assigned_courses_count = 0
 
-    if request.user.is_superuser:
-        employees = Employee.objects.filter(is_active=True)
-        departments = Department.objects.all()
-        job_positions = JobPosition.objects.all()
-        locations = Location.objects.all()
-        template_name = "courses/admin/admin_courses.html"
-    else:
-        employees = departments = job_positions = locations = None
-        template_name = "courses/user/wizard_form_user.html"
+    employees = Employee.objects.filter(is_active=True)
+    departments = Department.objects.all()
+    job_positions = JobPosition.objects.all()
+    locations = Location.objects.all()
+    template_name = "courses/admin/admin_courses.html"
 
     if request.method == "POST":
         course_form = CourseHeaderForm(request.POST, request.FILES)
@@ -82,66 +82,10 @@ def course_wizard(request):
 
     today = datetime.now().date()
     courses_config = CourseConfig.objects.all()
+    courses = CourseHeader.objects.all()
+    totalcursos = courses.count()
 
-    if request.user.is_superuser:
-        courses = CourseHeader.objects.all()
-        totalcursos = courses.count()
-        assigned_course_ids = set()
-    else:
-        user = request.user
-        enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
-        assigned_courses = [e.course for e in enrolled_courses]
-
-        # Cursos con asignación all_users
-        all_user_assignments = CourseAssignment.objects.filter(assignment_type="all_users").select_related("course")
-        courses_with_all_users_assignment = set(a.course for a in all_user_assignments)
-
-        # Cursos públicos por configuración
-        public_courses = CourseHeader.objects.filter(config__audience="all_users")
-
-        # Cursos asignados por segmento
-        segment_assignments = CourseAssignment.objects.filter(assignment_type="by_department").prefetch_related(
-            "departments", "positions", "locations", "course"
-        )
-        segment_assigned_courses = set()
-        try:
-            employee = Employee.objects.get(user=user)
-            for assignment in segment_assignments:
-                if (
-                    assignment.departments.filter(id=employee.department_id).exists() or
-                    assignment.positions.filter(id=employee.job_position_id).exists() or
-                    assignment.locations.filter(id=employee.station_id).exists()
-                ):
-                    segment_assigned_courses.add(assignment.course)
-        except Employee.DoesNotExist:
-            pass
-
-        combined_courses = (
-            set(assigned_courses)
-            | courses_with_all_users_assignment
-            | set(public_courses)
-            | segment_assigned_courses
-        )
-        courses = CourseHeader.objects.filter(id__in=[c.id for c in combined_courses]).select_related('config')
-        totalcursos = courses.count()
-
-        assigned_courses_combined = set(assigned_courses) | courses_with_all_users_assignment | segment_assigned_courses
-        assigned_courses_count = len(assigned_courses_combined)
-        assigned_course_ids = set(c.id for c in assigned_courses_combined)
-
-        real_enrolled_ids = set(e.course.id for e in enrolled_courses)
-        fake_enrollments = []
-        for course in courses:
-            if hasattr(course, 'config') and course.config.deadline is not None:
-                course.deadline_date = (course.created_at + timedelta(days=course.config.deadline)).date()
-            else:
-                course.deadline_date = None
-
-            if course.id not in real_enrolled_ids:
-                fake_enrollments.append(EnrolledCourse(course=course, user=user, progress=0))
-
-        all_enrollments = list(enrolled_courses) + fake_enrollments
-
+    # 👉 Aquí va tu lógica de conteo de inactivos, activos y completados para admins
     inactive_courses_count = 0
     in_progress_courses_count = 0
     completed_courses_count = 0
@@ -159,53 +103,48 @@ def course_wizard(request):
             course.deadline_date = None
             in_progress_courses_count += 1
 
-        # 🎯 Verificar completados solo si es superuser
-        if request.user.is_superuser:
-            quiz = Quiz.objects.filter(course_header=course).first()
-            if not quiz:
-                continue
+        quiz = Quiz.objects.filter(course_header=course).first()
+        if not quiz:
+            continue
 
-            # Usuarios vía EnrolledCourse
-            enrolled_user_ids = set(
-                EnrolledCourse.objects.filter(course=course).values_list('user_id', flat=True)
-            )
+        enrolled_user_ids = set(
+            EnrolledCourse.objects.filter(course=course).values_list('user_id', flat=True)
+        )
 
-            # Usuarios vía CourseAssignment
-            assignment_user_ids = set()
-            assignments = CourseAssignment.objects.filter(course=course)
-            for assignment in assignments:
-                if assignment.assignment_type == 'all_users':
-                    assignment_user_ids |= set(
-                        User.objects.filter(is_staff=False, is_superuser=False).values_list('id', flat=True)
-                    )
-                elif assignment.assignment_type == 'specific_users':
-                    assignment_user_ids |= set(assignment.users.values_list('id', flat=True))
-                elif assignment.assignment_type == 'by_department':
-                    by_dept_users = User.objects.filter(
-                        Q(employee__department__in=assignment.departments.all()) |
-                        Q(employee__job_position__in=assignment.positions.all()) |
-                        Q(employee__station__in=assignment.locations.all())
-                    ).values_list('id', flat=True)
-                    assignment_user_ids |= set(by_dept_users)
-
-            # Combina y filtra staff/superuser
-            assigned_user_ids = enrolled_user_ids | assignment_user_ids
-            assigned_user_ids = set(
-                User.objects.filter(
-                    id__in=assigned_user_ids,
-                    is_staff=False,
-                    is_superuser=False
+        assignment_user_ids = set()
+        assignments = CourseAssignment.objects.filter(course=course)
+        for assignment in assignments:
+            if assignment.assignment_type == 'all_users':
+                assignment_user_ids |= set(
+                    User.objects.filter(is_staff=False, is_superuser=False).values_list('id', flat=True)
+                )
+            elif assignment.assignment_type == 'specific_users':
+                assignment_user_ids |= set(assignment.users.values_list('id', flat=True))
+            elif assignment.assignment_type == 'by_department':
+                by_dept_users = User.objects.filter(
+                    Q(employee__department__in=assignment.departments.all()) |
+                    Q(employee__job_position__in=assignment.positions.all()) |
+                    Q(employee__station__in=assignment.locations.all())
                 ).values_list('id', flat=True)
-            )
+                assignment_user_ids |= set(by_dept_users)
 
-            total_users = len(assigned_user_ids)
-            passed_users = QuizAttempt.objects.filter(
-                course=course, passed=True, user_id__in=assigned_user_ids
-            ).values('user').distinct().count()
+        assigned_user_ids = enrolled_user_ids | assignment_user_ids
+        assigned_user_ids = set(
+            User.objects.filter(
+                id__in=assigned_user_ids,
+                is_staff=False,
+                is_superuser=False
+            ).values_list('id', flat=True)
+        )
 
-            if total_users > 0 and passed_users == total_users:
-                completed_courses_count += 1
-                completed_courses.append(course)
+        total_users = len(assigned_user_ids)
+        passed_users = QuizAttempt.objects.filter(
+            course=course, passed=True, user_id__in=assigned_user_ids
+        ).values('user').distinct().count()
+
+        if total_users > 0 and passed_users == total_users:
+            completed_courses_count += 1
+            completed_courses.append(course)
 
     completed_course_ids = [c.id for c in completed_courses]
 
@@ -226,11 +165,11 @@ def course_wizard(request):
         'departments': departments,
         'job_positions': job_positions,
         'locations': locations,
-        'assigned_courses_count': assigned_courses_count,
-        'assigned_course_ids': assigned_course_ids,
+        'assigned_courses_count': 0,
+        'assigned_course_ids': [],
         'completed_course_ids': completed_course_ids,
-
     })
+
 
 @login_required
 def visual_course_wizard(request):
@@ -799,6 +738,23 @@ def user_courses(request):
     # Combinar con los reales
     all_enrollments = list(enrolled_courses) + fake_enrollments
 
+    completed_course_ids = []
+    for course in all_courses:
+        enrolled = next((e for e in enrolled_courses if e.course.id == course.id), None)
+        total_lessons = Lesson.objects.filter(module_content__course_header=course).count()
+        viewed = [v.strip() for v in enrolled.notes.split(",")] if enrolled and enrolled.notes else []
+        quiz_passed = QuizAttempt.objects.filter(user=request.user, course=course, passed=True).exists()
+
+        if ((total_lessons == 0 and quiz_passed) or
+            (total_lessons > 0 and len(viewed) >= total_lessons and quiz_passed)):
+            completed_course_ids.append(course.id)
+        
+    assigned_courses_combined = set(assigned_courses)
+    assigned_course_ids = set(c.id for c in assigned_courses)
+    assigned_courses_count = len(assigned_courses_combined)
+
+
+
     return render(request, 'courses/user/wizard_form_user.html', {
         'courses': all_courses,
         'enrolled_courses': all_enrollments,
@@ -806,7 +762,9 @@ def user_courses(request):
         'totalcursos': len(all_courses),
         'in_progress_courses_count': sum(1 for c in all_courses if c.deadline_date is None or c.deadline_date > today),
         'inactive_courses_count': sum(1 for c in all_courses if c.deadline_date and c.deadline_date <= today),
-        
+        'completed_course_ids': completed_course_ids,
+        'assigned_courses_count': assigned_courses_count,
+        'assigned_course_ids': assigned_course_ids,
     })
 
 @staff_member_required
