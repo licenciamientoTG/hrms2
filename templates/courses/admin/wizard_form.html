@@ -166,11 +166,11 @@
                 </div>
                 <div class="d-flex justify-content-between mt-3">
                     <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
-                    <button type="button" class="btn btn-primary next-step mx-2">Siguiente</button>
-                    <button type="button" class="btn btn-danger ms-auto" id="cancel-button"
+                    <button type="button" class="btn btn-danger mx-2" id="cancel-button"
                         onclick="cancel_course('{% url 'course_wizard' %}')">
                         Cancelar
                     </button>
+                    <button type="button" class="btn btn-primary next-step ms-auto">Siguiente</button>
                 </div>
                 
             </form>
@@ -193,11 +193,11 @@
         </div>
             <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
-                <button type="button" class="btn btn-primary next-step mx-2">Siguiente</button>
-                <button type="button" class="btn btn-danger ms-auto" id="cancel-button"
+                <button type="button" class="btn btn-danger mx-2" id="cancel-button"
                     onclick="cancel_course('{% url 'course_wizard' %}')">
                     Cancelar
                 </button>
+                <button type="button" class="btn btn-primary next-step ms-auto">Siguiente</button>
             </div>
             
         </div>
@@ -257,11 +257,11 @@
             <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
                     {% csrf_token %}
-                    <button type="button" class="btn btn-primary btn-lg" id="save-button">Confirmar y publicar</button>
-                <button type="button" class="btn btn-danger ms-auto" id="cancel-button"
+                <button type="button" class="btn btn-danger " id="cancel-button"
                     onclick="cancel_course('{% url 'course_wizard' %}')">
                     Cancelar
                 </button>
+                <button type="button" class="btn btn-primary btn-lg ms-auto" id="save-button">Confirmar y publicar</button>
             </div>
         </div>             
     </form>
