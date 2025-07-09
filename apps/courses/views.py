@@ -988,27 +988,32 @@ def submit_course_quiz(request, course_id):
     correct_count = 0
 
     for question in questions:
-        field_name = f"question_{question.id}[]"
-        user_answers = request.POST.getlist(field_name)
-        user_answers_set = set(map(str, user_answers))
+        if question.question_type == "Respuesta múltiple":
+            field_name = f"question_{question.id}[]"
+            user_answers = request.POST.getlist(field_name)
+        else:
+            # Respuesta única o texto
+            field_name = f"question_{question.id}"
+            user_answer = request.POST.get(field_name)
+            user_answers = [user_answer] if user_answer else []
 
+        user_answers_set = set(map(str, user_answers))
         correct_answers = question.answer_set.filter(is_correct=True).values_list('id', flat=True)
         correct_answers_set = set(map(str, correct_answers))
 
         if not user_answers_set:
-            continue  # Usuario no respondió esta pregunta
+            continue
 
-        if question.question_type == "Respuesta Multiple":
-            # ✅ Al menos una respuesta correcta seleccionada
-            if user_answers_set & correct_answers_set:  # intersección no vacía
+        if question.question_type == "Respuesta múltiple":
+            if user_answers_set & correct_answers_set:
                 correct_count += 1
 
         elif question.question_type == "Texto":
-            # Lógica personalizada si deseas comparar texto libre
-            continue  # Por ahora no califiques texto automáticamente
+            # Tu lógica custom aquí
+            continue
 
         else:
-            # Para preguntas de opción única: respuesta exacta debe ser correcta
+            # Opción única: exacta
             if user_answers_set & correct_answers_set:
                 correct_count += 1
 
