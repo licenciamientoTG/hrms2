@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.core.exceptions import ObjectDoesNotExist
 from pyexpat.errors import messages
 from formtools.wizard.views import SessionWizardView
-
+from django.views.decorators.http import require_POST
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
@@ -619,9 +619,11 @@ def view_course_content(request, course_id):
     if course_quiz and hasattr(course_quiz, 'config') and course_quiz.config.max_attempts is not None:
         total_attempts = QuizAttempt.objects.filter(user=request.user, quiz=course_quiz).count()
         attempts_left = max(0, course_quiz.config.max_attempts - total_attempts)
-
-        # ✅ Verifica si hay al menos un intento aprobado
         is_passed = QuizAttempt.objects.filter(user=request.user, quiz=course_quiz, passed=True).exists()
+    
+    viewed_lessons = []
+    if enrolled and enrolled.notes:
+        viewed_lessons = enrolled.notes.split(",")
 
 
     return render(request, 'courses/user/view_course.html', {
@@ -631,7 +633,8 @@ def view_course_content(request, course_id):
         'course_quiz': course_quiz,
         'attempts_left': attempts_left,
         'is_passed': is_passed,
-        'request': request
+        'request': request,
+        'viewed_lessons': viewed_lessons, 
     })
 
 @staff_member_required
@@ -1047,10 +1050,49 @@ def unread_course_count(request):
     unread_count = EnrolledCourse.objects.filter(user=request.user, is_read=False).count()
     return JsonResponse({'unread_count': unread_count})
 
-from django.views.decorators.http import require_POST
 
 @require_POST
 @login_required
 def mark_all_courses_read(request):
     EnrolledCourse.objects.filter(user=request.user, is_read=False).update(is_read=True)
     return JsonResponse({'success': True})
+
+@login_required
+@require_POST
+def mark_lesson_complete(request):
+    lesson_id = request.POST.get("lesson_id")
+    if not lesson_id:
+        return JsonResponse({"success": False, "error": "No se envió lesson_id."}, status=400)
+
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    course = lesson.module_content.course_header
+
+    # 👤 Verifica que el usuario esté inscrito en el curso
+    enrolled, created = EnrolledCourse.objects.get_or_create(
+        user=request.user,
+        course=course,
+        defaults={"status": "in_progress"}
+    )
+
+    # ✅ Guarda progreso en la sesión o en una tabla real (aquí ejemplo simple: notas JSON)
+    if not enrolled.notes:
+        enrolled.notes = ""
+
+    # Guardar las lecciones vistas como IDs separados por coma (o usa un JSON, tú decides)
+    viewed = set(enrolled.notes.split(",")) if enrolled.notes else set()
+    viewed.add(str(lesson_id))
+    enrolled.notes = ",".join(viewed)
+
+    # 🧮 Calcula nuevo progreso
+    total_lessons = Lesson.objects.filter(module_content__course_header=course).count()
+    viewed_count = len(viewed)
+    progress = round((viewed_count / total_lessons) * 100, 2) if total_lessons > 0 else 0
+    enrolled.progress = progress
+
+    # Si terminó TODO, puedes marcarlo como completado si quieres:
+    if progress >= 100 and enrolled.status != "completed":
+        enrolled.status = "completed"
+
+    enrolled.save()
+
+    return JsonResponse({"success": True, "progress": progress})

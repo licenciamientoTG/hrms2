@@ -1163,3 +1163,34 @@ function renderPreguntasEnResumen(questions) {
 }
 
 
+
+document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("mark-complete")) {
+        const lessonId = e.target.getAttribute("data-lesson-id");
+
+        fetch("{% url 'mark_lesson_complete' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: "lesson_id=" + encodeURIComponent(lessonId)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log("✅ Progreso actualizado:", data.progress + "%");
+                updateProgressBar(data.progress);
+            } else {
+                console.error("❌ Error:", data.error);
+            }
+        });
+
+        // Mantén tu lógica de localStorage si quieres
+        let completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+        if (!completedLessons.includes(lessonId)) {
+            completedLessons.push(lessonId);
+            localStorage.setItem("completedLessons", JSON.stringify(completedLessons));
+        }
+    }
+});

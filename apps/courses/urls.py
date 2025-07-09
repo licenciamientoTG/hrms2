@@ -26,6 +26,8 @@ urlpatterns = [
     path("unread_count/", views.unread_course_count, name="unread_course_count"),
     path("mark_all_read/", views.mark_all_courses_read, name="mark_all_courses_read"),
     path('admin/courses/', views.admin_courses, name='admin_courses'),
+    path('mark-lesson-complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
+
 
 ]
 

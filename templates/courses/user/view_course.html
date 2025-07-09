@@ -370,21 +370,13 @@ function checkIfCourseIsComplete() {
 
 
 
-function updateProgressBar() {
-    const lessonIds = new Set();
-    document.querySelectorAll("[data-lesson-id]").forEach(el => {
-        lessonIds.add(el.getAttribute("data-lesson-id"));
-    });
-
-    const completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
-    const total = lessonIds.size;
-    const completed = completedLessons.length;
-    const percent = total ? Math.round((completed / total) * 100) : 0;
-
+function updateProgressBar(serverProgress) {
     const bar = document.getElementById("courseProgressBar");
+    const percent = serverProgress || 0;
     bar.style.width = `${percent}%`;
     bar.textContent = `${percent}%`;
 }
+
 
 
 function clearProgressAndGoBack() {
@@ -509,6 +501,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
 // ✅ Esto invoca todo al abrir la página
 document.addEventListener("DOMContentLoaded", function () {
   checkIfCourseIsComplete();
@@ -516,5 +509,57 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
+document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("mark-complete")) {
+        const lessonId = e.target.getAttribute("data-lesson-id");
+
+        fetch("{% url 'mark_lesson_complete' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: "lesson_id=" + encodeURIComponent(lessonId)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log("✅ Progreso actualizado:", data.progress + "%");
+                updateProgressBar(data.progress);
+            } else {
+                console.error("❌ Error:", data.error);
+            }
+        });
+
+        // Mantén tu lógica de localStorage si quieres
+        let completedLessons = JSON.parse(localStorage.getItem("completedLessons") || "[]");
+        if (!completedLessons.includes(lessonId)) {
+            completedLessons.push(lessonId);
+            localStorage.setItem("completedLessons", JSON.stringify(completedLessons));
+        }
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+  const viewedLessons = {{ viewed_lessons|safe }}; // << inyectado por Django
+
+  if (viewedLessons && viewedLessons.length > 0) {
+    viewedLessons.forEach(lessonId => {
+      const modalBtn = document.querySelector(`.mark-complete[data-lesson-id="${lessonId}"]`);
+      if (modalBtn) {
+        modalBtn.classList.remove("btn-outline-primary");
+        modalBtn.classList.add("btn-success");
+        modalBtn.textContent = "Vista";
+      }
+
+      const externalBtn = document.getElementById(`view-btn-${lessonId}`);
+      if (externalBtn) {
+        externalBtn.classList.remove("btn-outline-success");
+        externalBtn.classList.add("btn-success");
+        externalBtn.textContent = "Vista";
+      }
+    });
+  }
+});
 </script>
 {% endblock %}
