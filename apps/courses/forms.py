@@ -10,7 +10,7 @@ class CourseHeaderForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'required': 'required'}),
             'duration': forms.NumberInput(attrs={'class': 'form-control', 'required': 'required'}),
             'category': forms.Select(attrs={'class': 'form-control', 'required': 'required'}),
-            'portrait': forms.FileInput(attrs={'class': 'form-control', 'required': 'required'}),
+            'portrait': forms.FileInput(attrs={'class': 'form-control', 'required': 'required','id': 'id_portrait'}),
         }
 
 class CourseConfigForm(forms.ModelForm):

@@ -11,54 +11,73 @@ document.addEventListener("DOMContentLoaded", function () {
     } 
 
     function validateStepFields(step) {
-        let stepElement = document.getElementById(`step-${step}`);
-        let valid = true;
-    
-        stepElement.querySelectorAll("input, textarea, select").forEach(field => {
-            if (field.hasAttribute("required") && !field.value.trim()) {
-                field.classList.add("is-invalid"); // 🔴 Agrega borde rojo si el campo está vacío
-                valid = false;
-            } else {
-                field.classList.remove("is-invalid"); // ✅ Quita el borde rojo si el campo se llena
+        // Validación para STEP 1 ➜ que es donde está la imagen
+        if (step === 1) {
+            const title = document.getElementById("id_title")?.value.trim();
+            const duration = document.getElementById("id_duration")?.value.trim();
+            const category = document.getElementById("id_category")?.value.trim();
+            const description = document.getElementById("id_description")?.value.trim();
+            const portrait = document.getElementById("id_portrait")?.files[0];
+
+            if (!title || !duration || !category || !description) {
+                return false;
             }
-        });
-    
-        return valid;
+
+            if (!portrait) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Falta imagen",
+                    text: "Debes seleccionar una imagen de portada para continuar."
+                });
+                return false;
+            }
+
+            // Restricción de tipo MIME (opcional si ya tienes accept="image/*")
+            const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+            if (portrait && !allowedTypes.includes(portrait.type)) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Archivo no válido",
+                    text: "Solo se permiten imágenes (JPG, PNG, WEBP, GIF)."
+                });
+                return false;
+            }
+        }
+
+        // ✅ Puedes agregar validaciones para otros steps si quieres:
+        if (step === 2) {
+            // Valida campos de step 2...
+        }
+
+        return true;
     }
 
+
     document.querySelectorAll(".next-step").forEach(button => {
-        button.addEventListener("click", function () {
-            if (!validateStepFields(currentStep)) {
-                Swal.fire({
-                    icon: "error",
-                    title: "Campos incompletos",
-                    text: "Por favor, completa todos los campos antes de continuar.",
-                });
-                return; // 🔴 Evita avanzar si la validación falla
-            }
-    
-            if (currentStep === 3 && !validateModulesAndLessons()) {
-                Swal.fire({
-                    icon: "error",
-                    title: "Oops...",
-                    text: "Debes de guardar al menos un módulo antes de continuar.",
-                });
-                return; // Evita avanzar al siguiente paso
-            }
-    
-            saveStepData(currentStep); // Guarda los datos antes de avanzar
-    
-            if (currentStep < steps.length) {
-                currentStep++;
-                showStep(currentStep);
-                loadStepData(currentStep); // Carga los datos guardados
-    
-                if (currentStep === 4) {
-                    generateSummary();
-                }
-            }
+    button.addEventListener("click", function () {
+        if (!validateStepFields(currentStep)) {
+        Swal.fire({
+            icon: "error",
+            title: "Campos incompletos",
+            text: "Por favor, completa todos los campos antes de continuar.",
         });
+        return;
+        }
+
+        saveStepData(currentStep);
+
+        if (currentStep < steps.length) {
+        currentStep++;
+        showStep(currentStep);
+        loadStepData(currentStep);
+
+        if (currentStep === 4) {
+            generateSummary();
+        }
+        }
     });
+});
+
     
 
     document.querySelectorAll(".prev-step").forEach(button => {
@@ -75,8 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
     showStep(currentStep);
 
     function validateModulesAndLessons() {
-        let moduleCards = document.querySelectorAll("#module-container .card");
-        return moduleCards.length > 0; // Solo avanza si hay módulos guardados como card
+        return true;
     }
 
     let imageInput = document.getElementById("id_portrait"); // Asegurar que este ID sea correcto
@@ -156,11 +174,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <h4>Módulo</h4>
             <div class="mb-3">
                 <label class="form-label">Título del Módulo:</label>
-                <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}" required>
+                <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}"  >
             </div>
             <div class="mb-3">
                 <label class="form-label">Descripción:</label>
-                <textarea class="form-control module-description" name="module_description[]" rows="3" required>${moduleData?.description || ''}</textarea>
+                <textarea class="form-control module-description" name="module_description[]" rows="3"  >${moduleData?.description || ''}</textarea>
             </div>
             <button type="button" class="btn btn-outline-success add-lesson">Agregar Lección</button>
             <div class="lesson-container mt-3"></div>
@@ -197,34 +215,8 @@ function saveModule(moduleElement) {
     let moduleDescription = moduleElement.querySelector(".module-description");
     let lessons = moduleElement.querySelectorAll(".lesson-form");
 
-    if (!moduleTitle.value.trim() || !moduleDescription.value.trim()) {
-        Swal.fire({
-            icon: "error",
-            title: "Campos incompletos en el módulo",
-            text: "Por favor, completa todos los campos del módulo antes de guardarlo.",
-        });
 
-        [moduleTitle, moduleDescription].forEach(field => {
-            if (!field.value.trim()) {
-                field.classList.add("is-invalid");
-            } else {
-                field.classList.remove("is-invalid");
-            }
-        });
-
-        return;
-    }
-
-
-    if (lessons.length === 0) {
-        Swal.fire({
-            icon: "error",
-            title: "Faltan lecciones",
-            text: "Debes agregar al menos una lección antes de guardar el módulo.",
-        });
-        return;
-    }
-
+    // ✅ Estructura base del módulo
     let moduleData = {
         id: moduleId,
         created_at: Date.now(),
@@ -233,24 +225,34 @@ function saveModule(moduleElement) {
         lessons: []
     };
 
-    let hasEmptyLesson = false;
-
+    // 🔁 Recorre lecciones y guarda solo las completas
     lessons.forEach((lessonElement, index) => {
-        let lessonId = lessonElement.getAttribute("data-lesson-id"); // ← el identificador único
+        let lessonId = lessonElement.getAttribute("data-lesson-id");
         let lessonTitle = lessonElement.querySelector(".lesson-title");
         let lessonType = lessonElement.querySelector(".lesson-type");
         let lessonDescription = lessonElement.querySelector(".lesson-description");
         let lessonVideoURL = lessonElement.querySelector(".lesson-video-url");
         let lessonResource = lessonElement.querySelector(".lesson-resource");
 
-        // Guardar archivo seleccionado en el mapa global
+        // Guarda archivo seleccionado
         if (lessonResource && lessonResource.files.length > 0) {
-            lessonFileMap[lessonId] = lessonResource.files[0];  // ✅ clave: lessonId
+            lessonFileMap[lessonId] = lessonResource.files[0];
         }
 
-        if (!lessonTitle.value.trim() || !lessonType.value.trim() || !lessonDescription.value.trim()) {
-            hasEmptyLesson = true;
+        // ✅ Solo agregar lecciones completas
+        if (lessonTitle.value.trim() && lessonType.value.trim() && lessonDescription.value.trim()) {
+            [lessonTitle, lessonType, lessonDescription].forEach(field => field.classList.remove("is-invalid"));
 
+            moduleData.lessons.push({
+                id: lessonId,
+                title: lessonTitle.value.trim(),
+                type: lessonType.value,
+                description: lessonDescription.value.trim(),
+                video_url: lessonVideoURL.value.trim(),
+                resource_index: index
+            });
+        } else {
+            // ❌ Opcional: si quieres resaltar campos incompletos
             [lessonTitle, lessonType, lessonDescription].forEach(field => {
                 if (!field.value.trim()) {
                     field.classList.add("is-invalid");
@@ -258,31 +260,10 @@ function saveModule(moduleElement) {
                     field.classList.remove("is-invalid");
                 }
             });
-        } else {
-            [lessonTitle, lessonType, lessonDescription].forEach(field => {
-                field.classList.remove("is-invalid");
-            });
-
-            moduleData.lessons.push({
-                id: lessonId,  // ← necesario para acceder al archivo en el paso final
-                title: lessonTitle.value.trim(),
-                type: lessonType.value,
-                description: lessonDescription.value.trim(),
-                video_url: lessonVideoURL.value.trim(),
-                resource_index: index  // este lo usas para el backend
-            });
         }
     });
 
-    if (hasEmptyLesson) {
-        Swal.fire({
-            icon: "error",
-            title: "Campos incompletos en las lecciones",
-            text: "Completa todos los campos de las lecciones antes de guardar el módulo.",
-        });
-        return;
-    }
-
+    // ✅ No bloquear por lecciones incompletas
     let storedModules = JSON.parse(localStorage.getItem("modules")) || [];
     storedModules = storedModules.filter(m => m.id !== moduleId);
     storedModules.push(moduleData);
@@ -297,6 +278,7 @@ function saveModule(moduleElement) {
 
     renderModuleCard(moduleElement, moduleData);
 }
+
 
     // 📌 Función para renderizar un módulo como una card
     function renderModuleCard(moduleElement, moduleData) {
@@ -335,11 +317,11 @@ function saveModule(moduleElement) {
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Título del Módulo:</label>
-                    <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}" required>
+                    <input type="text" class="form-control module-title" name="module_title[]" value="${moduleData?.title || ''}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Descripción:</label>
-                    <textarea class="form-control module-description" name="module_description[]" rows="3" required>${moduleData?.description || ''}</textarea>
+                    <textarea class="form-control module-description" name="module_description[]" rows="3">${moduleData?.description || ''}</textarea>
                 </div>
                 <div class="lesson-container mt-4"></div>
                 <div class="d-flex justify-content-between mt-3">
@@ -400,11 +382,11 @@ function addLesson(lessonContainer, lessonData = null) {
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Título de la Lección:</label>
-                    <input type="text" class="form-control lesson-title" name="lesson_title[]" value="${lessonData?.title || ''}" required>
+                    <input type="text" class="form-control lesson-title" name="lesson_title[]" value="${lessonData?.title || ''}"  >
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Tipo de Lección:</label>
-                    <select class="form-select lesson-type" name="lesson_type[]" required>
+                    <select class="form-select lesson-type" name="lesson_type[]"  >
                         <option value="Video" ${lessonData?.type === "Video" ? "selected" : ""}>Video</option>
                         <option value="Lectura" ${lessonData?.type === "Lectura" ? "selected" : ""}>Lectura</option>
                         <option value="Artículo" ${lessonData?.type === "Artículo" ? "selected" : ""}>Artículo</option>
@@ -412,7 +394,7 @@ function addLesson(lessonContainer, lessonData = null) {
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Descripción:</label>
-                    <textarea class="form-control lesson-description" name="lesson_description[]" rows="3" required>${lessonData?.description || ''}</textarea>
+                    <textarea class="form-control lesson-description" name="lesson_description[]" rows="3"  >${lessonData?.description || ''}</textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Recurso (opcional):</label>

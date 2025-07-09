@@ -356,6 +356,16 @@ def save_course_ajax(request):
             except ObjectDoesNotExist:
                 return JsonResponse({"status": "error", "message": "La categoría no existe."}, status=400)
 
+            # 🔒 Validar tipo MIME real
+            if portrait_file:
+                allowed_mime = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+                if portrait_file.content_type not in allowed_mime:
+                    return JsonResponse({
+                        "status": "error",
+                        "message": "Solo se permiten imágenes (JPG, PNG, WEBP, GIF) como portada."
+                }, status=400)
+
+
             # 🔹 4. Guardar CourseHeader (con imagen)
             course = CourseHeader.objects.create(
                 title=step1_data.get("title"),
