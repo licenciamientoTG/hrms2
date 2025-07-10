@@ -101,6 +101,7 @@
         {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
                 data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
+                data-completado="{% if course.id in completed_course_ids %}true{% else %}false{% endif %}"
                 data-asignado="{{ course.config.audience }}">
 
                 <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
@@ -238,9 +239,16 @@ document.addEventListener("DOMContentLoaded", function () {
             const title = card.querySelector(".card-title").textContent.toLowerCase();
             const estado = card.dataset.estado;
             const asignado = card.dataset.asignado;
+            const completado = card.dataset.completado;
+
 
             const matchTexto = title.includes(filtroTexto);
-            const matchEstado = (filtroEstado === "all" || estado === filtroEstado);
+            const matchEstado = (
+            filtroEstado === "all" ||
+            filtroEstado === "activo" && estado === "activo" ||
+            filtroEstado === "inactivo" && estado === "inactivo" ||
+            filtroEstado === "completado" && completado === "true"
+            );
             const matchAsignado = (filtroAsignado === "todos" || asignado === filtroAsignado);
 
             if (matchTexto && matchEstado && matchAsignado) {
