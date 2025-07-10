@@ -146,7 +146,7 @@ def course_wizard(request):
             completed_courses_count += 1
             completed_courses.append(course)
 
-    completed_course_ids = [c.id for c in completed_courses]
+    completed_course_ids_admin = [c.id for c in completed_courses]
 
     return render(request, template_name, {
         'course_form': course_form,
@@ -167,7 +167,7 @@ def course_wizard(request):
         'locations': locations,
         'assigned_courses_count': 0,
         'assigned_course_ids': [],
-        'completed_course_ids': completed_course_ids,
+        'completed_course_ids_admin': completed_course_ids_admin,
     })
 
 
