@@ -1008,7 +1008,7 @@ def submit_course_quiz(request, course_id):
         'success': True,
         'score': correct_count,
         'percentage_score': percentage,
-        'message': 'Aprobado' if passed else 'Reprobado'
+        'message': 'Aprobado' if passed else 'Vuelve a intentarlo'
     })
 
 @login_required

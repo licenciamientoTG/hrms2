@@ -305,7 +305,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     // ✅ Muestra el resultado en un SweetAlert limpio
                     Swal.fire({
-                        icon: data.message === "Aprobado" ? 'success' : 'warning',
+                        imageUrl: '/static/template/img/logos/LOGOTIPO.png',  // Ajusta la ruta a donde tengas el logo
+                        imageWidth: 100,
+                        imageHeight: 100,
+                        imageAlt: 'Logo de la empresa',
                         title: '¡Evaluación Enviada!',
                         html: `
                             <div class="text-start">
@@ -322,6 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         localStorage.removeItem("completedLessons");
                         window.location.href = "{% url 'course_wizard' %}";
                     });
+
 
                 } else {
                     Swal.fire({
