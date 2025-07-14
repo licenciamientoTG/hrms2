@@ -136,6 +136,8 @@ def course_wizard(request):
         )
 
         total_users = len(assigned_user_ids)
+        course.assigned_count = total_users  
+
 
         if total_users > 0:
             quiz = Quiz.objects.filter(course_header=course).first()
