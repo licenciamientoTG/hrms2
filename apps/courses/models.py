@@ -527,4 +527,17 @@ class CourseConfig(models.Model):
     def __str__(self):
         return f"Configuración de {self.course.title}"
     
- 
+ # models.py
+class CourseCertificate(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(CourseHeader, on_delete=models.CASCADE)
+    file = models.FileField(upload_to='certificates/')
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'course')
+        verbose_name = "Certificado de curso"
+        verbose_name_plural = "Certificados de cursos"
+
+    def __str__(self):
+        return f"Certificado: {self.user.get_full_name()} - {self.course.title}"

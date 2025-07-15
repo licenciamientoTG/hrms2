@@ -14,7 +14,7 @@ from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
 from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizAttempt, QuizConfig, QuizAttempt
 import json
-from datetime import timedelta, datetime, timezone
+from datetime import timedelta, datetime, timezone, date
 from departments.models import Department
 from django.contrib.auth.models import User
 from django.contrib.admin.views.decorators import staff_member_required
@@ -22,6 +22,17 @@ from django.forms import modelformset_factory
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.db.models import Prefetch, Count, Avg, Q, Max
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+from reportlab.lib.pagesizes import letter
+from django.conf import settings
+from io import BytesIO
+from django.core.files.base import ContentFile
+from .models import CourseCertificate
+from django.core.files import File
+from django.utils.text import slugify
+from reportlab.lib.utils import ImageReader
+from PyPDF2 import PdfReader, PdfWriter
 import os
 
 
@@ -32,7 +43,7 @@ def course_wizard(request):
     if not request.user.is_superuser:
         return redirect('user_courses')
 
-    employees = Employee.objects.filter(is_active=True)
+    employees = Employee.objects.filter(is_active=True)  
     departments = Department.objects.all()
     job_positions = JobPosition.objects.all()
     locations = Location.objects.all()
@@ -576,6 +587,7 @@ def view_course_content(request, course_id):
     if enrolled and enrolled.notes:
         viewed_lessons = enrolled.notes.split(",")
 
+    cert = CourseCertificate.objects.filter(user=request.user, course=course).first()
 
     return render(request, 'courses/user/view_course.html', {
         'course': course,
@@ -585,7 +597,8 @@ def view_course_content(request, course_id):
         'attempts_left': attempts_left,
         'is_passed': is_passed,
         'request': request,
-        'viewed_lessons': viewed_lessons, 
+        'viewed_lessons': viewed_lessons,
+        'cert': cert,
     })
 
 @staff_member_required
@@ -936,80 +949,95 @@ def submit_course_quiz(request, course_id):
 
     try:
         course = CourseHeader.objects.get(id=course_id)
-        quiz = Quiz.objects.get(course_header=course)  # Asegúrate de tener esta relación en el modelo
+        quiz = Quiz.objects.get(course_header=course)
         questions = quiz.question_set.all()
 
-                # ✅ Validar límite de intentos si aplica
-        config = quiz.config  # Accede a QuizConfig
+        # Validar intentos
+        config = quiz.config
         if config and config.max_attempts:
             existing_attempts = QuizAttempt.objects.filter(user=request.user, quiz=quiz).count()
             if existing_attempts >= config.max_attempts:
                 return JsonResponse({
                     'success': False,
-                    'message': f'Has alcanzado el máximo de {config.max_attempts} intentos permitidos para este cuestionario.'
+                    'message': f'Has alcanzado el máximo de {config.max_attempts} intentos permitidos.'
                 }, status=403)
 
+        total_questions = questions.count()
+        correct_count = 0
+
+        for question in questions:
+            if question.question_type == "Respuesta múltiple":
+                field_name = f"question_{question.id}[]"
+                user_answers = request.POST.getlist(field_name)
+            else:
+                field_name = f"question_{question.id}"
+                user_answer = request.POST.get(field_name)
+                user_answers = [user_answer] if user_answer else []
+
+            user_answers_set = set(map(str, user_answers))
+            correct_answers = question.answer_set.filter(is_correct=True).values_list('id', flat=True)
+            correct_answers_set = set(map(str, correct_answers))
+
+            if not user_answers_set:
+                continue
+
+            if question.question_type == "Respuesta múltiple":
+                if user_answers_set & correct_answers_set:
+                    correct_count += 1
+            elif question.question_type == "Texto":
+                continue  # Opcional: puedes agregar lógica de comparación exacta
+            else:
+                if user_answers_set & correct_answers_set:
+                    correct_count += 1
+
+        passing_score = config.passing_score if config else 60
+        percentage = (correct_count / total_questions) * 100 if total_questions else 0
+        passed = percentage >= passing_score
+
+        # Guardar intento
+        QuizAttempt.objects.create(
+            user=request.user,
+            quiz=quiz,
+            course=course,
+            score=correct_count,
+            percentage=percentage,
+            passed=passed
+        )
+
+        # Si aprobó, el curso tiene certificación activa y no tiene certificado aún, generarlo
+        if (
+            passed 
+            and hasattr(course, 'config') 
+            and course.config.certification  # <- usa tu booleano directamente
+            and not CourseCertificate.objects.filter(user=request.user, course=course).exists()
+        ):
+            try:
+                generar_y_guardar_certificado(request.user, course)
+                print("✅ Certificado generado exitosamente.")
+            except Exception as e:
+                import traceback
+                print("❌ Error al guardar certificado:")
+                print(traceback.format_exc())
+
+
+        return JsonResponse({
+            'success': True,
+            'score': correct_count,
+            'percentage_score': percentage,
+            'passed': passed,
+            'message': 'Aprobado' if passed else 'Vuelve a intentarlo'
+        })
 
     except CourseHeader.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Curso no encontrado'}, status=404)
 
-    total_questions = questions.count()
-    correct_count = 0
-
-    for question in questions:
-        if question.question_type == "Respuesta múltiple":
-            field_name = f"question_{question.id}[]"
-            user_answers = request.POST.getlist(field_name)
-        else:
-            # Respuesta única o texto
-            field_name = f"question_{question.id}"
-            user_answer = request.POST.get(field_name)
-            user_answers = [user_answer] if user_answer else []
-
-        user_answers_set = set(map(str, user_answers))
-        correct_answers = question.answer_set.filter(is_correct=True).values_list('id', flat=True)
-        correct_answers_set = set(map(str, correct_answers))
-
-        if not user_answers_set:
-            continue
-
-        if question.question_type == "Respuesta múltiple":
-            if user_answers_set & correct_answers_set:
-                correct_count += 1
-
-        elif question.question_type == "Texto":
-            # Tu lógica custom aquí
-            continue
-
-        else:
-            # Opción única: exacta
-            if user_answers_set & correct_answers_set:
-                correct_count += 1
+    except Exception as e:
+        import traceback
+        print("⚠️ Error general en submit_course_quiz:")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'message': 'Error interno', 'error': str(e)}, status=500)
 
 
-        # Si tuvieras "Texto", aquí lo manejarías con lógica personalizada
-        config = quiz.config
-        passing_score = config.passing_score if config else 60  # Usa el configurado, o 60 por defecto
-
-        percentage = (correct_count / total_questions) * 100 if total_questions else 0
-        passed = percentage >= passing_score
-
-    QuizAttempt.objects.create(
-        user=request.user,
-        quiz=quiz,
-        course=course,
-        score=correct_count,
-        percentage=percentage,
-        passed=passed
-     )
-
-
-    return JsonResponse({
-        'success': True,
-        'score': correct_count,
-        'percentage_score': percentage,
-        'message': 'Aprobado' if passed else 'Vuelve a intentarlo'
-    })
 
 @login_required
 def unread_course_count(request):
@@ -1062,3 +1090,114 @@ def mark_lesson_complete(request):
     enrolled.save()
 
     return JsonResponse({"success": True, "progress": progress})
+
+def vista_previa_certificado(request):
+    nombre_usuario = request.user.get_full_name()
+    nombre_curso = "Creación de cursos"
+    width, height = 842, 595
+
+    # 1. Generar overlay de texto
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+    c.setFont("Helvetica-Bold", 30)
+    c.drawCentredString(580, 260, nombre_usuario)
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
+    c.setFont("Helvetica-Bold", 17)
+    c.drawCentredString(580, 200, f"{nombre_curso}")
+    c.setFont("Helvetica", 10)
+    fecha_hoy = date.today().strftime("%d/%m/%Y")
+    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
+    c.save()
+    buffer.seek(0)
+
+    # 2. Fusionar con PDF base
+    template_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'certificates', 'Diploma_TotalGas.pdf'
+    )
+    base_pdf = PdfReader(template_path)
+    overlay_pdf = PdfReader(buffer)
+    writer = PdfWriter()
+
+    base_page = base_pdf.pages[0]
+    base_page.merge_page(overlay_pdf.pages[0])
+    writer.add_page(base_page)
+
+    # 3. Guardar archivo final en memoria
+    final_output = BytesIO()
+    writer.write(final_output)
+    final_output.seek(0)
+
+
+    # 4. GUARDAR EN BD Y ARCHIVO
+    try:
+        curso = CourseHeader.objects.get(title=nombre_curso)
+        existe_certificado = CourseCertificate.objects.filter(user=request.user, course=curso).exists()
+        if not existe_certificado:
+            certificado = CourseCertificate(user=request.user, course=curso)
+            filename = f"certificado_{slugify(request.user.username)}_{slugify(curso.title)}.pdf"
+            ruta_guardado = os.path.join("certificates", filename)
+            certificado.file.save(ruta_guardado, File(final_output))
+            certificado.save()
+            print("✅ Certificado guardado correctamente")
+    except Exception as e:
+        return HttpResponse(e)
+
+    # 5. Mostrar al usuario
+    final_output.seek(0)
+    response = HttpResponse(final_output, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="vista_previa_certificado.pdf"'
+    return response
+
+def generar_y_guardar_certificado(usuario, curso):
+
+    width, height = 842, 595
+    nombre_usuario = usuario.get_full_name()
+    nombre_curso = curso.title
+
+    # 1. Generar overlay de texto
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+    c.setFont("Helvetica-Bold", 30)
+    c.drawCentredString(580, 260, nombre_usuario)
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
+    c.setFont("Helvetica-Bold", 17)
+    c.drawCentredString(580, 200, f"{nombre_curso}")
+    c.setFont("Helvetica", 10)
+    fecha_hoy = date.today().strftime("%d/%m/%Y")
+    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
+    c.save()
+    buffer.seek(0)
+
+    # Ruta de tu diploma
+    template_path = os.path.join(settings.BASE_DIR, 'static', 'template', 'img', 'certificates', 'Diploma_TotalGas.pdf')
+    if not os.path.exists(template_path):
+        print("❌ Archivo de plantilla no encontrado:", template_path)
+        return None
+
+    base_pdf = PdfReader(template_path)
+    overlay_pdf = PdfReader(buffer)
+
+    writer = PdfWriter()
+    base_page = base_pdf.pages[0]
+    base_page.merge_page(overlay_pdf.pages[0])
+    writer.add_page(base_page)
+
+    output = BytesIO()
+    writer.write(output)
+    output.seek(0)
+
+    # Evitar duplicados
+    if CourseCertificate.objects.filter(user=usuario, course=curso).exists():
+        print("⚠️ Certificado ya existe para este usuario y curso.")
+        return None
+
+    certificado = CourseCertificate.objects.create(user=usuario, course=curso)
+    filename = f"certificado_{slugify(usuario.username)}_{slugify(curso.title)}.pdf"
+    certificado.file.save(filename, File(output))
+    certificado.save()
+
+    print("✅ Certificado guardado:", filename)
+    return certificado
+
