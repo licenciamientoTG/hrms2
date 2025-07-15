@@ -1091,63 +1091,63 @@ def mark_lesson_complete(request):
 
     return JsonResponse({"success": True, "progress": progress})
 
-def vista_previa_certificado(request):
-    nombre_usuario = request.user.get_full_name()
-    nombre_curso = "Creación de cursos"
-    width, height = 842, 595
+# def vista_previa_certificado(request):
+#     nombre_usuario = request.user.get_full_name()
+#     nombre_curso = "Creación de cursos"
+#     width, height = 842, 595
 
-    # 1. Generar overlay de texto
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(width, height))
-    c.setFont("Helvetica-Bold", 30)
-    c.drawCentredString(580, 260, nombre_usuario)
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
-    c.setFont("Helvetica-Bold", 17)
-    c.drawCentredString(580, 200, f"{nombre_curso}")
-    c.setFont("Helvetica", 10)
-    fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
-    c.save()
-    buffer.seek(0)
+#     # 1. Generar overlay de texto
+#     buffer = BytesIO()
+#     c = canvas.Canvas(buffer, pagesize=(width, height))
+#     c.setFont("Helvetica-Bold", 30)
+#     c.drawCentredString(580, 260, nombre_usuario)
+#     c.setFont("Helvetica", 14)
+#     c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
+#     c.setFont("Helvetica-Bold", 17)
+#     c.drawCentredString(580, 200, f"{nombre_curso}")
+#     c.setFont("Helvetica", 10)
+#     fecha_hoy = date.today().strftime("%d/%m/%Y")
+#     c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
+#     c.save()
+#     buffer.seek(0)
 
-    # 2. Fusionar con PDF base
-    template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'certificates', 'Diploma_TotalGas.pdf'
-    )
-    base_pdf = PdfReader(template_path)
-    overlay_pdf = PdfReader(buffer)
-    writer = PdfWriter()
+#     # 2. Fusionar con PDF base
+#     template_path = os.path.join(
+#         settings.BASE_DIR, 'static', 'template', 'img', 'certificates', 'Diploma_TotalGas.pdf'
+#     )
+#     base_pdf = PdfReader(template_path)
+#     overlay_pdf = PdfReader(buffer)
+#     writer = PdfWriter()
 
-    base_page = base_pdf.pages[0]
-    base_page.merge_page(overlay_pdf.pages[0])
-    writer.add_page(base_page)
+#     base_page = base_pdf.pages[0]
+#     base_page.merge_page(overlay_pdf.pages[0])
+#     writer.add_page(base_page)
 
-    # 3. Guardar archivo final en memoria
-    final_output = BytesIO()
-    writer.write(final_output)
-    final_output.seek(0)
+#     # 3. Guardar archivo final en memoria
+#     final_output = BytesIO()
+#     writer.write(final_output)
+#     final_output.seek(0)
 
 
-    # 4. GUARDAR EN BD Y ARCHIVO
-    try:
-        curso = CourseHeader.objects.get(title=nombre_curso)
-        existe_certificado = CourseCertificate.objects.filter(user=request.user, course=curso).exists()
-        if not existe_certificado:
-            certificado = CourseCertificate(user=request.user, course=curso)
-            filename = f"certificado_{slugify(request.user.username)}_{slugify(curso.title)}.pdf"
-            ruta_guardado = os.path.join("certificates", filename)
-            certificado.file.save(ruta_guardado, File(final_output))
-            certificado.save()
-            print("✅ Certificado guardado correctamente")
-    except Exception as e:
-        return HttpResponse(e)
+#     # 4. GUARDAR EN BD Y ARCHIVO
+#     try:
+#         curso = CourseHeader.objects.get(title=nombre_curso)
+#         existe_certificado = CourseCertificate.objects.filter(user=request.user, course=curso).exists()
+#         if not existe_certificado:
+#             certificado = CourseCertificate(user=request.user, course=curso)
+#             filename = f"certificado_{slugify(request.user.username)}_{slugify(curso.title)}.pdf"
+#             ruta_guardado = os.path.join("certificates", filename)
+#             certificado.file.save(ruta_guardado, File(final_output))
+#             certificado.save()
+#             print("✅ Certificado guardado correctamente")
+#     except Exception as e:
+#         return HttpResponse(e)
 
-    # 5. Mostrar al usuario
-    final_output.seek(0)
-    response = HttpResponse(final_output, content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="vista_previa_certificado.pdf"'
-    return response
+#     # 5. Mostrar al usuario
+#     final_output.seek(0)
+#     response = HttpResponse(final_output, content_type='application/pdf')
+#     response['Content-Disposition'] = 'inline; filename="vista_previa_certificado.pdf"'
+#     return response
 
 def generar_y_guardar_certificado(usuario, curso):
 
@@ -1166,7 +1166,7 @@ def generar_y_guardar_certificado(usuario, curso):
     c.drawCentredString(580, 200, f"{nombre_curso}")
     c.setFont("Helvetica", 10)
     fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
+    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE {curso.duration} HORAS")
     c.save()
     buffer.seek(0)
 

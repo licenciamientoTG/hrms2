@@ -28,7 +28,7 @@ urlpatterns = [
     path('admin/courses/', views.admin_courses, name='admin_courses'),
     path('mark-lesson-complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
 
-    path('certificado/vista-previa/', views.vista_previa_certificado),
+    # path('certificado/vista-previa/', views.vista_previa_certificado),
 
 ]
 
