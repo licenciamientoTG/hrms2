@@ -1090,7 +1090,8 @@ def mark_lesson_complete(request):
     enrolled.save()
 
     return JsonResponse({"success": True, "progress": progress})
-
+#esta vista solo la desbloqueo para ver el certificado sin necesidad de estar generando uno nuevo a cada rato
+#hay que activarle su url para poder visitar la vista de como va estructurado el certificado
 # def vista_previa_certificado(request):
 #     nombre_usuario = request.user.get_full_name()
 #     nombre_curso = "Creación de cursos"
