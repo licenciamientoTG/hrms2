@@ -8,7 +8,7 @@ class CourseHeaderForm(forms.ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'required': 'required'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'required': 'required'}),
-            'duration': forms.NumberInput(attrs={'class': 'form-control', 'required': 'required'}),
+            'duration': forms.NumberInput(attrs={'class': 'form-control', 'required': 'required', 'min': '0', 'max': '100'}),
             'category': forms.Select(attrs={'class': 'form-control', 'required': 'required'}),
             'portrait': forms.FileInput(attrs={'class': 'form-control', 'required': 'required','id': 'id_portrait'}),
         }

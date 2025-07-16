@@ -44,7 +44,7 @@
         
             <!-- Campo: Duración -->
             <div class="mb-3">
-                <label for="{{ course_form.duration.id_for_label }}" class="form-label">Duración en horas</label>
+                <label for="{{ course_form.duration.id_for_label }}" class="form-label">Duración (La duración debe estar entre 0 y 100 horas.)</label>
                 {{ course_form.duration }}
                 {% if course_form.duration.errors %}
                     <div class="text-danger">
