@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         confirmButtonText: 'Aceptar'
                     }).then(() => {
                         localStorage.removeItem("completedLessons");
-                        window.location.href = "{% url 'course_wizard' %}";
+                        window.location.href = "{% url 'view_course_content' course.id %}";
                     });
 
 
