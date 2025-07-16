@@ -63,7 +63,20 @@
                     </div>
                 {% endif %}
             </div>
-        
+
+            <!-- Campo: Subcategorías -->
+            <div class="mb-3">
+                <label for="{{ course_form.sub_categories.id_for_label }}" class="form-label">Subcategorías (Opcional)</label>
+                <div style="max-height: 100px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
+                    {{ course_form.sub_categories }}
+                </div>
+                {% if course_form.sub_categories.errors %}
+                    <div class="text-danger">
+                        {{ course_form.sub_categories.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
             <!-- Campo: Imagen del curso -->
             <div class="mb-3">
                 <label for="{{ course_form.portrait.id_for_label }}" class="form-label">Imagen del curso</label>

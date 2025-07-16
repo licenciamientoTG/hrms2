@@ -36,6 +36,29 @@ class CourseCategory(models.Model):
     def __str__(self):
         return self.title
 
+class CourseSubCategory(models.Model):
+    name = models.CharField(max_length=100, 
+        verbose_name="Subcategoría")
+
+    class Meta:
+        verbose_name = "Subcategoría del Curso"
+        verbose_name_plural = "Subcategorías del Curso"
+
+    def __str__(self):
+        return self.name
+
+class CourseSubCategoryRelation(models.Model):
+    course = models.ForeignKey('CourseHeader', on_delete=models.CASCADE, verbose_name="Curso")
+    subcategory = models.ForeignKey('CourseSubCategory', on_delete=models.CASCADE, verbose_name="Subcategoría")
+
+    class Meta:
+        verbose_name = "Relación Curso - Subcategoría"
+        verbose_name_plural = "Relaciones Curso - Subcategoría"
+        unique_together = ('course', 'subcategory')
+
+    def __str__(self):
+        return f"{self.course.title} - {self.subcategory.name}"
+
 
 class CourseHeader(models.Model):
     title = models.CharField(
@@ -70,7 +93,6 @@ class CourseHeader(models.Model):
 
     def __str__(self):
         return self.title
-
 
 class ModuleContent(models.Model):
     course_header = models.ForeignKey(

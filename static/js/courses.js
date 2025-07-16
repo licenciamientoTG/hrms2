@@ -120,7 +120,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (step === 1 || step === 2 || step === 4) {
             document.querySelectorAll(`#step-${step} input, #step-${step} textarea, #step-${step} select`).forEach(field => {
-                let key = field.name || field.id.replace("id_", "");  // 👈 CORRECCIÓN
+                let key = field.name || field.id.replace("id_", "");
+
                 if (field.type === "radio") {
                     if (!stepData.hasOwnProperty(key)) {
                         stepData[key] = "off";
@@ -129,7 +130,18 @@ document.addEventListener("DOMContentLoaded", function () {
                         stepData[key] = field.value;
                     }
                 } else if (field.type === "checkbox") {
-                    stepData[key] = field.checked ? "on" : "off";
+                    if (field.name === "sub_categories") {
+                        // Asegura que solo se procese como lista este campo
+                        if (!stepData["sub_categories"]) {
+                            stepData["sub_categories"] = [];
+                        }
+                        if (field.checked) {
+                            stepData["sub_categories"].push(field.value);
+                        }
+                    } else {
+                        stepData[key] = field.checked ? "on" : "off";
+                    }
+
                 } else {
                     stepData[key] = field.value;
                 }
@@ -142,26 +154,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
     
         
-    function loadStepData(step) {
-        let stepData = JSON.parse(localStorage.getItem(`step${step}`)) || {};
-    
-        console.log(`📌 Cargando datos para step${step}:`, stepData);
-    
-        if (step === 1 || step === 2 || step === 4) {
-            document.querySelectorAll(`#step-${step} input, #step-${step} textarea, #step-${step} select`).forEach(field => {
-                if (field.type === "radio") {
-                    field.checked = stepData[field.name] === field.value;
-                } else if (field.type === "checkbox") {
-                    field.checked = stepData[field.name] === "on"; // ✅ Restaurar checkboxes correctamente
+function loadStepData(step) {
+    let stepData = JSON.parse(localStorage.getItem(`step${step}`)) || {};
+
+    console.log(`📌 Cargando datos para step${step}:`, stepData);
+
+    if (step === 1 || step === 2 || step === 4) {
+        document.querySelectorAll(`#step-${step} input, #step-${step} textarea, #step-${step} select`).forEach(field => {
+            const key = field.name || field.id.replace("id_", "");
+
+            if (field.type === "radio") {
+                field.checked = stepData[key] === field.value;
+
+            } else if (field.type === "checkbox") {
+                if (key === "sub_categories") {
+                    // Restaurar si está en la lista
+                    if (Array.isArray(stepData[key])) {
+                        field.checked = stepData[key].includes(field.value);
+                    }
                 } else {
-                    field.value = stepData[field.name] || "";
+                    field.checked = stepData[key] === "on";
                 }
-            });
-        }
+
+            } else {
+                field.value = stepData[key] || "";
+            }
+        });
     }
-    
-    
-    
+}
 
     // 📌 Función para agregar un nuevo módulo
     function addModule(moduleData = null) {
@@ -715,104 +735,86 @@ function cancel_course(route) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-    document.getElementById("save-button").addEventListener("click", function (event) {
-        event.preventDefault(); // ⛔ Evita envío automático
+  document.getElementById("save-button").addEventListener("click", function (event) {
+    event.preventDefault(); // ⛔ Evita envío automático
 
-        // 🧠 Obtener datos del localStorage
-        let step1 = JSON.parse(localStorage.getItem("step1")) || {};
-        let step2 = JSON.parse(localStorage.getItem("step2")) || {};
-        let modules = JSON.parse(localStorage.getItem("modules")) || [];
+    // 🧠 Obtener datos del localStorage
+    let step1   = JSON.parse(localStorage.getItem("step1"))   || {};
+    let step2   = JSON.parse(localStorage.getItem("step2"))   || {};
+    let modules = JSON.parse(localStorage.getItem("modules")) || [];
 
-        // 🔢 Asegurar resource_index globalmente y que cada lección tenga ID único
-        let fileIndex = 0;
-        modules.forEach(module => {
-            module.lessons.forEach(lesson => {
-                lesson.resource_index = fileIndex;
-                fileIndex++;
-            });
-        });
+    // 🔢 Asegurar resource_index globalmente
+    let fileIndex = 0;
+    modules.forEach(m => m.lessons.forEach(l => l.resource_index = fileIndex++));
 
-        // 💾 Actualizar localStorage con los índices correctos
-        localStorage.setItem("modules", JSON.stringify(modules));
+    // 💾 Actualizar módulos en localStorage (por si acaso)
+    localStorage.setItem("modules", JSON.stringify(modules));
 
-        
-        // 📦 Crear FormData
-        let formData = new FormData();
-        formData.append("step1", JSON.stringify(step1));
-        formData.append("step2", JSON.stringify(step2));
-        formData.append("modules", JSON.stringify(modules));
-        
+    // 📦 Crear FormData
+    let formData = new FormData();
+    formData.append("step1", JSON.stringify(step1));
+    formData.append("step2", JSON.stringify(step2));
+    formData.append("modules", JSON.stringify(modules));
 
-        // 🖼️ Imagen del curso
-        let portraitInput = document.getElementById("id_portrait");
-        if (portraitInput && portraitInput.files.length > 0) {
-            formData.append("portrait", portraitInput.files[0]);
-        }
+    // 🖼️ Imagen del curso
+    let portraitInput = document.getElementById("id_portrait");
+    if (portraitInput && portraitInput.files.length > 0) {
+      formData.append("portrait", portraitInput.files[0]);
+    }
 
-        // 📎 Archivos de lecciones desde el mapa global `lessonFileMap`
-        modules.forEach(module => {
-            module.lessons.forEach(lesson => {
-                const resourceIndex = lesson.resource_index;
-                const file = lessonFileMap[lesson.id];  // ✅ usar lesson.id como clave
-
-                if (file) {
-                    formData.append(`lesson_resource_${resourceIndex}`, file);
-                }
-            });
-        });
-
-        // 🧩 Configuración del cuestionario (capturada desde inputs/selects del paso 4)
-        const minScore = document.getElementById("min_score")?.value || "60";
-        const maxAttempts = document.getElementById("max_attempts")?.value || "";
-        const timeLimit = document.getElementById("time_limit")?.value || "";
-        const showCorrect = document.getElementById("show_correct_answers")?.checked ? "true" : "false";
-        const quizQuestions = JSON.parse(localStorage.getItem("quiz_questions") || "[]");
-
-        // ✅ Agregar al FormData
-        formData.append("min_score", minScore);
-        formData.append("max_attempts", maxAttempts);
-        formData.append("time_limit", timeLimit);
-        formData.append("show_correct_answers", showCorrect);
-        formData.append("quiz_questions", JSON.stringify(quizQuestions));
-
-        // 🚀 Enviar al backend
-        fetch("/courses/api/save-course/", {
-            method: "POST",
-            headers: {
-                "X-CSRFToken": getCSRFToken()
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("✅ Respuesta del servidor:", data);
-
-            if (data.status === "success") {
-                localStorage.setItem("currentCourseId", data.course_id);
-
-                Swal.fire({
-                    icon: "success",
-                    title: "¡Guardado!",
-                    text: "El curso se ha guardado correctamente.",
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-                localStorage.clear();
-
-                setTimeout(() => {
-                    window.location.href = "/courses/course_wizard";
-                }, 2000);
-            } else {
-                Swal.fire("Error", data.message || "No se pudo guardar el curso.", "error");
-            }
-        })
-        .catch(error => {
-            console.error("❌ Error en la solicitud AJAX:", error);
-            Swal.fire("Error", "Hubo un problema con la conexión.", "error");
-        });
+    // 📎 Archivos de lecciones
+    modules.forEach(module => {
+      module.lessons.forEach(lesson => {
+        const idx = lesson.resource_index;
+        const file = lessonFileMap[lesson.id];
+        if (file) formData.append(`lesson_resource_${idx}`, file);
+      });
     });
+
+    // 🧩 Quiz config
+    const minScore     = document.getElementById("min_score")?.value     || "60";
+    const maxAttempts  = document.getElementById("max_attempts")?.value  || "";
+    const timeLimit    = document.getElementById("time_limit")?.value    || "";
+    const showCorrect  = document.getElementById("show_correct_answers")?.checked ? "true" : "false";
+    const quizQuestions= JSON.parse(localStorage.getItem("quiz_questions") || "[]");
+
+    formData.append("min_score",           minScore);
+    formData.append("max_attempts",        maxAttempts);
+    formData.append("time_limit",          timeLimit);
+    formData.append("show_correct_answers",showCorrect);
+    formData.append("quiz_questions",      JSON.stringify(quizQuestions));
+
+    // ✅ **Sub-categorías**: las sacamos de step1.sub_categories
+    const subCategories = Array.isArray(step1.sub_categories)
+      ? step1.sub_categories
+      : [];
+    formData.append("sub_categories", JSON.stringify(subCategories));
+
+    // 🚀 Y por fin, enviamos todo
+    fetch("/courses/api/save-course/", {
+      method: "POST",
+      headers: { "X-CSRFToken": getCSRFToken() },
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      console.log("✅ Respuesta del servidor:", data);
+      if (data.status === "success") {
+        localStorage.setItem("currentCourseId", data.course_id);
+        Swal.fire({ icon: "success", title: "¡Guardado!", text: "Curso creado." , timer:2000, showConfirmButton:false });
+        localStorage.clear();
+        setTimeout(() => window.location.href = "/courses/course_wizard", 2000);
+      } else {
+        Swal.fire("Error", data.message||"No se pudo guardar.", "error");
+      }
+    })
+    .catch(err => {
+      console.error("❌ Error en la solicitud AJAX:", err);
+      Swal.fire("Error", "Problema de conexión.", "error");
+    });
+  });
 });
+
 
 // 📌 Función para obtener el token CSRF
 function getCSRFToken() {

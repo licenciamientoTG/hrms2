@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
-from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizAttempt, QuizConfig, QuizAttempt
+from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizAttempt, QuizConfig, QuizAttempt, CourseSubCategoryRelation
 import json
 from datetime import timedelta, datetime, timezone, date
 from departments.models import Department
@@ -337,6 +337,14 @@ def save_course_ajax(request):
                 category=category,
                 portrait=portrait_file  # <<✅ Aquí se guarda la imagen
             )
+
+            subcats = json.loads(request.POST.get("sub_categories","[]"))
+            for subcat_id in subcats:
+                CourseSubCategoryRelation.objects.create(
+                    course=course,
+                    subcategory_id=subcat_id
+                )
+
 
             # 🔹 5. Guardar CourseConfig
             CourseConfig.objects.create(

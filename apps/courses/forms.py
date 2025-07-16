@@ -1,7 +1,13 @@
 from django import forms
-from .models import CourseHeader, CourseConfig, ModuleContent, Lesson, Quiz
+from .models import CourseHeader, CourseConfig, ModuleContent, Lesson, Quiz, CourseSubCategory
 
 class CourseHeaderForm(forms.ModelForm):
+    sub_categories = forms.ModelMultipleChoiceField(
+        queryset=CourseSubCategory.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Subcategorías"
+    )
     class Meta:
         model = CourseHeader
         exclude = ['user', 'updated_at', 'created_at']
