@@ -11,7 +11,8 @@ from apps.employee.models import Employee, JobPosition, JobCategory
 from apps.location.models import Location
 from django.core.paginator import Paginator
 from django.contrib import messages
-
+from django.contrib.auth.decorators import user_passes_test
+from .forms import AdminPasswordResetForm
 import csv
 
 @login_required
@@ -229,3 +230,16 @@ def upload_employees_csv(request):
 
     return redirect('user_dashboard')
 
+@user_passes_test(lambda u: u.is_staff)
+def admin_reset_password(request, user_id):
+    user_obj = get_object_or_404(User, pk=user_id)
+    form = AdminPasswordResetForm(request.POST or None)
+    if form.is_valid():
+        user_obj.set_password(form.cleaned_data['new_password1'])
+        user_obj.save()
+        messages.success(request, f"✔️ Contraseña de {user_obj.username} restablecida.")
+        return redirect('users:user_dashboard')  # Ajusta este name al de tu lista de usuarios
+    return render(request, 'users/admin_reset_password.html', {
+        'form': form,
+        'target_user': user_obj
+    })

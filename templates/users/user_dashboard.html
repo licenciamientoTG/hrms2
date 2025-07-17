@@ -62,9 +62,27 @@
         </td>
         <td>
           {% if emp.user %}
-          <a href="{% url 'manage_user_permissions' emp.user.id %}" class="btn btn-sm btn-outline-primary">⚙️ Configurar</a>
+          <a href="#" class="btn btn-sm btn-outline-primary">⚙️ Configurar</a>
           {% endif %}
         </td>
+        <td>
+          {% if emp.user %}
+            {# Botón para configurar permisos #}
+            <a href="{% url 'users:manage_user_permissions' emp.user.id %}"
+              class="btn btn-sm btn-outline-primary"
+              title="Configurar permisos">
+              ⚙️
+            </a>
+
+            {# Botón para restablecer contraseña #}
+            <a href="{% url 'users:admin_reset_password' emp.user.id %}"
+              class="btn btn-sm btn-outline-warning"
+              title="Restablecer contraseña">
+              🔑
+            </a>
+          {% endif %}
+        </td>
+
       </tr>
       {% empty %}
       <tr><td colspan="5">No hay empleados registrados.</td></tr>
@@ -100,7 +118,7 @@
 {% block scripts %}
 <script>
   window.csrfToken = "{{ csrf_token }}";
-  window.toggleUrl = "{% url 'toggle_user_status' %}";
+  window.toggleUrl = "#";
 </script>
 
 <script src="{% static 'js/users.js' %}"></script>

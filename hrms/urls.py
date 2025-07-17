@@ -88,6 +88,8 @@ urlpatterns = [
 
     # Paso 4: Confirmación de cambio de contraseña
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
+    path('users/', include('apps.users.urls')),
+
 
 ]
 
