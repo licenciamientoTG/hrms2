@@ -86,7 +86,7 @@
     <h5 id="vacationOffcanvasLabel">Solicitar vacaciones o permisos</h5>
     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
   </div>
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" action="{% url 'submit_vacation' %}">
     {% csrf_token %}
     <div class="offcanvas-body">
 

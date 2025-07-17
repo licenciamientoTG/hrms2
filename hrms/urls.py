@@ -76,6 +76,8 @@ urlpatterns = [
     path('job_offers/', include('apps.job_offers.urls')), 
     path('policies/', include('apps.policies.urls')),
     path('career_plan/', include('apps.career_plan.urls')),
+    path("auth/login/", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
+
 
     # Paso 1: Vista para ingresar el email
     path('password_reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
@@ -88,7 +90,8 @@ urlpatterns = [
 
     # Paso 4: Confirmación de cambio de contraseña
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
-    path('users/', include('apps.users.urls')),
+    path('vacations/', include('apps.vacations.urls')),
+
 
 
 ]
