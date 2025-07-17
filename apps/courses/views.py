@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from apps.employee.models import Employee, JobCategory, JobPosition
 from apps.location.models import Location
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
-from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizAttempt, QuizConfig, QuizAttempt, CourseSubCategoryRelation
+from .models import CourseAssignment, CourseHeader, CourseConfig, EnrolledCourse, ModuleContent, Lesson, CourseCategory,  LessonAttachment, Quiz, Question, Answer, QuizAttempt, QuizConfig, CourseSubCategoryRelation
 import json
 from datetime import timedelta, datetime, timezone, date
 from departments.models import Department
@@ -728,72 +728,113 @@ def admin_course_edit(request, course_id):
         'modules': modules,
     })
 
-
-
 @login_required
 def user_courses(request):
     today = timezone.now().date()
 
-    # Cursos asignados directamente al usuario
-    enrolled_courses = EnrolledCourse.objects.filter(user=request.user).select_related('course', 'course__config')
-    assigned_courses = [e.course for e in enrolled_courses]
+    # 1) Cursos asignados directamente al usuario
+    enrolled_qs = (
+        EnrolledCourse.objects
+        .filter(user=request.user)
+        .select_related('course', 'course__config')
+    )
+    assigned_courses = [e.course for e in enrolled_qs]
 
-    # Cursos con config.audience == "all_users"
-    public_courses = CourseHeader.objects.filter(config__audience="all_users")
+    # 2) Cursos públicos (audience="all_users")
+    public_courses = CourseHeader.objects.filter(
+        config__audience="all_users"
+    )
 
-    # Cursos en CourseAssignment con tipo all_users
+    # 3) Cursos por tipo de asignación all_users
     assigned_by_type = CourseAssignment.objects.filter(
         assignment_type="all_users"
     ).values_list("course_id", flat=True)
-    type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
+    type_based = CourseHeader.objects.filter(id__in=assigned_by_type)
 
-    # Unir todos, sin duplicados
-    all_courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
+    # 4) Unión sin duplicados
+    all_courses = list(
+        set(assigned_courses) |
+        set(public_courses)   |
+        set(type_based)
+    )
 
-    # Simular progreso si no existe EnrolledCourse
-    fake_enrollments = []
-    enrolled_ids = set(e.course.id for e in enrolled_courses)
+    # 5) Simular enrollments faltantes
+    fake = []
+    enrolled_ids = {e.course.id for e in enrolled_qs}
     for course in all_courses:
-        if hasattr(course, 'config') and course.config and course.config.deadline is not None:
-            deadline_date = course.created_at + timedelta(days=course.config.deadline)
-            course.deadline_date = deadline_date.date()
+        # calculamos deadline_date si existe config.deadline
+        if getattr(course, 'config', None) and course.config.deadline is not None:
+            course.deadline_date = (
+                course.created_at + timedelta(days=course.config.deadline)
+            ).date()
         else:
             course.deadline_date = None
 
         if course.id not in enrolled_ids:
-            fake_enrollments.append(EnrolledCourse(course=course, user=request.user, progress=0))
+            fe = EnrolledCourse(course=course, user=request.user, progress=0)
+            fe.notes = ''  # para no romper al leer .notes
+            fake.append(fe)
 
+    # 6) Combinamos reales y simulados
+    all_enrollments = list(enrolled_qs) + fake
 
-    # Combinar con los reales
-    all_enrollments = list(enrolled_courses) + fake_enrollments
-
+    # 7) Lógica de completado
     completed_course_ids = []
-    for course in all_courses:
-        enrolled = next((e for e in enrolled_courses if e.course.id == course.id), None)
-        total_lessons = Lesson.objects.filter(module_content__course_header=course).count()
-        viewed = [v.strip() for v in enrolled.notes.split(",")] if enrolled and enrolled.notes else []
-        quiz_passed = QuizAttempt.objects.filter(user=request.user, course=course, passed=True).exists()
+    for enroll in all_enrollments:
+        course = enroll.course
 
-        if ((total_lessons == 0 and quiz_passed) or
-            (total_lessons > 0 and len(viewed) >= total_lessons and quiz_passed)):
+        # a) Número total de lecciones
+        total_lessons = Lesson.objects.filter(
+            module_content__course_header=course
+        ).count()
+
+        # b) Número de preguntas del quiz “real”
+        question_count = Question.objects.filter(
+            quiz__course_header=course
+        ).count()
+
+        if question_count > 0:
+            # Caso 1: quiz con preguntas → solo si pasó el quiz
+            if QuizAttempt.objects.filter(
+                user=request.user,
+                quiz__course_header=course,
+                passed=True
+            ).exists():
+                completed_course_ids.append(course.id)
+
+        elif total_lessons > 0:
+            # Caso 2: sin quiz real pero con lecciones → todas vistas
+            viewed = [
+                v.strip() for v in enroll.notes.split(',') if v.strip()
+            ]
+            if len(viewed) >= total_lessons:
+                completed_course_ids.append(course.id)
+
+        else:
+            # Caso 3: ni quiz real ni lecciones → completar automáticamente
             completed_course_ids.append(course.id)
-        
-    assigned_courses_combined = set(assigned_courses)
-    assigned_course_ids = set(c.id for c in assigned_courses)
-    assigned_courses_count = len(assigned_courses_combined)
 
+    # 8) Estadísticas de asignación
+    assigned_ids = {c.id for c in assigned_courses}
+    assigned_count = len(assigned_ids)
 
-
+    # 9) Renderizar
     return render(request, 'courses/user/wizard_form_user.html', {
         'courses': all_courses,
         'enrolled_courses': all_enrollments,
         'today': today,
         'totalcursos': len(all_courses),
-        'in_progress_courses_count': sum(1 for c in all_courses if c.deadline_date is None or c.deadline_date > today),
-        'inactive_courses_count': sum(1 for c in all_courses if c.deadline_date and c.deadline_date <= today),
+        'in_progress_courses_count': sum(
+            1 for c in all_courses
+            if c.deadline_date is None or c.deadline_date > today
+        ),
+        'inactive_courses_count': sum(
+            1 for c in all_courses
+            if c.deadline_date and c.deadline_date <= today
+        ),
         'completed_course_ids': completed_course_ids,
-        'assigned_courses_count': assigned_courses_count,
-        'assigned_course_ids': assigned_course_ids,
+        'assigned_courses_count': assigned_count,
+        'assigned_course_ids': assigned_ids,
     })
 
 @staff_member_required
