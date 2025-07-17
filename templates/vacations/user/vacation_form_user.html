@@ -68,16 +68,29 @@
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>Vacaciones</td>
-          <td><span class="badge bg-secondary">En proceso</span></td>
-          <td>19 nov 2024</td>
-          <td>19 nov 2024 → 22 nov 2024</td>
-        </tr>
+        {% for solicitud in solicitudes %}
+          <tr>
+            <td>{{ solicitud.tipo_solicitud }}</td>
+            <td>
+              {% if solicitud.status == 'pending' %}
+                <span class="badge bg-secondary">En proceso</span>
+              {% elif solicitud.status == 'approved' %}
+                <span class="badge bg-success">Aprobada</span>
+              {% elif solicitud.status == 'rejected' %}
+                <span class="badge bg-danger">Rechazada</span>
+              {% endif %}
+            </td>
+            <td>{{ solicitud.created_at|date:"d M Y" }}</td>
+            <td>{{ solicitud.start_date|date:"d M Y" }} → {{ solicitud.end_date|date:"d M Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="text-center">No hay solicitudes registradas.</td>
+          </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
-
 </div>
 
 <!-- OFFCANVAS lateral derecho -->
@@ -138,4 +151,11 @@
 
 {% block scripts %}
 <script src="{% static 'js/vacations.js' %}"></script>
+{% if messages %}
+<script>
+    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+    modal.show();
+</script>
+{% endif %}
+
 {% endblock %}

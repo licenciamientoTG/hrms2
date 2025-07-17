@@ -19,6 +19,12 @@ def home(request):
     user = request.user
     today = timezone.now().date()
 
+    try:
+        empleado = Employee.objects.get(user=user)
+        vacation_balance = empleado.vacation_balance
+    except Employee.DoesNotExist:
+        vacation_balance = 0
+
     # Cursos directos
     enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
     assigned_courses = [e.course for e in enrolled_courses]
@@ -49,7 +55,8 @@ def home(request):
     )
 
     return render(request, "authapp/home_user.html", {
-        'in_progress_courses_count': in_progress_courses_count
+        'in_progress_courses_count': in_progress_courses_count,
+        'vacation_balance': vacation_balance,
     })
 
 

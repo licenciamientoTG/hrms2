@@ -24,7 +24,7 @@ class VacationRequest(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.TextField(blank=True)
-    documento = models.FileField(upload_to='documentos/', blank=True, null=True)
+    documento = models.FileField(upload_to='vacaciones/', blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
