@@ -33,7 +33,6 @@
         <th>Usuario</th>
         <th>Estado</th>
         <th>Acciones</th>
-        <th>Permisos</th>
       </tr>
     </thead>
     <tbody>
@@ -58,11 +57,6 @@
           <button onclick="toggleStatus({{ emp.user.id }})" class="btn btn-sm btn-outline-secondary">
             {% if emp.user.is_active %}Desactivar{% else %}Activar{% endif %}
           </button>
-          {% endif %}
-        </td>
-        <td>
-          {% if emp.user %}
-          <a href="#" class="btn btn-sm btn-outline-primary">⚙️ Configurar</a>
           {% endif %}
         </td>
         <td>
