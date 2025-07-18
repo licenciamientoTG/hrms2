@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<h1>Permisos de {{ user_obj.username }}</h1>
+<h1>Permisos de {{ user_obj.first_name }} {{ user_obj.last_name }} ({{ user_obj.username }})</h1>
 
 <form method="post">
   {% csrf_token %}
