@@ -609,7 +609,7 @@ def view_course_content(request, course_id):
         'cert': cert,
     })
 
-@staff_member_required
+@user_passes_test(lambda u: u.is_superuser)
 def admin_course_stats(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     config = CourseConfig.objects.filter(course=course).first()
