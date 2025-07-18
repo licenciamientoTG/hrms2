@@ -18,8 +18,11 @@ import csv
 @login_required
 def user_dashboard(request):
     empleados = Employee.objects.select_related('user')
+    permisos = Permission.objects.all() 
+
     return render(request, 'users/user_dashboard.html', {
-        'empleados': empleados
+        'empleados': empleados,
+        'permissions': permisos,
     })
 
 
@@ -38,24 +41,38 @@ def toggle_user_status(request):
 
 @login_required
 def manage_user_permissions(request, user_id):
-    user = get_object_or_404(User, id=user_id)
-    groups = Group.objects.all()
-    permissions = Permission.objects.all()
+    user_obj = get_object_or_404(User, id=user_id)
+    grupos = Group.objects.all()
+    permisos = Permission.objects.all()
 
     if request.method == 'POST':
+        if 'nombre' in request.POST:
+            # Si viene del modal de crear grupo
+            nombre = request.POST.get('nombre')
+            permisos_ids = request.POST.getlist('group_permissions')
+            if not Group.objects.filter(name=nombre).exists():
+                grupo = Group.objects.create(name=nombre)
+                grupo.permissions.set(permisos_ids)
+                messages.success(request, "Grupo creado con éxito.")
+            else:
+                messages.warning(request, "Ese grupo ya existe.")
+            return redirect(request.path_info)
+
+        # Si viene del formulario de grupos y permisos del usuario
         selected_groups = request.POST.getlist('groups')
         selected_perms = request.POST.getlist('permissions')
 
-        user.groups.set(selected_groups)
-        user.user_permissions.set(selected_perms)
+        user_obj.groups.set(selected_groups)
+        user_obj.user_permissions.set(selected_perms)
 
-        user.save()
-        return redirect('user_dashboard')
+        messages.success(request, "Permisos actualizados correctamente.")
+        return redirect(request.path_info)
 
     return render(request, 'users/manage_permissions.html', {
-        'user_obj': user,
-        'groups': groups,
-        'permissions': permissions,
+        'user_obj': user_obj,
+        'groups': grupos,
+        'permissions': permisos,
+        'permisos': permisos,  # para el modal
     })
 
 @login_required
@@ -243,3 +260,19 @@ def admin_reset_password(request, user_id):
         'form': form,
         'target_user': user_obj
     })
+
+@user_passes_test(lambda u: u.is_superuser)  # Solo superusuarios
+def crear_grupo(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        if nombre:
+            if not Group.objects.filter(name=nombre).exists():
+                Group.objects.create(name=nombre)
+                messages.success(request, f"Grupo '{nombre}' creado correctamente.")
+            else:
+                messages.warning(request, f"El grupo '{nombre}' ya existe.")
+        else:
+            messages.error(request, "Debes escribir un nombre para el grupo.")
+        return redirect('users:user_dashboard')
+
+    return render(request, 'user/user_dashboard.html')

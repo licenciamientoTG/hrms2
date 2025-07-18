@@ -30,3 +30,10 @@ class VacationRequest(models.Model):
 
     def __str__(self):
         return f"{self.tipo_solicitud} - {self.user.username} ({self.status})"
+        
+    class Meta:
+        permissions = [
+            ("can_request_vacation", "Puede solicitar vacaciones"),
+            ("can_approve_vacation", "Puede aprobar o rechazar solicitudes"),
+            ("can_view_all_requests", "Puede ver todas las solicitudes"),
+        ]

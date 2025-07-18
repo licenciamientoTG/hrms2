@@ -5,6 +5,7 @@ from .views import (
     manage_user_permissions,
     upload_employees_csv,
     admin_reset_password,
+    crear_grupo,
 )
 
 app_name = 'users'   # <-- Aquí
@@ -18,4 +19,5 @@ urlpatterns = [
     path('toggle-user-status/', toggle_user_status, name='toggle_user_status'),
     path('manage/<int:user_id>/', manage_user_permissions, name='manage_user_permissions'),
     path('upload-employees-csv/', upload_employees_csv, name='upload_employees_csv'),
+    path('grupos/crear/', crear_grupo, name='crear_grupo'),
 ]

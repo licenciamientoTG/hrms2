@@ -33,6 +33,11 @@
         <th>Usuario</th>
         <th>Estado</th>
         <th>Acciones</th>
+        <th>
+          <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#crearGrupoModal">
+            Grupos
+          </button>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -100,6 +105,43 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para crear grupo -->
+<div class="modal fade" id="crearGrupoModal" tabindex="-1" aria-labelledby="crearGrupoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{% url 'users:crear_grupo' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="crearGrupoModalLabel">Crear nuevo grupo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="nombre" class="form-label">Nombre del grupo</label>
+            <input type="text" class="form-control" name="nombre" id="nombre" required>
+          </div>
+          <h6>Permisos</h6>
+          <div style="max-height: 300px; overflow-y: auto;" class="border rounded p-2">
+            <div class="row">
+              {% for permiso in permissions %}
+                <div class="col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="group_permissions" value="{{ permiso.id }}" id="perm{{ permiso.id }}">
+                    <label class="form-check-label" for="perm{{ permiso.id }}">{{ permiso.name }}</label>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Crear grupo</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

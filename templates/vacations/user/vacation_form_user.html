@@ -18,9 +18,15 @@
     </div>
     <div class="col text-end">
       <!-- Botón que abre el OFFCANVAS -->
+      {% if perms.vacations.can_approve_vacation %}
+      <button class="btn btn-primary" type="button" data-bs-toggle="" data-bs-target="#">
+        Ver solicitudes
+      </button>
+      {% endif %}
       <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#vacationOffcanvas">
         Solicitar
       </button>
+
     </div>
   </div>
 
