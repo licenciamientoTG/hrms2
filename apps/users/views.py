@@ -265,14 +265,20 @@ def admin_reset_password(request, user_id):
 def crear_grupo(request):
     if request.method == 'POST':
         nombre = request.POST.get('nombre')
+        permisos_ids = request.POST.getlist('group_permissions')  # <-- importante
+
         if nombre:
             if not Group.objects.filter(name=nombre).exists():
-                Group.objects.create(name=nombre)
+                grupo = Group.objects.create(name=nombre)
+
+                # Asignar permisos al grupo
+                if permisos_ids:
+                    grupo.permissions.set(permisos_ids)
+
                 messages.success(request, f"Grupo '{nombre}' creado correctamente.")
             else:
                 messages.warning(request, f"El grupo '{nombre}' ya existe.")
         else:
             messages.error(request, "Debes escribir un nombre para el grupo.")
-        return redirect('users:user_dashboard')
 
-    return render(request, 'user/user_dashboard.html')
+        return redirect('users:user_dashboard')  # Ajustado correctamente
