@@ -9,35 +9,47 @@
 
   <div class="row">
     <!-- Columna izquierda: Permisos individuales -->
-    <div class="col-md-8">
+    <div class="col-md-6">
       <h3>Permisos individuales</h3>
-      {% for perm in permissions %}
-        <div>
-          <label>
-            <input type="checkbox" name="permissions" value="{{ perm.id }}"
-              {% if perm in user_obj.user_permissions.all %}checked{% endif %}>
-            {{ perm.name }}
-          </label>
-        </div>
-      {% endfor %}
+      <div class="border rounded p-2" style="max-height: 350px; overflow-y: auto;">
+        {% for perm in permissions %}
+          <div>
+            <label>
+              <input type="checkbox" name="permissions" value="{{ perm.id }}"
+                {% if perm in user_obj.user_permissions.all %}checked{% endif %}>
+              {{ perm.name }}
+            </label>
+          </div>
+        {% endfor %}
+      </div>
     </div>
 
     <!-- Columna derecha: Grupos -->
-    <div class="col-md-4">
+    <div class="col-md-6">
       <h3>Grupos</h3>
-      {% for group in groups %}
-        <div>
-          <label>
-            <input type="checkbox" name="groups" value="{{ group.id }}"
-              {% if group in user_obj.groups.all %}checked{% endif %}>
-            {{ group.name }}
-          </label>
-        </div>
-      {% endfor %}
+      <div class="border rounded p-2" style="max-height: 350px; overflow-y: auto;">
+        {% for group in groups %}
+          <div>
+            <label>
+              <input type="checkbox" name="groups" value="{{ group.id }}"
+                {% if group in user_obj.groups.all %}checked{% endif %}>
+              {{ group.name }}
+            </label>
+          </div>
+        {% endfor %}
+      </div>
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary mt-3">Guardar</button>
+  <!-- Botones alineados -->
+  <div class="row mt-4">
+    <div class="col text-start">
+      <a href="{% url 'users:user_dashboard' %}" class="btn btn-secondary">Regresar</a>
+    </div>
+    <div class="col text-end">
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
 </form>
-{% endblock %}
 
+{% endblock %}
