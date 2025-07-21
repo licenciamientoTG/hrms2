@@ -45,13 +45,11 @@
                         <i class="fa-brands fa-wpforms"></i><span class="align-middle">Formularios y trámites</span>
                     </a>
                 </li>
-                {% endif %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'vacation_request' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
                     </a>
                 </li>
-                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'performance_review' %}">
                         <i class="fa-solid fa-chart-line"></i> <span class="align-middle">Evaluación de desempeño</span>
