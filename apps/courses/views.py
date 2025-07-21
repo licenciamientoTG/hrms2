@@ -818,6 +818,9 @@ def user_courses(request):
     assigned_ids = {c.id for c in assigned_courses}
     assigned_count = len(assigned_ids)
 
+    pending_courses_count = len(all_courses) - len(completed_course_ids)
+
+
     # 9) Renderizar
     return render(request, 'courses/user/wizard_form_user.html', {
         'courses': all_courses,
@@ -835,6 +838,8 @@ def user_courses(request):
         'completed_course_ids': completed_course_ids,
         'assigned_courses_count': assigned_count,
         'assigned_course_ids': assigned_ids,
+        'completed_courses_count': len(completed_course_ids),
+        'pending_courses_count': pending_courses_count,
     })
 
 @staff_member_required

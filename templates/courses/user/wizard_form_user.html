@@ -10,79 +10,84 @@
 </div>
     <div class="row">
         <div class="col-12">
-            <div class="w-100">
-                <div class="row">
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card filtro-card border-2 rounded-4" data-estado="all" style="cursor: pointer;">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <!-- Carrusel horizontal -->
+                    <div class="d-flex flex-nowrap gap-3 overflow-auto pb-2" style="scroll-snap-type: x mandatory;">
+                        
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="all" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title"> Total de cursos</h5>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-primary">
-                                            <i class="fa-solid fa-book align-middle"></i>
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Total de cursos</h5>
+                                    <div class="stat text-primary">
+                                        <i class="fa-solid fa-book align-middle"></i>
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ totalcursos }}</h1>
- 
                             </div>
                         </div>
-                        
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 shadow rounded-4" data-estado="asignado" style="cursor: pointer;">
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="pendiente" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos asignados </h5>
-                                    </div>
-                                    
-                                    <div class="col-auto">
-                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
-                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Pendientes</h5>
+                                    <div class="stat text-warning">
+                                        <i class="fa-solid fa-hourglass-half align-middle"></i>
                                     </div>
                                 </div>
-                                <h1 class="mt-1 mb-3">{{ assigned_courses_count }}</h1>
+                                <h1 class="mt-1 mb-3">{{ pending_courses_count }}</h1>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado=" activo" style="cursor: pointer;">
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="activo" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos activos</h5>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos activos</h5>
+                                    <div class="stat text-success">
+                                        <i class="fa-solid fa-play-circle align-middle"></i>
+
                                     </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
-                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
-                                        </div>
-                                    </div>                                    
                                 </div>
-                                <h1 class="mt-1 mb-3">{{in_progress_courses_count}}</h1>
+                                <h1 class="mt-1 mb-3">{{ in_progress_courses_count }}</h1>
                             </div>
                         </div>
-                        
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="inactivo" style="cursor: pointer;">
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="inactivo" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos inactivos</h5>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
-                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos inactivos</h5>
+                                    <div class="stat text-danger">
+                                        <i class="fa-solid fa-ban align-middle"></i>
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ inactive_courses_count }}</h1>
                             </div>
                         </div>
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="finalizado" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos finalizados</h5>
+                                    <div class="stat text-success">
+                                        <i class="fa-solid fa-flag-checkered align-middle"></i>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ completed_courses_count }}</h1>
+                            </div>
+                        </div>
+
+                        <div class="card filtro-card flex-shrink-0 border-2 shadow rounded-4 p-3" data-estado="asignado" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos asignados</h5>
+                                    <div class="stat text-warning">
+                                        <i class="fa-solid fa-spinner align-middle"></i>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ assigned_courses_count }}</h1>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -96,8 +101,13 @@
         </div>
        {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
-            
-                data-estado="{% if course.id in assigned_course_ids %}asignado {% endif %}{% if course.deadline_date and course.deadline_date <= today %} inactivo {% else %} activo{% endif %}">
+                <div class="col-md-4 mb-4 course-card"
+                    data-estado="
+                        {% if course.id in assigned_course_ids %}asignado {% endif %}
+                        {% if course.deadline_date and course.deadline_date <= today %}inactivo {% else %}activo {% endif %}
+                        {% if course.id in completed_course_ids %}finalizado{% else %}pendiente{% endif %}
+                    ">
+
 
                 <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
                 {% if course.deadline_date and course.deadline_date <= today %}
@@ -219,7 +229,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const asignado = card.dataset.asignado;
 
             const matchTexto = title.includes(filtroTexto);
-            const matchEstado = (filtroEstado === "all" || estado.includes(filtroEstado));
+            const estadoList = estado.split(" ").map(e => e.trim());
+            const matchEstado = (filtroEstado === "all" || estadoList.includes(filtroEstado));
             const matchAsignado = (filtroAsignado === "todos" || asignado === filtroAsignado);
 
             if (matchTexto && matchEstado && matchAsignado) {
