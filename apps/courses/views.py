@@ -1151,13 +1151,13 @@ def mark_lesson_complete(request):
 #     c = canvas.Canvas(buffer, pagesize=(width, height))
 #     c.setFont("Helvetica-Bold", 30)
 #     c.drawCentredString(580, 260, nombre_usuario)
-#     c.setFont("Helvetica", 14)
-#     c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
 #     c.setFont("Helvetica-Bold", 17)
-#     c.drawCentredString(580, 200, f"{nombre_curso}")
-#     c.setFont("Helvetica", 10)
+#     c.drawCentredString(575, 179, f"{nombre_curso}")
+#     c.setFont("Helvetica-Bold",  17)
 #     fecha_hoy = date.today().strftime("%d/%m/%Y")
-#     c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE 0 HORAS")
+#     c.drawCentredString(780, 140, f"{fecha_hoy}")
+#     c.drawCentredString(630, 140, f"0")
+
 #     c.save()
 #     buffer.seek(0)
 
@@ -1178,21 +1178,6 @@ def mark_lesson_complete(request):
 #     writer.write(final_output)
 #     final_output.seek(0)
 
-
-#     # 4. GUARDAR EN BD Y ARCHIVO
-#     try:
-#         curso = CourseHeader.objects.get(title=nombre_curso)
-#         existe_certificado = CourseCertificate.objects.filter(user=request.user, course=curso).exists()
-#         if not existe_certificado:
-#             certificado = CourseCertificate(user=request.user, course=curso)
-#             filename = f"certificado_{slugify(request.user.username)}_{slugify(curso.title)}.pdf"
-#             ruta_guardado = os.path.join("certificates", filename)
-#             certificado.file.save(ruta_guardado, File(final_output))
-#             certificado.save()
-#             print("✅ Certificado guardado correctamente")
-#     except Exception as e:
-#         return HttpResponse(e)
-
 #     # 5. Mostrar al usuario
 #     final_output.seek(0)
 #     response = HttpResponse(final_output, content_type='application/pdf')
@@ -1210,13 +1195,12 @@ def generar_y_guardar_certificado(usuario, curso):
     c = canvas.Canvas(buffer, pagesize=(width, height))
     c.setFont("Helvetica-Bold", 30)
     c.drawCentredString(580, 260, nombre_usuario)
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(580, 225, f"POR CONLCUÍR SATIFACTORIAMENTE EL CURSO DE:")
     c.setFont("Helvetica-Bold", 17)
-    c.drawCentredString(580, 200, f"{nombre_curso}")
-    c.setFont("Helvetica", 10)
+    c.drawCentredString(575, 179, f"{nombre_curso}")
+    c.setFont("Helvetica-Bold",  17)
     fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(580, 180, f"EL DÍA {fecha_hoy} CON UNA DURACION DE {curso.duration} HORAS")
+    c.drawCentredString(780, 140, f"{fecha_hoy}")
+    c.drawCentredString(630, 140, f"{curso.duration} hrs")
     c.save()
     buffer.seek(0)
 
