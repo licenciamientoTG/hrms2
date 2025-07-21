@@ -13,9 +13,6 @@ def create_user_for_employee(sender, instance, created, **kwargs):
         birth_date_part = ""
         if instance.curp and len(instance.curp) >= 11:
             birth_date_part = instance.curp[4:10]  # 5 a 10 (index base 0)
-
-            # Invertir orden: '980603' → '030698'
-            birth_date_part = birth_date_part[::-1]
         else:
             birth_date_part = "000000"  # Valor por defecto si no hay CURP
 
