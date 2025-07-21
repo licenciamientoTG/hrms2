@@ -14,6 +14,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from .forms import AdminPasswordResetForm
 import csv
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
 
 @login_required
 def user_dashboard(request):
@@ -255,7 +257,7 @@ def admin_reset_password(request, user_id):
         user_obj.set_password(form.cleaned_data['new_password1'])
         user_obj.save()
         messages.success(request, f"✔️ Contraseña de {user_obj.username} restablecida.")
-        return redirect('users:user_dashboard')  # Ajusta este name al de tu lista de usuarios
+        return redirect('user_dashboard')  # Ajusta este name al de tu lista de usuarios
     return render(request, 'users/admin_reset_password.html', {
         'form': form,
         'target_user': user_obj
@@ -281,4 +283,20 @@ def crear_grupo(request):
         else:
             messages.error(request, "Debes escribir un nombre para el grupo.")
 
-        return redirect('users:user_dashboard')  # Ajustado correctamente
+        return redirect('user_dashboard')  # Ajustado correctamente
+
+@login_required
+def force_password_change(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            # Desactivamos el flag
+            request.user.userprofile.must_change_password = False
+            request.user.userprofile.save()
+            return redirect('home')  # O a donde quieras enviarlo después
+    else:
+        form = PasswordChangeForm(request.user)
+
+    return render(request, 'courses/user/force_password_change.html', {'form': form})

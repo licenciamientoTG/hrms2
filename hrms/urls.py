@@ -10,6 +10,8 @@ from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
 from django.utils import timezone
 from datetime import timedelta
 from apps.employee.models import Employee
+from apps.users.views import force_password_change
+
 
 @login_required
 def home(request):
@@ -84,6 +86,8 @@ urlpatterns = [
     path('policies/', include('apps.policies.urls')),
     path('career_plan/', include('apps.career_plan.urls')),
     path("auth/login/", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
+    path('change-password/', force_password_change, name='force_password_change'),
+
 
 
     # Paso 1: Vista para ingresar el email

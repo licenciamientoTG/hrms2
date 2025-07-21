@@ -7,8 +7,7 @@ from .views import (
     admin_reset_password,
     crear_grupo,
 )
-
-app_name = 'users'   # <-- Aquí
+from apps.users.views import force_password_change
 
 urlpatterns = [
     path('admin/users/', user_dashboard, name='user_list'),
@@ -20,4 +19,5 @@ urlpatterns = [
     path('manage/<int:user_id>/', manage_user_permissions, name='manage_user_permissions'),
     path('upload-employees-csv/', upload_employees_csv, name='upload_employees_csv'),
     path('grupos/crear/', crear_grupo, name='crear_grupo'),
+    path('change-password/', force_password_change, name='force_password_change'),
 ]

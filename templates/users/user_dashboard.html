@@ -67,14 +67,14 @@
         <td>
           {% if emp.user %}
             {# Botón para configurar permisos #}
-            <a href="{% url 'users:manage_user_permissions' emp.user.id %}"
+            <a href="{% url 'manage_user_permissions' emp.user.id %}"
               class="btn btn-sm btn-outline-primary"
               title="Configurar permisos">
               ⚙️
             </a>
 
             {# Botón para restablecer contraseña #}
-            <a href="{% url 'users:admin_reset_password' emp.user.id %}"
+            <a href="{% url 'admin_reset_password' emp.user.id %}"
               class="btn btn-sm btn-outline-warning"
               title="Restablecer contraseña">
               🔑
@@ -113,7 +113,7 @@
 <div class="modal fade" id="crearGrupoModal" tabindex="-1" aria-labelledby="crearGrupoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="{% url 'users:crear_grupo' %}">
+      <form method="post" action="{% url 'crear_grupo' %}">
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="crearGrupoModalLabel">Crear nuevo grupo</h5>
