@@ -275,7 +275,7 @@ def save_course(request):
 
 
 
-@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def save_course_ajax(request):
     if request.method == 'POST':
         try:
@@ -690,7 +690,7 @@ def admin_course_stats(request, course_id):
         'user_progress': user_progress,
     })
     
-@staff_member_required
+@user_passes_test(lambda u: u.is_superuser)
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
