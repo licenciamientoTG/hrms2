@@ -272,82 +272,115 @@ def save_course(request):
 
 @user_passes_test(lambda u: u.is_superuser)
 def save_course_ajax(request):
-    if request.method != 'POST':
-        return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
-
-    try:
-        # 🔹 Obtener datos del formulario
-        step1_data = json.loads(request.POST.get("step1", "{}"))
-        step2_data = json.loads(request.POST.get("step2", "{}"))
-        modules_data = json.loads(request.POST.get("modules", "[]"))
-        quiz_questions = json.loads(request.POST.get("quiz_questions", "[]"))
-        subcats = json.loads(request.POST.get("sub_categories", "[]"))
-
-        portrait_file = request.FILES.get("portrait")
-
-        # 🔹 Validaciones básicas
-        for field in ["title", "description", "duration", "category"]:
-            if not step1_data.get(field):
-                return JsonResponse({"status": "error", "message": f"Falta campo: {field}"}, status=400)
-
-        for field in ["course_type", "deadline", "audience", "certification", "requires_signature"]:
-            if not step2_data.get(field):
-                return JsonResponse({"status": "error", "message": f"Falta campo: {field}"}, status=400)
-
-        # 🔹 Validar y obtener categoría
+    if request.method == 'POST':
         try:
-            category = CourseCategory.objects.get(id=step1_data["category"])
-        except CourseCategory.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "Categoría no válida."}, status=400)
+            # 🔹 1. Obtener los datos desde `request.POST` y `request.FILES`
+            step1_raw = request.POST.get("step1", "{}")
+            step2_raw = request.POST.get("step2", "{}")
+            modules_raw = request.POST.get("modules", "[]")
+            portrait_file = request.FILES.get("portrait")
+            quiz_questions_raw = request.POST.get("quiz_questions", "[]")
 
-        # 🔹 Crear curso
-        course = CourseHeader.objects.create(
-            title=step1_data["title"],
-            description=step1_data["description"],
-            duration=step1_data["duration"],
-            user=request.user,
-            category=category,
-            portrait=portrait_file
-        )
+            step1_data = json.loads(step1_raw)
+            step2_data = json.loads(step2_raw)
+            modules_data = json.loads(modules_raw)
 
-        # 🔹 Relación con subcategorías
-        for subcat_id in subcats:
-            CourseSubCategoryRelation.objects.create(course=course, subcategory_id=subcat_id)
+            ALLOWED_EXTENSIONS = [".pdf", ".mp4", ".jpg", ".jpeg", ".png", ".gif", ".webp"]
 
-        # 🔹 Configuración del curso
-        CourseConfig.objects.create(
-            course=course,
-            course_type=step2_data["course_type"],
-            sequential=step2_data.get("sequential") == "on",
-            deadline=int(step2_data["deadline"]),
-            audience=step2_data["audience"],
-            certification=step2_data["certification"] == "on",
-            requires_signature=step2_data["requires_signature"] == "on"
-        )
+            
+            # 🔹 2. Validaciones básicas
+            required_fields_step1 = ["title", "description", "duration", "category"]
+            missing_fields_step1 = [field for field in required_fields_step1 if not step1_data.get(field)]
+            if missing_fields_step1:
+                return JsonResponse({"status": "error", "message": f"Faltan campos en step1: {missing_fields_step1}"}, status=400)
 
-        # 🔹 Crear quiz solo si hay preguntas
-        if quiz_questions:
+            required_fields_step2 = ["course_type", "deadline", "audience", "certification", "requires_signature"]
+            missing_fields_step2 = [field for field in required_fields_step2 if not step2_data.get(field)]
+            if missing_fields_step2:
+                return JsonResponse({"status": "error", "message": f"Faltan campos en step2: {missing_fields_step2}"}, status=400)
+
+            try:
+                deadline = int(step2_data.get("deadline", 0))
+                if deadline < 0:
+                    return JsonResponse({"status": "error", "message": "El plazo debe ser mayor o igual a 0."}, status=400)
+            except ValueError:
+                return JsonResponse({"status": "error", "message": "El plazo debe ser un número válido."}, status=400)
+
+            # 🔹 3. Validar categoría
+            category_id = step1_data.get("category")
+            try:
+                category = CourseCategory.objects.get(id=category_id)
+            except ObjectDoesNotExist:
+                return JsonResponse({"status": "error", "message": "La categoría no existe."}, status=400)
+
+            # 🔒 Validar tipo MIME real
+            if portrait_file:
+                allowed_mime = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+                if portrait_file.content_type not in allowed_mime:
+                    return JsonResponse({
+                        "status": "error",
+                        "message": "Solo se permiten imágenes (JPG, PNG, WEBP, GIF) como portada."
+                }, status=400)
+
+
+            # 🔹 4. Guardar CourseHeader (con imagen)
+            course = CourseHeader.objects.create(
+                title=step1_data.get("title"),
+                description=step1_data.get("description"),
+                duration=step1_data.get("duration"),
+                user=request.user,
+                category=category,
+                portrait=portrait_file  # <<✅ Aquí se guarda la imagen
+            )
+
+            subcats = json.loads(request.POST.get("sub_categories","[]"))
+            for subcat_id in subcats:
+                CourseSubCategoryRelation.objects.create(
+                    course=course,
+                    subcategory_id=subcat_id
+                )
+
+
+            # 🔹 5. Guardar CourseConfig
+            CourseConfig.objects.create(
+                course=course,
+                course_type=step2_data.get("course_type"),
+                sequential=step2_data.get("sequential") == "on",
+                deadline=deadline,
+                audience=step2_data.get("audience"),
+                certification=step2_data.get("certification") == "on",
+                requires_signature=step2_data.get("requires_signature") == "on"
+            )
+
+            # 🔹 5.1 Crear Quiz para el curso
             quiz = Quiz.objects.create(
                 course_header=course,
                 title="Cuestionario del curso",
                 description="Generado automáticamente"
             )
 
-            # Configuración del quiz
             passing_score = int(request.POST.get("min_score", 60))
             max_attempts = request.POST.get("max_attempts") or None
-            time_limit = request.POST.get("time_limit") or None
+            time_limit_minutes = request.POST.get("time_limit") or None
             show_correct = request.POST.get("show_correct_answers") in ["true", "on", True]
 
-            QuizConfig.objects.create(
+
+            QuizConfig.objects.update_or_create(
                 quiz=quiz,
-                passing_score=passing_score,
-                max_attempts=int(max_attempts) if max_attempts else None,
-                time_limit_minutes=int(time_limit) if time_limit else None,
-                show_correct_answers=show_correct
+                defaults={
+                    "passing_score": passing_score,
+                    "max_attempts": int(max_attempts) if max_attempts else None,
+                    "time_limit_minutes": int(time_limit_minutes) if time_limit_minutes else None,
+                    "show_correct_answers": show_correct
+                }
             )
 
-            # Guardar preguntas y respuestas
+            # 🔹 5.2 Guardar preguntas del cuestionario desde localStorage
+            try:
+                quiz_questions = json.loads(quiz_questions_raw)
+            except json.JSONDecodeError:
+                quiz_questions = []
+
             for q in quiz_questions:
                 question = Question.objects.create(
                     quiz=quiz,
@@ -365,40 +398,59 @@ def save_course_ajax(request):
                         is_correct=answer.get("is_correct", False)
                     )
 
-        # 🔹 Guardar módulos y lecciones
-        for module in modules_data:
-            if not module.get("title") or not module.get("description"):
-                continue  # omitir módulo vacío
 
-            new_module = ModuleContent.objects.create(
-                course_header=course,
-                title=module["title"],
-                description=module["description"]
-            )
+            # 🔹 6. Guardar módulos y lecciones
+            if not isinstance(modules_data, list):
+                return JsonResponse({"status": "error", "message": "Los módulos deben estar en una lista."}, status=400)
 
-            for lesson in module.get("lessons", []):
-                if not lesson.get("title") or not lesson.get("type") or not lesson.get("description"):
-                    continue  # omitir lección incompleta
+            for module in modules_data:
+                if not module.get("title") or not module.get("description"):
+                    return JsonResponse({"status": "error", "message": "Cada módulo debe tener título y descripción."}, status=400)
 
-                resource_index = lesson.get("resource_index")
-                resource_file = request.FILES.get(f"lesson_resource_{resource_index}")
-
-                Lesson.objects.create(
-                    module_content=new_module,
-                    title=lesson["title"],
-                    lesson_type=lesson["type"],
-                    description=lesson["description"],
-                    video_url=lesson.get("video_url"),
-                    resource=resource_file
+                new_module = ModuleContent.objects.create(
+                    course_header=course,
+                    title=module.get("title"),
+                    description=module.get("description")
                 )
 
-        return JsonResponse({"status": "success", "message": "Curso creado correctamente", "course_id": course.id})
+                # 🔁 Guardar las lecciones del módulo actual aquí dentro
+                for lesson in module.get("lessons", []):
+                    if not lesson.get("title") or not lesson.get("type") or not lesson.get("description"):
+                        return JsonResponse({"status": "error", "message": "Cada lección debe tener título, tipo y descripción."}, status=400)
 
-    except json.JSONDecodeError:
-        return JsonResponse({"status": "error", "message": "Error en formato JSON"}, status=400)
+                    resource_index = lesson.get("resource_index")
+                    resource_file = request.FILES.get(f"lesson_resource_{resource_index}")
 
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+                    # ✅ Validación del tipo de archivo
+                    if resource_file:
+                        ext = os.path.splitext(resource_file.name)[1].lower()
+                        if ext not in ALLOWED_EXTENSIONS:
+                            return JsonResponse({
+                                "status": "error",
+                                "message": f"El archivo '{resource_file.name}' no está permitido. Solo se aceptan PDF, MP4 e imágenes (JPG, PNG, etc.)."
+                            }, status=400)
+
+                        
+                    Lesson.objects.create(
+                        module_content=new_module,
+                        title=lesson.get("title"),
+                        lesson_type=lesson.get("type"),
+                        description=lesson.get("description"),
+                        video_url=lesson.get("video_url"),
+                        resource=resource_file  # ✅ Esto guardará el archivo en media/lessons/
+                    )
+
+            return JsonResponse({
+                "status": "success",
+                "message": "Curso guardado correctamente.",
+                "course_id": course.id  # 👈 Agrega esto
+            })
+
+
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Error al procesar los datos JSON."}, status=400)
+
+    return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
 
 @csrf_protect
 @login_required
@@ -451,8 +503,8 @@ def user_segmentation_view(request, course_id):
         'employees_data_json': json.dumps(employees_data)
     })
 
-@staff_member_required
-@csrf_protect
+@csrf_exempt
+@user_passes_test(lambda u: u.is_superuser)
 def run_assignments(request, course_id):
     if request.method == 'POST':
         try:
@@ -478,12 +530,9 @@ def run_assignments(request, course_id):
                 assigned_by=request.user
             )
 
-            # ManyToMany
             if selected_users:
                 users = User.objects.filter(id__in=selected_users)
                 assignment.users.set(users)
-
-                # 🔁 Crear EnrolledCourse para cada usuario
                 for user in users:
                     EnrolledCourse.objects.get_or_create(
                         user=user,
