@@ -29,7 +29,7 @@ def user_dashboard(request):
 
 
 
-@login_required
+@user_passes_test(lambda u: u.is_superuser)
 @require_POST
 def toggle_user_status(request):
     user_id = request.POST.get("user_id")
@@ -249,7 +249,7 @@ def upload_employees_csv(request):
 
     return redirect('user_dashboard')
 
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(lambda u: u.is_superuser)
 def admin_reset_password(request, user_id):
     user_obj = get_object_or_404(User, pk=user_id)
     form = AdminPasswordResetForm(request.POST or None)

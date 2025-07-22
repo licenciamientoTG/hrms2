@@ -154,7 +154,7 @@
 {% block scripts %}
 <script>
   window.csrfToken = "{{ csrf_token }}";
-  window.toggleUrl = "#";
+  window.toggleUrl = "{% url 'toggle_user_status' %}";
 </script>
 
 <script src="{% static 'js/users.js' %}"></script>
