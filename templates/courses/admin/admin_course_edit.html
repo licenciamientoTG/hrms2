@@ -52,6 +52,41 @@
             </div>
         {% endfor %}
 
+        <div class="card mt-4">
+            <div class="card-header">
+                <strong>Configuración de la evaluación</strong>
+            </div>
+            <div class="card-body row g-3">
+                <div class="col-md-4">
+                    <label for="passing_score" class="form-label">Puntaje mínimo aprobatorio</label>
+                    <input type="number" class="form-control" id="passing_score" name="passing_score"
+                        value="{{ quiz_config.passing_score|default_if_none:'' }}" min="0">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="max_attempts" class="form-label">Intentos máximos permitidos</label>
+                    <input type="number" class="form-control" id="max_attempts" name="max_attempts"
+                        value="{{ quiz_config.max_attempts|default_if_none:'' }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="time_limit_minutes" class="form-label">Tiempo límite (minutos)</label>
+                    <input type="number" class="form-control" id="time_limit_minutes" name="time_limit_minutes"
+                        value="{{ quiz_config.time_limit_minutes|default_if_none:'' }}">
+                </div>
+
+                <div class="col-12 mt-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="show_correct_answers" name="show_correct_answers"
+                            {% if quiz_config.show_correct_answers %}checked{% endif %}>
+                        <label class="form-check-label" for="show_correct_answers">
+                            Mostrar respuestas correctas al finalizar la evaluación
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-end">
             <a href="{% url 'course_wizard' %}" class="btn btn-outline-secondary me-2">
                 <i class="fas fa-arrow-left"></i> Cancelar
