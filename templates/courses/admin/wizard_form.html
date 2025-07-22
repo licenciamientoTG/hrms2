@@ -177,6 +177,24 @@
                         </div>
                     {% endif %}
                 </div>
+
+                <!-- Campo: ¿Archivar el curso? -->
+                <div class="mb-3 form-check">
+                    {{ config_form.is_archived }}
+                    <label class="form-check-label" for="{{ config_form.is_archived.id_for_label }}">
+                        Archivar <br>
+                        <small class="form-text text-muted">
+                            Este curso se archivará al concluir el tiempo límite o al agotarse los intentos de evaluación.
+                        </small>
+                    </label>
+                    {% if config_form.is_archived.errors %}
+                        <div class="text-danger">
+                            {{ config_form.is_archived.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+            
                 <div class="d-flex justify-content-between mt-3">
                     <button type="button" class="btn btn-secondary prev-step me-2">Atrás</button>
                     <button type="button" class="btn btn-danger mx-2" id="cancel-button"

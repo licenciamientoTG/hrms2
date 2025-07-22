@@ -540,7 +540,11 @@ class CourseConfig(models.Model):
         help_text="Fecha de creación de la configuración.",
         verbose_name="Fecha de creación"
     )
-
+    is_archived = models.BooleanField(
+        default=False,
+        verbose_name="¿Archivar automáticamente al finalizar?",
+        help_text="El curso se archivará al concluir el plazo o agotarse los intentos."
+    )
     class Meta:
         verbose_name = "Configuración del Curso"
         verbose_name_plural = "Configuraciones de Cursos"

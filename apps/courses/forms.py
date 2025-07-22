@@ -30,6 +30,7 @@ class CourseConfigForm(forms.ModelForm):
             'audience': forms.Select(attrs={'class': 'form-control', 'required': 'required'}),
             'certification': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'requires_signature': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_archived': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

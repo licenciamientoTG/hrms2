@@ -340,6 +340,7 @@ def save_course_ajax(request):
                     subcategory_id=subcat_id
                 )
 
+            is_archived = step2_data.get("is_archived") in ["true", "on", True, "1"]
 
             # 🔹 5. Guardar CourseConfig
             CourseConfig.objects.create(
@@ -349,7 +350,8 @@ def save_course_ajax(request):
                 deadline=deadline,
                 audience=step2_data.get("audience"),
                 certification=step2_data.get("certification") == "on",
-                requires_signature=step2_data.get("requires_signature") == "on"
+                requires_signature=step2_data.get("requires_signature") == "on",
+                is_archived=is_archived 
             )
 
             # 🔹 5.1 Crear Quiz para el curso
