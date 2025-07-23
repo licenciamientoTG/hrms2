@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
 from departments.models import Department 
+from django.utils import timezone
 
 class CourseCategory(models.Model):
     title = models.CharField(
@@ -84,6 +85,7 @@ class CourseHeader(models.Model):
         help_text="Usuario que creó el curso.",
         verbose_name="Usuario"
     )
+    archived_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -554,6 +556,7 @@ class CourseConfig(models.Model):
         return f"Configuración de {self.course.title}"
     
  # models.py
+
 class CourseCertificate(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     course = models.ForeignKey(CourseHeader, on_delete=models.CASCADE)

@@ -33,6 +33,7 @@ from django.core.files import File
 from django.utils.text import slugify
 from reportlab.lib.utils import ImageReader
 from PyPDF2 import PdfReader, PdfWriter
+from apps.courses.course_utils import check_and_archive_courses
 import os
 
 
@@ -42,6 +43,8 @@ LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias l
 def course_wizard(request):
     if not request.user.is_superuser:
         return redirect('user_courses')
+ 
+    check_and_archive_courses()
 
     employees = Employee.objects.filter(is_active=True)  
     departments = Department.objects.all()
@@ -102,7 +105,7 @@ def course_wizard(request):
         if config and config.deadline:
             deadline_date = course.created_at + timedelta(days=config.deadline)
             course.deadline_date = deadline_date.date()
-            if course.deadline_date <= today:
+            if course.deadline_date < today:
                 inactive_courses_count += 1
             else:
                 in_progress_courses_count += 1
@@ -196,13 +199,15 @@ def course_wizard(request):
 
 @login_required
 def visual_course_wizard(request):
+    check_and_archive_courses()
     course_form = CourseHeaderForm()
     config_form = CourseConfigForm()
     module_formset = formset_factory(ModuleContentForm, extra=1)()
     lesson_formset = LessonFormSet()
 
     totalcursos = CourseHeader.objects.all().count()
-    courses = CourseHeader.objects.all()
+    courses = CourseHeader.objects.filter(archived_at__isnull=True)
+
     courses_config = CourseConfig.objects.all()
     today = datetime.now().date()
 
@@ -738,26 +743,31 @@ def admin_course_edit(request, course_id):
 
 @login_required
 def user_courses(request):
+    check_and_archive_courses()
     today = timezone.now().date()
 
     # 1) Cursos asignados directamente al usuario
     enrolled_qs = (
         EnrolledCourse.objects
-        .filter(user=request.user)
+        .filter(user=request.user, course__archived_at__isnull=True)
         .select_related('course', 'course__config')
     )
     assigned_courses = [e.course for e in enrolled_qs]
 
     # 2) Cursos públicos (audience="all_users")
     public_courses = CourseHeader.objects.filter(
-        config__audience="all_users"
+        config__audience="all_users",
+        archived_at__isnull=True 
     )
 
     # 3) Cursos por tipo de asignación all_users
     assigned_by_type = CourseAssignment.objects.filter(
         assignment_type="all_users"
     ).values_list("course_id", flat=True)
-    type_based = CourseHeader.objects.filter(id__in=assigned_by_type)
+    type_based = CourseHeader.objects.filter(
+        id__in=assigned_by_type, 
+        archived_at__isnull=True 
+    )
 
     # 4) Unión sin duplicados
     all_courses = list(
@@ -888,7 +898,6 @@ def admin_courses(request):
         'in_progress_courses_count': in_progress_courses_count,
         'today': today,
     })
-
 
 @csrf_protect
 @login_required

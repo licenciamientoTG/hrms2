@@ -120,7 +120,7 @@
                             <div class="mb-2 d-flex justify-content-between align-items-center">
                                 <!-- Estado del curso -->
                                 {% if course.deadline_date %}
-                                    {% if course.deadline_date <= today %}
+                                    {% if course.deadline_date < today %}
                                         <span class="badge bg-danger">Inactivo</span>
                                     {% else %}
                                         <span class="badge bg-success">Activo</span>
