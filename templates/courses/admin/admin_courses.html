@@ -15,78 +15,69 @@
         <div class="col-12">
             <div class="w-100">
                 <div class="row">
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card filtro-card border-2 rounded-4" data-estado="all" style="cursor: pointer;">
+                    <!-- Carrusel horizontal -->
+                    <div class="d-flex flex-nowrap gap-3 overflow-auto pb-2" style="scroll-snap-type: x mandatory;">
+                        
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="all" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title"> Total de cursos</h5>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-primary">
-                                            <i class="fa-solid fa-book align-middle"></i>
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Total de cursos</h5>
+                                    <div class="stat text-primary">
+                                        <i class="fa-solid fa-book align-middle"></i>
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ totalcursos }}</h1>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="completado" style="cursor: pointer;">
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="completado" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos completados </h5>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-warning"> <!-- Usa "text-warning" para un color amarillo -->
-                                            <i class="fa-solid fa-spinner align-middle"></i> <!-- Ícono de carga/progreso -->
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos completados</h5>
+                                    <div class="stat text-warning">
+                                        <i class="fa-solid fa-spinner align-middle"></i>
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ completed_courses_count }}</h1>
-
                             </div>
                         </div>
-                        
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="activo" style="cursor: pointer;">
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos activos</h5>
-                                    </div>
 
-                                    <div class="col-auto">
-                                        <div class="stat text-success"> <!-- Usa "text-success" para un color verde -->
-                                            <i class="fa-solid fa-check-circle align-middle"></i> <!-- Ícono de verificación/finalizado -->
-                                        </div>
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="activo" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos activos</h5>
+                                    <div class="stat text-success">
+                                        <i class="fa-solid fa-check-circle align-middle"></i>
                                     </div>
-                                    
                                 </div>
-                                <h1 class="mt-1 mb-3">{{in_progress_courses_count}}</h1>
+                                <h1 class="mt-1 mb-3">{{ in_progress_courses_count }}</h1>
                             </div>
                         </div>
-                        
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                        <div class="card col-12 filtro-card border-2 rounded-4" data-estado="inactivo" style="cursor: pointer;">
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="inactivo" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col mt-0">
-                                        <h5 class="card-title">Cursos inactivos</h5>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="stat text-danger"> <!-- Usa "text-danger" para un color rojo -->
-                                            <i class="fa-solid fa-ban align-middle"></i> <!-- Ícono de prohibido/cancelado -->
-                                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos inactivos</h5>
+                                    <div class="stat text-danger">
+                                        <i class="fa-solid fa-ban align-middle"></i>
                                     </div>
                                 </div>
                                 <h1 class="mt-1 mb-3">{{ inactive_courses_count }}</h1>
                             </div>
                         </div>
+
+                        <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="archivado" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">Cursos Archivados</h5>
+                                    <div class="stat text-secondary">
+                                        <i class="fa-solid fa-box-archive align-middle"></i>
+                                    </div>
+                                </div>
+                                <h1 class="mt-1 mb-3">{{ archived_courses_count }}</h1>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -100,7 +91,7 @@
         </div>
         {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
-                data-estado="{% if course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
+                data-estado="{% if course.archived_at %}archivado{% elif course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-completado="{% if course.id in completed_course_ids_admin %}true{% else %}false{% endif %}"
                 data-asignado="{{ course.config.audience }}">
 
@@ -256,7 +247,8 @@ document.addEventListener("DOMContentLoaded", function () {
             filtroEstado === "all" ||
             filtroEstado === "activo" && estado === "activo" ||
             filtroEstado === "inactivo" && estado === "inactivo" ||
-            filtroEstado === "completado" && completado === "true"
+            filtroEstado === "completado" && completado === "true"||
+            filtroEstado === "archivado" && estado === "archivado"
             );
             const matchAsignado = (filtroAsignado === "todos" || asignado === filtroAsignado);
 

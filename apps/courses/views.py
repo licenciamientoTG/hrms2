@@ -92,9 +92,15 @@ def course_wizard(request):
         lesson_formset = LessonFormSet()
 
     today = datetime.now().date()
-    courses = CourseHeader.objects.all()
-    totalcursos = courses.count()
 
+    estado = request.GET.get("estado")
+    if estado == "archivado":
+        courses = CourseHeader.objects.filter(archived_at__isnull=False)
+    else:
+        courses = CourseHeader.objects.all()
+
+    totalcursos = courses.count()
+    archived_courses_count = CourseHeader.objects.filter(archived_at__isnull=False).count()
     inactive_courses_count = 0
     in_progress_courses_count = 0
     completed_courses = []
@@ -194,6 +200,7 @@ def course_wizard(request):
         'assigned_courses_count': 0,
         'assigned_course_ids': [],
         'completed_course_ids_admin': completed_course_ids_admin,
+        'archived_courses_count': archived_courses_count,
     })
 
 
