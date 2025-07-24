@@ -6,7 +6,7 @@ from .models import Employee
 @receiver(post_save, sender=Employee)
 def create_user_for_employee(sender, instance, created, **kwargs):
     if created and instance.user is None:
-        from apps.users.models import UserProfile  # 👈 IMPORT DENTRO DE LA FUNCIÓN
+        from authapp.models import UserProfile  # 👈 IMPORT DENTRO DE LA FUNCIÓN
 
         emp_number = str(instance.employee_number)
 

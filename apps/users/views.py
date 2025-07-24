@@ -16,6 +16,8 @@ from .forms import AdminPasswordResetForm
 import csv
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
+import chardet
+from .utils import parse_fecha
 
 @login_required
 def user_dashboard(request):
@@ -80,116 +82,86 @@ def manage_user_permissions(request, user_id):
 @login_required
 def upload_employees_csv(request):
     if request.method == 'POST':
-        # ✅ Usa .get() para evitar MultiValueDictKeyError
         csv_file = request.FILES.get('csv_file')
-
         if not csv_file:
+            print("❌ No se recibió archivo.")
             return redirect('user_dashboard')
 
-        decoded_file = csv_file.read().decode('utf-8').splitlines()
-        reader = csv.DictReader(decoded_file)
+        # Detectar codificación
+        file_bytes = csv_file.read()
+        detected = chardet.detect(file_bytes)
+        encoding = detected.get('encoding') or 'latin1'
+        print(f"📄 Codificación detectada: {encoding}")
 
-        for row in reader:
-            # 🔑 Separar nombre
-            raw_name = (row.get('Nombre') or "").strip()
-            parts = raw_name.split(',')
+        try:
+            decoded_file = file_bytes.decode(encoding, errors='replace').splitlines()
+        except Exception as e:
+            print(f"❌ Error al decodificar archivo: {e}")
+            return redirect('user_dashboard')
+
+        reader = csv.DictReader(decoded_file)
+        for i, row in enumerate(reader, start=1):
+            print(f"➡️ Fila {i}: {row}")
+
+            employee_number = (row.get('Número') or "").strip()
+            if not employee_number:
+                print(f"⚠️ Fila {i} omitida. Número vacío.")
+                continue
+
+            nombre = (row.get('Nombre') or "").strip()
+            parts = nombre.split(',')
             if len(parts) == 2:
                 last_name = parts[0].strip()
                 first_name = parts[1].strip()
             else:
-                last_name = raw_name.strip()
+                last_name = nombre
                 first_name = ""
 
-            # Recortar según modelo Employee
-            first_name = first_name[:Employee._meta.get_field('first_name').max_length]
-            last_name = last_name[:Employee._meta.get_field('last_name').max_length]
-
-            emp_number = (row.get('N�mero') or "").strip()
-            emp_number = emp_number[:Employee._meta.get_field('employee_number').max_length]
-
-            department_name = (row.get('Departamento') or "").strip()
-            job_position_name = (row.get('Puesto') or "").strip()
-
-            start_date_raw = row.get('Fecha de Ingreso')
-            activo_raw = (row.get('Activo') or "").strip().upper()
-            termination_date_raw = row.get('Fecha de Baja')
-            rehire_raw = (row.get('Recontratar') or "").strip().upper()
-            termination_reason = (row.get('Motivo de Baja') or "").strip()
-            termination_reason = termination_reason[:Employee._meta.get_field('termination_reason').max_length]
-
             rfc = (row.get('RFC') or "").strip().upper()
-            rfc = rfc[:Employee._meta.get_field('rfc').max_length]
-
-            imss_raw = (row.get('IMSS') or "").strip().upper()
-            imss = imss_raw.replace("IMSS", "").strip()
-            imss = imss[:Employee._meta.get_field('imss').max_length]
-
+            imss = (row.get('IMSS') or "").strip().upper()
             curp = (row.get('CURP') or "").strip().upper()
-            curp = curp[:Employee._meta.get_field('curp').max_length]
 
-            gender_raw = (row.get('G�nero') or "").strip().lower()
-            if gender_raw.startswith("masc"):
-                gender = "M"
-            elif gender_raw.startswith("fem"):
-                gender = "F"
-            else:
-                gender = "M"
+            genero_raw = (row.get('Género') or "").strip().lower()
+            gender = "F" if genero_raw.startswith("fem") else "M"
 
-            vacation_balance = float(row.get('SaldodeVacaciones') or "0")
+            try:
+                vacation_balance = float(row.get('Saldo de Vacaciones') or "0")
+            except ValueError:
+                vacation_balance = 0
 
-            phone_number = "".join(filter(str.isdigit, (row.get('Tel�fono') or "")))
-            phone_number = phone_number[:Employee._meta.get_field('phone_number').max_length]
+            telefono = "".join(filter(str.isdigit, (row.get('Teléfono') or "")))
+            direccion = (row.get('Dirección') or "").strip()
 
-            address = (row.get('Direcci�n') or "").strip()
-            address = address[:Employee._meta.get_field('address').max_length]
+            fecha_ingreso = parse_fecha(row.get('Fecha de Ingreso'))
+            fecha_baja = parse_fecha(row.get('Fecha de Baja'))
 
-            # ✅ Parse fechas
-            start_date = None
-            if start_date_raw:
-                try:
-                    start_date = datetime.fromisoformat(start_date_raw.replace("Z", "")).date()
-                except Exception as e:
-                    print(f"Error parsing Fecha de Ingreso: {e}")
+            activo = (row.get('Activo') or "").strip().upper() == "SI"
+            recontratar = (row.get('Recontratar') or "").strip().upper() == "SI"
+            motivo_baja = (row.get('Motivo de Baja') or "").strip()
 
-            termination_date = None
-            if termination_date_raw:
-                try:
-                    termination_date = datetime.fromisoformat(termination_date_raw.replace("Z", "")).date()
-                except Exception as e:
-                    print(f"Error parsing Fecha de Baja: {e}")
+            departamento_nombre = (row.get('Departamento') or "").strip()
+            puesto_nombre = (row.get('Puesto') or "").strip()
 
-            is_active = True if activo_raw == "SI" else False
-            rehire_eligible = True if rehire_raw == "SI" else False
-
-            # ✅ FK: Department
-            department_obj = None
-            if department_name:
-                dep_name_max = Department._meta.get_field('name').max_length
-                dep_abbr_max = Department._meta.get_field('abbreviated').max_length
-
-                department_name = department_name[:dep_name_max]
-                department_abbr = department_name[:dep_abbr_max]
-
-                department_obj, _ = Department.objects.get_or_create(
-                    name=department_name,
-                    defaults={'abbreviated': department_abbr}
+            # Crear o recuperar departamento
+            department = None
+            if departamento_nombre:
+                department, _ = Department.objects.get_or_create(
+                    name=departamento_nombre[:Department._meta.get_field('name').max_length],
+                    defaults={'abbreviated': departamento_nombre[:Department._meta.get_field('abbreviated').max_length]}
                 )
 
-            # ✅ FK: JobCategory
+            # Categoría por defecto
             default_category, _ = JobCategory.objects.get_or_create(
                 name='Sin categoría',
                 defaults={'description': 'Cargado desde CSV'}
             )
 
-            # ✅ FK: JobPosition
-            job_position_obj = None
-            if job_position_name and department_obj:
-                job_title_max = JobPosition._meta.get_field('title').max_length
-                job_position_name = job_position_name[:job_title_max]
-
-                job_position_obj, _ = JobPosition.objects.get_or_create(
-                    title=job_position_name,
-                    department=department_obj,
+            # Crear o recuperar puesto
+            job_position = None
+            if puesto_nombre and department:
+                job_position, _ = JobPosition.objects.get_or_create(
+                    title=puesto_nombre[:JobPosition._meta.get_field('title').max_length],
+                    department=department,
                     job_category=default_category,
                     defaults={
                         'description': 'Generado desde CSV',
@@ -203,48 +175,59 @@ def upload_employees_csv(request):
                     }
                 )
 
-            # ✅ Guarda empleado
+            # Crear o actualizar empleado
             emp, created = Employee.objects.get_or_create(
-                employee_number=emp_number,
+                employee_number=employee_number[:Employee._meta.get_field('employee_number').max_length],
                 defaults={
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'start_date': start_date,
-                    'department': department_obj,
-                    'job_position': job_position_obj,
-                    'rfc': rfc,
-                    'imss': imss,
-                    'curp': curp,
+                    'first_name': first_name[:Employee._meta.get_field('first_name').max_length],
+                    'last_name': last_name[:Employee._meta.get_field('last_name').max_length],
+                    'start_date': fecha_ingreso,
+                    'department': department,
+                    'job_position': job_position,
+                    'rfc': rfc[:Employee._meta.get_field('rfc').max_length],
+                    'imss': imss[:Employee._meta.get_field('imss').max_length],
+                    'curp': curp[:Employee._meta.get_field('curp').max_length],
                     'gender': gender,
                     'vacation_balance': vacation_balance,
-                    'phone_number': phone_number,
-                    'address': address,
-                    'termination_date': termination_date,
-                    'termination_reason': termination_reason,
-                    'rehire_eligible': rehire_eligible,
-                    'is_active': is_active
+                    'phone_number': telefono[:Employee._meta.get_field('phone_number').max_length],
+                    'address': direccion[:Employee._meta.get_field('address').max_length],
+                    'termination_date': fecha_baja,
+                    'termination_reason': motivo_baja[:Employee._meta.get_field('termination_reason').max_length],
+                    'rehire_eligible': recontratar,
+                    'is_active': activo,
+                    'birth_date': None,
+                    'education_level': '',
+                    'email': '',
+                    'station_id': None,
+                    'notes': '',
+                    'photo': None,
                 }
             )
 
             if not created:
                 emp.first_name = first_name
                 emp.last_name = last_name
-                emp.start_date = start_date
-                emp.department = department_obj
-                emp.job_position = job_position_obj
+                emp.start_date = fecha_ingreso
+                emp.department = department
+                emp.job_position = job_position
                 emp.rfc = rfc
                 emp.imss = imss
                 emp.curp = curp
                 emp.gender = gender
                 emp.vacation_balance = vacation_balance
-                emp.phone_number = phone_number
-                emp.address = address
-                emp.termination_date = termination_date
-                emp.termination_reason = termination_reason
-                emp.rehire_eligible = rehire_eligible
-                emp.is_active = is_active
+                emp.phone_number = telefono
+                emp.address = direccion
+                emp.termination_date = fecha_baja
+                emp.termination_reason = motivo_baja
+                emp.rehire_eligible = recontratar
+                emp.is_active = activo
+                # opcionales no se actualizan aún
                 emp.save()
+                print(f"🔄 Empleado actualizado: {employee_number}")
+            else:
+                print(f"✅ Empleado creado: {employee_number}")
 
+        print("🟢 Finalizado el proceso de importación.")
         return redirect('user_dashboard')
 
     return redirect('user_dashboard')
