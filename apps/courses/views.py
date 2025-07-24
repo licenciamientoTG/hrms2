@@ -235,7 +235,7 @@ def visual_course_wizard(request):
         else:
             course.deadline_date = None
 
-    employees = Employee.objects.filter(is_active=True)
+    employees = Employee.objects.filter(is_active=True, user__isnull=False)
     departments = Department.objects.all()
     job_positions = JobPosition.objects.all()
     locations = Location.objects.all()

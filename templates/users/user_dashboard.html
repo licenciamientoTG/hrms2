@@ -22,7 +22,7 @@
       <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form d-inline-block ms-3">
       {% csrf_token %}
       <input type="file" name="csv_file" accept=".csv">
-      <button type="submit" class="btn btn-primary btn-sm">Subir CSV</button>
+      <button type="submit" class="btn btn-primary btn-sm">Subir CSV de colaboradores</button>
     </form>
   </div>
 
@@ -42,6 +42,7 @@
     </thead>
     <tbody>
       {% for emp in empleados  %}
+      {% if emp.user %}
       <tr id="row-{{ emp.user.id }}">
         <td class="user-info">
           <div class="details">
@@ -83,6 +84,7 @@
         </td>
 
       </tr>
+      {% endif %}
       {% empty %}
       <tr><td colspan="5">No hay empleados registrados.</td></tr>
       {% endfor %}
