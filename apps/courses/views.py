@@ -40,13 +40,26 @@ import os
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
 @login_required
+def get_employees_with_user(request):
+    employees = Employee.objects.filter(user__isnull=False, user__is_active=True)
+    data = [{
+        'id': emp.id,
+        'name': f"{emp.first_name} {emp.last_name}",
+        'department': emp.department.id if emp.department else None,
+        'job_position': emp.job_position.id if emp.job_position else None,
+        'station': emp.station.id if emp.station else None,
+    } for emp in employees]
+    return JsonResponse({'employees': data})
+
+@login_required
 def course_wizard(request):
     if not request.user.is_superuser:
         return redirect('user_courses')
  
     check_and_archive_courses()
 
-    employees = Employee.objects.filter(is_active=True)  
+    employees = []
+ 
     departments = Department.objects.all()
     job_positions = JobPosition.objects.all()
     locations = Location.objects.all()
@@ -474,39 +487,17 @@ def process_assignments(request):
         return HttpResponse("Procesar asignaciones")
     return HttpResponseBadRequest("Método no permitido")
 
+
+#en esta vista estamos mandando los datos a segment_users.html
 @login_required
 @user_passes_test(lambda u: u.is_superuser or u.is_staff)
 def user_segmentation_view(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
-    employees = Employee.objects.all()
+    employees = [] 
     departments = Department.objects.all()
     job_positions = JobPosition.objects.all()
     locations = Location.objects.all()
 
-    # Estructurar los datos para el template (CORREGIDO)
-    employees_data = {
-        'departments': {
-            dept.id: [
-                f"{emp.first_name} {emp.last_name}"
-                for emp in employees.filter(department=dept)
-            ]
-            for dept in departments
-        },
-        'positions': {
-            pos.id: [
-                f"{emp.first_name} {emp.last_name}"
-                for emp in employees.filter(job_position=pos)  # Cambiado de position a job_position
-            ]
-            for pos in job_positions
-        },
-        'locations': {
-            loc.id: [
-                f"{emp.first_name} {emp.last_name}"
-                for emp in employees.filter(station=loc)  # Cambiado de location a station
-            ]
-            for loc in locations
-        }
-    }
 
     return render(request, 'courses/admin/segment_users.html', {
         'course': course,
@@ -514,7 +505,6 @@ def user_segmentation_view(request, course_id):
         'departments': departments,
         'job_positions': job_positions,
         'locations': locations,
-        'employees_data_json': json.dumps(employees_data)
     })
 
 @csrf_exempt
@@ -1213,6 +1203,7 @@ def mark_lesson_complete(request):
 #     response['Content-Disposition'] = 'inline; filename="vista_previa_certificado.pdf"'
 #     return response
 
+@login_required
 def generar_y_guardar_certificado(usuario, curso):
 
     width, height = 842, 595

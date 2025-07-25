@@ -19,11 +19,11 @@
     {% endif %}
   <div class="search-bar mb-3">
     <input id="searchUsuarios" type="text" placeholder="Buscar por nombre o usuario" class="form-control w-auto">
-      <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form d-inline-block ms-3">
+      {% comment %} <form action="{% url 'upload_employees_csv' %}" method="post" enctype="multipart/form-data" class="upload-form d-inline-block ms-3">
       {% csrf_token %}
       <input type="file" name="csv_file" accept=".csv">
       <button type="submit" class="btn btn-primary btn-sm">Subir CSV de colaboradores</button>
-    </form>
+    </form> {% endcomment %}
   </div>
 
   <table class="user-table table">

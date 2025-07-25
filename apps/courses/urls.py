@@ -27,6 +27,7 @@ urlpatterns = [
     path("mark_all_read/", views.mark_all_courses_read, name="mark_all_courses_read"),
     path('admin/courses/', views.admin_courses, name='admin_courses'),
     path('mark-lesson-complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
+    path('get-employees-with-user/', views.get_employees_with_user, name='get_employees_with_user'),
 
     # path('certificado/vista-previa/', views.vista_previa_certificado),
 

@@ -135,7 +135,12 @@ def upload_employees_csv(request):
             fecha_ingreso = parse_fecha(row.get('Fecha de Ingreso'))
             fecha_baja = parse_fecha(row.get('Fecha de Baja'))
 
-            activo = (row.get('Activo') or "").strip().upper() == "SI"
+            activo_raw = (row.get('Activo') or "").strip().upper()
+            activo = activo_raw == "SI"
+            if not activo:
+                print(f"🚫 Fila {i} omitida. Empleado inactivo.")
+                continue
+
             recontratar = (row.get('Recontratar') or "").strip().upper() == "SI"
             motivo_baja = (row.get('Motivo de Baja') or "").strip()
 

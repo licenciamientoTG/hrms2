@@ -31,8 +31,8 @@
             <!-- Tabs -->
             <div class="d-flex align-items-start">
                 <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                    <button class="nav-link active" id="v-pills-user-tab" data-bs-toggle="pill" data-bs-target="#v-pills-user" type="button">Usuario</button>
-                    <button class="nav-link" id="v-pills-department-tab" data-bs-toggle="pill" data-bs-target="#v-pills-department" type="button">Departamento</button>
+                    <button class="nav-link " id="v-pills-user-tab" data-bs-toggle="pill" data-bs-target="#v-pills-user" type="button">Usuario</button>
+                    <button class="nav-link " id="v-pills-department-tab" data-bs-toggle="pill" data-bs-target="#v-pills-department" type="button">Departamento</button>
                     <button class="nav-link" id="v-pills-position-tab" data-bs-toggle="pill" data-bs-target="#v-pills-position" type="button">Posición</button>
                     <button class="nav-link" id="v-pills-location-tab" data-bs-toggle="pill" data-bs-target="#v-pills-location" type="button">Ubicación</button>
                 </div>
@@ -60,23 +60,9 @@
                     <div class="tab-pane fade show active w-100" id="v-pills-user" role="tabpanel" aria-labelledby="v-pills-user-tab" tabindex="0">
                         <div class="mb-3 row">
                             <div class="col-12">
-                                <input type="text" class="form-control mb-3" placeholder="Buscar usuario..." onkeyup="filterItems(this, 'user')">
-                                    <div class="row overflow-auto border rounded p-2" style="max-height: 300px;">
-                                    {% for employee in employees %}
-                                    <div class="col-6 mb-2 filter-item user-item" data-filter="{{ employee.first_name|lower }} {{ employee.last_name|lower }}">
-                                        <input type="checkbox" class="btn-check" 
-                                            id="user{{ employee.id }}" 
-                                            name="users" 
-                                            value="{{ employee.user.id }}" 
-                                            data-department="{{ employee.department.id }}" 
-                                            data-job-position="{{ employee.job_position.id }}"  
-                                            data-station="{{ employee.station.id }}"  
-                                            autocomplete="off">
-                                        <label class="btn btn-outline-primary w-100 py-2" for="user{{ employee.id }}">
-                                            {{ employee.first_name }} {{ employee.last_name }}
-                                        </label>
-                                    </div>
-                                    {% endfor %}
+                                <input type="text" class="form-control mb-3" id="search-user-input" placeholder="Buscar usuario..."  onkeyup="filterItems(this, 'user')">
+                                <div class="row overflow-auto border rounded p-2" style="max-height: 300px;" id="user-container" data-loaded="false">
+                                    <!-- Aquí se inyectan los usuarios -->
                                 </div>
                             </div>
                         </div>
@@ -278,118 +264,119 @@ function updateSelectedModal() {
         : "Ningún empleado ha sido seleccionado.";
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    // Elementos UI
+function syncUsers() {
+    const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
+    const activeTab = document.querySelector(".nav-link.active").textContent.trim();
+
+    document.querySelectorAll(".filter-item").forEach(item => {
+        const text = item.getAttribute("data-filter")?.toLowerCase() || "";
+        item.style.display = text.includes(query) ? "" : "none";
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
     const allUsersRadio = document.getElementById("allUsers");
     const segmentUsersRadio = document.getElementById("segmentUsers");
     const segmentationCard = document.getElementById("segmentationCard");
-    const userCheckboxes = document.querySelectorAll('input[name="users"]');
 
-    // Cargar selecciones guardadas
-    const savedSelections = loadSelections();
-    
-    // Aplicar selecciones guardadas
-    allUsersRadio.checked = savedSelections.allUsers;
-    segmentUsersRadio.checked = !savedSelections.allUsers;
-    
-    if (!savedSelections.allUsers) {
-        savedSelections.departments.forEach(deptId => {
-            const cb = document.querySelector(`input[name="departments"][value="${deptId}"]`);
-            if (cb) cb.checked = true;
-        });
-        
-        savedSelections.positions.forEach(posId => {
-            const cb = document.querySelector(`input[name="positions"][value="${posId}"]`);
-            if (cb) cb.checked = true;
-        });
-        
-        savedSelections.locations.forEach(locId => {
-            const cb = document.querySelector(`input[name="locations"][value="${locId}"]`);
-            if (cb) cb.checked = true;
-        });
-        
-        savedSelections.users.forEach(userId => {
-            const cb = document.querySelector(`input[name="users"][value="${userId}"]`);
-            if (cb) cb.checked = true;
-        });
-    }
-
-    // Mostrar/ocultar card de segmentación
     function toggleSegmentationCard() {
-        segmentationCard.classList.toggle("d-none", !segmentUsersRadio.checked);
-    }
-
-    // Sincronizar usuarios según filtros
-    function syncUsers() {
-        if (allUsersRadio.checked) return;
-        
-        const selectedDepts = new Set(getSelectedDepartmentIds());
-        const selectedPositions = new Set(getSelectedPositionIds());
-        const selectedLocations = new Set(getSelectedLocationIds());
-
-        userCheckboxes.forEach(checkbox => {
-            if (checkbox.hasAttribute('data-manually-unchecked')) return;
-            
-            const shouldCheck = 
-                selectedDepts.has(checkbox.dataset.department) ||
-                selectedPositions.has(checkbox.dataset.jobPosition) ||
-                selectedLocations.has(checkbox.dataset.station);
-                
-            checkbox.checked = shouldCheck;
-        });
-        
-        updateSelection();
-    }
-
-    // Actualizar contador y guardar selecciones
-    function updateSelection() {
-        const count = allUsersRadio.checked 
-            ? {{ employees.count }}
-            : getSelectedUserIds().length;
-            
-        document.getElementById("selectedCount").textContent = `${count} seleccionados`;
-        updateSelectedModal();
-        saveSelections();
+        if (segmentUsersRadio.checked) {
+            segmentationCard.classList.remove("d-none");
+        } else {
+            segmentationCard.classList.add("d-none");
+        }
     }
 
     // Event listeners
     allUsersRadio.addEventListener("change", () => {
         toggleSegmentationCard();
-        updateSelection();
     });
 
     segmentUsersRadio.addEventListener("change", () => {
         toggleSegmentationCard();
-        updateSelection();
     });
 
-    document.querySelectorAll(
-        'input[name="departments"], input[name="positions"], input[name="locations"]'
-    ).forEach(input => {
-        input.addEventListener('change', syncUsers);
-    });
+    // Aplicar estado inicial
+    const savedSelections = loadSelections();
+    if (savedSelections.allUsers) {
+        allUsersRadio.checked = true;
+        console.log("📦 Carga: allUsers = true");
+    } else {
+        segmentUsersRadio.checked = true;
+    }
 
-    userCheckboxes.forEach(input => {
-        input.addEventListener('change', function() {
-            if (!this.checked) {
-                this.setAttribute('data-manually-unchecked', 'true');
-            } else {
-                this.removeAttribute('data-manually-unchecked');
-            }
-            updateSelection();
-        });
-    });
-
-    document.getElementById('selectedCount').addEventListener('click', () => {
-        updateSelectedModal();
-        new bootstrap.Modal(document.getElementById('selectedModal')).show();
-    });
-
-    // Inicialización
+    // Forzar actualización visual
     toggleSegmentationCard();
-    syncUsers();
-    updateSelection();
+
+    // Carga dinámica de usuarios al hacer clic en la pestaña "Usuario"
+    document.getElementById("v-pills-user-tab").addEventListener("click", function () {
+        const container = document.getElementById("user-container");
+        if (container.dataset.loaded === "true") return;
+
+        fetch("{% url 'get_employees_with_user' %}")
+            .then(response => response.json())
+            .then(data => {
+                container.innerHTML = "";
+                data.employees.forEach(emp => {
+                    const div = document.createElement("div");
+                    div.className = "col-6 mb-2 filter-item";
+                    div.setAttribute("data-filter", emp.name.toLowerCase());
+
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.className = "btn-check";
+                    checkbox.name = "users";
+                    checkbox.id = `user${emp.id}`;
+                    checkbox.value = emp.id;
+
+                    checkbox.setAttribute("data-department", emp.department ?? "");
+                    checkbox.setAttribute("data-job-position", emp.job_position ?? "");
+                    checkbox.setAttribute("data-station", emp.station ?? "");
+
+                    const label = document.createElement("label");
+                    label.className = "btn btn-outline-primary w-100 py-2";
+                    label.htmlFor = `user${emp.id}`;
+                    label.textContent = emp.name;
+
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    container.appendChild(div);
+                });
+
+                container.dataset.loaded = "true";
+
+                // Vuelve a enlazar listeners a los nuevos checkboxes
+                document.querySelectorAll('input[name="users"]').forEach(input => {
+                    input.addEventListener('change', function () {
+                        if (!this.checked) {
+                            this.setAttribute('data-manually-unchecked', 'true');
+                        } else {
+                            this.removeAttribute('data-manually-unchecked');
+                        }
+                        updateSelection();
+                    });
+                });
+
+                syncUsers(); // Aplica filtros si ya había departamentos/posiciones marcadas
+                updateSelection();
+            })
+            .catch(error => {
+                console.error("❌ Error al cargar empleados:", error);
+            });
+    });
+
 });
+
+function updateSelection() {
+    const count = document.getElementById("allUsers").checked 
+        ? {{ employees.count|default:"0" }}  // O pon "0" si no tienes ese número
+        : getSelectedUserIds().length;
+
+    document.getElementById("selectedCount").textContent = `${count} seleccionados`;
+    updateSelectedModal();  // si tienes este modal
+    saveSelections();
+}
+
 
 function clearStorageAndRedirect() {
  // Alternativa más agresiva (borra todo)
@@ -399,8 +386,7 @@ function clearStorageAndRedirect() {
     window.location.href = "{% url 'course_wizard' %}";
     return false;
 }
-</script>
-<script>
+
     function getStoredSelections() {
         return {
             users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]'),
