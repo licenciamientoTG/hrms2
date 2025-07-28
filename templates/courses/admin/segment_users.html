@@ -308,6 +308,16 @@ document.addEventListener("DOMContentLoaded", function () {
     // Forzar actualización visual
     toggleSegmentationCard();
 
+    // Enlazar eventos a checkboxes estáticos (departamento, posición, ubicación)
+    ['departments', 'positions', 'locations'].forEach(name => {
+        document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+            input.addEventListener('change', function () {
+                updateSelection();
+            });
+        });
+    });
+
+
     // Carga dinámica de usuarios al hacer clic en la pestaña "Usuario"
     document.getElementById("v-pills-user-tab").addEventListener("click", function () {
         const container = document.getElementById("user-container");
