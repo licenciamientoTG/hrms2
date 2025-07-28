@@ -39,12 +39,13 @@
                         <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
                     </a>
                 </li>
-                
+                {% endif %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'request_form' %}">
-                        <i class="fa-brands fa-wpforms"></i><span class="align-middle">Formularios y trámites</span>
+                        <i class="fa-brands fa-wpforms"></i><span class="align-middle">Solicitud de constancias</span>
                     </a>
                 </li>
+                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'vacation_request' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
