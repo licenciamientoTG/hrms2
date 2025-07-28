@@ -1,8 +1,67 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block page_title %}Solicitudes de constancias{% endblock %}
-{% block title %}Solicitudes de constancias{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/forms.css' %}">
+{% endblock %}
+
 
 {% block content %}
-Aquí van a ir las Solicitudes de constancias de admin
+<div class="container mt-4">
+    <h2 class="mb-4">Solicitudes de constancias</h2>
+
+    <!-- Filtros y acciones -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text" class="form-control" placeholder="Buscar por nombre o ID">
+        </div>
+        <div class="col-md-3">
+            <select class="form-select">
+                <option>Todos los estados</option>
+                <option>Pendientes</option>
+                <option>Aprobadas</option>
+                <option>Rechazadas</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100">Buscar</button>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover text-center align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Empleado</th>
+                    <th>Tipo de constancia</th>
+                    <th>Fecha de solicitud</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Ejemplo estático -->
+                <tr>
+                    <td>1</td>
+                    <td>Ana Martínez</td>
+                    <td>Laboral</td>
+                    <td>28/07/2025</td>
+                    <td><span class="badge bg-warning text-dark">Pendiente</span></td>
+                    <td>
+                        <button class="btn btn-success btn-sm">Aprobar</button>
+                        <button class="btn btn-danger btn-sm">Rechazar</button>
+                        <button class="btn btn-outline-secondary btn-sm">Ver</button>
+                    </td>
+                </tr>
+                <!-- Aquí irán los registros dinámicos -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/forms.js' %}"></script>
 {% endblock %}

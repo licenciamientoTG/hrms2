@@ -1,8 +1,116 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block page_title %}Solicitudes de constancias{% endblock %}
 {% block title %}Solicitudes de constancias{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/forms.css' %}">
+{% endblock %}
+
 {% block content %}
-Aquí van a ir las Solicitudes de constancias de user
+<div class="container mt-4">
+    <h2>Formularios y Trámites</h2>
+
+    <!-- Barra de búsqueda -->
+    <input type="text" class="form-control search-bar" placeholder="Buscar formulario...">
+
+    <!-- Tabs -->
+    <div class="tab-container mb-3">
+        <div class="tab active" id="tab-disponibles">DISPONIBLES</div>
+        <div class="tab" id="tab-completados">COMPLETADOS</div>
+    </div>
+
+    <!-- Lista de formularios disponibles -->
+    <div class="form-list" id="list-disponibles">
+        {% comment %} Reutiliza esta estructura para cada formulario {% endcomment %}
+        {% for form in forms %}
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">{{ form.nombre }}</div>
+            <div class="form-actions">
+                <a href="{{ form.url }}" target="_blank" class="btn btn-outline-primary">
+                    Solicitar {{ form.nombre|lower }}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- O puedes mantenerlo estático como en tu ejemplo -->
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Constancia laboral</div>
+            <div class="form-actions">
+                <a href="{% url 'constancia_laboral' %}" target="_blank" class="btn btn-outline-primary">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Constancia especial</div>
+            <div class="form-actions">
+                <a class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Requisición de staff</div>
+            <div class="form-actions">
+                <a class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Solicitud de uniforme extemporáneo</div>
+            <div class="form-actions">
+                <a  class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Préstamos de fondo de ahorro</div>
+            <div class="form-actions">
+                <a class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Aclaración de nómina</div>
+            <div class="form-actions">
+                <a class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+
+        <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">Cambio de puesto</div>
+            <div class="form-actions">
+                <a  class="btn btn-outline-primary" target="_blank">
+                    Solicitar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/forms.js' %}"></script>
 {% endblock %}
