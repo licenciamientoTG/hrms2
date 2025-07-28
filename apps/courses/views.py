@@ -43,7 +43,7 @@ LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias l
 def get_employees_with_user(request):
     employees = Employee.objects.filter(user__isnull=False, user__is_active=True)
     data = [{
-        'id': emp.id,
+        'id': emp.user.id,
         'name': f"{emp.first_name} {emp.last_name}",
         'department': emp.department.id if emp.department else None,
         'job_position': emp.job_position.id if emp.job_position else None,
@@ -523,8 +523,6 @@ def run_assignments(request, course_id):
 
             if all_users:
                 assignment_type = 'all_users'
-            elif any([selected_departments, selected_positions, selected_locations]):
-                assignment_type = 'by_department'
             else:
                 assignment_type = 'specific_users'
 
@@ -614,36 +612,38 @@ def admin_course_stats(request, course_id):
     # 🛡️ Por defecto: ningún usuario
     users = User.objects.none()
 
-    if config:
-        if config.audience == "all_users":
-            # Si el curso está configurado como para todos
-            users = User.objects.filter(is_staff=False, is_superuser=False)
+  # Evaluar si el curso aplica para todos los usuarios desde config o assignment
+    is_all_users = (
+        (config and config.audience == "all_users") or
+        assignments.filter(assignment_type='all_users').exists()
+    )
 
-        elif config.audience == "segment":
-            # Acumular todos los usuarios segmentados
-            user_ids = set()
+    if is_all_users:
+        # Incluir a todos los usuarios normales
+        users = User.objects.filter(is_staff=False, is_superuser=False)
 
-            for assignment in assignments:
-                if assignment.assignment_type == "specific_users":
-                    user_ids.update(assignment.users.values_list('id', flat=True))
+    else:
+        # Acumular usuarios segmentados
+        user_ids = set()
 
-                elif assignment.assignment_type == "by_department":
-                    dept_users = User.objects.filter(
-                        employee__department__in=assignment.departments.all()
-                    ).values_list('id', flat=True)
-                    user_ids.update(dept_users)
+        for assignment in assignments:
+            if assignment.assignment_type == "specific_users":
+                user_ids.update(assignment.users.values_list('id', flat=True))
 
-                    pos_users = User.objects.filter(
-                        employee__job_position__in=assignment.positions.all()
-                    ).values_list('id', flat=True)
-                    user_ids.update(pos_users)
+            elif assignment.assignment_type == "by_department":
+                user_ids.update(User.objects.filter(
+                    employee__department__in=assignment.departments.all()
+                ).values_list('id', flat=True))
 
-                    loc_users = User.objects.filter(
-                        employee__station__in=assignment.locations.all()
-                    ).values_list('id', flat=True)
-                    user_ids.update(loc_users)
+                user_ids.update(User.objects.filter(
+                    employee__job_position__in=assignment.positions.all()
+                ).values_list('id', flat=True))
 
-            users = User.objects.filter(id__in=user_ids, is_staff=False, is_superuser=False)
+                user_ids.update(User.objects.filter(
+                    employee__station__in=assignment.locations.all()
+                ).values_list('id', flat=True))
+
+        users = User.objects.filter(id__in=user_ids, is_staff=False, is_superuser=False)
 
     total_users = users.count()
 

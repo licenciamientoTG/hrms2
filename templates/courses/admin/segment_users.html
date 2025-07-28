@@ -194,7 +194,7 @@ function saveSelections() {
     
     Object.entries(selections).forEach(([key, value]) => {
         if (key === 'allUsers') {
-            localStorage.setItem(STORAGE_KEYS.ALL_USERS, value);
+            localStorage.setItem(STORAGE_KEYS.ALL_USERS, value.toString());
         } else {
             localStorage.setItem(STORAGE_KEYS[key.toUpperCase()], JSON.stringify(value || []));
         }
@@ -290,10 +290,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // Event listeners
     allUsersRadio.addEventListener("change", () => {
         toggleSegmentationCard();
+        updateSelection();
     });
 
     segmentUsersRadio.addEventListener("change", () => {
         toggleSegmentationCard();
+        updateSelection();
     });
 
     // Aplicar estado inicial
@@ -378,14 +380,20 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function updateSelection() {
-    const count = document.getElementById("allUsers").checked 
-        ? {{ employees.count|default:"0" }}  // O pon "0" si no tienes ese número
-        : getSelectedUserIds().length;
+    const allUsersRadio = document.getElementById("allUsers");
+    const selectedCount = document.getElementById("selectedCount");
 
-    document.getElementById("selectedCount").textContent = `${count} seleccionados`;
-    updateSelectedModal();  // si tienes este modal
+    if (allUsersRadio.checked) {
+        selectedCount.textContent = `Todos los usuarios`;
+    } else {
+        const count = getSelectedUserIds().length;
+        selectedCount.textContent = `${count} seleccionados`;
+    }
+
+    updateSelectedModal();
     saveSelections();
 }
+
 
 
 function clearStorageAndRedirect() {
