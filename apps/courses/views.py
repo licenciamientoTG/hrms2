@@ -35,7 +35,11 @@ from reportlab.lib.utils import ImageReader
 from PyPDF2 import PdfReader, PdfWriter
 from apps.courses.course_utils import check_and_archive_courses
 import os
-
+import csv
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
@@ -1252,6 +1256,93 @@ def generar_y_guardar_certificado(usuario, curso):
     certificado.file.save(filename, File(output))
     certificado.save()
 
-    print("✅ Certificado guardado:", filename)
     return certificado
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def course_summary_view(request):
+    from apps.courses.models import CourseHeader, EnrolledCourse
+
+    cursos = CourseHeader.objects.all()
+    resumen = []
+
+    for curso in cursos:
+        asignados = EnrolledCourse.objects.filter(course=curso).count()
+        completaron = EnrolledCourse.objects.filter(course=curso, completed_at__isnull=False).count()
+        no_completaron = asignados - completaron
+        fecha_aplicacion = curso.created_at.date() if curso.created_at else ""
+
+        resumen.append({
+            "titulo": curso.title,
+            "asignados": asignados,
+            "completaron": completaron,
+            "pendientes": no_completaron,
+            "fecha": fecha_aplicacion,
+        })
+
+    return render(request, 'courses/admin/admin_course_summary.html', {"resumen": resumen})
+
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def export_course_summary(request):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+
+    styles = getSampleStyleSheet()
+
+    # Estilo para el título
+    elements.append(Paragraph("Concentrado de Cursos", styles['Heading1']))
+    elements.append(Spacer(1, 12))
+
+    # Estilo para celdas con texto largo
+    wrap_style = ParagraphStyle(
+        name="WrapStyle",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_LEFT,
+        wordWrap='CJK',
+        leading=12,
+    )
+
+    # Encabezados
+    data = [['Curso', 'Asignados', 'Completaron', 'Pendientes', 'Fecha']]
+
+    cursos = CourseHeader.objects.all()
+    for curso in cursos:
+        asignados = EnrolledCourse.objects.filter(course=curso).count()
+        completaron = EnrolledCourse.objects.filter(course=curso, completed_at__isnull=False).count()
+        pendientes = asignados - completaron
+        fecha = curso.created_at.strftime("%d de %B de %Y") if curso.created_at else ""
+
+        # Usa Paragraph solo para el título
+        data.append([
+            Paragraph(curso.title, wrap_style),
+            asignados,
+            completaron,
+            pendientes,
+            fecha
+        ])
+
+    # Ajustes de ancho
+    table = Table(data, repeatRows=1, colWidths=[220, 60, 60, 60, 100])
+
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#d3d3d3")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+
+    return HttpResponse(buffer, content_type='application/pdf')
