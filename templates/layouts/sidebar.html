@@ -29,7 +29,7 @@
                 </li>
                 
                 <li class="sidebar-item active">
-                    <a class="sidebar-link" href="{% url 'news_list' %}">
+                    <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
                     </a>
                 </li>
@@ -121,7 +121,7 @@
 
                 </li>
 
-                <li class="sidebar-header">
+                {% comment %} <li class="sidebar-header">
                     Catálogos
                 </li>
 
@@ -129,7 +129,7 @@
                     <a class="sidebar-link" href="{% url "department_list" %}">
                     <i class="align-middle" data-feather="square"></i> <span class="align-middle">Departamentos</span>
                     </a>
-                </li> 
+                </li>  {% endcomment %}
             {% endif %}
         </div>
     </nav>

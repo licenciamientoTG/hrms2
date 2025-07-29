@@ -1,0 +1,58 @@
+{% extends 'layouts/base.html' %}
+{% block page_title %} Noticias {% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Noticias</h2>
+    <a href="{% url 'news_create' %}" class="btn btn-primary">
+        + Nueva noticia
+    </a>
+</div>
+
+<div class="card p-3">
+    <input type="text" class="form-control mb-3" placeholder="🔍 Buscar">
+    
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Título</th>
+                <th>Tópicos</th>
+                <th>Fecha de publicación</th>
+                <th>Creador</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% comment %} {% for noticia in news %} {% endcomment %}
+            <tr>
+                <td>{{ noticia.title|truncatechars:50 }}</td>
+                <td>
+                    {% for tag in noticia.tags.all %}
+                        <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                    {% empty %}
+                        <span>-</span>
+                    {% endfor %}
+                </td>
+                <td>{{ noticia.published_at|date:"d/m/Y" }}</td>
+                <td>{{ noticia.author }}</td>
+                <td>
+                    <div class="dropdown">
+                        <a class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                            ⋮
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">Editar</a></li>
+                            <li><a class="dropdown-item text-danger" href="#">Eliminar</a></li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% comment %} {% empty %} {% endcomment %}
+            <tr>
+                <td colspan="5" class="text-center">No hay noticias aún.</td>
+            </tr>
+            {% comment %} {% endfor %} {% endcomment %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
