@@ -1261,33 +1261,98 @@ def generar_y_guardar_certificado(usuario, curso):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def course_summary_view(request):
-    from apps.courses.models import CourseHeader, EnrolledCourse
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
 
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading1']
+    cell_style = ParagraphStyle(name='cell_style', fontSize=9, alignment=TA_LEFT)
+
+    elements.append(Paragraph("Concentrado de Cursos", title_style))
+    elements.append(Spacer(1, 12))
+
+    # Encabezados
+    data = [
+        [
+            Paragraph('<b>Curso</b>', cell_style),
+            Paragraph('<b>Asignados</b>', cell_style),
+            Paragraph('<b>Completaron</b>', cell_style),
+            Paragraph('<b>Pendientes</b>', cell_style),
+            Paragraph('<b>Fecha</b>', cell_style)
+        ]
+    ]
+
+    today = datetime.now().date()
     cursos = CourseHeader.objects.all()
-    resumen = []
 
     for curso in cursos:
-        asignados = EnrolledCourse.objects.filter(course=curso).count()
-        completaron = EnrolledCourse.objects.filter(course=curso, completed_at__isnull=False).count()
-        no_completaron = asignados - completaron
-        fecha_aplicacion = curso.created_at.date() if curso.created_at else ""
+        config = CourseConfig.objects.filter(course=curso).first()
+        assignments = CourseAssignment.objects.filter(course=curso)
 
-        resumen.append({
-            "titulo": curso.title,
-            "asignados": asignados,
-            "completaron": completaron,
-            "pendientes": no_completaron,
-            "fecha": fecha_aplicacion,
-        })
+        assigned_user_ids = set()
 
-    return render(request, 'courses/admin/admin_course_summary.html', {"resumen": resumen})
+        if config and config.audience == "all_users":
+            assigned_user_ids |= set(User.objects.filter(is_staff=False, is_superuser=False).values_list('id', flat=True))
 
+        for assignment in assignments:
+            if assignment.assignment_type == 'specific_users':
+                assigned_user_ids |= set(assignment.users.values_list('id', flat=True))
+            elif assignment.assignment_type == 'by_department':
+                by_dept_users = User.objects.filter(
+                    Q(employee__department__in=assignment.departments.all()) |
+                    Q(employee__job_position__in=assignment.positions.all()) |
+                    Q(employee__station__in=assignment.locations.all())
+                ).values_list('id', flat=True)
+                assigned_user_ids |= set(by_dept_users)
 
+        enrolled_user_ids = set(EnrolledCourse.objects.filter(course=curso).values_list('user_id', flat=True))
+        assigned_user_ids |= enrolled_user_ids
 
+        assigned_user_ids = set(User.objects.filter(
+            id__in=assigned_user_ids,
+            is_staff=False,
+            is_superuser=False
+        ).values_list('id', flat=True))
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def export_course_summary(request):
+        asignados = len(assigned_user_ids)
+
+        # Completados
+        completaron = 0
+        quiz = Quiz.objects.filter(course_header=curso).first()
+        if quiz:
+            completaron = QuizAttempt.objects.filter(course=curso, passed=True, user_id__in=assigned_user_ids).values('user').distinct().count()
+        else:
+            for uid in assigned_user_ids:
+                enrolled = EnrolledCourse.objects.filter(course=curso, user_id=uid).first()
+                if enrolled and enrolled.progress == 100:
+                    completaron += 1
+
+        pendientes = asignados - completaron
+        fecha = curso.created_at.strftime("%d de %B de %Y") if curso.created_at else ""
+
+        data.append([
+            Paragraph(curso.title, cell_style),
+            str(asignados),
+            str(completaron),
+            str(pendientes),
+            fecha
+        ])
+
+    # Tabla con estilo
+    table = Table(data, repeatRows=1, colWidths=[230, 60, 60, 60, 90])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+
+    return HttpResponse(buffer, content_type='application/pdf')
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []

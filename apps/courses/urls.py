@@ -2,7 +2,7 @@ from django.urls import path
 from django.conf.urls.static import static
 from django.conf import settings
 from apps.courses import views
-from .views import course_wizard, guardar_pregunta, user_courses, save_course, save_course_ajax, process_assignments, course_summary_view, export_course_summary
+from .views import course_wizard, guardar_pregunta, user_courses, save_course, save_course_ajax, process_assignments, course_summary_view
 from .forms import CourseHeaderForm, CourseConfigForm, ModuleContentForm, LessonForm, QuizForm
 
 
@@ -29,7 +29,6 @@ urlpatterns = [
     path('mark-lesson-complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
     path('get-employees-with-user/', views.get_employees_with_user, name='get_employees_with_user'),
     path('admin/resumen-cursos/', views.course_summary_view, name='course_summary'),
-    path('admin/exportar-cursos/', views.export_course_summary, name='export_course_summary'),
 
     # path('certificado/vista-previa/', views.vista_previa_certificado),
 
