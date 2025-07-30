@@ -22,20 +22,6 @@
 
     <!-- Lista de formularios disponibles -->
     <div class="form-list" id="list-disponibles">
-        {% comment %} Reutiliza esta estructura para cada formulario {% endcomment %}
-        {% for form in forms %}
-        <div class="form-item mb-3">
-            <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">{{ form.nombre }}</div>
-            <div class="form-actions">
-                <a href="{{ form.url }}" target="_blank" class="btn btn-outline-primary">
-                    Solicitar {{ form.nombre|lower }}
-                </a>
-            </div>
-        </div>
-        {% endfor %}
-
-        <!-- O puedes mantenerlo estático como en tu ejemplo -->
         <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
             <div class="form-name">Constancia laboral</div>
@@ -50,7 +36,7 @@
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
             <div class="form-name">Constancia especial</div>
             <div class="form-actions">
-                <a class="btn btn-outline-primary" target="_blank">
+                <a href="{% url 'constancia_especial' %}" class="btn btn-outline-primary" target="_blank">
                     Solicitar
                 </a>
             </div>
@@ -58,7 +44,7 @@
 
         <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Requisición de staff</div>
+            <div class="form-name">Requisición de personal</div>
             <div class="form-actions">
                 <a class="btn btn-outline-primary" target="_blank">
                     Solicitar
@@ -66,17 +52,7 @@
             </div>
         </div>
 
-        <div class="form-item mb-3">
-            <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Solicitud de uniforme extemporáneo</div>
-            <div class="form-actions">
-                <a  class="btn btn-outline-primary" target="_blank">
-                    Solicitar
-                </a>
-            </div>
-        </div>
-
-        <div class="form-item mb-3">
+        {% comment %} <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
             <div class="form-name">Préstamos de fondo de ahorro</div>
             <div class="form-actions">
@@ -84,29 +60,56 @@
                     Solicitar
                 </a>
             </div>
-        </div>
+        </div> {% endcomment %}
 
         <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Aclaración de nómina</div>
+            <div class="form-name">Constancia de guardería</div>
             <div class="form-actions">
-                <a class="btn btn-outline-primary" target="_blank">
-                    Solicitar
-                </a>
-            </div>
-        </div>
-
-        <div class="form-item mb-3">
-            <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Cambio de puesto</div>
-            <div class="form-actions">
-                <a  class="btn btn-outline-primary" target="_blank">
+                <a href="#" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGuarderia">
                     Solicitar
                 </a>
             </div>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalGuarderia" tabindex="-1" aria-labelledby="modalGuarderiaLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="#">
+      {% csrf_token %}
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalGuarderiaLabel">Constancia de guardería</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="horario" class="form-label">Horario del colaborador</label>
+            <input type="text" class="form-control" id="horario" name="horario" required>
+          </div>
+          <div class="mb-3">
+            <label for="nombre_guarderia" class="form-label">Nombre de la guardería</label>
+            <input type="text" class="form-control" id="nombre_guarderia" name="nombre_guarderia" required>
+          </div>
+          <div class="mb-3">
+            <label for="direccion_guarderia" class="form-label">Dirección de la guardería</label>
+            <textarea class="form-control" id="direccion_guarderia" name="direccion_guarderia" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="nombre_menor" class="form-label">Nombre del menor</label>
+            <input type="text" class="form-control" id="nombre_menor" name="nombre_menor" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Generar constancia</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 
 {% endblock %}
 

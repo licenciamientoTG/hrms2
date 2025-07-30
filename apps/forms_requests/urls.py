@@ -8,4 +8,6 @@ urlpatterns = [
     path('solicitud/usuario/', views.user_forms_view, name='user_forms'),
     path('solicitud/admin/', views.admin_forms_view, name='admin_forms'),
     path('constancia-laboral/', views.generar_constancia_laboral, name='constancia_laboral'),
+    path('constancia-especial/', views.generar_constancia_especial, name='constancia_especial'),
+
 ]

@@ -39,6 +39,8 @@ def generar_constancia_laboral(request):
     employee = Employee.objects.filter(user=request.user).first()
     nombre_usuario = request.user.get_full_name()
     empresa = "(EMPRESA)"
+    departamento = "(DEPARTAMENTO)"
+    equipo = "(EQUIPO)"
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
     puesto = str(employee.job_position) if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
@@ -55,19 +57,20 @@ def generar_constancia_laboral(request):
         fontName='Helvetica',
         fontSize=13,
         leading=18,
-        alignment=4  # 4 = Justify
+        alignment=4
     )
 
     texto = (
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
-        f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b>. <br/><br/>"
+        f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
+        f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
         f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente."
     )
 
     paragraph = Paragraph(texto, style)
 
     # Definir un Frame donde poner el párrafo
-    frame = Frame(70, 380, 480, 120, showBoundary=0)
+    frame = Frame(70, 210, 480, 300, showBoundary=0)
     frame.addFromList([paragraph], c)
 
     # fecha
@@ -100,3 +103,80 @@ def generar_constancia_laboral(request):
     response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
     return response
 
+@login_required
+def generar_constancia_especial(request):
+    employee = Employee.objects.filter(user=request.user).first()
+    nombre_usuario = request.user.get_full_name()
+    empresa = "(EMPRESA)"
+    departamento = "(DEPARTAMENTO)"
+    equipo = "(EQUIPO)"
+    nss = employee.imss if employee and employee.imss else "(NSS)"
+    salario =  "(SALARIO)"
+    curp = employee.curp if employee and employee.curp else "(CURP)"
+    rfc = employee.rfc if employee and employee.rfc else "(RFC)"
+
+    fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
+    puesto = str(employee.job_position) if employee and employee.job_position else "(PUESTO)"
+    fecha_hoy = date.today().strftime("%d/%m/%Y")
+
+    width, height = 842, 800
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+
+    # Crear texto con estilo justificado
+    styles = getSampleStyleSheet()
+    style = ParagraphStyle(
+        name='Justificado',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=13,
+        leading=18,
+        alignment=4
+    )
+
+    texto = (
+        f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
+        f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
+        f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
+        f"NSS: <b>{nss}</b><br/>"
+        f"Salario: <b>{salario}</b><br/>"
+        f"CURP: <b>{curp}</b><br/>"
+        f"RFC: <b>{rfc}</b><br/><br/>"
+        f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente.<br/><br/>"
+    )
+
+    paragraph = Paragraph(texto, style)
+
+    # Definir un Frame donde poner el párrafo
+    frame = Frame(70, 210, 480, 300, showBoundary=0)
+    frame.addFromList([paragraph], c)
+
+    # fecha
+    c.setFont("Helvetica-Bold",  13)
+    fecha_hoy = date.today().strftime("%d/%m/%Y")
+    c.drawCentredString(440, 644, f"{fecha_hoy}")
+
+    # Terminar el PDF temporal
+    c.save()
+    buffer.seek(0)
+
+    # Fusionar con la plantilla PDF
+    template_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_especial.pdf'
+    )
+    base_pdf = PdfReader(template_path)
+    overlay_pdf = PdfReader(buffer)
+    writer = PdfWriter()
+
+    base_page = base_pdf.pages[0]
+    base_page.merge_page(overlay_pdf.pages[0])
+    writer.add_page(base_page)
+
+    # Respuesta HTTP
+    final_output = BytesIO()
+    writer.write(final_output)
+    final_output.seek(0)
+
+    response = HttpResponse(final_output, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
+    return response

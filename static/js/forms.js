@@ -1,3 +1,4 @@
+// Este DOM me ayuda con el buscador de formularios (muestra solo lo que estamos buscando)
 document.addEventListener("DOMContentLoaded", function () {
   const searchInput = document.getElementById("formSearch");
   const formItems = document.querySelectorAll(".form-item");
