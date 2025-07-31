@@ -1,0 +1,84 @@
+{% extends 'layouts/base.html' %}
+{% block content %}
+<h2>Requisición de Personal</h2>
+<form method="POST">
+    {% csrf_token %}
+        <div class="row">
+            {% comment %} <div class="col-md-4 mb-3">
+                <label class="form-label">No. de Requisición</label>
+                <input type="text" class="form-control" name="numero_requisicion" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Fecha de Solicitud</label>
+                <input type="date" class="form-control" name="fecha_solicitud" required>
+            </div> {% endcomment %}
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Área Solicitante</label>
+                <input type="text" class="form-control" name="area_solicitante" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Departamento Solicitante</label>
+                <input type="text" class="form-control" name="departamento_solicitante" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Posición Solicitada</label>
+                <input type="text" class="form-control" name="posicion_solicitada" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Horario</label>
+                <input type="text" class="form-control" name="horario" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Motivo</label>
+                <input type="text" class="form-control" name="motivo" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Duración de la posición</label>
+                <input type="text" class="form-control" name="duracion" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">¿Considera cubrir con colaborador interno?</label>
+                <select class="form-select" name="cobertura_interna" required>
+                    <option value="Sí">Sí</option>
+                    <option value="No">No</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Nombre del colaborador (si aplica)</label>
+            <input type="text" class="form-control" name="nombre_colaborador">
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Persona que hace la solicitud</label>
+                <input type="text" class="form-control" name="persona_solicita" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Autorización del Gerente de Área</label>
+                <input type="text" class="form-control" name="autorizacion_gerente" required>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="mb-3">
+            <label class="form-label">Fecha de cobertura</label>
+            <input type="date" class="form-control" name="fecha_cobertura">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Comentarios</label>
+            <textarea class="form-control" name="comentarios" rows="3"></textarea>
+        </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'request_form' %}" class="btn btn-outline-secondary">← Atrás</a>
+        <button type="submit" class="btn btn-primary">Enviar requisición</button>
+    </div>
+</form>
+{% endblock %}

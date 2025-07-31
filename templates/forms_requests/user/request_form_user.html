@@ -24,7 +24,7 @@
     <div class="form-list" id="list-disponibles">
         <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Constancia laboral</div>
+            <div class="form-name">Constancia laboral<p style="font-size: 0.7rem;">En caso de requerir sello pasar a RR.HH.</p></div>
             <div class="form-actions">
                 <a href="{% url 'constancia_laboral' %}" target="_blank" class="btn btn-outline-primary">
                     Solicitar
@@ -34,7 +34,7 @@
 
         <div class="form-item mb-3">
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Constancia especial</div>
+            <div class="form-name">Constancia especial<p style="font-size: 0.7rem;">En caso de requerir sello pasar a RR.HH.</p></div>
             <div class="form-actions">
                 <a href="{% url 'constancia_especial' %}" class="btn btn-outline-primary" target="_blank">
                     Solicitar
@@ -46,21 +46,11 @@
             <i class="form-icon bi bi-file-earmark-text-fill"></i>
             <div class="form-name">Requisición de personal</div>
             <div class="form-actions">
-                <a class="btn btn-outline-primary" target="_blank">
+                <a href="{% url 'requisicion_personal' %}" class="btn btn-outline-primary">
                     Solicitar
                 </a>
             </div>
         </div>
-
-        {% comment %} <div class="form-item mb-3">
-            <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Préstamos de fondo de ahorro</div>
-            <div class="form-actions">
-                <a class="btn btn-outline-primary" target="_blank">
-                    Solicitar
-                </a>
-            </div>
-        </div> {% endcomment %}
 
         {% if perms.forms_requests.puede_solicitar_guarderia %}
             <div class="form-item mb-3">

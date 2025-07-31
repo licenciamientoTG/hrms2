@@ -188,3 +188,8 @@ def generar_constancia_especial(request):
     response = HttpResponse(final_output, content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
     return response
+
+#esta vista te redirige a la plantilla de requisision de personal
+@login_required
+def requisicion_personal_view(request):
+    return render(request, 'forms_requests/user/requisicion_personal.html')
