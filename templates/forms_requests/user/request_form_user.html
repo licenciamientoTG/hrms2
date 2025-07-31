@@ -62,15 +62,18 @@
             </div>
         </div> {% endcomment %}
 
-        <div class="form-item mb-3">
-            <i class="form-icon bi bi-file-earmark-text-fill"></i>
-            <div class="form-name">Constancia de guardería</div>
-            <div class="form-actions">
-                <a href="#" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGuarderia">
-                    Solicitar
-                </a>
+        {% if perms.forms_requests.puede_solicitar_guarderia %}
+            <div class="form-item mb-3">
+                <i class="form-icon bi bi-file-earmark-text-fill"></i>
+                <div class="form-name">Constancia de guardería</div>
+                <div class="form-actions">
+                    <a href="#" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGuarderia">
+                        Solicitar
+                    </a>
+                </div>
             </div>
-        </div>
+        {% endif %}
+
     </div>
 </div>
 
@@ -84,10 +87,34 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3">
-            <label for="horario" class="form-label">Horario del colaborador</label>
-            <input type="text" class="form-control" id="horario" name="horario" required>
-          </div>
+            <div class="row">
+                <div class="col-6">
+                    {% for dia in dias_semana|slice:":4" %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_laborales" value="{{ dia }}" id="dia_{{ forloop.counter }}">
+                        <label class="form-check-label" for="dia_{{ forloop.counter }}">{{ dia }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="col-6">
+                    {% for dia in dias_semana|slice:"4:" %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_laborales" value="{{ dia }}" id="dia_{{ forloop.counter }}">
+                        <label class="form-check-label" for="dia_{{ forloop.counter }}">{{ dia }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-3 d-flex gap-2">
+            <div class="w-50">
+                <label class="form-label">Hora de entrada</label>
+                <input type="time" class="form-control" name="hora_entrada" required>
+            </div>
+            <div class="w-50">
+                <label class="form-label">Hora de salida</label>
+                <input type="time" class="form-control" name="hora_salida" required>
+            </div>
+        </div>
           <div class="mb-3">
             <label for="nombre_guarderia" class="form-label">Nombre de la guardería</label>
             <input type="text" class="form-control" id="nombre_guarderia" name="nombre_guarderia" required>

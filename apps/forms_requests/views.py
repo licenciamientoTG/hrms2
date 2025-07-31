@@ -31,9 +31,14 @@ def admin_forms_view(request):
 #esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
 def user_forms_view(request):
-    template_name = ('forms_requests/user/request_form_user.html' )
-    return render(request, template_name)
+    template_name = 'forms_requests/user/request_form_user.html'
+    dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    
+    return render(request, template_name, {
+        'dias_semana': dias_semana
+    })
 
+#esta vista genera el pdf de la constancia laboral
 @login_required
 def generar_constancia_laboral(request):
     employee = Employee.objects.filter(user=request.user).first()
@@ -61,6 +66,7 @@ def generar_constancia_laboral(request):
     )
 
     texto = (
+        f"<b>A quien corresponda:</b><br/><br/>"
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
         f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
@@ -70,7 +76,7 @@ def generar_constancia_laboral(request):
     paragraph = Paragraph(texto, style)
 
     # Definir un Frame donde poner el párrafo
-    frame = Frame(70, 210, 480, 300, showBoundary=0)
+    frame = Frame(70, 230, 480, 300, showBoundary=0)
     frame.addFromList([paragraph], c)
 
     # fecha
@@ -103,6 +109,7 @@ def generar_constancia_laboral(request):
     response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
     return response
 
+#esta vista genera el pdf de la constancia especial
 @login_required
 def generar_constancia_especial(request):
     employee = Employee.objects.filter(user=request.user).first()
@@ -135,6 +142,7 @@ def generar_constancia_especial(request):
     )
 
     texto = (
+        f"<b>A quien corresponda:</b><br/><br/>"
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
         f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
@@ -148,7 +156,7 @@ def generar_constancia_especial(request):
     paragraph = Paragraph(texto, style)
 
     # Definir un Frame donde poner el párrafo
-    frame = Frame(70, 210, 480, 300, showBoundary=0)
+    frame = Frame(70, 230, 480, 300, showBoundary=0)
     frame.addFromList([paragraph], c)
 
     # fecha
