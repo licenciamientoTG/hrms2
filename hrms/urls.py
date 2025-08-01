@@ -103,7 +103,7 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('vacations/', include('apps.vacations.urls')),
 
-
+    path('endpoints/', include('apps.endpoints.urls')),
 
 ]
 

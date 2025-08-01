@@ -4,21 +4,41 @@
 <form method="POST">
     {% csrf_token %}
         <div class="row">
-            {% comment %} <div class="col-md-4 mb-3">
-                <label class="form-label">No. de Requisición</label>
-                <input type="text" class="form-control" name="numero_requisicion" required>
-            </div>
-            <div class="col-md-4 mb-3">
-                <label class="form-label">Fecha de Solicitud</label>
-                <input type="date" class="form-control" name="fecha_solicitud" required>
-            </div> {% endcomment %}
             <div class="col-md-4 mb-3">
                 <label class="form-label">Área Solicitante</label>
-                <input type="text" class="form-control" name="area_solicitante" required>
+                <select class="form-control" name="area_solicitante" required>
+                    <option value="">Seleccione un área</option>
+                    <option>Dirección General</option>
+                    <option>Dirección de Administración y Finanzas</option>
+                    <option>Gerencia de Operaciones</option>
+                    <option>Gerencia de Capital Humano</option>
+                    <option>Gerencia Comercial y Mercadotecnia</option>
+                    <option>Gerencia de Auditoría</option>
+                    <option>Jefatura de Logística y Abasto</option>
+                    <option>Jefatura de Jurídico</option>
+                    <option>Jefatura de Expansión</option>
+                </select>
             </div>
             <div class="col-md-4 mb-3">
                 <label class="form-label">Departamento Solicitante</label>
-                <input type="text" class="form-control" name="departamento_solicitante" required>
+                <select class="form-control" name="departamento_solicitante" required>
+                    <option value="">Seleccione un departamento</option>
+                    <option>Operaciones</option>
+                    <option>Mantenimiento</option>
+                    <option>Administración</option>
+                    <option>Ingresos</option>
+                    <option>Nóminas</option>
+                    <option>Contabilidad</option>
+                    <option>Sistemas</option>
+                    <option>Comercial</option>
+                    <option>Mercadotecnia</option>
+                    <option>Capital Humano</option>
+                    <option>Logística y Abastos</option>
+                    <option>Jurídico</option>
+                    <option>Expansión</option>
+                    <option>Auditoría</option>
+                    <option>Dirección General</option>
+                </select>
             </div>
             <div class="col-md-4 mb-3">
                 <label class="form-label">Posición Solicitada</label>
@@ -31,12 +51,23 @@
                 <input type="text" class="form-control" name="horario" required>
             </div>
             <div class="col-md-4 mb-3">
-                <label class="form-label">Motivo</label>
-                <input type="text" class="form-control" name="motivo" required>
+                <label for="motivo" class="form-label">Motivo</label>
+                <select name="motivo" id="motivo" class="form-control" required>
+                    <option value="">Seleccione un motivo</option>
+                    <option value="Renuncia Voluntaria">Renuncia Voluntaria</option>
+                    <option value="Baja inducida">Baja inducida</option>
+                    <option value="Nueva creación">Nueva creación</option>
+                    <option value="Promoción">Promoción</option>
+                    <option value="Cambio lateral">Cambio lateral</option>
+                </select>
             </div>
             <div class="col-md-4 mb-3">
                 <label class="form-label">Duración de la posición</label>
-                <input type="text" class="form-control" name="duracion" required>
+                <select class="form-control" name="duracion_posicion" required>
+                    <option value="">Seleccione duración</option>
+                    <option>Permanente</option>
+                    <option>Temporal</option>
+                </select>
             </div>
         </div>
         <div class="row">
@@ -58,9 +89,13 @@
                 <label class="form-label">Persona que hace la solicitud</label>
                 <input type="text" class="form-control" name="persona_solicita" required>
             </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Autorización del Gerente de Área</label>
-                <input type="text" class="form-control" name="autorizacion_gerente" required>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Autorización Gerente de Área</label>
+                <select class="form-control" name="autorizacion_gerente" required>
+                    <option value="">Seleccione autorización</option>
+                    <option>Autorizado</option>
+                    <option>No autorizado</option>
+                </select>
             </div>
         </div>
 
