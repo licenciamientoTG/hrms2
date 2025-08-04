@@ -23,6 +23,7 @@ class ConstanciaGuarderia(models.Model):
     class Meta:
         permissions = [
             ("puede_solicitar_guarderia", "Puede solicitar constancia de guardería"),
+            ("puede_solicitar_personal", "Puede solicitar personal"),
         ]
 
     def __str__(self):
