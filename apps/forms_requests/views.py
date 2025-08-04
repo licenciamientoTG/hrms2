@@ -44,10 +44,10 @@ def generar_constancia_laboral(request):
     employee = Employee.objects.filter(user=request.user).first()
     nombre_usuario = request.user.get_full_name()
     empresa = "(EMPRESA)"
-    departamento = "(DEPARTAMENTO)"
-    equipo = "(EQUIPO)"
+    departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
+    equipo = employee.team if employee and employee.team else "(EQUIPO)"
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
-    puesto = str(employee.job_position) if employee and employee.job_position else "(PUESTO)"
+    puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
     width, height = 842, 800
@@ -115,15 +115,15 @@ def generar_constancia_especial(request):
     employee = Employee.objects.filter(user=request.user).first()
     nombre_usuario = request.user.get_full_name()
     empresa = "(EMPRESA)"
-    departamento = "(DEPARTAMENTO)"
-    equipo = "(EQUIPO)"
+    departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
+    equipo = employee.team if employee and employee.team else "(EQUIPO)"
     nss = employee.imss if employee and employee.imss else "(NSS)"
     salario =  "(SALARIO)"
     curp = employee.curp if employee and employee.curp else "(CURP)"
     rfc = employee.rfc if employee and employee.rfc else "(RFC)"
 
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
-    puesto = str(employee.job_position) if employee and employee.job_position else "(PUESTO)"
+    puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
     width, height = 842, 800

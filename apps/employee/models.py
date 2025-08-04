@@ -52,6 +52,15 @@ class Employee(models.Model):
         verbose_name=_("Estación"),
         help_text=_("Estación donde el empleado labora")
     )
+    
+    team = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name=_("Equipo"),
+        help_text=_("Equipo al que pertenece el empleado")
+    )
+
 
     department = models.ForeignKey(
        'departments.Department',  # Correcto: 'departments.Department'
