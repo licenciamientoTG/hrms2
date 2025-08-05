@@ -13,6 +13,10 @@ def recibir_datos1(request):
             data = json.loads(request.body)
 
             nombre_completo = data.get('Nombre', '').strip()
+            company_name = data.get('Empresa', '').strip()
+
+            if company_name == 'Diaz Gas1':
+                company_name = 'DIAZ GAS'
 
             # Separar por coma: 'Apellidos, Nombres'
             if ',' in nombre_completo:
@@ -73,7 +77,7 @@ def recibir_datos1(request):
                 "birth_date": "1991-01-01",  
                 "education_level": "sin dato",
                 "notes": "Sin observaciones",
-                "company": data.get('Empresa', ''),
+                "company": company_name,
 
             }
             print("📌 Empresa que se va a guardar:", data.get('Empresa', ''))
