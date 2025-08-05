@@ -693,6 +693,9 @@ def admin_course_stats(request, course_id):
 @user_passes_test(lambda u: u.is_superuser)
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
+    course_form = CourseHeaderForm(instance=course)    
+    config = CourseConfig.objects.get(course=course)
+    config_form = CourseConfigForm(instance=config)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
     ModuleFormSet = modelformset_factory(ModuleContent, form=ModuleContentForm, extra=0)
 
@@ -706,10 +709,12 @@ def admin_course_edit(request, course_id):
 
     if request.method == "POST":
         course_form = CourseHeaderForm(request.POST, request.FILES, instance=course)
+        config_form = CourseConfigForm(request.POST, instance=config)
         module_formset = ModuleFormSet(request.POST, queryset=modules)
 
-        if course_form.is_valid() and module_formset.is_valid():
+        if course_form.is_valid() and config_form.is_valid() and module_formset.is_valid():
             course_form.save()
+            config_form.save()
 
             modules_saved = module_formset.save(commit=False)
             for module in modules_saved:
@@ -739,6 +744,8 @@ def admin_course_edit(request, course_id):
         'course': course,
         'modules': modules,
         'quiz_config': quiz_config,
+        'course_form': course_form,
+        'config_form': config_form,
     })
 
 

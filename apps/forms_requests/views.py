@@ -43,7 +43,7 @@ def user_forms_view(request):
 def generar_constancia_laboral(request):
     employee = Employee.objects.filter(user=request.user).first()
     nombre_usuario = request.user.get_full_name()
-    empresa = "(EMPRESA)"
+    empresa = employee.company if employee and employee.company else "(EMPRESA)"
     departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
     equipo = employee.team if employee and employee.team else "(EQUIPO)"
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
@@ -114,7 +114,7 @@ def generar_constancia_laboral(request):
 def generar_constancia_especial(request):
     employee = Employee.objects.filter(user=request.user).first()
     nombre_usuario = request.user.get_full_name()
-    empresa = "(EMPRESA)"
+    empresa = employee.company if employee and employee.company else "(EMPRESA)"
     departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
     equipo = employee.team if employee and employee.team else "(EQUIPO)"
     nss = employee.imss if employee and employee.imss else "(NSS)"

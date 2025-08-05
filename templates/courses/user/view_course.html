@@ -11,7 +11,7 @@
         <div class="col-lg-4">
         <div class="card shadow-sm rounded-4 p-4">
             <h3 class="fw-bold">{{ course.title }}</h3>
-            <p class="text-muted small">{{ course.description }}</p>
+            <p class="text-muted fw-medium fw-semibold" >{{ course.description }}</p>
 
             <!-- Duración -->
             <div class="d-flex align-items-center justify-content-between mt-4">
@@ -159,7 +159,7 @@
             <div id="collapse-{{ module.id }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
                 aria-labelledby="heading-{{ module.id }}" data-bs-parent="#modulesAccordion">
               <div class="accordion-body">
-                <p class="text-muted small">{{ module.description }}</p>
+                <p class="text-muted fw-semibold fw-medium">{{ module.description }}</p>
 
                 {% for lesson in module.lesson_set.all %}
                   <div class="lesson-card p-3 mb-2 rounded border d-flex justify-content-between align-items-center">
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         imageWidth: 100,
                         imageHeight: 100,
                         imageAlt: 'Logo de la empresa',
-                        title: '¡Evaluación Enviada!',
+                        title: '¡Evaluación Completa!',
                         html: `
                             <div class="text-start">
                                 <p><strong>Curso:</strong> {{ course.title|escapejs }}</p>

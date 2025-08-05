@@ -72,8 +72,13 @@ def recibir_datos1(request):
                 "email": "sin email",
                 "birth_date": "1991-01-01",  
                 "education_level": "sin dato",
-                "notes": "Sin observaciones"
+                "notes": "Sin observaciones",
+                "company": data.get('Empresa', ''),
+
             }
+            print("📌 Empresa que se va a guardar:", data.get('Empresa', ''))
+            print("📦 Datos a guardar:", defaults)
+
 
             empleado, creado = Employee.objects.update_or_create(
                 employee_number=data.get('Numero', '0'),

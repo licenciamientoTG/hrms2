@@ -42,7 +42,7 @@
                         <div class="card filtro-card flex-shrink-0 border-2 rounded-4 p-3" data-estado="pendiente" style="min-width: 260px; scroll-snap-align: start; cursor: pointer;">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between">
-                                    <h5 class="card-title">Pendientes</h5>
+                                    <h5 class="card-title">Cursos pendientes</h5>
                                     <div class="stat text-warning">
                                         <i class="fa-solid fa-hourglass-half align-middle"></i>
                                     </div>
@@ -145,15 +145,17 @@
                         </div>
 
                         <hr style="height: 6px; background-color:rgb(156, 156, 156); border: none; border-radius: 3px;">
-
-                        <small class="text-muted">
-                            Inicio: {{ course.created_at|date:"j M Y" }}<br>
-                            {% if course.deadline_date %}
-                                Fin: {{ course.deadline_date|date:"j M Y" }}
-                            {% else %}
-                                Sin vencimiento
-                            {% endif %}
-                        </small>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted" >
+                                Inicio: {{ course.created_at|date:"j M Y" }}<br>
+                                {% if course.deadline_date %}
+                                    Fin: {{ course.deadline_date|date:"j M Y" }}
+                                {% else %}
+                                    Sin vencimiento
+                                {% endif %}
+                            </small>
+                        </div>
 
                         {% if course.config.audience == "all_users" or course.id in courses_with_all_users_assignment %}
                             <span class="badge bg-primary mb-1">Público</span>

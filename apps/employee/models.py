@@ -61,6 +61,10 @@ class Employee(models.Model):
         help_text=_("Equipo al que pertenece el empleado")
     )
 
+    company = models.CharField(
+        max_length=255,
+        null=True, blank=True
+    )
 
     department = models.ForeignKey(
        'departments.Department',  # Correcto: 'departments.Department'

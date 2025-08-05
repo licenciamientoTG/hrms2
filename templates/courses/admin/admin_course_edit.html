@@ -35,6 +35,16 @@
             </div>
         </div>
 
+        <div class="col-md-4">
+            <label for="{{ config_form.deadline.id_for_label }}" class="form-label">Plazo Límite (Días)</label>
+            {{ config_form.deadline }}
+            {% if config_form.deadline.errors %}
+                <div class="text-danger">
+                    {{ config_form.deadline.errors }}
+                </div>
+            {% endif %}
+        </div>
+
         <hr class="my-4">
         <h5 class="fw-bold">Módulos</h5>
         {{ module_formset.management_form }}
