@@ -95,8 +95,8 @@ class Employee(models.Model):
 
     # Beneficios y saldo
     vacation_balance = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
+        max_digits=8, 
+        decimal_places=4, 
         default=0.0,
         verbose_name=_("Saldo de vacaciones"),
         help_text=_("Saldo de días de vacaciones disponibles del empleado")

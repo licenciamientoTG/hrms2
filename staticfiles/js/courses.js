@@ -883,15 +883,17 @@ function addAnswerOption(inputType) {
     inputType = selectedType === "Respuesta múltiple" ? "checkbox" : "radio";
   }
   const container = document.getElementById("answer-options");
+  const isMultiple = inputType === "checkbox";
 
   const optionId = `option-${answerCount}`;
+  const nameAttribute = isMultiple
+  ? `answers[${answerCount}][correct]`
+  : `correct_answer`;
   const html = `
     <div class="input-group mb-2" id="${optionId}">
       <input type="text" class="form-control" name="answers[${answerCount}][text]" placeholder="Opción ${answerCount + 1}">
-
       <div class="input-group-text">
-        <input type="${inputType}" name="answers[${answerCount}][correct] value="${answerCount}" class="form-check-input mt-0">
-
+        <input type="${inputType}" name="${nameAttribute}" value="${answerCount}" class="form-check-input mt-0">
       </div>
       <button class="btn btn-outline-danger" type="button" onclick="removeAnswerOption('${optionId}')">
         <i class="fa fa-trash"></i>

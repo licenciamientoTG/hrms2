@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from apps.employee.models import Employee, JobPosition
 from departments.models import Department
+from decimal import Decimal, InvalidOperation
 
 
 @csrf_exempt
@@ -37,6 +38,15 @@ def recibir_datos1(request):
             puesto_nombre = data.get('Puesto', '').strip()
             puesto = JobPosition.objects.filter(title__iexact=puesto_nombre).first()
             job_position_id = puesto.id if puesto else None
+
+            telefono_crudo = data.get('Telefono', '0')
+            telefono = ''.join(c for c in telefono_crudo if c.isdigit())[:10]
+
+            try:
+                saldo_raw = str(data.get('SaldoVacaciones', '0')).replace(',', '').strip()
+                saldo_vacaciones = Decimal(saldo_raw)
+            except (InvalidOperation, TypeError):
+                saldo_vacaciones = Decimal('0.0000')
             
             defaults = {
                 "employee_number": data.get('Numero', '0'),
@@ -54,12 +64,12 @@ def recibir_datos1(request):
                 "imss": data.get('IMSS', '0'),
                 "curp": data.get('CURP', '0'),
                 "gender": data.get('Genero', '0'),
-                "vacation_balance": float(data.get('SaldoVacaciones', 0) or 0),
-                "phone_number": data.get('Telefono', '0'),
+                "vacation_balance": saldo_vacaciones,
+                "phone_number": telefono,
                 "address": data.get('Direccion', '0'),
 
-                "station_id": 2,
-                "email": "sin dato",
+                "station_id": 1,
+                "email": "sin email",
                 "birth_date": "1991-01-01",  
                 "education_level": "sin dato",
                 "notes": "Sin observaciones"
