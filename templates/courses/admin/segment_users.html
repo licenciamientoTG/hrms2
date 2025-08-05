@@ -282,6 +282,34 @@ function syncUsers() {
     });
 }
 
+function syncUsersWithFilters() {
+    const selectedDepartments = getSelectedDepartmentIds();
+    const selectedPositions = getSelectedPositionIds();
+    const selectedLocations = getSelectedLocationIds();
+
+    const allUserCheckboxes = document.querySelectorAll('input[name="users"]');
+
+    allUserCheckboxes.forEach(checkbox => {
+        const userId = checkbox.value;
+        const dept = checkbox.getAttribute('data-department');
+        const pos = checkbox.getAttribute('data-job-position');
+        const loc = checkbox.getAttribute('data-station');
+
+        const matchDept = selectedDepartments.includes(dept);
+        const matchPos = selectedPositions.includes(pos);
+        const matchLoc = selectedLocations.includes(loc);
+
+        if (matchDept || matchPos || matchLoc) {
+            checkbox.checked = true;
+            checkbox.removeAttribute("data-manually-unchecked");
+        } else if (!checkbox.hasAttribute("data-manually-unchecked")) {
+            checkbox.checked = false;
+        }
+    });
+
+    updateSelection(); // Actualiza el contador y el modal
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const allUsersRadio = document.getElementById("allUsers");
     const segmentUsersRadio = document.getElementById("segmentUsers");
@@ -322,6 +350,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ['departments', 'positions', 'locations'].forEach(name => {
         document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
             input.addEventListener('change', function () {
+                syncUsersWithFilters();
                 updateSelection();
             });
         });
@@ -379,6 +408,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 syncUsers(); // Aplica filtros si ya había departamentos/posiciones marcadas
                 updateSelection();
+                syncUsersWithFilters();
             })
             .catch(error => {
                 console.error("❌ Error al cargar empleados:", error);
