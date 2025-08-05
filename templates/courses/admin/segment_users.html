@@ -61,6 +61,14 @@
                         <div class="mb-3 row">
                             <div class="col-12">
                                 <input type="text" class="form-control mb-3" id="search-user-input" placeholder="Buscar usuario..."  onkeyup="filterItems(this, 'user')">
+
+                                <!-- Loader aquí -->
+                                <div id="user-loader" class="text-center my-2 d-none">
+                                    <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                </div>
+
                                 <div class="row overflow-auto border rounded p-2" style="max-height: 300px;" id="user-container" data-loaded="false">
                                     <!-- Aquí se inyectan los usuarios -->
                                 </div>
@@ -468,5 +476,61 @@ function clearStorageAndRedirect() {
             alert('Error al enviar los datos');
         });
     });
+
+
+document.addEventListener('DOMContentLoaded', function () {
+  const tab = document.getElementById('v-pills-user-tab');
+  const container = document.getElementById('user-container');
+
+  if (tab && container) {
+    tab.addEventListener('click', function () {
+      if (container.dataset.loaded === 'false') {
+        // Mostrar loader dentro del contenedor
+        container.innerHTML = `
+          <div class="d-flex justify-content-center align-items-center w-100">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+        `;
+
+        fetch('/ruta/a/usuarios/')  // ← cambia por tu URL real
+          .then(response => {
+            if (!response.ok) throw new Error('Error en la respuesta del servidor');
+            return response.json();
+          })
+          .then(data => {
+            // Una vez que llegan los datos, eliminamos el loader
+            container.innerHTML = '';  // Limpiar loader
+
+            data.forEach(usuario => {
+              const div = document.createElement('div');
+              div.className = 'col-12 mb-2';
+              div.innerHTML = `
+                <label>
+                  <input type="checkbox" value="${usuario.id}">
+                  ${usuario.name}
+                </label>`;
+              container.appendChild(div);
+            });
+
+            container.dataset.loaded = 'true';
+          })
+          .catch(error => {
+            console.error("❌ Error cargando usuarios:", error);
+            container.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center w-100">
+                <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+            `;
+        });
+      }
+    });
+  }
+});
+
+
 </script>
 {% endblock %}
