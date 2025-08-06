@@ -3,45 +3,48 @@ document.addEventListener("DOMContentLoaded", function () {
   const formItems = document.querySelectorAll(".form-item");
 
   const tabDisponibles = document.getElementById("tab-disponibles");
+  const tabEnProceso = document.getElementById("tab-en-proceso");
   const tabCompletados = document.getElementById("tab-completados");
+
   const contDisponibles = document.getElementById("contenedor-disponibles");
+  const contEnProceso = document.getElementById("contenedor-en-proceso");
   const contCompletados = document.getElementById("contenedor-completados");
 
-  // Función para aplicar búsqueda en formularios visibles
+  // Función para aplicar búsqueda solo en el contenedor activo
   function aplicarFiltro() {
     const searchTerm = searchInput.value.toLowerCase();
     formItems.forEach(item => {
       const name = item.querySelector(".form-name").textContent.toLowerCase();
-      const contenedor = item.closest("#contenedor-disponibles, #contenedor-completados");
+      const contenedor = item.closest("#contenedor-disponibles, #contenedor-completados, #contenedor-en-proceso");
 
       if (contenedor && contenedor.style.display !== "none") {
         item.style.display = name.includes(searchTerm) ? "flex" : "none";
       } else {
-        item.style.display = ""; // resetea visibilidad si no aplica
+        item.style.display = ""; // reset
       }
     });
   }
 
   searchInput.addEventListener("input", aplicarFiltro);
 
-  // Tabs funcionales
-  tabDisponibles.addEventListener("click", () => {
-    tabDisponibles.classList.add("active");
-    tabCompletados.classList.remove("active");
-    contDisponibles.style.display = "block";
-    contCompletados.style.display = "none";
-    aplicarFiltro();
-  });
+  // Función para manejar visualización de tabs
+  function activarTab(tabActiva, contenedorActivo) {
+    // Reset tabs
+    [tabDisponibles, tabEnProceso, tabCompletados].forEach(tab => tab.classList.remove("active"));
+    tabActiva.classList.add("active");
 
-  tabCompletados.addEventListener("click", () => {
-    tabCompletados.classList.add("active");
-    tabDisponibles.classList.remove("active");
-    contDisponibles.style.display = "none";
-    contCompletados.style.display = "block";
-    aplicarFiltro();
-  });
+    // Reset contenedores
+    [contDisponibles, contEnProceso, contCompletados].forEach(cont => cont.style.display = "none");
+    contenedorActivo.style.display = "block";
 
+    aplicarFiltro();
+  }
+
+  tabDisponibles.addEventListener("click", () => activarTab(tabDisponibles, contDisponibles));
+  tabEnProceso.addEventListener("click", () => activarTab(tabEnProceso, contEnProceso));
+  tabCompletados.addEventListener("click", () => activarTab(tabCompletados, contCompletados));
 });
+
 
 function getCookie(name) {
   let cookieValue = null;

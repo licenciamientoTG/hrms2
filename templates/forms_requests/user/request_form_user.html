@@ -16,8 +16,9 @@
 
     <!-- Tabs -->
     <div class="tab-container mb-3">
-        <div class="tab active" id="tab-disponibles">DISPONIBLES</div>
-        <div class="tab" id="tab-completados">COMPLETADOS</div>
+        <div class="tab active" id="tab-disponibles">Disponibles</div>
+        <div class="tab" id="tab-en-proceso">En proceso</div>
+        <div class="tab" id="tab-completados">Completados</div>
     </div>
 
     <!-- Contenido de pestañas -->
@@ -67,13 +68,25 @@
         </div>
     </div>
 
+    <!-- EN PROCESO -->
+    <div id="contenedor-en-proceso" style="display: none;">
+        <div class="form-list">
+            {% if perms.forms_requests.puede_solicitar_guarderia %}
+            <div class="form-item mb-3">
+                <i class="form-icon bi bi-file-earmark-text-fill"></i>
+                <div class="form-name">No tienes solicitudes enviadas.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- COMPLETADOS -->
     <div id="contenedor-completados" style="display: none;">
         <div class="form-list">
             {% if perms.forms_requests.puede_solicitar_guarderia %}
             <div class="form-item mb-3">
                 <i class="form-icon bi bi-file-earmark-text-fill"></i>
-                <div class="form-name">No tienes constancias completadas aún.</div>
+                <div class="form-name">No tienes solicitudes completadas.</div>
             </div>
             {% endif %}
         </div>
