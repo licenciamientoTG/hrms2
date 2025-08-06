@@ -72,7 +72,6 @@ def recibir_datos1(request):
                 "phone_number": telefono,
                 "address": data.get('Direccion', '0'),
 
-                "station_id": 1,
                 "email": "sin email",
                 "birth_date": "1991-01-01",  
                 "education_level": "sin dato",
