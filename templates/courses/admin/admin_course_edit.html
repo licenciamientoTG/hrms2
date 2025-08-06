@@ -62,6 +62,37 @@
             </div>
         {% endfor %}
 
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Tipo de curso</label>
+                {{ config_form.course_type }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Audiencia</label>
+                {{ config_form.audience }}
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="form-check mt-2">
+                    {{ config_form.certification }}
+                    <label class="form-check-label" for="{{ config_form.certification.id_for_label }}">
+                        Requiere certificación
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check mt-2">
+                    {{ config_form.requires_signature }}
+                    <label class="form-check-label" for="{{ config_form.requires_signature.id_for_label }}">
+                        Requiere firma
+                    </label>
+                </div>
+            </div>
+        </div>
+
+
         <div class="card mt-4">
             <div class="card-header">
                 <strong>Configuración de la evaluación</strong>

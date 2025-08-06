@@ -84,7 +84,7 @@ def course_wizard(request):
 
         elif config_form.is_valid():
             config = config_form.save(commit=False)
-            config.course_id = request.session.get('course_id')
+            config.course = course  # ✅
             config.save()
             return redirect('course_wizard')
 
@@ -693,19 +693,13 @@ def admin_course_stats(request, course_id):
 @user_passes_test(lambda u: u.is_superuser)
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
-    course_form = CourseHeaderForm(instance=course)    
-    config = CourseConfig.objects.get(course=course)
-    config_form = CourseConfigForm(instance=config)
+    config = get_object_or_404(CourseConfig, course=course)
     modules = ModuleContent.objects.filter(course_header=course).order_by("created_at")
     ModuleFormSet = modelformset_factory(ModuleContent, form=ModuleContentForm, extra=0)
 
-    # Obtener quiz y su configuración si existen
-    try:
-        quiz = Quiz.objects.get(course_header=course)
-        quiz_config = QuizConfig.objects.get(quiz=quiz)
-    except (Quiz.DoesNotExist, QuizConfig.DoesNotExist):
-        quiz = None
-        quiz_config = None
+    # Obtener quiz y config si existen
+    quiz = Quiz.objects.filter(course_header=course).first()
+    quiz_config = QuizConfig.objects.filter(quiz=quiz).first() if quiz else None
 
     if request.method == "POST":
         course_form = CourseHeaderForm(request.POST, request.FILES, instance=course)
@@ -713,15 +707,27 @@ def admin_course_edit(request, course_id):
         module_formset = ModuleFormSet(request.POST, queryset=modules)
 
         if course_form.is_valid() and config_form.is_valid() and module_formset.is_valid():
-            course_form.save()
-            config_form.save()
+            course = course_form.save(commit=False)
+            if not request.FILES.get('portrait'):
+                course.portrait = course_form.instance.portrait
+            course.save()
+
+            # Guardar subcategorías
+            subcats = course_form.cleaned_data.get('sub_categories')
+            CourseSubCategoryRelation.objects.filter(course=course).delete()
+            for subcat in subcats:
+                CourseSubCategoryRelation.objects.create(course=course, subcategory=subcat)
+
+            # ✅ Fix: asignar el curso manualmente antes de guardar
+            config = config_form.save(commit=False)
+            config.course = course
+            config.save()
 
             modules_saved = module_formset.save(commit=False)
             for module in modules_saved:
                 module.course_header = course
                 module.save()
 
-            # ✅ Guardar QuizConfig si ya existe el quiz
             if quiz and quiz_config:
                 quiz_config.passing_score = request.POST.get("passing_score") or 0
                 quiz_config.max_attempts = request.POST.get("max_attempts") or None
@@ -730,24 +736,25 @@ def admin_course_edit(request, course_id):
                 quiz_config.save()
 
             return redirect('course_wizard')
+
         else:
-            print(course_form.errors)
-            print(module_formset.errors)
+            print("Errores en course_form:", course_form.errors)
+            print("Errores en config_form:", config_form.errors)
+            print("Errores en module_formset:", module_formset.errors)
 
     else:
         course_form = CourseHeaderForm(instance=course)
+        config_form = CourseConfigForm(instance=config)
         module_formset = ModuleFormSet(queryset=modules)
 
     return render(request, 'courses/admin/admin_course_edit.html', {
         'course_form': course_form,
+        'config_form': config_form,
         'module_formset': module_formset,
         'course': course,
         'modules': modules,
         'quiz_config': quiz_config,
-        'course_form': course_form,
-        'config_form': config_form,
     })
-
 
 @login_required
 def user_courses(request):

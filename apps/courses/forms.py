@@ -22,7 +22,7 @@ class CourseHeaderForm(forms.ModelForm):
 class CourseConfigForm(forms.ModelForm):
     class Meta:
         model = CourseConfig
-        exclude = ['updated_at', 'created_at']
+        exclude = ['updated_at', 'created_at', 'course']
         widgets = {
             'course_type': forms.Select(attrs={'class': 'form-control', 'required': 'required'}),
             'sequential': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
