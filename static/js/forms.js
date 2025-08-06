@@ -41,5 +41,57 @@ document.addEventListener("DOMContentLoaded", function () {
     aplicarFiltro();
   });
 
-  console.log("✅ JS cargado correctamente");
+});
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === name + "=") {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("formGuarderia");
+  const url = form.dataset.url;  // ✅ Obtenemos la URL desde el atributo data-url
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();  // ⛔ Evita redirección
+
+    const formData = new FormData(form);
+
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": getCookie("csrftoken"),  // ✅ CSRF desde cookies
+      },
+      body: formData,
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Respuesta no OK del servidor");
+      }
+      return response.json();  // ✅ Asegura que sea JSON
+    })
+    .then(data => {
+      if (data.success) {
+        const modal = bootstrap.Modal.getInstance(document.getElementById("modalGuarderia"));
+        modal.hide();
+        form.reset();
+      } else {
+        alert("⚠️ No se pudo guardar la constancia.");
+      }
+    })
+    .catch(error => {
+      console.error("❌ Error al guardar:", error);
+      alert("❌ Error al guardar la constancia.");
+    });
+  });
 });

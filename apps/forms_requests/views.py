@@ -11,8 +11,9 @@ from PyPDF2 import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, Frame
-from apps.employee.models import Employee 
-
+from apps.employee.models import Employee
+from .models import ConstanciaGuarderia
+from django.http import JsonResponse
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -193,3 +194,22 @@ def generar_constancia_especial(request):
 @login_required
 def requisicion_personal_view(request):
     return render(request, 'forms_requests/user/requisicion_personal.html')
+
+#esta vista nos ayuda a guardar en la base de datos las solicitudes de la guardería
+@login_required
+def guardar_constancia_guarderia(request):
+    if request.method == "POST":
+        print("✅ Llegó el POST con:", request.POST)
+        dias = request.POST.getlist("dias_laborales")
+        dias_str = ",".join(dias)  # Convertir lista a string separado por comas
+
+        ConstanciaGuarderia.objects.create(
+            empleado=request.user,
+            dias_laborales=dias_str,
+            hora_entrada=request.POST.get("hora_entrada"),
+            hora_salida=request.POST.get("hora_salida"),
+            nombre_guarderia=request.POST.get("nombre_guarderia"),
+            direccion_guarderia=request.POST.get("direccion_guarderia"),
+            nombre_menor=request.POST.get("nombre_menor"),
+        )
+        return JsonResponse({"success": True})

@@ -82,7 +82,7 @@
 
 <div class="modal fade" id="modalGuarderia" tabindex="-1" aria-labelledby="modalGuarderiaLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="POST" action="#">
+    <form id="formGuarderia" method="POST" data-url="{% url 'guardar_constancia_guarderia' %}">
       {% csrf_token %}
       <div class="modal-content">
         <div class="modal-header">
@@ -133,7 +133,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Generar constancia</button>
+          <button type="submit" class="btn btn-primary" >Generar constancia</button>
         </div>
       </div>
     </form>
