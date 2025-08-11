@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'apps.employee.apps.EmployeeConfig',
     'apps.location',
     'apps.endpoints',
+    'apps.staff_requisitions',
 ]
 
 MIDDLEWARE = [

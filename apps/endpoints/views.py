@@ -79,9 +79,6 @@ def recibir_datos1(request):
                 "company": company_name,
 
             }
-            print("📌 Empresa que se va a guardar:", data.get('Empresa', ''))
-            print("📦 Datos a guardar:", defaults)
-
 
             empleado, creado = Employee.objects.update_or_create(
                 employee_number=data.get('Numero', '0'),
