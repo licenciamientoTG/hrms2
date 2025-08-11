@@ -5,60 +5,105 @@
 <link rel="stylesheet" href="{% static 'css/forms.css' %}">
 {% endblock %}
 
-
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">Solicitudes de constancias</h2>
+  <h2 class="mb-4">Solicitudes de constancias</h2>
 
-    <!-- Filtros y acciones -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <input type="text" class="form-control" placeholder="Buscar por nombre o ID">
-        </div>
-        <div class="col-md-3">
-            <select class="form-select">
-                <option>Todos los estados</option>
-                <option>Pendientes</option>
-                <option>Aprobadas</option>
-                <option>Rechazadas</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button class="btn btn-primary w-100">Buscar</button>
-        </div>
+  <!-- Filtros -->
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-5">
+      <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Buscar por ID, empleado o menor">
     </div>
+    <div class="col-md-3">
+      <select class="form-select" name="estado">
+        <option value="">Todos los estados</option>
+        <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendientes</option>
+        <option value="completada" {% if estado == 'completada' %}selected{% endif %}>Completadas</option>
+        <option value="rechazada" {% if estado == 'rechazada' %}selected{% endif %}>Rechazadas</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary w-100" type="submit">Buscar</button>
+    </div>
+    <div class="col-md-2">
+      <a class="btn btn-light w-100" href="?">Limpiar</a>
+    </div>
+  </form>
 
-    <!-- Tabla -->
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover text-center align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>#</th>
-                    <th>Empleado</th>
-                    <th>Tipo de constancia</th>
-                    <th>Fecha de solicitud</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Ejemplo estático -->
-                <tr>
-                    <td>1</td>
-                    <td>Ana Martínez</td>
-                    <td>Laboral</td>
-                    <td>28/07/2025</td>
-                    <td><span class="badge bg-warning text-dark">Pendiente</span></td>
-                    <td>
-                        <button class="btn btn-success btn-sm">Aprobar</button>
-                        <button class="btn btn-danger btn-sm">Rechazar</button>
-                        <button class="btn btn-outline-secondary btn-sm">Ver</button>
-                    </td>
-                </tr>
-                <!-- Aquí irán los registros dinámicos -->
-            </tbody>
-        </table>
-    </div>
+  <!-- Tabla -->
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover text-center align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Empleado</th>
+          <th>Menor</th>
+          <th>Fecha de solicitud</th>
+          <th>Estado</th>
+          <th>PDF</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in page_obj.object_list %}
+        <tr>
+          <td>{{ s.id }}</td>
+          <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
+          <td>{{ s.nombre_menor }}</td>
+          <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+          <td>
+            {% with est=s.estado %}
+              {% if est == 'completada' %}
+                <span class="badge bg-success">Completada</span>
+              {% elif est == 'rechazada' %}
+                <span class="badge bg-danger">Rechazada</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% if s.pdf_respuesta %}
+              <a href="{{ s.pdf_respuesta.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Ver PDF</a>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            <a class="btn btn-sm btn-primary" href="{% url 'guarderia_admin_detail' s.pk %}">Ver / Gestionar</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7">Sin registros</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginación -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav aria-label="Paginación">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&estado={{ estado }}">«</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">«</span></li>
+      {% endif %}
+
+      <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&estado={{ estado }}">»</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">»</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}
 

@@ -26,6 +26,16 @@ class ConstanciaGuarderia(models.Model):
     nacimiento_menor = models.DateField(
         verbose_name="Fecha de nacimiento del menor"
     )
+    
+    #archivo que sube el admin como respuesta
+    pdf_respuesta = models.FileField(
+        upload_to='guarderia_respuestas/',
+        null=True, blank=True
+    )
+    respondido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='guarderia_respuestas_hechas'
+    )
+    respondido_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         permissions = [
@@ -38,22 +48,20 @@ class ConstanciaGuarderia(models.Model):
 
     @property
     def estado(self):
-        """
-        Retorna 'completada' si todas las autorizaciones están aprobadas,
-        'rechazada' si alguna está rechazada,
-        o 'en progreso' si aún hay pendientes.
-        """
-        autorizaciones = self.autorizaciones.all()  # related_name desde el modelo hijo
-        if not autorizaciones.exists():
-            return "en progreso"
-
-        estados = [a.estado for a in autorizaciones]
-        if any(est == 'rechazado' for est in estados):
-            return 'rechazada'
-        elif all(est == 'aprobado' for est in estados):
-            return 'completada'
-        else:
-            return 'en progreso'
+        # Si manejas autorizaciones, conserva tu lógica. Si no, márcala como completada cuando haya PDF.
+        try:
+            autorizaciones = self.autorizaciones.all()
+        except Exception:
+            autorizaciones = []
+        if autorizaciones:
+            estados = [a.estado for a in autorizaciones]
+            if any(est == 'rechazado' for est in estados):
+                return 'rechazada'
+            elif all(est == 'aprobado' for est in estados):
+                return 'completada'
+            else:
+                return 'en progreso'
+        return "completada" if self.pdf_respuesta else "en progreso"
 
 class SolicitudAutorizacion(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
