@@ -109,14 +109,22 @@
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
                     </a>
                 </li>
-                
+
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
                         <i class="fa-solid fa-road"></i> <span class="align-middle">Plan de carrera</span>
                     </a>
                 </li>
+            {% endif %} 
 
+            {% if perms.forms_requests.puede_solicitar_personal %}
+                <li class="sidebar-item active">
+                    <a class="sidebar-link" href="{% url 'staff_requisitions_home' %}">
+                        <i class="fa-solid fa-user-tie"></i> <span class="align-middle">Requisición de personal</span>
+                    </a>
                 </li>
+                </li>
+            {% endif %} 
 
                 {% comment %} <li class="sidebar-header">
                     Catálogos
@@ -127,6 +135,6 @@
                     <i class="align-middle" data-feather="square"></i> <span class="align-middle">Departamentos</span>
                     </a>
                 </li>  {% endcomment %}
-            {% endif %}
+            {% comment %} {% endif %} {% endcomment %}
         </div>
     </nav>

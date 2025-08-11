@@ -46,16 +46,6 @@
                 </div>
             </div>
 
-            {% if perms.forms_requests.puede_solicitar_personal %}
-            <div class="form-item mb-3">
-                <i class="form-icon bi bi-file-earmark-text-fill"></i>
-                <div class="form-name">Requisición de personal</div>
-                <div class="form-actions">
-                    <a href="{% url 'requisicion_personal' %}" class="btn btn-outline-primary">Solicitar</a>
-                </div>
-            </div>
-            {% endif %}
-
             {% if perms.forms_requests.puede_solicitar_guarderia %}
             <div class="form-item mb-3">
                 <i class="form-icon bi bi-file-earmark-text-fill"></i>

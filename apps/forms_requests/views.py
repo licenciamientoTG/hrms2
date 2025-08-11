@@ -190,10 +190,6 @@ def generar_constancia_especial(request):
     response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
     return response
 
-#esta vista te redirige a la plantilla de requisision de personal
-@login_required
-def requisicion_personal_view(request):
-    return render(request, 'forms_requests/user/requisicion_personal.html')
 
 #esta vista nos ayuda a guardar en la base de datos las solicitudes de la guardería
 @require_POST

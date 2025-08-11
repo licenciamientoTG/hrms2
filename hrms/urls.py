@@ -104,6 +104,8 @@ urlpatterns = [
     path('vacations/', include('apps.vacations.urls')),
 
     path('endpoints/', include('apps.endpoints.urls')),
+    path('requisiciones/', include('apps.staff_requisitions.urls')),
+
 
 ]
 
