@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from datetime import date
 
 class FormRequest(models.Model):
     name = models.CharField(max_length=255)
@@ -22,6 +23,9 @@ class ConstanciaGuarderia(models.Model):
     direccion_guarderia = models.TextField()
     nombre_menor = models.CharField(max_length=255)
     fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    nacimiento_menor = models.DateField(
+        verbose_name="Fecha de nacimiento del menor"
+    )
 
     class Meta:
         permissions = [

@@ -29,7 +29,7 @@
             <div class="form-item mb-3">
                 <i class="form-icon bi bi-file-earmark-text-fill"></i>
                 <div class="form-name">Constancia laboral
-                    <p style="font-size: 0.7rem;">En caso de requerir sello pasar a RR.HH.</p>
+                    <p style="font-size: 0.7rem;">En caso de requerir sello pasar a capital humano</p>
                 </div>
                 <div class="form-actions">
                     <a href="{% url 'constancia_laboral' %}" target="_blank" class="btn btn-outline-primary">Solicitar</a>
@@ -39,7 +39,7 @@
             <div class="form-item mb-3">
                 <i class="form-icon bi bi-file-earmark-text-fill"></i>
                 <div class="form-name">Constancia especial
-                    <p style="font-size: 0.7rem;">En caso de requerir sello pasar a RR.HH.</p>
+                    <p style="font-size: 0.7rem;">En caso de requerir sello pasar a capital humano</p>
                 </div>
                 <div class="form-actions">
                     <a href="{% url 'constancia_especial' %}" target="_blank" class="btn btn-outline-primary">Solicitar</a>
@@ -99,10 +99,11 @@
       {% csrf_token %}
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="modalGuarderiaLabel">Constancia de guardería</h5>
+          <h4 class="modal-title" id="modalGuarderiaLabel">Constancia de guardería</h4>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
+        <h5>Días de descanso</h5>
             <div class="row">
                 <div class="col-6">
                     {% for dia in dias_semana|slice:":4" %}
@@ -142,6 +143,10 @@
           <div class="mb-3">
             <label for="nombre_menor" class="form-label">Nombre del menor</label>
             <input type="text" class="form-control" id="nombre_menor" name="nombre_menor" required>
+          </div>
+          <div class="mb-3">
+            <label for="nacimiento_menor" class="form-label">Fecha de nacimiento del menor</label>
+            <input type="date" class="form-control" id="nacimiento_menor" name="nacimiento_menor" required max="{{today|date:'Y-m-d'}}">
           </div>
         </div>
         <div class="modal-footer">

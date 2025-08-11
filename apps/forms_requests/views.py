@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
 from .forms import FormRequestForm
 from io import BytesIO
-from datetime import date
+from datetime import date, datetime
 import os
 from django.http import HttpResponse
 from django.conf import settings
@@ -14,6 +14,7 @@ from reportlab.platypus import Paragraph, Frame
 from apps.employee.models import Employee
 from .models import ConstanciaGuarderia
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -36,7 +37,8 @@ def user_forms_view(request):
     dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     
     return render(request, template_name, {
-        'dias_semana': dias_semana
+        'dias_semana': dias_semana,
+        'today': date.today()
     })
 
 #esta vista genera el pdf de la constancia laboral
@@ -119,7 +121,6 @@ def generar_constancia_especial(request):
     departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
     equipo = employee.team if employee and employee.team else "(EQUIPO)"
     nss = employee.imss if employee and employee.imss else "(NSS)"
-    salario =  "(SALARIO)"
     curp = employee.curp if employee and employee.curp else "(CURP)"
     rfc = employee.rfc if employee and employee.rfc else "(RFC)"
 
@@ -148,7 +149,6 @@ def generar_constancia_especial(request):
         f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
         f"NSS: <b>{nss}</b><br/>"
-        f"Salario: <b>{salario}</b><br/>"
         f"CURP: <b>{curp}</b><br/>"
         f"RFC: <b>{rfc}</b><br/><br/>"
         f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente.<br/><br/>"
@@ -196,20 +196,33 @@ def requisicion_personal_view(request):
     return render(request, 'forms_requests/user/requisicion_personal.html')
 
 #esta vista nos ayuda a guardar en la base de datos las solicitudes de la guardería
+@require_POST
 @login_required
 def guardar_constancia_guarderia(request):
-    if request.method == "POST":
-        print("✅ Llegó el POST con:", request.POST)
+    try:
+        # días → "Lunes,Martes,..."
         dias = request.POST.getlist("dias_laborales")
-        dias_str = ",".join(dias)  # Convertir lista a string separado por comas
+        dias_str = ",".join(dias)
+
+        # parseo de fecha/hora del POST
+        nacimiento_str = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
+        hora_entrada_str = request.POST.get("hora_entrada")    # 'HH:MM'
+        hora_salida_str  = request.POST.get("hora_salida")     # 'HH:MM'
+
+        nacimiento = datetime.strptime(nacimiento_str, "%Y-%m-%d").date()
+        hora_entrada = datetime.strptime(hora_entrada_str, "%H:%M").time()
+        hora_salida  = datetime.strptime(hora_salida_str, "%H:%M").time()
 
         ConstanciaGuarderia.objects.create(
             empleado=request.user,
             dias_laborales=dias_str,
-            hora_entrada=request.POST.get("hora_entrada"),
-            hora_salida=request.POST.get("hora_salida"),
+            hora_entrada=hora_entrada,
+            hora_salida=hora_salida,
             nombre_guarderia=request.POST.get("nombre_guarderia"),
             direccion_guarderia=request.POST.get("direccion_guarderia"),
             nombre_menor=request.POST.get("nombre_menor"),
+            nacimiento_menor=nacimiento,
         )
         return JsonResponse({"success": True})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
