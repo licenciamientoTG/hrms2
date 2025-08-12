@@ -15,6 +15,10 @@ from apps.employee.models import Employee
 from .models import ConstanciaGuarderia
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from apps.forms_requests.models import ConstanciaGuarderia
+from django.core.paginator import Paginator
+
+
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -27,8 +31,29 @@ def request_form_view(request):
 #esta vista nos dirige a la plantilla de nuestro administrador
 @user_passes_test(lambda u: u.is_superuser)
 def admin_forms_view(request):
-    template_name = ('forms_requests/admin/request_form_admin.html')
-    return render(request, template_name)
+    q = (request.GET.get('q') or '').strip()
+    estado = (request.GET.get('estado') or '').strip()
+
+    solicitudes = ConstanciaGuarderia.objects.select_related('empleado').order_by('-fecha_solicitud')
+
+    if q:
+        f = Q(empleado__first_name__icontains=q) | Q(empleado__last_name__icontains=q) | Q(nombre_menor__icontains=q)
+        if q.isdigit():
+            f |= Q(id=int(q))
+        solicitudes = solicitudes.filter(f)
+
+    if estado == 'pendiente':
+        solicitudes = solicitudes.filter(pdf_respuesta__isnull=True)
+    elif estado == 'completada':
+        solicitudes = solicitudes.filter(pdf_respuesta__isnull=False)
+
+    page_obj = Paginator(solicitudes, 20).get_page(request.GET.get('page'))
+
+    return render(request, 'forms_requests/admin/request_form_admin.html', {
+        'page_obj': page_obj,
+        'q': q,
+        'estado': estado
+    })
 
 #esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
