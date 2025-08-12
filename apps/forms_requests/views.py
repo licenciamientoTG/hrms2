@@ -13,13 +13,12 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, Frame
 from apps.employee.models import Employee
 from .models import ConstanciaGuarderia
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
 from apps.forms_requests.models import ConstanciaGuarderia
 from django.core.paginator import Paginator
 from django.db.models import Q
-
-
+from django.shortcuts import get_object_or_404
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -56,15 +55,34 @@ def admin_forms_view(request):
         'estado': estado
     })
 
-#esta vista nos dirige a la plantilla de nuestro usuario
+# esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
 def user_forms_view(request):
     template_name = 'forms_requests/user/request_form_user.html'
     dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    
+
+    # PENDIENTE = sin PDF (NULL o "")
+    solicitud_pendiente = (
+        ConstanciaGuarderia.objects
+        .filter(empleado=request.user)
+        .filter(Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta=''))
+        .order_by('-fecha_solicitud')
+        .first()
+    )
+
+    # COMPLETADAS = con PDF (ni NULL ni "")
+    solicitudes_anteriores = (
+        ConstanciaGuarderia.objects
+        .filter(empleado=request.user)
+        .exclude(Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta=''))
+        .order_by('-fecha_solicitud')
+    )
+
     return render(request, template_name, {
         'dias_semana': dias_semana,
-        'today': date.today()
+        'today': date.today(),
+        'solicitud_pendiente': solicitud_pendiente,
+        'solicitudes_anteriores': solicitudes_anteriores,
     })
 
 #esta vista genera el pdf de la constancia laboral
@@ -189,7 +207,7 @@ def generar_constancia_especial(request):
     # fecha
     c.setFont("Helvetica-Bold",  13)
     fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(440, 644, f"{fecha_hoy}")
+    c.drawCentredString(440, 658, f"{fecha_hoy}")
 
     # Terminar el PDF temporal
     c.save()
@@ -262,3 +280,28 @@ def guardar_constancia_guarderia(request):
         ) 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+#vista para ver los detalles de las solicitudes de guardería
+@login_required
+def guarderia_detalle(request, pk):
+    obj = get_object_or_404(ConstanciaGuarderia, pk=pk)
+
+    # seguridad: solo el dueño o un admin pueden ver
+    if not request.user.is_superuser and obj.empleado_id != request.user.id:
+        raise Http404()
+
+    data = {
+        "id": obj.id,
+        "empleado": obj.empleado.get_full_name() or obj.empleado.username,
+        "fecha_solicitud": obj.fecha_solicitud.strftime("%d/%m/%Y %H:%M") if obj.fecha_solicitud else "",
+        "dias_laborales": obj.dias_laborales.split(",") if obj.dias_laborales else [],
+        "hora_entrada": obj.hora_entrada.strftime("%H:%M") if obj.hora_entrada else "",
+        "hora_salida": obj.hora_salida.strftime("%H:%M") if obj.hora_salida else "",
+        "nombre_guarderia": obj.nombre_guarderia,
+        "direccion_guarderia": obj.direccion_guarderia,
+        "nombre_menor": obj.nombre_menor,
+        "nacimiento_menor": obj.nacimiento_menor.strftime("%d/%m/%Y") if obj.nacimiento_menor else "",
+        "estado": obj.estado,
+        "pdf_url": obj.pdf_respuesta.url if getattr(obj.pdf_respuesta, "name", "") else None,
+    }
+    return JsonResponse({"ok": True, "solicitud": data})

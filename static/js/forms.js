@@ -100,3 +100,47 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-ver-solicitud');
+  if (!btn) return;
+
+  const url = btn.dataset.url;
+  try {
+    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+    const data = await res.json();
+    if (!data.ok) throw new Error('No se pudo cargar el detalle');
+
+    const s = data.solicitud;
+    document.getElementById('det-id').textContent = `#${s.id}`;
+    document.getElementById('det-empleado').textContent = s.empleado || '—';
+    document.getElementById('det-fecha').textContent = s.fecha_solicitud || '—';
+    document.getElementById('det-dias').textContent = (s.dias_laborales || []).join(', ') || '—';
+    document.getElementById('det-horario').textContent = (s.hora_entrada && s.hora_salida) ? `${s.hora_entrada} – ${s.hora_salida}` : '—';
+    document.getElementById('det-guarderia').textContent = s.nombre_guarderia || '—';
+    document.getElementById('det-direccion').textContent = s.direccion_guarderia || '—';
+    document.getElementById('det-menor').textContent = s.nombre_menor ? `${s.nombre_menor} (nac. ${s.nacimiento_menor || '—'})` : '—';
+
+    const estado = document.getElementById('det-estado');
+    estado.textContent = s.estado || '—';
+    estado.className = 'badge ' + (s.estado === 'completada' ? 'bg-success' :
+                                   s.estado === 'rechazada' ? 'bg-danger' :
+                                   'bg-warning text-dark');
+
+    const linkPdf = document.getElementById('det-pdf');
+    if (s.pdf_url) {
+      linkPdf.classList.remove('d-none');
+      linkPdf.href = s.pdf_url;
+    } else {
+      linkPdf.classList.add('d-none');
+      linkPdf.removeAttribute('href');
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalleSolicitud'));
+    modal.show();
+
+  } catch (err) {
+    console.error(err);
+    alert('No se pudo cargar el detalle de la solicitud.');
+  }
+});

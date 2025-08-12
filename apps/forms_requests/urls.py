@@ -10,4 +10,5 @@ urlpatterns = [
     path('constancia-laboral/', views.generar_constancia_laboral, name='constancia_laboral'),
     path('constancia-especial/', views.generar_constancia_especial, name='constancia_especial'),
     path("guardar-constancia-guarderia/", views.guardar_constancia_guarderia, name="guardar_constancia_guarderia"),
+    path("guarderia/<int:pk>/detalle/", views.guarderia_detalle, name="guarderia_detalle"),
 ]

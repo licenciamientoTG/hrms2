@@ -60,27 +60,81 @@
 
     <!-- EN PROCESO -->
     <div id="contenedor-en-proceso" style="display: none;">
-        <div class="form-list">
-            {% if perms.forms_requests.puede_solicitar_guarderia %}
-            <div class="form-item mb-3">
-                <i class="form-icon bi bi-file-earmark-text-fill"></i>
-                <div class="form-name">No tienes solicitudes enviadas.</div>
+    {% if perms.forms_requests.puede_solicitar_guarderia %}
+        {% if solicitud_pendiente %}
+        <div class="card mb-3">
+            <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Solicitud #{{ solicitud_pendiente.id }}</h5>
+                <span class="badge bg-warning text-dark">Pendiente</span>
             </div>
-            {% endif %}
+
+            <div class="row mt-3 text-start">
+                <div class="col-md-6">
+                <p class="mb-1"><strong>Fecha de envío:</strong> {{ solicitud_pendiente.fecha_solicitud|date:"d/m/Y H:i" }}</p>
+                <p class="mb-1"><strong>Días laborales:</strong> {{ solicitud_pendiente.dias_laborales|default:"—" }}</p>
+                <p class="mb-1"><strong>Horario:</strong> {{ solicitud_pendiente.hora_entrada|time:"H:i" }}–{{ solicitud_pendiente.hora_salida|time:"H:i" }}</p>
+                </div>
+                <div class="col-md-6">
+                <p class="mb-1"><strong>Guardería:</strong> {{ solicitud_pendiente.nombre_guarderia }}</p>
+                <p class="mb-1"><strong>Dirección:</strong> {{ solicitud_pendiente.direccion_guarderia }}</p>
+                <p class="mb-1"><strong>Menor:</strong> {{ solicitud_pendiente.nombre_menor }} ({{ solicitud_pendiente.nacimiento_menor|date:"d/m/Y" }})</p>
+                </div>
+            </div>
+            </div>
         </div>
+        {% else %}
+        <div class="form-list">
+            <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">No tienes solicitudes en proceso.</div>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
     </div>
 
     <!-- COMPLETADOS -->
     <div id="contenedor-completados" style="display: none;">
-        <div class="form-list">
-            {% if perms.forms_requests.puede_solicitar_guarderia %}
-            <div class="form-item mb-3">
-                <i class="form-icon bi bi-file-earmark-text-fill"></i>
-                <div class="form-name">No tienes solicitudes completadas.</div>
-            </div>
-            {% endif %}
+    {% if perms.forms_requests.puede_solicitar_guarderia %}
+        {% if solicitudes_anteriores %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped text-center align-middle">
+            <thead>
+                <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>PDF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in solicitudes_anteriores %}
+                <tr>
+                    <td>{{ s.id }}</td>
+                    <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+                    <td><span class="badge bg-success">Completada</span></td>
+                    <td>
+                    {% if s.pdf_respuesta %}
+                        <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver</a>
+                    {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            </table>
         </div>
+        {% else %}
+        <div class="form-list">
+            <div class="form-item mb-3">
+            <i class="form-icon bi bi-file-earmark-text-fill"></i>
+            <div class="form-name">No tienes solicitudes completadas.</div>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
     </div>
+
 </div>
 
 <div class="modal fade" id="modalGuarderia" tabindex="-1" aria-labelledby="modalGuarderiaLabel" aria-hidden="true">
