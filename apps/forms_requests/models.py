@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from datetime import date
+from django.db.models import Q, UniqueConstraint
 
 class FormRequest(models.Model):
     name = models.CharField(max_length=255)
@@ -41,6 +42,15 @@ class ConstanciaGuarderia(models.Model):
         permissions = [
             ("puede_solicitar_guarderia", "Puede solicitar constancia de guardería"),
             ("puede_solicitar_personal", "Puede solicitar personal"),
+        ]
+
+        #Aqui solo se permite UNA fila por empleado cuando NO hay pdf_respuesta (pendiente)
+        constraints = [
+            UniqueConstraint(
+                fields=['empleado'],
+                condition=Q(pdf_respuesta__isnull=True),
+                name='uniq_guarderia_pendiente_por_empleado',
+            ),
         ]
 
     def __str__(self):

@@ -17,6 +17,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from apps.forms_requests.models import ConstanciaGuarderia
 from django.core.paginator import Paginator
+from django.db.models import Q
 
 
 
@@ -221,6 +222,18 @@ def generar_constancia_especial(request):
 @login_required
 def guardar_constancia_guarderia(request):
     try:
+        # si ya tiene una solicitud PENDIENTE (sin pdf_respuesta), no permitir otra
+        ya_pendiente = ConstanciaGuarderia.objects.filter(
+            empleado=request.user
+        ).filter(
+            Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta='')
+        ).exists()
+        if ya_pendiente:
+            return JsonResponse({
+                "success": False,
+                "error": "Ya tienes una solicitud en proceso. Espera la respuesta antes de enviar otra."
+            }, status=400)
+            
         # días → "Lunes,Martes,..."
         dias = request.POST.getlist("dias_laborales")
         dias_str = ",".join(dias)
@@ -244,6 +257,8 @@ def guardar_constancia_guarderia(request):
             nombre_menor=request.POST.get("nombre_menor"),
             nacimiento_menor=nacimiento,
         )
-        return JsonResponse({"success": True})
+        return JsonResponse(
+            {"success": True, "message": "Solicitud enviada correctamente."}
+        ) 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)

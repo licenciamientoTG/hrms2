@@ -85,16 +85,18 @@ document.addEventListener("DOMContentLoaded", function () {
     })
     .then(data => {
       if (data.success) {
+        alert(data.message || "Solicitud enviada correctamente.");
         const modal = bootstrap.Modal.getInstance(document.getElementById("modalGuarderia"));
         modal.hide();
         form.reset();
+        location.reload();
       } else {
-        alert("⚠️ No se pudo guardar la constancia.");
+          alert(data.error || "⚠️ No se pudo guardar la constancia.");
       }
     })
     .catch(error => {
       console.error("❌ Error al guardar:", error);
-      alert("❌ Error al guardar la constancia.");
+      alert("❌ Ya cuenta con una solicitúd en proceso");
     });
   });
 });
