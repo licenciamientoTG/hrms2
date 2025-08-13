@@ -127,20 +127,62 @@ document.addEventListener('click', async (e) => {
                                    s.estado === 'rechazada' ? 'bg-danger' :
                                    'bg-warning text-dark');
 
-    const linkPdf = document.getElementById('det-pdf');
-    if (s.pdf_url) {
-      linkPdf.classList.remove('d-none');
-      linkPdf.href = s.pdf_url;
-    } else {
-      linkPdf.classList.add('d-none');
-      linkPdf.removeAttribute('href');
-    }
-
     const modal = new bootstrap.Modal(document.getElementById('modalDetalleSolicitud'));
     modal.show();
 
   } catch (err) {
     console.error(err);
     alert('No se pudo cargar el detalle de la solicitud.');
+  }
+});
+
+// abrir modal y enviar
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-responder');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  document.getElementById('resp-id').value = id;
+  document.getElementById('resp-id-label').textContent = `#${id}`;
+  new bootstrap.Modal(document.getElementById('modalResponder')).show();
+});
+
+document.getElementById('formResponder').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('resp-id').value;
+  const fd = new FormData(e.target); // incluye pdf_respuesta
+
+  try {
+    const res = await fetch(`/forms_requests/guarderia/${id}/responder/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: fd
+    });
+    const txt = await res.text();
+    let data = null; try { data = JSON.parse(txt); } catch {}
+
+    if (!res.ok || !data?.ok) throw new Error(data?.error || txt || 'Error al responder');
+
+    // Actualiza la fila sin recargar
+    const row = document.querySelector(`.btn-responder[data-id="${id}"]`)?.closest('tr');
+    if (row) {
+      // Estado → Completada
+      const estadoCell = row.querySelector('td:nth-child(4)');
+      if (estadoCell) estadoCell.innerHTML = '<span class="badge bg-success">Completada</span>';
+
+      // PDF → Link
+      const pdfCell = row.querySelector('td:nth-child(5)');
+      if (pdfCell && data.pdf_url) {
+        pdfCell.innerHTML = `<a href="${data.pdf_url}" target="_blank" rel="noopener">Ver</a>`;
+      }
+
+      // Quitar botón "Responder"
+      const btn = row.querySelector('.btn-responder');
+      if (btn) btn.remove();
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('modalResponder')).hide();
+  } catch (err) {
+    console.error(err);
+    alert('❌ ' + err.message);
   }
 });

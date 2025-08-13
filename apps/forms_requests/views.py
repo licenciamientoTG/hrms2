@@ -1,4 +1,4 @@
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.shortcuts import render, redirect
 from .forms import FormRequestForm
 from io import BytesIO
@@ -19,6 +19,7 @@ from apps.forms_requests.models import ConstanciaGuarderia
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -305,3 +306,26 @@ def guarderia_detalle(request, pk):
         "pdf_url": obj.pdf_respuesta.url if getattr(obj.pdf_respuesta, "name", "") else None,
     }
     return JsonResponse({"ok": True, "solicitud": data})
+
+# vista para responder la constancia de guardería
+@login_required
+@permission_required('forms_requests.change_constanciaguarderia', raise_exception=True)
+def responder_guarderia(request, pk: int):
+    if request.method != 'POST':
+        return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
+
+    obj = get_object_or_404(ConstanciaGuarderia, pk=pk)
+
+    f = request.FILES.get('pdf_respuesta')
+    if not f:
+        return JsonResponse({"ok": False, "error": "Adjunta un PDF."}, status=400)
+    if not f.name.lower().endswith('.pdf'):
+        return JsonResponse({"ok": False, "error": "El archivo debe ser PDF."}, status=400)
+
+    obj.pdf_respuesta = f
+    obj.respondido_por = request.user
+    obj.respondido_at = timezone.now()
+    obj.save(update_fields=['pdf_respuesta', 'respondido_por', 'respondido_at'])
+
+    pdf_url = request.build_absolute_uri(obj.pdf_respuesta.url) if getattr(obj.pdf_respuesta, 'url', None) else None
+    return JsonResponse({"ok": True, "id": obj.id, "pdf_url": pdf_url})

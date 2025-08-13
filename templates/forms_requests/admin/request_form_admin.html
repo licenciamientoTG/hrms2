@@ -25,9 +25,6 @@
     <div class="col-md-2">
       <button class="btn btn-primary w-100" type="submit">Buscar</button>
     </div>
-    <div class="col-md-2">
-      <a class="btn btn-light w-100" href="?">Limpiar</a>
-    </div>
   </form>
 
   <table class="table table-sm table-striped text-center align-middle">
@@ -54,11 +51,22 @@
               <span class="badge bg-warning text-dark">Pendiente</span>
             {% endif %}
           </td>
+
+          {# Columna PDF #}
           <td>
             {% if s.pdf_respuesta and s.pdf_respuesta.name %}
-              <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver</a>
-            {% else %}-{% endif %}
+              <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
+            {% else %}
+              <button type="button"
+                      class="btn btn-sm btn-success btn-responder"
+                      data-id="{{ s.id }}"
+                      data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
+                Responder
+              </button>
+            {% endif %}
           </td>
+
+          {# Columna Acciones #}
           <td>
             <button type="button"
                     class="btn btn-sm btn-outline-primary btn-ver-solicitud"
@@ -125,10 +133,33 @@
         </div>
       </div>
       <div class="modal-footer">
-        <a id="det-pdf" href="#" target="_blank" class="btn btn-outline-secondary d-none">Ver PDF de respuesta</a>
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
+  </div>
+</div>
+
+{% comment %} modal para subir el documento {% endcomment %}
+<div class="modal fade" id="modalResponder" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formResponder" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title">Responder solicitud <span id="resp-id-label"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="resp-id">
+        <div class="mb-3 text-start">
+          <label class="form-label">Archivo PDF de respuesta</label>
+          <input type="file" name="pdf_respuesta" accept="application/pdf" class="form-control" required>
+          <div class="form-text">Se enviará al solicitante y se marcará como completada.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success" type="submit">Enviar</button>
+      </div>
+    </form>
   </div>
 </div>
 

@@ -10,6 +10,8 @@ HRMS-main/vhrms/Lib/
 HRMS-main/vhrms/Scripts/
 HRMS-main/vhrms/include/
 HRMS-main/vhrms/pyvenv.cfg
+/venv/
+/.venv/
 
 # VS Code settings
 .vscode/
@@ -18,3 +20,10 @@ HRMS-main/vhrms/pyvenv.cfg
 *.exe
 *.bat
 *.dll
+
+# Uploads de usuarios (MEDIA_ROOT)
+/media/
+
+# Salida de collectstatic (STATIC_ROOT)
+# -> se genera en deploy o con manage.py collectstatic
+/staticfiles/
