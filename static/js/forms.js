@@ -66,14 +66,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const url = form.dataset.url;  // ✅ Obtenemos la URL desde el atributo data-url
 
   form.addEventListener("submit", function (e) {
-    e.preventDefault();  // ⛔ Evita redirección
+    e.preventDefault(); // ⛔ Evita redirección
 
     const formData = new FormData(form);
 
     fetch(url, {
       method: "POST",
       headers: {
-        "X-CSRFToken": getCookie("csrftoken"),  // ✅ CSRF desde cookies
+        "X-CSRFToken": getCookie("csrftoken"), // ✅ CSRF desde cookies
       },
       body: formData,
     })
@@ -81,25 +81,41 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!response.ok) {
         throw new Error("Respuesta no OK del servidor");
       }
-      return response.json();  // ✅ Asegura que sea JSON
+      return response.json(); // ✅ Asegura que sea JSON
     })
     .then(data => {
       if (data.success) {
-        alert(data.message || "Solicitud enviada correctamente.");
-        const modal = bootstrap.Modal.getInstance(document.getElementById("modalGuarderia"));
-        modal.hide();
-        form.reset();
-        location.reload();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: data.message || "Solicitud enviada correctamente.",
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: 'Aceptar'
+        }).then(() => {
+          const modal = bootstrap.Modal.getInstance(document.getElementById("modalGuarderia"));
+          modal.hide();
+          form.reset();
+          location.reload();
+        });
       } else {
-          alert(data.error || "⚠️ No se pudo guardar la constancia.");
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.error || "⚠️ No se pudo guardar la constancia."
+        });
       }
     })
     .catch(error => {
       console.error("❌ Error al guardar:", error);
-      alert("❌ Ya cuenta con una solicitúd en proceso");
+      Swal.fire({
+        icon: 'warning',
+        title: 'Aviso',
+        text: "❌ Ya cuenta con una solicitud en proceso"
+      });
     });
   });
 });
+
 
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.btn-ver-solicitud');
