@@ -57,7 +57,6 @@
 
     <!-- EN PROCESO -->
     <div id="contenedor-en-proceso" style="display: none;">
-    {% if perms.forms_requests.puede_solicitar_guarderia %}
         {% if solicitud_pendiente %}
         <div class="card mb-3">
             <div class="card-body">
@@ -88,12 +87,10 @@
             </div>
         </div>
         {% endif %}
-    {% endif %}
     </div>
 
     <!-- COMPLETADOS -->
     <div id="contenedor-completados" style="display: none;">
-    {% if perms.forms_requests.puede_solicitar_guarderia %}
         {% if solicitudes_anteriores %}
         <div class="table-responsive">
             <table class="table table-striped table-hover align-middle">
@@ -142,7 +139,6 @@
             </div>
         </div>
         {% endif %}
-    {% endif %}
     </div>
 
 </div>
