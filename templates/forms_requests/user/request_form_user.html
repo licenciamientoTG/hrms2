@@ -45,8 +45,6 @@
                     <a href="{% url 'constancia_especial' %}" target="_blank" class="btn btn-outline-primary">Solicitar</a>
                 </div>
             </div>
-
-            {% if perms.forms_requests.puede_solicitar_guarderia %}
             <div class="form-item mb-3">
                 <i class="form-icon bi bi-file-earmark-text-fill"></i>
                 <div class="form-name">Constancia de guardería</div>
@@ -54,7 +52,6 @@
                     <a class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGuarderia">Solicitar</a>
                 </div>
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -99,29 +96,42 @@
     {% if perms.forms_requests.puede_solicitar_guarderia %}
         {% if solicitudes_anteriores %}
         <div class="table-responsive">
-            <table class="table table-sm table-striped text-center align-middle">
-            <thead>
-                <tr>
-                <th>#</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>PDF</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in solicitudes_anteriores %}
-                <tr>
-                    <td>{{ s.id }}</td>
-                    <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
-                    <td><span class="badge bg-success">Completada</span></td>
-                    <td>
-                    {% if s.pdf_respuesta %}
-                        <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver</a>
-                    {% else %}-{% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-start">Fecha</th>
+                        <th class="text-start">Estado</th>
+                        <th class="text-center">PDF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in solicitudes_anteriores %}
+                    <tr>
+                        <td class="text-start text-nowrap">
+                            {{ s.fecha_solicitud|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="text-start">
+                            {% with estado=s.estado %}
+                                <span class="badge
+                                    {% if estado == 'completada' %} bg-success
+                                    {% elif estado == 'rechazada' %} bg-danger
+                                    {% else %} bg-warning text-dark {% endif %}">
+                                    {{ estado|title }}
+                                </span>
+                            {% endwith %}
+                        </td>
+                        <td class="text-center">
+                            {% if s.pdf_respuesta %}
+                                <a class="btn btn-link btn-sm p-0" href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">
+                                    Ver
+                                </a>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
         {% else %}

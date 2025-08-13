@@ -9,77 +9,79 @@
 <div class="container mt-4">
   <h2 class="mb-4">Solicitudes de constancias</h2>
 
-  <!-- Filtros -->
-  <form method="get" class="row g-2 mb-3">
-    <div class="col-md-5">
-      <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Buscar por ID o empleado">
-    </div>
-    <div class="col-md-3">
-      <select class="form-select" name="estado">
-        <option value="">Todos los estados</option>
-        <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendientes</option>
-        <option value="completada" {% if estado == 'completada' %}selected{% endif %}>Completadas</option>
-        <option value="rechazada" {% if estado == 'rechazada' %}selected{% endif %}>Rechazadas</option>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <button class="btn btn-primary w-100" type="submit">Buscar</button>
-    </div>
-  </form>
+<!-- Filtros -->
+<div class="row g-2 mb-3">
+  <div class="col-md-5">
+    <input id="filtro-q" type="text" class="form-control" placeholder="Buscar por ID o empleado">
+  </div>
+  <div class="col-md-3">
+    <select id="filtro-estado" class="form-select">
+      <option value="">Todos los estados</option>
+      <option value="pendiente">Pendientes</option>
+      <option value="completada">Completadas</option>
+      <option value="rechazada">Rechazadas</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button id="btn-limpiar" class="btn btn-outline-secondary w-100" type="button">Limpiar</button>
+  </div>
+</div>
 
-  <table class="table table-sm table-striped text-center align-middle">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Solicitante</th>
-        <th>Fecha</th>
-        <th>Estado</th>
-        <th>PDF</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in page_obj.object_list %}
-        <tr>
-          <td>{{ s.id }}</td>
-          <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
-          <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
-          <td>
-            {% if s.pdf_respuesta and s.pdf_respuesta.name %}
-              <span class="badge bg-success">Completada</span>
-            {% else %}
-              <span class="badge bg-warning text-dark">Pendiente</span>
-            {% endif %}
-          </td>
+<small id="contador" class="text-muted d-block mb-2"></small>
 
-          {# Columna PDF #}
-          <td>
-            {% if s.pdf_respuesta and s.pdf_respuesta.name %}
-              <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
-            {% else %}
-              <button type="button"
-                      class="btn btn-sm btn-success btn-responder"
-                      data-id="{{ s.id }}"
-                      data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
-                Responder
-              </button>
-            {% endif %}
-          </td>
-
-          {# Columna Acciones #}
-          <td>
+<table class="table table-sm table-striped table-hover align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>#</th>
+      <th>Solicitante</th>
+      <th>Fecha</th>
+      <th>Estado</th>
+      <th>PDF</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="tabla-solicitudes">
+    {% for s in page_obj.object_list %}
+      <tr
+        data-id="{{ s.id }}"
+        data-empleado="{{ s.empleado.get_full_name|default:s.empleado.username }}"
+        data-estado="{% if s.pdf_respuesta and s.pdf_respuesta.name %}completada{% else %}pendiente{% endif %}"
+      >
+        <td>{{ s.id }}</td>
+        <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
+        <td class="text-nowrap">{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+        <td>
+          {% if s.pdf_respuesta and s.pdf_respuesta.name %}
+            <span class="badge bg-success">Completada</span>
+          {% else %}
+            <span class="badge bg-warning text-dark">Pendiente</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.pdf_respuesta and s.pdf_respuesta.name %}
+            <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
+          {% else %}
             <button type="button"
-                    class="btn btn-sm btn-outline-primary btn-ver-solicitud"
-                    data-url="{% url 'guarderia_detalle' s.id %}">
-              Ver
+                    class="btn btn-sm btn-success btn-responder"
+                    data-id="{{ s.id }}"
+                    data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
+              Responder
             </button>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="6">Sin registros</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          {% endif %}
+        </td>
+        <td>
+          <button type="button"
+                  class="btn btn-sm btn-outline-primary btn-ver-solicitud"
+                  data-url="{% url 'guarderia_detalle' s.id %}">
+            Ver
+          </button>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6">Sin registros</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
   <!-- Paginación -->
   {% if page_obj.paginator.num_pages > 1 %}

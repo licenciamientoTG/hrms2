@@ -202,3 +202,55 @@ document.getElementById('formResponder').addEventListener('submit', async (e) =>
     alert('❌ ' + err.message);
   }
 });
+
+(function(){
+  const $q = document.getElementById('filtro-q');
+  const $estado = document.getElementById('filtro-estado');
+  const $tbody = document.getElementById('tabla-solicitudes');
+  const $contador = document.getElementById('contador');
+  const $limpiar = document.getElementById('btn-limpiar');
+
+  function norm(s=''){
+    try {
+      return s.toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .toLowerCase()
+        .trim();
+    } catch(e){
+      return (s+'').toLowerCase().trim();
+    }
+  }
+
+  function filtrar(){
+    const q = norm($q.value);
+    const e = norm($estado.value);
+    let visibles = 0;
+
+    Array.from($tbody.querySelectorAll('tr')).forEach(tr => {
+      const id = norm(tr.dataset.id);
+      const emp = norm(tr.dataset.empleado);
+      const est = norm(tr.dataset.estado);
+
+      const matchTexto = !q || id.includes(q) || emp.includes(q);
+      const matchEstado = !e || est === e;
+
+      const show = matchTexto && matchEstado;
+      tr.classList.toggle('d-none', !show);
+      if (show) visibles++;
+    });
+
+    const total = $tbody.querySelectorAll('tr').length;
+    $contador.textContent = `${visibles} de ${total} resultados`;
+  }
+
+  $q.addEventListener('input', filtrar);
+  $estado.addEventListener('change', filtrar);
+  $limpiar.addEventListener('click', () => {
+    $q.value = '';
+    $estado.value = '';
+    filtrar();
+  });
+
+  filtrar();
+})();
