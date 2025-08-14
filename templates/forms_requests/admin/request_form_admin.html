@@ -40,7 +40,7 @@
       <th>Fecha</th>
       <th>Estado</th>
       <th>PDF</th>
-      <th>Acciones</th>
+      <th>Información</th>
     </tr>
   </thead>
   <tbody id="tabla-solicitudes">
@@ -230,9 +230,7 @@
     });
   }
 })();
-</script>
 
-<script>
 (function () {
   function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), delay); }; }
 
