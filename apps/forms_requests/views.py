@@ -224,6 +224,8 @@ def generar_carta_recomendacion(request):
     puesto = employee.job_position.title if employee.job_position else "(PUESTO)"
     departamento = employee.department.name if employee.department else "(DEPARTAMENTO)"
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee.start_date else "(FECHA DE INICIO)"
+    fecha_termino = (employee.termination_date.strftime("%d/%m/%Y") if employee.termination_date else "(FECHA DE TERMINO)")
+
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
     # Verifica que exista la plantilla
@@ -250,16 +252,16 @@ def generar_carta_recomendacion(request):
 
     texto = (
         f"<b>A quien corresponda:</b><br/><br/>"
-        f"Por medio de la presente, hacemos constar que <b>{nombre}</b> labora en <b>{empresa}</b> "
+        f"Por medio de la presente, hacemos constar que <b>{nombre}</b> laboró en <b>{empresa}</b> "
         f"en el puesto de <b>{puesto}</b>, dentro del departamento de <b>{departamento}</b>. "
-        f"Inició labores el <b>{fecha_inicio}</b> y se ha desempeñado con responsabilidad y profesionalismo."
+        f"Inició labores el <b>{fecha_inicio}</b> y conlcuyó el <b>{fecha_termino}</b>."
         f"<br/><br/>"
         f"Extendemos la presente carta a solicitud del interesado, para los fines que considere convenientes."
     )
 
     Frame(70, 250, 500, 320, showBoundary=0).addFromList([Paragraph(texto, style)], c)
     c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(440, 610, fecha_hoy)
+    c.drawCentredString(440, 644, fecha_hoy)
     c.save()
     buffer.seek(0)
 
