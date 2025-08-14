@@ -20,6 +20,9 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from urllib.parse import quote
+from django.views.decorators.clickjacking import xframe_options_exempt
+from django.core.exceptions import MultipleObjectsReturned
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -156,6 +159,133 @@ def generar_constancia_laboral(request):
     response = HttpResponse(final_output, content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
     return response
+
+@login_required
+def validar_empleado_numero(request):
+    num = (request.GET.get('num') or '').strip()
+    if not num:
+        return JsonResponse({"exists": False})
+
+    qs = Employee._base_manager.select_related('user')  # incluye inactivos y sin user
+    try:
+        e = qs.get(employee_number=num)
+    except MultipleObjectsReturned:
+        e = qs.filter(employee_number=num).order_by('-id').first()
+        if not e:
+            return JsonResponse({"exists": False})
+    except Employee.DoesNotExist:
+        return JsonResponse({"exists": False})
+
+    user_obj = getattr(e, 'user', None)
+
+    # Construye nombre sin depender de que exista user
+    nombre = (
+        (user_obj.get_full_name() if user_obj and hasattr(user_obj, "get_full_name") else "")
+        or f"{(getattr(e, 'first_name', '') or '').strip()} {(getattr(e, 'last_name', '') or '').strip()}".strip()
+        or (user_obj.username if user_obj and getattr(user_obj, "username", None) else "")
+        or (getattr(e, 'email', None) or f"Empleado {e.employee_number}")
+    )
+
+    # banderas útiles para el front (opcionales)
+    emp_activo = getattr(e, 'is_active', None)
+    user_activo = (user_obj.is_active if user_obj and hasattr(user_obj, "is_active") else None)
+
+    return JsonResponse({
+        "exists": True,
+        "id": e.id,
+        "name": nombre,
+        "active": bool(emp_activo) if emp_activo is not None else None,
+        "user_active": bool(user_activo) if user_activo is not None else None,
+    })
+
+# --- PDF: generar carta de recomendación (activos + inactivos) ---
+@xframe_options_exempt  # necesario si lo cargas en <iframe>
+@user_passes_test(lambda u: u.is_staff or u.is_superuser)  # solo admins
+@login_required
+def generar_carta_recomendacion(request):
+    emp_num = (request.GET.get("employee_number") or "").strip()
+    if not emp_num:
+        raise Http404("Falta employee_number")
+
+    # Usa _base_manager para no filtrar inactivos
+    employee = get_object_or_404(
+        Employee._base_manager.select_related("user", "department", "job_position"),
+        employee_number=emp_num
+    )
+
+    user_obj = getattr(employee, "user", None)
+    nombre = (
+        f"{(employee.first_name or '').strip()} {(employee.last_name or '').strip()}".strip()
+        or (user_obj.get_full_name() if user_obj and hasattr(user_obj, "get_full_name") else "")
+        or (user_obj.username if user_obj and getattr(user_obj, "username", None) else "")
+        or (employee.email or f"Empleado {employee.employee_number}")
+    )
+    empresa = employee.company or "(EMPRESA)"
+    puesto = employee.job_position.title if employee.job_position else "(PUESTO)"
+    departamento = employee.department.name if employee.department else "(DEPARTAMENTO)"
+    fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee.start_date else "(FECHA DE INICIO)"
+    fecha_hoy = date.today().strftime("%d/%m/%Y")
+
+    # Verifica que exista la plantilla
+    template_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Carta_recomendacion.pdf'
+    )
+    if not os.path.exists(template_path):
+        raise Http404("Plantilla de carta no encontrada")
+
+    # --- Generar overlay con ReportLab ---
+    width, height = 842, 800  # ajusta a tu plantilla real (o usa A4 si corresponde)
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+
+    styles = getSampleStyleSheet()
+    style = ParagraphStyle(
+        name='Justificado',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=12.5,
+        leading=18,
+        alignment=4,  # justify
+    )
+
+    texto = (
+        f"<b>A quien corresponda:</b><br/><br/>"
+        f"Por medio de la presente, hacemos constar que <b>{nombre}</b> labora en <b>{empresa}</b> "
+        f"en el puesto de <b>{puesto}</b>, dentro del departamento de <b>{departamento}</b>. "
+        f"Inició labores el <b>{fecha_inicio}</b> y se ha desempeñado con responsabilidad y profesionalismo."
+        f"<br/><br/>"
+        f"Extendemos la presente carta a solicitud del interesado, para los fines que considere convenientes."
+    )
+
+    Frame(70, 250, 500, 320, showBoundary=0).addFromList([Paragraph(texto, style)], c)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawCentredString(440, 610, fecha_hoy)
+    c.save()
+    buffer.seek(0)
+
+    # --- Fusionar con plantilla base ---
+    base_pdf = PdfReader(template_path)
+    overlay_pdf = PdfReader(buffer)
+    writer = PdfWriter()
+
+    base_page = base_pdf.pages[0]
+    base_page.merge_page(overlay_pdf.pages[0])
+    writer.add_page(base_page)
+
+    final_output = BytesIO()
+    writer.write(final_output)
+    final_output.seek(0)
+
+    filename = f'carta_recomendacion_{employee.employee_number}.pdf'
+    response = HttpResponse(final_output, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        'attachment' if request.GET.get('dl') == '1' else 'inline'
+    ) + f'; filename="{filename}"'
+    # anti-caché (opcional pero recomendado)
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    return response
+
 
 #esta vista genera el pdf de la constancia especial
 @login_required
