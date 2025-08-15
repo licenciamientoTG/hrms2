@@ -12,3 +12,17 @@
     line-height: 1;
     transform: translate(30%, -30%);
 }
+
+#alertsList .list-group-item.is-unread {
+  background-color: #e9ecef; /* más oscuro */
+  font-weight: 600;
+}
+
+#alertsList .list-group-item.is-read {
+  background-color: #ffffff; /* claro */
+  font-weight: normal;
+}
+
+#alertsList .list-group-item:hover {
+  background-color: #dee2e6;
+}

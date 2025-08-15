@@ -17,9 +17,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "/notifications/api";
   const URL_LIST = `${API_BASE}/notifications/`;
   const URL_MARK_ALL = `${API_BASE}/notifications/mark-all-read/`;
+  const URL_MARK_READ = `${API_BASE}/notifications/:id/read/`; // ← Nuevo
   const POLL_MS = 30000;
 
-  // ==== Elementos del DOM (usa los del navbar que ya tienes) ====
+  // ==== Elementos del DOM ====
   const badge = document.getElementById("new-courses-count");
   const list = document.getElementById("alertsList");
   const markAllBtn = document.getElementById("markAllRead");
@@ -67,7 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(
         (n) => `
         <a href="${n.url || '#'}"
-           class="list-group-item list-group-item-action d-flex gap-2 ${n.is_read ? '' : 'fw-semibold'}">
+            class="list-group-item list-group-item-action d-flex gap-2 ${n.is_read ? 'is-read' : 'is-unread'}"
+            data-id="${n.id}">
           <div class="flex-grow-1">
             <div>${n.title}</div>
             ${n.body ? `<div class="small text-muted">${n.body}</div>` : ""}
@@ -77,9 +79,9 @@ document.addEventListener("DOMContentLoaded", () => {
       )
       .join("");
 
-    // Actualiza iconos feather si los usas
     if (window.feather) feather.replace();
   }
+
 
   async function fetchNotifications() {
     try {
@@ -89,9 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.ok === false) throw new Error("Respuesta no ok");
       showBadge(data.count || 0);
       renderList(data.items || []);
-    } catch (e) {
-      // opcional: console.warn("No se pudo cargar notificaciones", e);
-    }
+    } catch (e) {}
   }
 
   async function markAllRead() {
@@ -105,11 +105,8 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         body: "{}",
       });
-      // Refresca lista y contador
       fetchNotifications();
-    } catch (e) {
-      // opcional: console.warn("No se pudo marcar como leídas", e);
-    }
+    } catch (e) {}
   }
 
   // ==== Eventos ====
@@ -120,14 +117,59 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Refresca al abrir el dropdown (Bootstrap 5)
+  // Nuevo: clic en notificación individual
+  if (list) {
+    list.addEventListener("click", async (ev) => {
+      const a = ev.target.closest("a[data-id]");
+      if (!a) return;
+
+      ev.preventDefault();
+      const id = a.dataset.id;
+      const href = a.getAttribute("href") || "#";
+
+      // Cambiar visualmente a "leído"
+      if (a.classList.contains('is-unread')) {
+        a.classList.remove('is-unread');
+        a.classList.add('is-read');
+
+        // Actualizar badge
+        if (badge && !badge.classList.contains('d-none')) {
+          const current = parseInt(badge.textContent || '0', 10) || 0;
+          const next = Math.max(0, current - 1);
+          if (next > 0) {
+            badge.textContent = next;
+          } else {
+            badge.classList.add('d-none');
+          }
+        }
+      }
+
+      // Marcar en backend
+      try {
+        await fetch(URL_MARK_READ.replace(":id", id), {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+          },
+          body: "{}",
+        });
+      } catch (e) {}
+
+      if (href && href !== "#") {
+        window.location.href = href;
+      }
+    });
+  }
+
+
   document.addEventListener("shown.bs.dropdown", function (ev) {
     if (dropdownToggle && ev.target === dropdownToggle) {
       fetchNotifications();
     }
   });
 
-  // Primer carga + polling
   fetchNotifications();
   setInterval(fetchNotifications, POLL_MS);
 })();

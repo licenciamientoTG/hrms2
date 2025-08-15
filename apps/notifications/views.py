@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST
 from django.utils.timezone import now
 from .models import Notification
+from django.shortcuts import get_object_or_404
 
 @login_required
 @require_GET
@@ -19,4 +20,13 @@ def api_list(request):
 @require_POST
 def api_mark_all_read(request):
     Notification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=now())
+    return JsonResponse({'ok': True})
+
+@login_required
+@require_POST
+def api_mark_read(request, pk: int):
+    n = get_object_or_404(Notification, pk=pk, user=request.user)
+    if n.read_at is None:
+        n.read_at = now()
+        n.save(update_fields=['read_at'])
     return JsonResponse({'ok': True})
