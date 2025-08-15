@@ -1,0 +1,14 @@
+/* Ajusta tamaño del ícono de campana */
+.nav-item .feather.feather-bell {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+}
+
+/* Ajusta tamaño del badge rojo */
+#new-courses-count {
+    font-size: 0.65rem;
+    padding: 2px 5px;
+    line-height: 1;
+    transform: translate(30%, -30%);
+}
