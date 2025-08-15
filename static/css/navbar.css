@@ -14,12 +14,12 @@
 }
 
 #alertsList .list-group-item.is-unread {
-  background-color: #e9ecef; /* más oscuro */
+  background-color: #e9ecef;
   font-weight: 600;
 }
 
 #alertsList .list-group-item.is-read {
-  background-color: #ffffff; /* claro */
+  background-color: #ffffff; 
   font-weight: normal;
 }
 
