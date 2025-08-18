@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.news",
     "apps.recognitions",
-    "apps.forms_requests",
+    "apps.forms_requests.apps.FormsRequestsConfig",
     "apps.vacations",
     "apps.performance",
     "apps.objectives",
@@ -64,7 +64,6 @@ INSTALLED_APPS = [
     'apps.endpoints',
     'apps.staff_requisitions',
     'apps.notifications',
-
 ]
 
 MIDDLEWARE = [

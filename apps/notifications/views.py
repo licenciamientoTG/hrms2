@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 def api_list(request):
     qs = (Notification.objects
           .filter(user=request.user)
-          .order_by('-created_at', '-id')[:20])  # 👈 rompe empates por id
+          .order_by('-created_at', '-id')[:20])
     unread = Notification.objects.filter(user=request.user, read_at__isnull=True).count()
     items = [{
         'id': n.id, 'title': n.title, 'body': n.body, 'url': n.url,

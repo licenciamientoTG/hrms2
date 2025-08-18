@@ -23,6 +23,8 @@ from django.utils import timezone
 from urllib.parse import quote
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.core.exceptions import MultipleObjectsReturned
+from django.urls import reverse
+from apps.notifications.utils import notify
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -458,6 +460,23 @@ def responder_guarderia(request, pk: int):
     obj.respondido_por = request.user
     obj.respondido_at = timezone.now()
     obj.save(update_fields=['pdf_respuesta', 'respondido_por', 'respondido_at'])
+
+    # === NOTIFICACIÓN AL EMPLEADO ===
+    try:
+        # Intenta mandar a un detalle (ajusta el nombre si tu ruta es otra)
+        url = reverse("forms_requests:guarderia_detalle", args=[obj.id])
+    except Exception:
+        # Fallback por si no existe esa named URL
+        url = request.build_absolute_uri('/forms_requests/solicitud/usuario')
+
+    fecha = timezone.localtime(obj.fecha_solicitud).strftime("%d/%m/%Y %H:%M") if obj.fecha_solicitud else ""
+    notify(
+        user=obj.empleado,
+        title="Tu constancia de guardería está lista",
+        body=f"La solicitud realizada el {fecha} fue completada.",
+        url=url,
+    )
+
 
     pdf_url = request.build_absolute_uri(obj.pdf_respuesta.url) if getattr(obj.pdf_respuesta, 'url', None) else None
     return JsonResponse({"ok": True, "id": obj.id, "pdf_url": pdf_url})

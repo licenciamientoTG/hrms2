@@ -188,7 +188,7 @@ document.getElementById('formResponder').addEventListener('submit', async (e) =>
       // PDF → Link
       const pdfCell = row.querySelector('td:nth-child(5)');
       if (pdfCell && data.pdf_url) {
-        pdfCell.innerHTML = `<a href="${data.pdf_url}" target="_blank" rel="noopener">Ver</a>`;
+        pdfCell.innerHTML = `<a href="${data.pdf_url}" target="_blank" rel="noopener">Ver PDF</a>`;
       }
 
       // Quitar botón "Responder"

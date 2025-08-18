@@ -24,17 +24,16 @@ class ConstanciaGuarderia(models.Model):
     direccion_guarderia = models.TextField()
     nombre_menor = models.CharField(max_length=255)
     fecha_solicitud = models.DateTimeField(auto_now_add=True)
-    nacimiento_menor = models.DateField(
-        verbose_name="Fecha de nacimiento del menor"
-    )
-    
-    #archivo que sube el admin como respuesta
+    nacimiento_menor = models.DateField(verbose_name="Fecha de nacimiento del menor")
+
     pdf_respuesta = models.FileField(
         upload_to='guarderia_respuestas/',
         null=True, blank=True
     )
     respondido_por = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='guarderia_respuestas_hechas'
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='guarderia_respuestas_hechas'
     )
     respondido_at = models.DateTimeField(null=True, blank=True)
 
@@ -43,12 +42,10 @@ class ConstanciaGuarderia(models.Model):
             ("puede_solicitar_guarderia", "Puede solicitar constancia de guardería"),
             ("puede_solicitar_personal", "Puede solicitar personal"),
         ]
-
-        #Aqui solo se permite UNA fila por empleado cuando NO hay pdf_respuesta (pendiente)
         constraints = [
-            UniqueConstraint(
+            models.UniqueConstraint(
                 fields=['empleado'],
-                condition=Q(pdf_respuesta__isnull=True),
+                condition=models.Q(pdf_respuesta__isnull=True),
                 name='uniq_guarderia_pendiente_por_empleado',
             ),
         ]
@@ -58,19 +55,21 @@ class ConstanciaGuarderia(models.Model):
 
     @property
     def estado(self):
-        # Si manejas autorizaciones, conserva tu lógica. Si no, márcala como completada cuando haya PDF.
-        try:
-            autorizaciones = self.autorizaciones.all()
-        except Exception:
-            autorizaciones = []
-        if autorizaciones:
-            estados = [a.estado for a in autorizaciones]
+        from django.contrib.contenttypes.models import ContentType
+        from .models import SolicitudAutorizacion  # importa aquí para evitar ciclos
+
+        ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+        qs = SolicitudAutorizacion.objects.filter(content_type=ct, object_id=self.id)
+
+        if qs.exists():
+            estados = list(qs.values_list('estado', flat=True))
             if any(est == 'rechazado' for est in estados):
                 return 'rechazada'
             elif all(est == 'aprobado' for est in estados):
                 return 'completada'
             else:
                 return 'en progreso'
+
         return "completada" if self.pdf_respuesta else "en progreso"
 
 class SolicitudAutorizacion(models.Model):
