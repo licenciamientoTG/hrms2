@@ -55,22 +55,25 @@ class ConstanciaGuarderia(models.Model):
 
     @property
     def estado(self):
-        from django.contrib.contenttypes.models import ContentType
-        from .models import SolicitudAutorizacion  # importa aquí para evitar ciclos
-
+        """
+        Retorna 'completada' si fue aprobada,
+        'rechazada' si la última decisión fue rechazada,
+        o 'en progreso' si aún no hay decisión final.
+        """
+        from .models import SolicitudAutorizacion  # import aquí para evitar ciclos
         ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
-        qs = SolicitudAutorizacion.objects.filter(content_type=ct, object_id=self.id)
+        qs = (SolicitudAutorizacion.objects
+              .filter(content_type=ct, object_id=self.id)
+              .order_by('-fecha_revision', '-id'))
 
         if qs.exists():
-            estados = list(qs.values_list('estado', flat=True))
-            if any(est == 'rechazado' for est in estados):
+            last = qs.first()
+            if last.estado == 'rechazado':
                 return 'rechazada'
-            elif all(est == 'aprobado' for est in estados):
+            if last.estado == 'aprobado':
                 return 'completada'
-            else:
-                return 'en progreso'
-
-        return "completada" if self.pdf_respuesta else "en progreso"
+            return 'en progreso'
+        return 'en progreso'
 
 class SolicitudAutorizacion(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)

@@ -1,44 +1,80 @@
-from django.db.models.signals import post_save, pre_save
+# apps/forms_requests/signals.py
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.urls import reverse, NoReverseMatch
+from django.contrib.contenttypes.models import ContentType
 
 from .models import SolicitudAutorizacion, ConstanciaGuarderia
 from apps.notifications.utils import notify
 
 
-def _url_constancia(obj: ConstanciaGuarderia) -> str:
+def _url_usuario_default():
+    # Ajusta si tu named URL es otra
     try:
-        return reverse("forms_requests:constancia_pdf", args=[obj.id])
-    except NoReverseMatch:
-        pass
+        return reverse("forms_requests:user_forms")
+    except Exception:
+        return "/forms_requests/solicitud/usuario"
+
+def _url_detalle_guarderia(obj: ConstanciaGuarderia):
     try:
-        return reverse("forms_requests:detalle_constancia", args=[obj.id])
+        return reverse("forms_requests:guarderia_detalle", args=[obj.id])
     except NoReverseMatch:
-        pass
-    return "/forms_requests/solicitudes/"
+        return _url_usuario_default()
 
 
-def _notificar_completada(obj: ConstanciaGuarderia):
-    """Crea la notificación al empleado si la constancia está 'completada'."""
-    if obj.estado != "completada":
+def _notificar_decision_final(solicitud):
+    """
+    Envía UNA notificación cuando la decisión final es 'aprobado' o 'rechazado'.
+    Evita duplicados con dedupe_key.
+    """
+    if not isinstance(solicitud, ConstanciaGuarderia):
         return
-    titulo = "Tu constancia de guardería está lista"
-    fecha = timezone.localtime(obj.fecha_solicitud).strftime("%d/%m/%Y %H:%M")
-    cuerpo = f"La solicitud realizada el {fecha} fue completada."
-    url = _url_constancia(obj)
+
+    ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+    qs = (SolicitudAutorizacion.objects
+          .filter(content_type=ct, object_id=solicitud.id)
+          .order_by('-fecha_revision', '-id'))
+
+    if not qs.exists():
+        return
+
+    last = qs.first()
+    estado = last.estado  # 'aprobado' | 'rechazado' | 'pendiente'
+
+    if estado not in ("aprobado", "rechazado"):
+        return
+
+    fecha = (
+        timezone.localtime(solicitud.fecha_solicitud).strftime("%d/%m/%Y %H:%M")
+        if solicitud.fecha_solicitud else ""
+    )
+    url = _url_detalle_guarderia(solicitud)
+
+    if estado == "aprobado":
+        titulo  = "Tu constancia de guardería está lista"
+        cuerpo  = f"La solicitud realizada el {fecha} fue completada."
+        dedupe  = f"constancia-{solicitud.id}-aprobada"
+    else:
+        titulo  = "Tu solicitud de guardería fue rechazada"
+        cuerpo  = (last.comentario or f"La solicitud realizada el {fecha} fue rechazada.")
+        dedupe  = f"constancia-{solicitud.id}-rechazada"
+
     notify(
-        obj.empleado,
-        titulo,
-        cuerpo,
-        url,
-        dedupe_key=f"constancia-{obj.id}-completada",
+        user=solicitud.empleado,
+        title=titulo,
+        body=cuerpo,
+        url=url,
+        dedupe_key=dedupe,
     )
 
 
-# 1) Cuando se guarda una autorización, revisa si la constancia quedó completada
 @receiver(post_save, sender=SolicitudAutorizacion)
 def solicitud_autorizacion_saved(sender, instance, **kwargs):
-    solicitud = instance.solicitud  # GenericForeignKey
-    if isinstance(solicitud, ConstanciaGuarderia):
-        _notificar_completada(solicitud)
+    _notificar_decision_final(instance.solicitud)
+
+
+@receiver(post_save, sender=ConstanciaGuarderia)
+def constancia_guarderia_saved(sender, instance, created, **kwargs):
+    # Por si suben el PDF antes/después, revisa si ya hay decisión final
+    _notificar_decision_final(instance)

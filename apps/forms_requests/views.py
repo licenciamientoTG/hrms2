@@ -12,7 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, Frame
 from apps.employee.models import Employee
-from .models import ConstanciaGuarderia
+from .models import ConstanciaGuarderia, SolicitudAutorizacion
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
 from apps.forms_requests.models import ConstanciaGuarderia
@@ -25,6 +25,9 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from django.core.exceptions import MultipleObjectsReturned
 from django.urls import reverse
 from apps.notifications.utils import notify
+from django.contrib.contenttypes.models import ContentType
+from itertools import islice
+
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -49,17 +52,32 @@ def admin_forms_view(request):
         solicitudes = solicitudes.filter(f)
 
     if estado == 'pendiente':
-        solicitudes = solicitudes.filter(pdf_respuesta__isnull=True)
+        # pendientes = sin PDF y NO rechazadas
+        ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+        rechazadas_ids = SolicitudAutorizacion.objects.filter(
+            content_type=ct, estado='rechazado'
+        ).values_list('object_id', flat=True)
+        solicitudes = solicitudes.filter(
+            Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta='')
+        ).exclude(id__in=rechazadas_ids)
+
     elif estado == 'completada':
-        solicitudes = solicitudes.filter(pdf_respuesta__isnull=False)
+        solicitudes = solicitudes.filter(~Q(pdf_respuesta__isnull=True), ~Q(pdf_respuesta=''))
+
+    elif estado == 'rechazada':
+        ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+        rechazadas_ids = SolicitudAutorizacion.objects.filter(
+            content_type=ct, estado='rechazado'
+        ).values_list('object_id', flat=True)
+        solicitudes = solicitudes.filter(id__in=rechazadas_ids)
 
     page_obj = Paginator(solicitudes, 20).get_page(request.GET.get('page'))
-
     return render(request, 'forms_requests/admin/request_form_admin.html', {
         'page_obj': page_obj,
         'q': q,
         'estado': estado
     })
+
 
 # esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
@@ -67,22 +85,17 @@ def user_forms_view(request):
     template_name = 'forms_requests/user/request_form_user.html'
     dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-    # PENDIENTE = sin PDF (NULL o "")
-    solicitud_pendiente = (
-        ConstanciaGuarderia.objects
-        .filter(empleado=request.user)
-        .filter(Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta=''))
-        .order_by('-fecha_solicitud')
-        .first()
-    )
+    # Trae todas las solicitudes del usuario y dividimos por estado en Python
+    todas = (ConstanciaGuarderia.objects
+             .filter(empleado=request.user)
+             .order_by('-fecha_solicitud'))
 
-    # COMPLETADAS = con PDF (ni NULL ni "")
-    solicitudes_anteriores = (
-        ConstanciaGuarderia.objects
-        .filter(empleado=request.user)
-        .exclude(Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta=''))
-        .order_by('-fecha_solicitud')
-    )
+    # en progreso = pendientes (sin PDF y sin decisión final)
+    pendientes = [s for s in todas if s.estado == 'en progreso']
+    solicitud_pendiente = pendientes[0] if pendientes else None
+
+    # terminadas = completadas (aprobadas) o rechazadas
+    solicitudes_anteriores = [s for s in todas if s.estado in ('completada', 'rechazada')]
 
     return render(request, template_name, {
         'dias_semana': dias_semana,
@@ -375,12 +388,17 @@ def generar_constancia_especial(request):
 @login_required
 def guardar_constancia_guarderia(request):
     try:
-        # si ya tiene una solicitud PENDIENTE (sin pdf_respuesta), no permitir otra
+        ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+        rechazadas_ids = SolicitudAutorizacion.objects.filter(
+            content_type=ct, estado='rechazado'
+        ).values_list('object_id', flat=True)
+
         ya_pendiente = ConstanciaGuarderia.objects.filter(
             empleado=request.user
-        ).filter(
+        ).exclude(id__in=rechazadas_ids).filter(
             Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta='')
         ).exists()
+
         if ya_pendiente:
             return JsonResponse({
                 "success": False,
@@ -461,22 +479,60 @@ def responder_guarderia(request, pk: int):
     obj.respondido_at = timezone.now()
     obj.save(update_fields=['pdf_respuesta', 'respondido_por', 'respondido_at'])
 
-    # === NOTIFICACIÓN AL EMPLEADO ===
-    try:
-        # Intenta mandar a un detalle (ajusta el nombre si tu ruta es otra)
-        url = reverse("forms_requests:guarderia_detalle", args=[obj.id])
-    except Exception:
-        # Fallback por si no existe esa named URL
-        url = request.build_absolute_uri('/forms_requests/solicitud/usuario')
-
-    fecha = timezone.localtime(obj.fecha_solicitud).strftime("%d/%m/%Y %H:%M") if obj.fecha_solicitud else ""
-    notify(
-        user=obj.empleado,
-        title="Tu constancia de guardería está lista",
-        body=f"La solicitud realizada el {fecha} fue completada.",
-        url=url,
+    # >>> registrar la aprobación <<<
+    ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+    SolicitudAutorizacion.objects.update_or_create(
+        content_type=ct,
+        object_id=obj.id,
+        usuario=request.user,
+        defaults={
+            'estado': 'aprobado',
+            'comentario': '',
+            'fecha_revision': timezone.now(),
+        }
     )
-
 
     pdf_url = request.build_absolute_uri(obj.pdf_respuesta.url) if getattr(obj.pdf_respuesta, 'url', None) else None
     return JsonResponse({"ok": True, "id": obj.id, "pdf_url": pdf_url})
+
+@login_required
+@permission_required('forms_requests.change_constanciaguarderia', raise_exception=True)
+@require_POST
+def rechazar_guarderia(request, pk: int):
+    obj = get_object_or_404(ConstanciaGuarderia, pk=pk)
+
+    comentario = (request.POST.get('comentario') or "").strip()
+
+    # Creamos/actualizamos una SolicitudAutorizacion como "rechazado"
+    ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+    sa, _ = SolicitudAutorizacion.objects.get_or_create(
+        content_type=ct,
+        object_id=obj.id,
+        usuario=request.user,
+        defaults={
+            'estado': 'rechazado',
+            'comentario': comentario,
+            'fecha_revision': timezone.now()
+        }
+    )
+    if sa.estado != 'rechazado' or sa.comentario != comentario:
+        sa.estado = 'rechazado'
+        sa.comentario = comentario
+        sa.fecha_revision = timezone.now()
+        sa.save(update_fields=['estado', 'comentario', 'fecha_revision'])
+
+    # Notifica al empleado (opcional pero útil)
+    try:
+        from apps.notifications.utils import notify
+        url = request.build_absolute_uri(reverse('forms_requests:user_forms'))
+        notify(
+            obj.empleado,
+            "Solicitud de guardería rechazada",
+            comentario or "Tu solicitud fue rechazada.",
+            url,
+            dedupe_key=f"guarderia-{obj.pk}-rechazada"
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({"ok": True})

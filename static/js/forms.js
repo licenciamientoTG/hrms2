@@ -210,6 +210,15 @@ document.getElementById('formResponder').addEventListener('submit', async (e) =>
   const $contador = document.getElementById('contador');
   const $limpiar = document.getElementById('btn-limpiar');
 
+  // Mapeo de sinónimos -> código
+  const SYN = {
+    'en proceso': 'pendiente',
+    'pendientes': 'pendiente',
+    'completados': 'completada',
+    'completo': 'completada',
+    'rechazados': 'rechazada',
+  };
+
   function norm(s=''){
     try {
       return s.toString()
@@ -222,26 +231,39 @@ document.getElementById('formResponder').addEventListener('submit', async (e) =>
     }
   }
 
+  function toCode(value){
+    const v = norm(value);
+    return SYN[v] || v;  // si es sinónimo, devuelve el código; si no, deja tal cual
+  }
+
   function filtrar(){
     const q = norm($q.value);
-    const e = norm($estado.value);
+    const eRaw = $estado.value;          // viene del <select>, ya es el código (o vacío)
+    const e = toCode(eRaw);
+
     let visibles = 0;
 
     Array.from($tbody.querySelectorAll('tr')).forEach(tr => {
-      const id = norm(tr.dataset.id);
-      const emp = norm(tr.dataset.empleado);
-      const est = norm(tr.dataset.estado);
+      const id       = norm(tr.dataset.id);
+      const emp      = norm(tr.dataset.empleado);
+      const est      = norm(tr.dataset.estado);         // código
+      const estLabel = norm(tr.dataset.estadoLabel || ''); // texto visible (“en proceso”)
 
-      const matchTexto = !q || id.includes(q) || emp.includes(q);
-      const matchEstado = !e || est === e;
+      // Busca por id / empleado / estado (código) / estado (label)
+      const matchTexto  = !q || id.includes(q) || emp.includes(q) || est.includes(q) || estLabel.includes(q);
+
+      // Filtra por estado del select (acepta sinónimos si algún día cambian)
+      const matchEstado = !e || est === e || toCode(est) === e;
 
       const show = matchTexto && matchEstado;
       tr.classList.toggle('d-none', !show);
       if (show) visibles++;
     });
 
-    const total = $tbody.querySelectorAll('tr').length;
-    $contador.textContent = `${visibles} de ${total} resultados`;
+    if ($contador) {
+      const total = $tbody.querySelectorAll('tr').length;
+      $contador.textContent = `${visibles} de ${total} resultados`;
+    }
   }
 
   $q.addEventListener('input', filtrar);
@@ -254,3 +276,41 @@ document.getElementById('formResponder').addEventListener('submit', async (e) =>
 
   filtrar();
 })();
+
+
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+
+document.getElementById('btn-rechazar')?.addEventListener('click', async (ev) => {
+  ev.preventDefault();
+  const id = document.getElementById('resp-id').value;
+  if (!id) return;
+
+  const comentario = (document.getElementById('rechazo-comentario')?.value || '').trim();
+
+  try {
+    const res = await fetch(`/forms_requests/guarderia/${id}/rechazar/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: (() => {
+        const fd = new FormData();
+        fd.append('comentario', comentario);
+        return fd;
+      })()
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Error');
+
+    // Cierra modal y refresca la lista (o recarga página)
+    bootstrap.Modal.getInstance(document.getElementById('modalResponder'))?.hide();
+    // Si tienes una función que refresca la tabla, llámala aquí.
+    // Si no, recarga:
+    location.reload();
+
+  } catch (err) {
+    console.error(err);
+    alert('No se pudo rechazar la solicitud.');
+  }
+});

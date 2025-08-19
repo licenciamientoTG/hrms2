@@ -14,4 +14,6 @@ urlpatterns = [
     path("guarderia/<int:pk>/responder/", views.responder_guarderia, name="responder_guarderia"),
     path('carta-recomendacion/', generar_carta_recomendacion, name='carta_recomendacion'),
     path('api/validar-empleado-numero/', views.validar_empleado_numero, name='validar_empleado_numero'),
+    path('guarderia/<int:pk>/rechazar/', views.rechazar_guarderia, name='rechazar_guarderia'),
+
 ]

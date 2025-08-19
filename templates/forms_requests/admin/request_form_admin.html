@@ -48,17 +48,22 @@
       <tr
         data-id="{{ s.id }}"
         data-empleado="{{ s.empleado.get_full_name|default:s.empleado.username }}"
-        data-estado="{% if s.pdf_respuesta and s.pdf_respuesta.name %}completada{% else %}pendiente{% endif %}"
+        data-estado="{% if s.estado == 'en progreso' %}pendiente{% else %}{{ s.estado }}{% endif %}"
+        data-estado-label="{% if s.estado == 'en progreso' %}En proceso{% else %}{{ s.estado|title }}{% endif %}"
       >
         <td>{{ s.id }}</td>
         <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
         <td class="text-nowrap">{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
         <td>
-          {% if s.pdf_respuesta and s.pdf_respuesta.name %}
-            <span class="badge bg-success">Completada</span>
-          {% else %}
-            <span class="badge bg-warning text-dark">Pendiente</span>
-          {% endif %}
+          {% with st=s.estado %}
+            {% if st == 'completada' %}
+              <span class="badge bg-success">Completada</span>
+            {% elif st == 'rechazada' %}
+              <span class="badge bg-danger">Rechazada</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Pendiente</span>
+            {% endif %}
+          {% endwith %}
         </td>
         <td>
           {% if s.pdf_respuesta and s.pdf_respuesta.name %}
@@ -161,6 +166,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button id="btn-rechazar" class="btn btn-danger me-auto" type="button">Rechazar</button>
         <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-success" type="submit">Enviar</button>
       </div>
@@ -314,8 +320,42 @@
     modalAbierto = false;
   });
 })();
+
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+
+document.getElementById('btn-rechazar')?.addEventListener('click', async (ev) => {
+  ev.preventDefault();
+  const id = document.getElementById('resp-id').value;
+  if (!id) return;
+
+  const comentario = (document.getElementById('rechazo-comentario')?.value || '').trim();
+
+  try {
+    const res = await fetch(`/forms_requests/guarderia/${id}/rechazar/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: (() => {
+        const fd = new FormData();
+        fd.append('comentario', comentario);
+        return fd;
+      })()
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Error');
+
+    // Cierra modal y refresca la lista (o recarga página)
+    bootstrap.Modal.getInstance(document.getElementById('modalResponder'))?.hide();
+    // Si tienes una función que refresca la tabla, llámala aquí.
+    // Si no, recarga:
+    location.reload();
+
+  } catch (err) {
+    console.error(err);
+    alert('No se pudo rechazar la solicitud.');
+  }
+});
 </script>
-
-
-
 {% endblock %}
