@@ -42,10 +42,3 @@ def solicitud_autorizacion_saved(sender, instance, **kwargs):
     solicitud = instance.solicitud  # GenericForeignKey
     if isinstance(solicitud, ConstanciaGuarderia):
         _notificar_completada(solicitud)
-
-
-# 2) Cuando se guarda la constancia, detecta transición a 'completada' (por PDF u otros cambios)
-@receiver(post_save, sender=ConstanciaGuarderia)
-def constancia_guarderia_saved(sender, instance: ConstanciaGuarderia, created, **kwargs):
-    # Si es nueva, aún no estará completada normalmente; pero por si acaso:
-    _notificar_completada(instance)
