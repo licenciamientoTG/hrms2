@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "apps.objectives",
     "apps.org_chart",
     "apps.archive",
-    "apps.courses",
     "apps.onboarding",
     "apps.surveys",
     "apps.documents",
@@ -64,6 +63,7 @@ INSTALLED_APPS = [
     'apps.endpoints',
     'apps.staff_requisitions',
     'apps.notifications',
+    "apps.courses.apps.CoursesConfig",
 ]
 
 MIDDLEWARE = [
