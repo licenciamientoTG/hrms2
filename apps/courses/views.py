@@ -40,6 +40,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
+from apps.notifications.models import Notification
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
@@ -1127,9 +1128,12 @@ def submit_course_quiz(request, course_id):
 
 @login_required
 def unread_course_count(request):
-    unread_count = EnrolledCourse.objects.filter(user=request.user, is_read=False).count()
+    unread_count = Notification.objects.filter(
+        user=request.user,
+        read_at__isnull=True,        # <— NOTA: aquí va read_at__isnull
+        url__icontains="/courses/"   # ajusta si usas rutas distintas
+    ).count()
     return JsonResponse({'unread_count': unread_count})
-
 
 @require_POST
 @login_required
