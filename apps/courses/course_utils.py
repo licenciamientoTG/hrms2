@@ -1,9 +1,11 @@
 from django.utils.timezone import now
 from datetime import timedelta
 from django.db.models import Q
-from apps.courses.models import CourseHeader, CourseConfig, EnrolledCourse, QuizAttempt, Quiz
+from apps.courses.models import CourseHeader, CourseConfig, EnrolledCourse, QuizAttempt, Quiz, CourseAssignment, CourseSeen
 from django.contrib.auth.models import User
-
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from apps.notifications.utils import notify
 
 def check_and_archive_courses():
     cursos = CourseHeader.objects.filter(config__is_archived=True, archived_at__isnull=True)
@@ -73,3 +75,58 @@ def check_and_archive_courses():
         if agotaron == len(assigned_user_ids):
             curso.archived_at = now()
             curso.save()
+
+User = get_user_model()
+
+def _all_users_courses_qs():
+    """Cursos visibles para todos (por config o por assignment), activos (no archivados)."""
+    cfg_ids = CourseHeader.objects.filter(
+        archived_at__isnull=True,
+        config__audience="all_users",
+    ).values_list("id", flat=True)
+
+    assign_ids = CourseAssignment.objects.filter(
+        assignment_type="all_users",
+        course__archived_at__isnull=True,
+    ).values_list("course_id", flat=True)
+
+    return CourseHeader.objects.filter(
+        Q(id__in=cfg_ids) | Q(id__in=assign_ids)
+    ).distinct()
+
+def _course_url(course_id: int) -> str:
+    try:
+        return reverse("view_course_content", args=[course_id])
+    except Exception:
+        return "/courses/user/courses/"
+
+def ensure_allusers_notifications_for(user: User) -> int:
+    """
+    Para el usuario dado, crea notificación de 'nuevo curso' por cada curso all_users
+    que todavía no haya visto (según CourseSeen). Devuelve cuántas creó.
+    """
+    if not user or not user.is_authenticated or user.is_staff or user.is_superuser:
+        return 0
+
+    created = 0
+    for course in _all_users_courses_qs():
+        # ¿Ya marcamos este curso como “visto/notificado” para este usuario?
+        if CourseSeen.objects.filter(user=user, course=course).exists():
+            continue
+
+        url = _course_url(course.id)
+
+        # Crea la notificación (el util ya evita duplicados exactos abiertos)
+        notify(
+            user=user,
+            title="Nuevo curso disponible",
+            body=f"Se ha publicado el curso: {course.title}",
+            url=url,
+            dedupe_key=None,
+        )
+
+        # Marca como visto para no volver a notificar a este usuario por este curso
+        CourseSeen.objects.create(user=user, course=course)
+        created += 1
+
+    return created

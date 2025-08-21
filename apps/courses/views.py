@@ -41,6 +41,8 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from apps.notifications.models import Notification
+from apps.courses.course_utils import ensure_allusers_notifications_for
+
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
@@ -146,6 +148,13 @@ def course_wizard(request):
             )
 
         assignments = CourseAssignment.objects.filter(course=course)
+
+        # Flag para “asignado a todos” por cualquiera de los dos caminos
+        course.is_all_users = (
+            (config and config.audience == "all_users")
+            or assignments.filter(assignment_type="all_users").exists()
+        )
+
         for assignment in assignments:
             if assignment.assignment_type == 'specific_users':
                 assigned_user_ids |= set(assignment.users.values_list('id', flat=True))
@@ -759,6 +768,7 @@ def admin_course_edit(request, course_id):
 
 @login_required
 def user_courses(request):
+    ensure_allusers_notifications_for(request.user)
     check_and_archive_courses()
     today = timezone.now().date()
 
@@ -776,13 +786,17 @@ def user_courses(request):
         archived_at__isnull=True 
     )
 
-    # 3) Cursos por tipo de asignación all_users
-    assigned_by_type = CourseAssignment.objects.filter(
-        assignment_type="all_users"
-    ).values_list("course_id", flat=True)
+    # 3) Cursos por tipo de asignación all_users (vía CourseAssignment)
+    assigned_by_type_ids = list(
+        CourseAssignment.objects
+        .filter(assignment_type="all_users")
+        .values_list("course_id", flat=True)
+        .distinct()
+    )
+
     type_based = CourseHeader.objects.filter(
-        id__in=assigned_by_type, 
-        archived_at__isnull=True 
+        id__in=assigned_by_type_ids,
+        archived_at__isnull=True
     )
 
     # 4) Unión sin duplicados
@@ -883,10 +897,7 @@ def admin_courses(request):
         courses = CourseHeader.objects.all()
         template_name = "courses/admin/admin_courses.html"
     else:
-        # Si no es admin, obtener los cursos asignados al usuario
-        enrolled_courses = EnrolledCourse.objects.filter(user=request.user)
-        courses = [enrolled_course.course for enrolled_course in enrolled_courses]
-        template_name = "courses/user/my_courses.html"
+        return redirect('user_courses')   # 👈 usa la vista correcta
         
     totalcursos = len(courses)
     today = datetime.now().date()

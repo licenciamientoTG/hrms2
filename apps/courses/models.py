@@ -570,3 +570,12 @@ class CourseCertificate(models.Model):
 
     def __str__(self):
         return f"Certificado: {self.user.get_full_name()} - {self.course.title}"
+
+class CourseSeen(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses_seen')
+    course = models.ForeignKey(CourseHeader, on_delete=models.CASCADE, related_name='seen_by')
+    notified_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'course')
+        indexes = [models.Index(fields=['user', 'course'])]

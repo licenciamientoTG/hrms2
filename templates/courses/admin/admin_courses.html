@@ -127,14 +127,13 @@
                                     <span class="badge bg-secondary">No definido</span>
                                 {% endif %}
                                 
-                                {% if course.config.audience == "segment" %}
-                                    {% if course.assigned_count > 0 %}
-                                        <span class="badge bg-success text-light">Asignado</span>
-                                    {% else %}
-                                        <span class="badge bg-warning text-dark">Sin asignar</span>
-                                    {% endif %}
+                                {% if course.is_all_users %}
+                                    <span class="badge bg-info text-light">Asignado a todos</span>
+                                {% elif course.assigned_count > 0 %}
+                                    <span class="badge bg-success text-light">Asignado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Sin asignar</span>
                                 {% endif %}
-
                             </div>
                         <div class="progress mb-2" style="height: 6px;">
                             <div class="progress-bar bg-info" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
