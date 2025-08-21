@@ -13,16 +13,24 @@
     transform: translate(30%, -30%);
 }
 
+/* Notificación NO leída (más oscura, resalta más) */
 #alertsList .list-group-item.is-unread {
-  background-color: #e9ecef;
+  background-color: #dee2e6;   /* gris clarito */
   font-weight: 600;
 }
 
+/* Notificación leída (más clara, casi blanco) */
 #alertsList .list-group-item.is-read {
-  background-color: #ffffff; 
-  font-weight: normal;
+  background-color: #fff;   /* gris muy suave */
+  font-weight: 400;
+  color: #495057;
 }
 
-#alertsList .list-group-item:hover {
-  background-color: #dee2e6;
+/* Hover: apenas más oscuro para cada caso */
+#alertsList .list-group-item.is-unread:hover {
+  background-color: #d6d8db;   /* un poco más oscuro */
+}
+
+#alertsList .list-group-item.is-read:hover {
+  background-color: #e9ecef;
 }

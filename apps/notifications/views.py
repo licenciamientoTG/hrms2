@@ -4,19 +4,36 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils.timezone import now
 from .models import Notification
 from django.shortcuts import get_object_or_404
+from django.core.paginator import Paginator
 
 @login_required
 @require_GET
 def api_list(request):
-    qs = (Notification.objects
-          .filter(user=request.user)
-          .order_by('-created_at', '-id')[:20])
-    unread = Notification.objects.filter(user=request.user, read_at__isnull=True).count()
+    page = int(request.GET.get("page", 1))
+    page_size = int(request.GET.get("page_size", 20))
+
+    qs = Notification.objects.filter(user=request.user).order_by("-created_at", "-id")
+    paginator = Paginator(qs, page_size)
+    page_obj = paginator.get_page(page)
+
+    unread = qs.filter(read_at__isnull=True).count()
+
     items = [{
-        'id': n.id, 'title': n.title, 'body': n.body, 'url': n.url,
-        'created_at': n.created_at.isoformat(), 'is_read': n.is_read
-    } for n in qs]
-    return JsonResponse({'ok': True, 'count': unread, 'items': items})
+        "id": n.id,
+        "title": n.title,
+        "body": n.body,
+        "url": n.url,
+        "created_at": n.created_at.isoformat(),
+        "is_read": n.read_at is not None,
+    } for n in page_obj]
+
+    return JsonResponse({
+        "ok": True,
+        "count": unread,
+        "items": items,
+        "page": page,
+        "has_next": page_obj.has_next(),
+    })
 
 
 @login_required
