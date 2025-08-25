@@ -55,7 +55,13 @@
                 </a>
 
                 <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-                    <span class="text-dark">{{ user.last_name }}</span>
+                    <span class="text-dark">
+                        {% if user.is_superuser %}
+                            {{ user.username }}
+                        {% else %}
+                            {{ user.last_name }}
+                        {% endif %}
+                    </span>
                 </a>
 
                 <div class="dropdown-menu dropdown-menu-end">
