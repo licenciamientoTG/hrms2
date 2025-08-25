@@ -41,6 +41,7 @@
       <th>Estado</th>
       <th>PDF</th>
       <th>Información</th>
+      <th>Tipo</th>
     </tr>
   </thead>
   <tbody id="tabla-solicitudes">
@@ -66,18 +67,18 @@
           {% endwith %}
         </td>
         <td>
-        {% if s.estado == "rechazada" %}
-          -
-        {% elif s.pdf_respuesta and s.pdf_respuesta.name %}
-          <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
-        {% else %}
-          <button type="button"
-                  class="btn btn-sm btn-success btn-responder"
-                  data-id="{{ s.id }}"
-                  data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
-            Responder
-          </button>
-        {% endif %}
+          {% if s.estado == "rechazada" %}
+            -
+          {% elif s.pdf_respuesta and s.pdf_respuesta.name %}
+            <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
+          {% else %}
+            <button type="button"
+                    class="btn btn-sm btn-success btn-responder"
+                    data-id="{{ s.id }}"
+                    data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
+              Responder
+            </button>
+          {% endif %}
         </td>
         <td>
           <button type="button"
@@ -86,12 +87,16 @@
             Ver
           </button>
         </td>
+        <td>
+          <span class="badge bg-info text-dark">Guardería</span>
+        </td>
       </tr>
     {% empty %}
-      <tr><td colspan="6">Sin registros</td></tr>
+      <tr><td colspan="7">Sin registros</td></tr>
     {% endfor %}
   </tbody>
 </table>
+
 
   <!-- Paginación -->
   {% if page_obj.paginator.num_pages > 1 %}
