@@ -21,7 +21,7 @@ from .utils import parse_fecha
 
 @login_required
 def user_dashboard(request):
-    empleados = Employee.objects.select_related('user')
+    empleados = Employee.objects.select_related('user').order_by('-created_at')
     permisos = Permission.objects.all() 
 
     return render(request, 'users/user_dashboard.html', {
