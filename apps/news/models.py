@@ -24,7 +24,7 @@ class News(models.Model):
     ]
     audience = models.CharField(max_length=10, choices=AUDIENCE_CHOICES, default='all')
 
-    publish_at = models.DateTimeField(null=True, blank=True)  # Para programación futura
+    publish_at = models.DateTimeField(null=True, blank=True)  
     published_at = models.DateTimeField(auto_now_add=True)
     
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
