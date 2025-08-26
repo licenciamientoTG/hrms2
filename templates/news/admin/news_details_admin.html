@@ -1,0 +1,115 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block page_title %}Editar noticia{% endblock %}
+{% block title %}Editar noticia{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/forms.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+  <form id="news-form" method="post" enctype="multipart/form-data" action="{% url 'news_detail_admin' news.id %}">
+    {% csrf_token %}
+
+    <!-- Portada -->
+    <div class="mb-4">
+      <label class="form-label d-block">Imagen de portada</label>
+
+      {% if news.cover_image %}
+        <div class="mb-2">
+          <img src="{{ news.cover_image.url }}" alt="Portada" style="max-width:240px;height:auto;border-radius:6px;">
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="clear_cover" name="clear_cover">
+          <label class="form-check-label" for="clear_cover">Eliminar portada</label>
+        </div>
+      {% endif %}
+
+      <input type="file" name="cover_image" class="form-control">
+      <small class="text-muted">Si subes una nueva imagen, reemplazará la actual.</small>
+    </div>
+
+    <!-- Título -->
+    <div class="mb-4">
+      <label class="form-label">Título</label>
+      <input type="text" name="title" class="form-control" value="{{ news.title }}" required>
+    </div>
+
+    <!-- Contenido con editor -->
+    <div class="mb-4">
+      <label class="form-label">Contenido</label>
+      {# quita 'required' para evitar el error "not focusable" cuando TinyMCE oculta el textarea #}
+      <textarea name="content" class="form-control" rows="12">{{ news.content|safe }}</textarea>
+    </div>
+
+    <!-- Tópicos -->
+    <div class="mb-4">
+      <label class="form-label">Tópicos</label>
+      <select name="tags" class="form-select" multiple>
+        {% for tag in available_tags %}
+          <option value="{{ tag.id }}" {% if tag in news.tags.all %}selected{% endif %}>{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Adjunto -->
+    <div class="mb-4">
+      <label class="form-label d-block">Archivo adjunto</label>
+      {% if news.attachments %}
+        <p class="mb-2">Actual: <a href="{{ news.attachments.url }}" target="_blank" rel="noopener">Descargar</a></p>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="clear_attachment" name="clear_attachment">
+          <label class="form-check-label" for="clear_attachment">Eliminar adjunto</label>
+        </div>
+      {% endif %}
+      <input type="file" name="attachments" class="form-control">
+      <small class="text-muted">Si subes un nuevo archivo, reemplaza al actual.</small>
+    </div>
+
+    <!-- Audiencia -->
+    <div class="mb-4">
+      <label class="form-label">Audiencia</label>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="audience" value="all" id="aud_all"
+               {% if news.audience == 'all' %}checked{% endif %}>
+        <label class="form-check-label" for="aud_all">Todos los usuarios</label>
+      </div>
+    </div>
+
+    <!-- Notificaciones -->
+    <div class="mb-4">
+      <label class="form-label">Notificar audiencia</label>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="notify_email" id="ne"
+               {% if news.notify_email %}checked{% endif %}>
+        <label class="form-check-label" for="ne">Email</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="notify_push" id="np"
+               {% if news.notify_push %}checked{% endif %}>
+        <label class="form-check-label" for="np">Notificación Push</label>
+      </div>
+    </div>
+
+    <!-- Programar publicación -->
+    <div class="mb-4">
+      <label class="form-label">Programar publicación</label>
+      <input type="datetime-local" name="publish_at" class="form-control"
+             value="{% if news.publish_at %}{{ news.publish_at|date:'Y-m-d\\TH:i' }}{% endif %}">
+    </div>
+
+    <!-- Botones -->
+    <div class="d-flex justify-content-end gap-2">
+      <a href="{% url 'admin_news' %}" class="btn btn-secondary">Volver</a>
+      <button type="submit" class="btn btn-primary">Guardar cambios</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <!-- TinyMCE (usa tu key o self-host) -->
+  <script src="https://cdn.tiny.cloud/1/dqctt74iq604vpgio60eeakzspfhav9rqdrcmhs3qunc6pm0/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+  <script src="{% static 'js/news.js' %}"></script>
+{% endblock %}
