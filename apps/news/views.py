@@ -4,11 +4,12 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
 from .models import News, NewsTag
-from django.db.models import Q
+from django.db.models import Q, Count, Exists, OuterRef
 from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponseNotAllowed
-from .models import News
+from .models import News, NewsLike
+from django.http import JsonResponse 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -36,18 +37,34 @@ def admin_news_view(request):
 #esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
 def user_news_view(request):
-    q = request.GET.get('q', '').strip()
+    q = (request.GET.get('q') or '').strip()
     now = timezone.now()
-    news = (News.objects.select_related('author')
-            .prefetch_related('tags')
-            .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
-            .order_by('-published_at'))
+
+    # ¿Este usuario ya dio like a cada noticia?
+    my_like = Exists(
+        NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
+    )
+
+    qs = (News.objects
+          .select_related('author')
+          .prefetch_related('tags')
+          .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now)))
+
+    # Mantengo tu búsqueda (título + contenido + tags). Si quieres SOLO título, deja solo title__icontains
     if q:
-        news = news.filter(
+        qs = qs.filter(
             Q(title__icontains=q) |
             Q(content__icontains=q) |
             Q(tags__name__icontains=q)
         ).distinct()
+
+    news = (qs
+            .annotate(
+                like_count=Count('like_set', distinct=True),  # total de likes
+                my_liked=my_like,                             # bool: yo ya di like
+            )
+            .order_by('-published_at'))
+
     return render(request, 'news/user/news_view_user.html', {'news': news, 'q': q})
 
 # esta vista es para que el administrador pueda editar las noticias
@@ -107,13 +124,27 @@ def news_detail_admin(request, pk):
 # esta vista es para que el usuario vea los detalles de la noticia
 @login_required
 def news_detail_user(request, pk):
-    n = (News.objects
-            .select_related('author')
-            .prefetch_related('tags')
-            .get(pk=pk))
-    # Si no es admin, no mostrar noticias programadas a futuro
-    if not request.user.is_superuser and n.publish_at and n.publish_at > timezone.now():
+    now = timezone.now()
+
+    # ¿Este usuario ya dio like a esta noticia?
+    my_like = Exists(
+        NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
+    )
+
+    qs = (News.objects
+          .select_related('author')
+          .prefetch_related('tags')
+          .annotate(
+              like_count=Count('like_set', distinct=True),  # ⚠️ Si no usaste related_name='like_set',
+              my_liked=my_like,                             #     cambia a 'newslike_set'
+          ))
+
+    n = get_object_or_404(qs, pk=pk)
+
+    # Si no es admin, no mostrar noticias programadas a futuro (mantengo tu lógica)
+    if not request.user.is_superuser and n.publish_at and n.publish_at > now:
         return redirect('user_news')
+
     return render(request, 'news/user/news_detail_user.html', {'n': n})
 
 # esta vista es para que el administrador elimine noticias
@@ -181,3 +212,23 @@ def create_news(request):
 
     tags = NewsTag.objects.all().order_by('name')
     return render(request, 'news/admin/create_news.html', {'available_tags': tags})
+
+# esta vista es para que el usuario pueda dar like a una noticia
+@login_required
+def news_like_toggle(request, pk):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+
+    n = get_object_or_404(News, pk=pk)
+
+    obj, created = NewsLike.objects.get_or_create(news=n, user=request.user)
+    if created:
+        liked = True
+    else:
+        obj.delete()
+        liked = False
+
+    # Conteo actualizado
+    count = NewsLike.objects.filter(news=n).count()
+
+    return JsonResponse({'ok': True, 'liked': liked, 'count': count})

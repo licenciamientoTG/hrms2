@@ -72,3 +72,16 @@
     display:block;        /* evita gaps raros */
     margin: 0 auto;       /* centra si el contenedor es más ancho */
 }
+
+.btn-like,
+.btn-like:hover,
+.btn-like:focus {
+  border: 0 !important;         /* quita borde */
+  box-shadow: none !important;  /* quita “halo” de focus */
+}
+
+/* Accesibilidad: si quieres dejar un focus sutil para teclado */
+.btn-like:focus-visible {
+  outline: none;                 /* o un borde sutil si prefieres */
+  box-shadow: none;
+}

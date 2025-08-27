@@ -141,3 +141,62 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 });
 
+function getCookie(name){
+  const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// Toggle like (delegación global)
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-like');
+  if (!btn) return;
+
+  const url = btn.dataset.url;
+  if (!url) return;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      // body opcional: new URLSearchParams() si quieres
+    });
+
+    // Si login_required te redirige al login
+    if (res.redirected) { window.location = res.url; return; }
+
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+
+    if (!res.ok || !data?.ok) {
+      console.error('[like] status:', res.status, 'body:', text);
+      // Mensajes útiles según el caso:
+      if (res.status === 403 && /CSRF/i.test(text)) {
+        if (window.Swal) Swal.fire({icon:'error', title:'CSRF', text:'Falta token CSRF. Recarga la página.'});
+      } else if (res.status === 404) {
+        if (window.Swal) Swal.fire({icon:'error', title:'No encontrado'});
+      } else {
+        if (window.Swal) Swal.fire({icon:'error', title:'No se pudo registrar tu like'});
+      }
+      return;
+    }
+
+    // ✅ éxito: actualizar contador y estado visual
+    const countEl = btn.querySelector('.like-count');
+    if (countEl) countEl.textContent = data.count;
+
+    btn.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
+    btn.classList.toggle('is-active', data.liked);
+    btn.classList.toggle('btn-outline-secondary', !data.liked);
+    btn.classList.toggle('btn-success', data.liked); // opcional para resaltar
+  } catch (err) {
+    console.error('[like] fetch error:', err);
+    if (window.Swal) Swal.fire({icon:'error', title:'No se pudo registrar tu like'});
+  } finally {
+    btn.disabled = false;
+  }
+});

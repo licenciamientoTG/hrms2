@@ -42,7 +42,13 @@
 
   <!-- Acciones/placeholder -->
   <div class="d-flex align-items-center gap-3">
-    <span class="muted">👍 0</span>
+    <button type="button"
+            class="btn btn-sm btn-like border-0 shadow-none
+                  {% if n.my_liked %}btn-success text-white{% else %}btn-light{% endif %}"
+            data-url="{% url 'news_like_toggle' n.id %}"
+            aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
+      👍 <span class="like-count">{{ n.like_count }}</span>
+    </button>
     <span class="muted">💬 0</span>
   </div>
 </article>

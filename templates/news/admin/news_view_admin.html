@@ -17,7 +17,6 @@
     <thead>
       <tr>
         <th>Título</th>
-        <th>Tópicos</th>
         <th>Fecha</th>
         <th>Creador</th>
         <th>Acciones</th>
@@ -28,13 +27,6 @@
         <tr>
           <td>
               {{ noticia.title|truncatechars:80 }}
-          </td>
-          <td>
-            {% for tag in noticia.tags.all %}
-              <span class="badge bg-secondary me-1">{{ tag.name }}</span>
-            {% empty %}
-              <span>-</span>
-            {% endfor %}
           </td>
           <td>
             {% if noticia.publish_at %}

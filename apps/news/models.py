@@ -31,8 +31,16 @@ class News(models.Model):
 
     publish_at = models.DateTimeField(null=True, blank=True)  
     published_at = models.DateTimeField(auto_now_add=True)
-    
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    likes = models.ManyToManyField(User, through='NewsLike', related_name='liked_news', blank=True)
 
     def __str__(self):
         return self.title
+
+class NewsLike(models.Model):
+    news = models.ForeignKey(News, on_delete=models.CASCADE, related_name='like_set')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='news_like_set')
+    liked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('news', 'user')  # 1 like por usuario/noticia

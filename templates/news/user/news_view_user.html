@@ -38,17 +38,14 @@
           🕒 Hace {{ n.published_at|timesince }}
         </div>
 
-        <!-- Chips de tópicos -->
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          {% for t in n.tags.all %}
-            <span class="chip">{{ t.name }}</span>
-          {% empty %}
-            <span class="text-muted" style="font-size:.85rem;">Sin tópicos</span>
-          {% endfor %}
-        </div>
-
         <div class="d-flex align-items-center gap-3">
-          <span title="Reacciones">👍 0</span>
+          <button type="button"
+                  class="btn btn-sm btn-like {% if n.my_liked %}btn-success is-active{% else %}btn-outline-secondary{% endif %}"
+                  data-url="{% url 'news_like_toggle' n.id %}"
+                  aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
+            👍 <span class="like-count">{{ n.like_count }}</span>
+          </button>
+
           <span title="Comentarios">💬 0</span>
           <a class="btn btn-sm btn-outline-primary" href="">Ver todo</a>
         </div>
