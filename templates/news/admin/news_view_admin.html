@@ -1,4 +1,5 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 {% block page_title %}Noticias{% endblock %}
 
 {% block content %}
@@ -12,7 +13,7 @@
     <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="🔍 Buscar por título de noticia">
   </form>
 
-  <table class="table table-hover align-middle">
+  <table class="table table-hover align-middle" id="admin-news-table">
     <thead>
       <tr>
         <th>Título</th>
@@ -48,7 +49,17 @@
               <a class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">⋮</a>
               <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="{% url 'news_detail_admin' noticia.id %}">Editar</a></li>
-                <li><a class="dropdown-item text-danger" href="#">Eliminar</a></li>
+                <li>
+                  <form method="post" action="{% url 'news_delete' noticia.id %}" class="delete-news-form">
+                    {% csrf_token %}
+                    <button type="button"
+                            class="dropdown-item text-danger w-100 text-start js-delete-news"
+                            data-title="{{ noticia.title|escape }}"
+                            data-ajax="0"> 
+                      Eliminar
+                    </button>
+                  </form>
+                </li>
               </ul>
             </div>
           </td>
@@ -59,4 +70,8 @@
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/news.js' %}"></script>
 {% endblock %}

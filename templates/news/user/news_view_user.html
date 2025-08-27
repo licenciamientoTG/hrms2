@@ -9,13 +9,9 @@
 {% block content %}
 <h1>Noticias</h1>
 
-<!-- Filtros de tópicos -->
-<div class="d-flex gap-2 flex-wrap mb-4">
-  <button class="btn btn-sm btn-outline-secondary btn-filter active" data-filter="all">Todas</button>
-  {% for t in tags %}
-    <button class="btn btn-sm btn-outline-secondary btn-filter" data-filter="tag-{{ t.id }}">{{ t.name }}</button>
-  {% endfor %}
-</div>
+  <form class="mb-3" method="get">
+    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="🔍 Buscar por título de noticia">
+  </form>
 
 <!-- Grid de noticias -->
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="news-grid">

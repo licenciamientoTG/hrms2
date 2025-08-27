@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
 
 class NewsTag(models.Model):
     name = models.CharField(max_length=50)
@@ -11,7 +12,11 @@ class NewsTag(models.Model):
 class News(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
-    cover_image = models.ImageField(upload_to='news/covers/', null=True, blank=True)
+    cover_image = models.ImageField(
+        upload_to='news/covers/',
+        null=True, blank=True,
+        validators=[FileExtensionValidator(['jpg','jpeg','png','webp','gif'])]
+    )
     tags = models.ManyToManyField(NewsTag, blank=True)
     attachments = models.FileField(upload_to='news/attachments/', null=True, blank=True)
     

@@ -6,6 +6,9 @@ from django.utils.timezone import make_aware, get_current_timezone
 from .models import News, NewsTag
 from django.db.models import Q
 from django.utils import timezone
+from django.contrib import messages
+from django.http import HttpResponseNotAllowed
+from .models import News
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -101,6 +104,7 @@ def news_detail_admin(request, pk):
         'available_tags': tags,
     })
 
+# esta vista es para que el usuario vea los detalles de la noticia
 @login_required
 def news_detail_user(request, pk):
     n = (News.objects
@@ -111,6 +115,29 @@ def news_detail_user(request, pk):
     if not request.user.is_superuser and n.publish_at and n.publish_at > timezone.now():
         return redirect('user_news')
     return render(request, 'news/user/news_detail_user.html', {'n': n})
+
+# esta vista es para que el administrador elimine noticias
+@user_passes_test(lambda u: u.is_superuser, login_url='user_news')
+def news_delete(request, pk):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    n = get_object_or_404(News, pk=pk)
+
+    # Borra archivos físicos si existen
+    try:
+        if n.cover_image:
+            n.cover_image.delete(save=False)
+        if n.attachments:
+            n.attachments.delete(save=False)
+    except Exception:
+        # si falla el borrado físico no bloqueamos la eliminación del registro
+        pass
+
+    title = n.title
+    n.delete()
+
+    return redirect('admin_news')
 
 #esta es la vista para la plantilla de crear noticias
 @user_passes_test(lambda u: u.is_superuser)

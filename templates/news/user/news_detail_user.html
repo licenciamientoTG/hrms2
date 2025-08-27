@@ -42,27 +42,8 @@
 
   <!-- Acciones/placeholder -->
   <div class="d-flex align-items-center gap-3">
-    <button class="btn btn-outline-secondary btn-sm" type="button" id="copyLinkBtn">🔗 Copiar enlace</button>
     <span class="muted">👍 0</span>
     <span class="muted">💬 0</span>
   </div>
 </article>
-
-<script>
-  // Copiar enlace
-  document.getElementById('copyLinkBtn')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(window.location.href); alert('Enlace copiado'); }
-    catch { alert('No se pudo copiar'); }
-  });
-
-  // ✅ Añade class="img-fluid" a todas las <img> ya renderizadas y limpia dimensiones fijas
-  document.querySelectorAll('.news-content img').forEach(img => {
-    img.classList.add('img-fluid');      // bootstrap
-    img.removeAttribute('width');
-    img.removeAttribute('height');
-    img.style.width = '';
-    img.style.height = '';
-    if (!img.hasAttribute('loading')) img.setAttribute('loading','lazy'); // opcional: performance
-  });
-</script>
 {% endblock %}
