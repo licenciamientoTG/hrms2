@@ -43,40 +43,6 @@
       <textarea name="content" class="form-control" rows="12">{{ news.content|safe }}</textarea>
     </div>
 
-    <!-- Tópicos -->
-    <div class="mb-4">
-      <label class="form-label">Tópicos</label>
-      <select name="tags" class="form-select" multiple>
-        {% for tag in available_tags %}
-          <option value="{{ tag.id }}" {% if tag in news.tags.all %}selected{% endif %}>{{ tag.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <!-- Adjunto -->
-    <div class="mb-4">
-      <label class="form-label d-block">Archivo adjunto</label>
-      {% if news.attachments %}
-        <p class="mb-2">Actual: <a href="{{ news.attachments.url }}" target="_blank" rel="noopener">Descargar</a></p>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="clear_attachment" name="clear_attachment">
-          <label class="form-check-label" for="clear_attachment">Eliminar adjunto</label>
-        </div>
-      {% endif %}
-      <input type="file" name="attachments" class="form-control">
-      <small class="text-muted">Si subes un nuevo archivo, reemplaza al actual.</small>
-    </div>
-
-    <!-- Audiencia -->
-    <div class="mb-4">
-      <label class="form-label">Audiencia</label>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="audience" value="all" id="aud_all"
-               {% if news.audience == 'all' %}checked{% endif %}>
-        <label class="form-check-label" for="aud_all">Todos los usuarios</label>
-      </div>
-    </div>
-
     <!-- Notificaciones -->
     <div class="mb-4">
       <label class="form-label">Notificar audiencia</label>
