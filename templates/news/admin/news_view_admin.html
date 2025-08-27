@@ -26,9 +26,7 @@
       {% for noticia in news %}
         <tr>
           <td>
-            <a href="{% url 'news_detail_admin' noticia.id %}">
               {{ noticia.title|truncatechars:80 }}
-            </a>
           </td>
           <td>
             {% for tag in noticia.tags.all %}
@@ -49,7 +47,7 @@
             <div class="dropdown">
               <a class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">⋮</a>
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="#">Editar</a></li>
+                <li><a class="dropdown-item" href="{% url 'news_detail_admin' noticia.id %}">Editar</a></li>
                 <li><a class="dropdown-item text-danger" href="#">Eliminar</a></li>
               </ul>
             </div>

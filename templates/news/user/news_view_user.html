@@ -1,8 +1,79 @@
 {% extends 'layouts/base.html' %}
-{% block page_title %} Noticias  {% endblock %}
-{% block title %}Noticias{% endblock %}
+{% load static %}
+{% block page_title %}Noticias{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/news.css' %}">
+{% endblock %}
 
 {% block content %}
-usuario noticias
+<h1>Noticias</h1>
 
+<!-- Filtros de tópicos -->
+<div class="d-flex gap-2 flex-wrap mb-4">
+  <button class="btn btn-sm btn-outline-secondary btn-filter active" data-filter="all">Todas</button>
+  {% for t in tags %}
+    <button class="btn btn-sm btn-outline-secondary btn-filter" data-filter="tag-{{ t.id }}">{{ t.name }}</button>
+  {% endfor %}
+</div>
+
+<!-- Grid de noticias -->
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="news-grid">
+  {% for n in news %}
+  <div class="col news-card" data-tags="{% for t in n.tags.all %}tag-{{ t.id }} {% endfor %}">
+    <div class="card card-smooth h-100">
+    {# ⬇️ PORTADA CLICABLE AL DETALLE ⬇️ #}
+    <div class="cover-wrapper position-relative">
+        {% if n.cover_image %}
+        <img src="{{ n.cover_image.url }}" alt="Portada de {{ n.title }}" class="news-cover">
+        {% else %}
+        <img src="{% static 'img/placeholder-16x9.jpg' %}" alt="Sin portada" class="news-cover">
+        {% endif %}
+        <a href="{% url 'news_detail_user' n.id %}"
+        class="stretched-link"
+        aria-label="Abrir detalle de {{ n.title }}"></a>
+    </div>
+    {# ⬆️ SOLO LA PORTADA ES CLICABLE AL DETALLE ⬆️ #}
+
+      <div class="card-body">
+        <h5 class="card-title line-clamp-2 mb-2">{{ n.title }}</h5>
+
+        <div class="text-muted mb-3" style="font-size:.9rem;">
+          🕒 Hace {{ n.published_at|timesince }}
+        </div>
+
+        <!-- Chips de tópicos -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for t in n.tags.all %}
+            <span class="chip">{{ t.name }}</span>
+          {% empty %}
+            <span class="text-muted" style="font-size:.85rem;">Sin tópicos</span>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+          <span title="Reacciones">👍 0</span>
+          <span title="Comentarios">💬 0</span>
+          <a class="btn btn-sm btn-outline-primary" href="">Ver todo</a>
+        </div>
+      </div>
+
+      <div class="card-footer bg-white">
+        <a class="text-decoration-none" href="">
+          Ver los 0 comentarios
+        </a>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col">
+    <div class="alert alert-light border">No hay noticias visibles aún.</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/news.js' %}"></script>
 {% endblock %}

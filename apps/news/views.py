@@ -101,6 +101,17 @@ def news_detail_admin(request, pk):
         'available_tags': tags,
     })
 
+@login_required
+def news_detail_user(request, pk):
+    n = (News.objects
+            .select_related('author')
+            .prefetch_related('tags')
+            .get(pk=pk))
+    # Si no es admin, no mostrar noticias programadas a futuro
+    if not request.user.is_superuser and n.publish_at and n.publish_at > timezone.now():
+        return redirect('user_news')
+    return render(request, 'news/user/news_detail_user.html', {'n': n})
+
 #esta es la vista para la plantilla de crear noticias
 @user_passes_test(lambda u: u.is_superuser)
 def create_news(request):
