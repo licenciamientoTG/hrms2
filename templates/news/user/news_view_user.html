@@ -18,7 +18,6 @@
   {% for n in news %}
   <div class="col news-card" data-tags="{% for t in n.tags.all %}tag-{{ t.id }} {% endfor %}">
     <div class="card card-smooth h-100">
-    {# ⬇️ PORTADA CLICABLE AL DETALLE ⬇️ #}
     <div class="cover-wrapper position-relative">
         {% if n.cover_image %}
         <img src="{{ n.cover_image.url }}" alt="Portada de {{ n.title }}" class="news-cover">
@@ -40,14 +39,14 @@
 
         <div class="d-flex align-items-center gap-3">
           <button type="button"
-                  class="btn btn-sm btn-like {% if n.my_liked %}btn-success is-active{% else %}btn-outline-secondary{% endif %}"
+                  class="btn btn-sm btn-like {% if n.my_liked %}btn-success {% else %}btn-outline-secondary{% endif %}"
                   data-url="{% url 'news_like_toggle' n.id %}"
                   aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
             👍 <span class="like-count">{{ n.like_count }}</span>
           </button>
 
           <span title="Comentarios">💬 0</span>
-          <a class="btn btn-sm btn-outline-primary" href="">Ver todo</a>
+          <a class="btn btn-sm btn-outline-primary" href="">Ver likes</a>
         </div>
       </div>
 

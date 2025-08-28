@@ -40,7 +40,6 @@ def user_news_view(request):
     q = (request.GET.get('q') or '').strip()
     now = timezone.now()
 
-    # ¿Este usuario ya dio like a cada noticia?
     my_like = Exists(
         NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
     )
@@ -50,7 +49,6 @@ def user_news_view(request):
           .prefetch_related('tags')
           .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now)))
 
-    # Mantengo tu búsqueda (título + contenido + tags). Si quieres SOLO título, deja solo title__icontains
     if q:
         qs = qs.filter(
             Q(title__icontains=q) |
@@ -60,8 +58,8 @@ def user_news_view(request):
 
     news = (qs
             .annotate(
-                like_count=Count('like_set', distinct=True),  # total de likes
-                my_liked=my_like,                             # bool: yo ya di like
+                like_count=Count('like_set', distinct=True),
+                my_liked=my_like,                        
             )
             .order_by('-published_at'))
 
