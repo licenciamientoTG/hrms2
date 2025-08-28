@@ -4,12 +4,14 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
 from .models import News, NewsTag
-from django.db.models import Q, Count, Exists, OuterRef
+from django.db.models import Q, Count, Exists, OuterRef, Prefetch
 from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponseNotAllowed
-from .models import News, NewsLike
-from django.http import JsonResponse 
+from .models import News, NewsLike, NewsComment
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.views.decorators.http import require_POST
+from django.template.loader import render_to_string
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -59,7 +61,8 @@ def user_news_view(request):
     news = (qs
             .annotate(
                 like_count=Count('like_set', distinct=True),
-                my_liked=my_like,                        
+                my_liked=my_like,
+                comment_count=Count('comments', distinct=True),
             )
             .order_by('-published_at'))
 
@@ -124,22 +127,23 @@ def news_detail_admin(request, pk):
 def news_detail_user(request, pk):
     now = timezone.now()
 
-    # ¿Este usuario ya dio like a esta noticia?
     my_like = Exists(
         NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
     )
 
+    comments_qs = NewsComment.objects.select_related('user').order_by('-created_at')
+
     qs = (News.objects
           .select_related('author')
-          .prefetch_related('tags')
+          .prefetch_related(Prefetch('comments', queryset=comments_qs))
           .annotate(
-              like_count=Count('like_set', distinct=True),
+              like_count=Count('like_set', distinct=True),     # cambia 'like_set' si tu related_name es otro
+              comment_count=Count('comments', distinct=True),  # idem: usa el related_name real
               my_liked=my_like,
           ))
 
     n = get_object_or_404(qs, pk=pk)
 
-    # Si no es admin, no mostrar noticias programadas a futuro (mantengo tu lógica)
     if not request.user.is_superuser and n.publish_at and n.publish_at > now:
         return redirect('user_news')
 
@@ -230,3 +234,43 @@ def news_like_toggle(request, pk):
     count = NewsLike.objects.filter(news=n).count()
 
     return JsonResponse({'ok': True, 'liked': liked, 'count': count})
+
+# esta vista es para crear comentarios
+@login_required
+@require_POST
+def news_comment_create(request, pk):
+    news = get_object_or_404(News, pk=pk)
+    body = (request.POST.get('body') or '').strip()
+    if not body:
+        return JsonResponse({'ok': False, 'error': 'empty'}, status=400)
+
+    c = NewsComment.objects.create(news=news, user=request.user, body=body)
+
+    # Render del comentario como HTML (partial)
+    html = render_to_string('news/user/_comment.html', {'c': c, 'request': request}, request=request)
+
+    return JsonResponse({
+        'ok': True,
+        'html': html,
+        'count': news.comments.count(),
+        'id': c.id,
+    })
+
+# esta vista es para eliminar comentarios
+@login_required
+def news_comment_delete(request, pk, cid):
+    # Solo POST y solo AJAX
+    if request.method != 'POST' or request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return HttpResponseBadRequest('Bad request')
+
+    news = get_object_or_404(News, pk=pk)
+    c = get_object_or_404(NewsComment, pk=cid, news=news)
+
+    # Permisos: autor del comentario o superuser
+    if c.user_id != request.user.id and not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+    c.delete()
+    count = NewsComment.objects.filter(news=news).count()
+
+    return JsonResponse({'ok': True, 'count': count})

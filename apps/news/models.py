@@ -44,3 +44,16 @@ class NewsLike(models.Model):
 
     class Meta:
         unique_together = ('news', 'user')  # 1 like por usuario/noticia
+
+class NewsComment(models.Model):
+    news = models.ForeignKey('News', on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='news_comments')
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']  # más recientes primero
+
+    def __str__(self):
+        return f'Comment #{self.id} on {self.news_id} by {self.user_id}'

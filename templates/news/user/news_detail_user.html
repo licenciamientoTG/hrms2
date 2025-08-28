@@ -42,7 +42,31 @@
             aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
       👍 <span class="like-count">{{ n.like_count }}</span>
     </button>
-    <span class="muted">💬 0</span>
+    <span title="Comentarios">💬 <span class="comment-count">{{ n.comment_count }}</span></span>
+  </div>
+
+  <hr class="my-4">
+
+  <h5 class="mb-3">Comenta</h5>
+
+  <form id="comment-form"
+        method="post"
+        data-url="{% url 'news_comment_create' n.id %}">
+    {% csrf_token %}
+    <textarea name="body" class="form-control" rows="3" required></textarea>
+    <div class="mt-2 d-flex justify-content-end">
+      <button type="submit" class="btn btn-primary btn-sm">Publicar</button>
+    </div>
+  </form>
+
+  <div id="comments">
+    {% if n.comments.exists %}
+      {% for c in n.comments.all %}
+        {% include 'news/user/_comment.html' with c=c %}
+      {% endfor %}
+      {% else %}
+      <div class="text-muted">Sé el primero en comentar.</div>
+    {% endif %}
   </div>
 </article>
 {% endblock %}

@@ -200,3 +200,92 @@ document.addEventListener('click', async (e) => {
     btn.disabled = false;
   }
 });
+
+// Utilidad CSRF (si no la tienes ya en news.js)
+function getCookie(name){
+  const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// --- Crear comentario (AJAX) ---
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('#comment-form');
+  if (!form) return;
+
+  e.preventDefault();
+
+  const url = form.dataset.url;
+  const fd = new FormData(form);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      , body: fd
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error();
+
+    // prepend el nuevo comentario
+    const wrap = document.getElementById('comments');
+    wrap.insertAdjacentHTML('afterbegin', data.html);
+
+    // limpiar textarea
+    form.querySelector('textarea[name="body"]').value = '';
+
+    // actualizar contador
+    const cc = document.querySelector('.comment-count');
+    if (cc) cc.textContent = data.count;
+
+  } catch (err) {
+    console.error(err);
+    if (window.Swal) Swal.fire({icon:'error', title:'No se pudo publicar'});
+  }
+});
+
+// --- Eliminar comentario (AJAX + SweetAlert) ---
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.js-delete-comment');
+  if (!btn) return;
+
+  e.preventDefault();
+  const url = btn.dataset.url;
+
+  const go = async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')?.value || '')
+      }
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error();
+    // eliminar del DOM
+    const node = btn.closest('[id^="comment-"]');
+    if (node) node.remove();
+    // actualizar contador
+    const cc = document.querySelector('.comment-count');
+    if (cc) cc.textContent = data.count;
+  };
+
+  if (window.Swal) {
+    const resp = await Swal.fire({
+      title: '¿Eliminar comentario?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: true
+    });
+    if (!resp.isConfirmed) return;
+
+    try { await go(); }
+    catch { Swal.fire({icon:'error', title:'No se pudo eliminar'}); }
+  } else {
+    if (!confirm('¿Eliminar comentario?')) return;
+    try { await go(); } catch {}
+  }
+});
+
