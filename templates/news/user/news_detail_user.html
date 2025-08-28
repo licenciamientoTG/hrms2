@@ -43,7 +43,7 @@
   <!-- Acciones/placeholder -->
   <div class="d-flex align-items-center gap-3">
     <button type="button"
-            class="btn btn-sm btn-like border-0 shadow-none
+            class="btn btn-sm rounded-3 btn-like border-0 shadow-none
                   {% if n.my_liked %}btn-success text-white{% else %}btn-light{% endif %}"
             data-url="{% url 'news_like_toggle' n.id %}"
             aria-pressed="{{ n.my_liked|yesno:'true,false' }}">

@@ -133,8 +133,8 @@ def news_detail_user(request, pk):
           .select_related('author')
           .prefetch_related('tags')
           .annotate(
-              like_count=Count('like_set', distinct=True),  # ⚠️ Si no usaste related_name='like_set',
-              my_liked=my_like,                             #     cambia a 'newslike_set'
+              like_count=Count('like_set', distinct=True),
+              my_liked=my_like,
           ))
 
     n = get_object_or_404(qs, pk=pk)
