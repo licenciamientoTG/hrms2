@@ -20,10 +20,7 @@
         <div class="mb-2">
           <img src="{{ news.cover_image.url }}" alt="Portada" style="max-width:240px;height:auto;border-radius:6px;">
         </div>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="clear_cover" name="clear_cover">
-          <label class="form-check-label" for="clear_cover">Eliminar portada</label>
-        </div>
+
       {% endif %}
 
       <input type="file" name="cover_image" class="form-control">
@@ -63,6 +60,38 @@
       <label class="form-label">Programar publicación</label>
       <input type="datetime-local" name="publish_at" class="form-control"
              value="{% if news.publish_at %}{{ news.publish_at|date:'Y-m-d\\TH:i' }}{% endif %}">
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Comentarios</strong>
+        <span class="text-muted"><span id="comment-total">{{ comments|length }}</span> en total</span>
+      </div>
+      <ul class="list-group list-group-flush" id="comments-list">
+        {% for c in comments %}
+          <li class="list-group-item d-flex justify-content-between align-items-start gap-3" id="comment-{{ c.id }}">
+            <div class="flex-grow-1">
+              <div>
+                <strong>{{ c.user.first_name }} {{ c.user.last_name }}</strong>
+                <small class="text-muted">• hace {{ c.created_at|timesince }}</small>
+              </div>
+
+              <!-- Preview en 1 línea -->
+              <div class="text-body-secondary small line-clamp-1"
+                  title="{{ c.display_text|striptags }}">
+                {{ c.display_text|striptags|default:"(sin texto)" }}
+              </div>
+
+              <button type="button"
+                      class="btn btn-sm btn-outline-danger btn-del-comment"
+                      data-url="{% url 'news_comment_delete' news.id c.id %}"
+                      data-content="{{ c.display_text|striptags|truncatechars:200 }}">
+                Eliminar
+              </button>
+        {% empty %}
+          <li class="list-group-item text-muted">Sin comentarios</li>
+        {% endfor %}
+      </ul>
     </div>
 
     <!-- Botones -->

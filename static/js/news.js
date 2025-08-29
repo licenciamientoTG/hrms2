@@ -289,3 +289,145 @@ document.addEventListener('click', async (e) => {
   }
 });
 
+// static/js/news.js
+(function () {
+  const offcanvasEl = document.getElementById('likesOffcanvas');
+  if (!offcanvasEl) return;
+
+  const likesList   = document.getElementById('likes-list');
+  const likesLoader = document.getElementById('likes-loader');
+  const likesEmpty  = document.getElementById('likes-empty');
+  const likesCount  = document.getElementById('likes-count');
+  const likesTitle  = document.getElementById('likesOffcanvasLabel');
+
+  function showSection(which) {
+    likesLoader.classList.toggle('d-none', which !== 'loader');
+    likesEmpty.classList.toggle('d-none', which !== 'empty');
+    likesList.classList.toggle('d-none', which !== 'list');
+  }
+
+  async function fetchLikes(url) {
+    showSection('loader');
+    likesList.innerHTML = '';
+    likesCount.textContent = '0';
+
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      likesTitle.textContent = `Likes: ${data.title || ''}`.trim();
+      likesCount.textContent = data.count ?? 0;
+
+      if (!data.items || data.items.length === 0) { showSection('empty'); return; }
+
+      const frag = document.createDocumentFragment();
+      data.items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center gap-3';
+
+        const icon = document.createElement('span');
+        icon.className = 'fs-4';
+        icon.textContent = '👍';
+
+        const textWrap = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = item.name;
+        const small = document.createElement('small');
+        small.className = 'text-muted d-block';
+        small.textContent = item.liked_at || '';
+
+        textWrap.appendChild(strong);
+        textWrap.appendChild(small);
+        li.appendChild(icon);
+        li.appendChild(textWrap);
+        frag.appendChild(li);
+      });
+
+      likesList.appendChild(frag);
+      showSection('list');
+    } catch (e) {
+      console.error(e);
+      likesEmpty.textContent = 'No se pudieron cargar los likes.';
+      showSection('empty');
+    }
+  }
+
+  // Solo cargamos datos; Bootstrap abre/cierra el panel vía data-*
+  document.addEventListener('click', function (e) {
+    const a = e.target.closest('.btn-view-likes');
+    if (!a) return;
+    e.preventDefault();          // evita saltos por el href="#"
+    const url = a.getAttribute('data-url');
+    if (url) fetchLikes(url);
+  });
+})();
+
+// ========== BORRAR COMENTARIOS EN EDITAR NOTICIA ==========
+(function () {
+  // CSRF desde cookie (Django)
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  const list = document.getElementById('comments-list');
+  if (!list) return;
+
+  const totalEl = document.getElementById('comment-total');
+
+  list.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-del-comment');
+    if (!btn) return; // <- primero valida que exista
+
+    const url = btn.getAttribute('data-url');
+    if (!url) return;
+
+    const preview = btn.getAttribute('data-content') || '';
+    const msg = '¿Eliminar este comentario?\n\n' + (preview ? `"${preview}"` : '');
+    if (!confirm(msg)) return;
+
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Respuesta inválida');
+
+      // Quita el comentario del DOM
+      const li = document.getElementById('comment-' + data.id);
+      if (li) li.remove();
+
+      // Actualiza el total con el valor del servidor
+      if (typeof data.count === 'number' && totalEl) {
+        totalEl.textContent = data.count;
+      }
+
+      // Si ya no quedan, muestra el vacío
+      if ((data.count ?? 0) === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'list-group-item text-muted';
+        empty.textContent = 'Sin comentarios';
+        // Evita duplicados de “Sin comentarios”
+        if (!list.querySelector('.list-group-item.text-muted')) {
+          list.appendChild(empty);
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo eliminar el comentario. Intenta de nuevo.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();

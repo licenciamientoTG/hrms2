@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import News, NewsTag
+from .models import News, NewsTag, NewsLike, NewsComment
 from django.contrib.auth.decorators import login_required, user_passes_test
 from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
@@ -8,10 +8,13 @@ from django.db.models import Q, Count, Exists, OuterRef, Prefetch
 from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponseNotAllowed
-from .models import News, NewsLike, NewsComment
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest, Http404
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
+from django.utils.timezone import now
+from django.utils.timesince import timesince
+from django.db.models import Value, CharField, F
+from django.db.models.functions import Coalesce
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -75,25 +78,26 @@ def news_detail_admin(request, pk):
     tags = NewsTag.objects.all().order_by('name')
 
     if request.method == 'POST':
-        # Texto/booleans
-        news.title        = request.POST.get('title', '').strip()
-        news.content      = request.POST.get('content', '')            # ← HTML de TinyMCE
+        # Texto / booleans
+        news.title        = (request.POST.get('title') or '').strip()
+        news.content      = request.POST.get('content') or ''  # HTML desde TinyMCE
         news.audience     = request.POST.get('audience', 'all')
         news.notify_email = bool(request.POST.get('notify_email'))
         news.notify_push  = bool(request.POST.get('notify_push'))
 
-        # Programación de publicación
-        raw = request.POST.get('publish_at')
-        if raw:
+        # Programar publicación (input type="datetime-local" => YYYY-MM-DDTHH:MM)
+        raw_dt = request.POST.get('publish_at')
+        if raw_dt:
             try:
-                naive = datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+                naive = datetime.strptime(raw_dt, "%Y-%m-%dT%H:%M")
                 news.publish_at = make_aware(naive, get_current_timezone())
             except Exception:
-                pass
+                # si falla el parseo, mejor limpiarlo que dejar un valor inválido
+                news.publish_at = None
         else:
             news.publish_at = None
 
-        # Portada (reemplazar / eliminar)
+        # Portada
         if request.POST.get('clear_cover') == 'on':
             if news.cover_image:
                 news.cover_image.delete(save=False)
@@ -101,25 +105,39 @@ def news_detail_admin(request, pk):
         elif 'cover_image' in request.FILES:
             news.cover_image = request.FILES['cover_image']
 
-        # Adjunto (reemplazar / eliminar)
+        # Adjunto (si tu modelo tiene un FileField llamado attachments)
         if request.POST.get('clear_attachment') == 'on':
             if news.attachments:
                 news.attachments.delete(save=False)
             news.attachments = None
         elif 'attachments' in request.FILES:
-            news.attachments = request.FILES['attachments']  # modelo actual: 1 archivo
+            news.attachments = request.FILES['attachments']
 
         news.save()
 
         # Tags (ManyToMany)
-        tag_ids = request.POST.getlist('tags')
+        tag_ids = request.POST.getlist('tags')  # lista de strings
         news.tags.set(tag_ids)
 
-        return redirect('admin_news')  # o redirige a la misma página: redirect('news_detail_admin', pk=news.pk)
+        # Redirigir para evitar re-envío al refrescar
+        return redirect('news_detail_admin', pk=news.pk)
+
+    # GET (o tras redirect): siempre calcula comments y renderiza
+    comments = (
+        NewsComment.objects
+        .filter(news=news)
+        .select_related('user')
+        .order_by('-created_at')
+    )
+
+    # Normaliza el texto para el template
+    for c in comments:
+        c.display_text = (c.body or '').strip()
 
     return render(request, 'news/admin/news_details_admin.html', {
         'news': news,
-        'available_tags': tags,
+        'tags': tags,
+        'comments': comments,
     })
 
 # esta vista es para que el usuario vea los detalles de la noticia
@@ -259,18 +277,74 @@ def news_comment_create(request, pk):
 # esta vista es para eliminar comentarios
 @login_required
 def news_comment_delete(request, pk, cid):
-    # Solo POST y solo AJAX
+    # Solo permite POST vía AJAX
     if request.method != 'POST' or request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return HttpResponseBadRequest('Bad request')
 
     news = get_object_or_404(News, pk=pk)
-    c = get_object_or_404(NewsComment, pk=cid, news=news)
+    comment = get_object_or_404(NewsComment, pk=cid, news=news)
+    user = request.user
+    is_super = user.is_superuser
+    has_perm = user.is_staff and user.has_perm('news.delete_newscomment')
+    is_owner = (comment.user_id == user.id)
 
-    # Permisos: autor del comentario o superuser
-    if c.user_id != request.user.id and not request.user.is_superuser:
+    if not (is_super or has_perm or is_owner):
         return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
 
-    c.delete()
-    count = NewsComment.objects.filter(news=news).count()
+    comment.delete()
+    new_count = NewsComment.objects.filter(news=news).count()
 
-    return JsonResponse({'ok': True, 'count': count})
+    return JsonResponse({'ok': True, 'id': cid, 'count': new_count})
+
+def _first_token(s):
+    s = (s or "").strip()
+    return s.split()[0] if s else ""
+
+# esta vista es la visualizacion de los likes
+@login_required
+def news_likes_list(request, pk):
+    news = get_object_or_404(News, pk=pk)
+
+    items = []
+    count = 0
+
+    try:
+        likes_qs = (NewsLike.objects
+                    .filter(news=news)
+                    .select_related('user')
+                    .order_by('-created_at'))
+        count = likes_qs.count()
+        for like in likes_qs:
+            u = like.user
+            fn = _first_token(getattr(u, 'first_name', ''))
+            ln = _first_token(getattr(u, 'last_name', ''))
+            display = (fn + ' ' + ln).strip() or u.get_username()
+            items.append({
+                "name": display,
+                "liked_at": timesince(getattr(like, 'created_at', now()), now()) + " atrás",
+            })
+
+    except Exception:
+        # 2) Si NO hay modelo intermedio, intenta ManyToMany directo:
+        likes_m2m = getattr(news, 'likes', None)
+        if likes_m2m is None:
+            # Nada que devolver (modelo no tiene likes configurado)
+            return JsonResponse({"news_id": news.id, "title": news.title, "count": 0, "items": []})
+
+        users_qs = likes_m2m.all().order_by('id')  # ajusta orden si quieres
+        count = users_qs.count()
+        for u in users_qs:
+            fn = _first_token(getattr(u, 'first_name', ''))
+            ln = _first_token(getattr(u, 'last_name', ''))
+            display = (fn + ' ' + ln).strip() or u.get_username()
+            items.append({
+                "name": display,
+                "liked_at": "",  # sin modelo intermedio no tenemos fecha
+            })
+
+    return JsonResponse({
+        "news_id": news.id,
+        "title": news.title,
+        "count": count,
+        "items": items,
+    })

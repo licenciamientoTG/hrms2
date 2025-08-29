@@ -46,15 +46,14 @@
             👍 <span class="like-count">{{ n.like_count }}</span>
           </button>
 
-          <span title="Comentarios">💬 0</span>
-          <a class="btn btn-sm btn-outline-primary" href="">Ver likes</a>
+          <span title="Comentarios">💬 <span class="comment-count">{{ n.comment_count }}</span></span>
+            <a class="btn btn-sm btn-outline-primary btn-view-likes"
+              data-url="{% url 'news_likes_list' n.id %}"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#likesOffcanvas">
+              Ver likes
+            </a>
         </div>
-      </div>
-
-      <div class="card-footer bg-white">
-        <a class="text-decoration-none" href="">
-          Ver los 0 comentarios
-        </a>
       </div>
     </div>
   </div>
@@ -64,6 +63,25 @@
   </div>
   {% endfor %}
 </div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="likesOffcanvas" aria-labelledby="likesOffcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="likesOffcanvasLabel">A quién le gusta esta noticia</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div id="likes-loader" class="text-center d-none">
+      <div class="spinner-border" role="status"></div>
+      <div class="mt-2">Cargando...</div>
+    </div>
+    <div id="likes-empty" class="alert alert-light border d-none">Aún no hay likes en esta noticia.</div>
+    <ul id="likes-list" class="list-group list-group-flush d-none"></ul>
+  </div>
+  <div class="offcanvas-footer p-3 border-top">
+    <small class="text-muted"><span id="likes-count">0</span> personas han dado like</small>
+  </div>
+</div>
+
 
 {% endblock %}
 
