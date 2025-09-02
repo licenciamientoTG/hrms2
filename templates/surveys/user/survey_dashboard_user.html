@@ -1,0 +1,15 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/survey.css' %}">
+{% endblock %}
+
+{% block page_title %}Panel de Encuestas{% endblock %}
+{% block title %}Panel de Encuestas{% endblock %}
+
+{% block content %}
+Aquí va a ir el panel de encuestas. del usuario
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/survey.js' %}"></script>
+{% endblock %}

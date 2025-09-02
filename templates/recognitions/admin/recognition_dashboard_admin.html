@@ -1,8 +1,15 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+{% endblock %}
 
 {% block page_title %}Panel de Reconocimientos{% endblock %}
 {% block title %}Panel de Reconocimientos{% endblock %}
 
 {% block content %}
 Aquí va a ir el panel de reconocimientos.admin
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/recognition.js' %}"></script>
 {% endblock %}
