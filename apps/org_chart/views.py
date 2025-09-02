@@ -43,6 +43,7 @@ def _find_emp(emp_no=None, name_like=None):
                   .first())
     return None
 
+# vista de organigrama
 @login_required
 def org_chart_data_1(request):
     # Organigrama #1 exactamente como la imagen
