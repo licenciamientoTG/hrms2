@@ -60,13 +60,14 @@
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
                     </a>
                 </li>
+            {% endif %}
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
                     </a>
                 </li>
-                
+            {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>

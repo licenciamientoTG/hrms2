@@ -1,0 +1,18 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/org_chart.css' %}">
+{% endblock %}
+{% block page_title %}Organigrama{% endblock %}
+{% block title %}Organigrama{% endblock %}
+
+{% block content %}
+Aquí va a ir el organigrama. para el administrador
+{# admin #}
+{% include "org_chart/_base_chart.html" with title="Organigrama — Admin" %}
+<script src="https://cdn.balkan.app/orgchart.js"></script>
+<div id="tree" style="height: calc(100vh - 12px)"></div>
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/org_chart.js' %}"></script>
+{% endblock %}

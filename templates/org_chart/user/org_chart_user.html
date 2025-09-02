@@ -1,0 +1,17 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/org_chart.css' %}">
+{% endblock %}
+{% block page_title %}Organigrama{% endblock %}
+{% block title %}Organigrama{% endblock %}
+
+{% block content %}
+Aquí va a ir el organigrama. para el usuario
+{# user #}
+{% include "org_chart/_base_chart.html" with title="Organigrama — Usuario" %}
+
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/org_chart.js' %}"></script>
+{% endblock %}

@@ -13,5 +13,4 @@ urlpatterns = [
     path('news/<int:pk>/comment/', news_comment_create, name='news_comment_create'),
     path('news/<int:pk>/comment/<int:cid>/delete/', news_comment_delete, name='news_comment_delete'),
     path('news/<int:pk>/likes/', news_likes_list, name='news_likes_list'),
-
 ]
