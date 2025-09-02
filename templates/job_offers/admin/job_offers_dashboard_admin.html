@@ -1,0 +1,16 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/job_offers.css' %}">
+{% endblock %}
+
+
+{% block page_title %}Panel de Ofertas de Trabajo{% endblock %}
+{% block title %}Panel de Ofertas de Trabajo{% endblock %}
+
+{% block content %}
+Aquí van a ir las ofertas de trabajo. admin     
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/job_offers.js' %}"></script>
+{% endblock %}
