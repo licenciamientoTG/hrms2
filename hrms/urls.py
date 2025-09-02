@@ -106,6 +106,7 @@ urlpatterns = [
     path('endpoints/', include('apps.endpoints.urls')),
     path('requisiciones/', include('apps.staff_requisitions.urls')),
     path('notifications/', include('apps.notifications.urls')),
+
 ]
 
 if settings.DEBUG:
