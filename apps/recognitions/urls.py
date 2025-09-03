@@ -5,10 +5,11 @@ from .views import (
     recognition_dashboard_user,
 
     CategoryListView,
-    CategoryCreateView,
     CategoryUpdateView,
     CategoryDeleteView,
     category_toggle_active,
+    category_create,
+
 )
 
 urlpatterns = [
@@ -19,7 +20,7 @@ urlpatterns = [
 
     # CATEGORÍAS
     path('categories/', CategoryListView.as_view(), name='category_list'),
-    path('categories/new/', CategoryCreateView.as_view(), name='category_create'),
+    path('categories/new/', category_create, name='category_create'),  # ← función
     path('categories/<int:pk>/edit/', CategoryUpdateView.as_view(), name='category_edit'),
     path('categories/<int:pk>/delete/', CategoryDeleteView.as_view(), name='category_delete'),
     path('categories/<int:pk>/toggle/', category_toggle_active, name='category_toggle'),

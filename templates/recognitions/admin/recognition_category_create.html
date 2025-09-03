@@ -21,26 +21,30 @@
 
         <div class="mb-3">
           <label class="form-label">Nombre</label>
-          {{ form.title }}
-          {% for e in form.title.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          <input type="text" name="title" class="form-control" placeholder="Nombre de la categoría"
+                 value="{{ initial.title|default:'' }}">
+          {% if errors.title %}<div class="text-danger small">{{ errors.title }}</div>{% endif %}
         </div>
 
         <div class="row g-3">
           <div class="col-6">
             <label class="form-label">Puntos</label>
-            {{ form.points }}
-            {% for e in form.points.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <input type="number" min="0" name="points" class="form-control"
+                   value="{{ initial.points|default:'0' }}">
+            {% if errors.points %}<div class="text-danger small">{{ errors.points }}</div>{% endif %}
           </div>
+
           <div class="col-6">
             <label class="form-label d-block">Color</label>
             <div class="d-flex align-items-center gap-3">
-              <span id="colorSwatch" class="rounded-circle border" style="display:inline-block;width:28px;height:28px;background:#1E3361;"></span>
-              <div class="flex-grow-1 position-relative" style="max-width:420px;">
-                {{ form.color_key }}
-                <span id="colorLabel" class="position-absolute top-50 translate-middle-y ms-2 text-muted small" style="left: 48px;"></span>
+              <span id="colorSwatch" class="rounded-circle border" style="display:inline-block;width:28px;height:28px;background:{{ initial.color_hex|default:'#1E3361' }};"></span>
+              <div class="d-flex align-items-center gap-2">
+                <input id="colorPicker" type="color" name="color_hex" class="form-control"
+                       value="{{ initial.color_hex|default:'#1E3361' }}" style="width:70px;padding:0;">
+                <code id="colorHexLabel" class="small text-muted ms-1">{{ initial.color_hex|default:'#1E3361' }}</code>
               </div>
             </div>
-            {% for e in form.color_key.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            {% if errors.color_hex %}<div class="text-danger small">{{ errors.color_hex }}</div>{% endif %}
           </div>
         </div>
       </div>
@@ -57,7 +61,8 @@
             <div class="text-muted small">Incorpora un elemento de celebración para personalizar la portada.</div>
           </div>
           <div class="form-check form-switch fs-5 m-0">
-            {{ form.confetti_enabled }}
+            <input id="confettiSwitch" class="form-check-input" type="checkbox" name="confetti_enabled"
+                   {% if initial.confetti_enabled|default:True %}checked{% endif %}>
           </div>
         </div>
 
@@ -67,22 +72,26 @@
             <div class="text-muted small">Los colaboradores podrán ver cuántos puntos darán en cada reconocimiento que otorguen.</div>
           </div>
           <div class="form-check form-switch fs-5 m-0">
-            {{ form.show_points }}
+            <input id="pointsSwitch" class="form-check-input" type="checkbox" name="show_points"
+                   {% if initial.show_points %}checked{% endif %}>
           </div>
         </div>
 
         <div class="mb-2 fw-semibold">Previsualización</div>
 
-        <div id="coverPreview" class="rounded-3 overflow-hidden border" style="background:#1E3361; height:300px; position:relative;">
-          <img id="coverImage" src="{% static 'img/confetti-pattern.png' %}" alt="preview" style="width:100%;height:100%;object-fit:cover;opacity:0.95;">
-          <div id="pointsBadge" class="position-absolute top-0 end-0 m-2 badge bg-light text-dark" style="display:none;">
-            <span id="pointsValue">0</span> pts
+        <div id="coverPreview" class="rounded-3 overflow-hidden border"
+             style="background:{{ initial.color_hex|default:'#1E3361' }}; height:300px; position:relative;">
+          <img id="coverImage" src="{% static 'template/img/wallpaper/confetti.png' %}" alt="preview"
+               style="width:100%;height:100%;object-fit:cover;opacity:0.95;">
+          <div id="pointsBadge" class="position-absolute top-0 end-0 m-2 badge bg-light text-dark"
+               style="display:{% if initial.show_points %}inline-block{% else %}none{% endif %};">
+            <span id="pointsValue">{{ initial.points|default:'0' }}</span> pts
           </div>
         </div>
 
         <div class="mt-2 d-flex align-items-center gap-2">
           <label for="coverInput" class="btn btn-link p-0">Cambiar imagen</label>
-          <span class="text-muted small" title="La imagen se recorta para encajar."></span>
+          <input id="coverInput" type="file" name="cover_image" accept="image/*" class="d-none">
         </div>
       </div>
     </div>
