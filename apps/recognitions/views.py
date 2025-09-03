@@ -113,16 +113,21 @@ class CategoryUpdateView(LoginRequiredMixin, AdminOnlyMixin, UpdateView):
     model = RecognitionCategory
     template_name = "recognitions/admin/recognition_category_edit.html" 
     fields = [
-        "title", "points", "color_hex",
-        "confetti_enabled", "show_points",
-        "cover_image", "order", "is_active",
+        "title", "color_hex",
+        "confetti_enabled",
+        "cover_image", "is_active",
     ]
     success_url = reverse_lazy("recognition_dashboard")  # o "recognition_dashboard_admin"
 
-class CategoryDeleteView(LoginRequiredMixin, AdminOnlyMixin, DeleteView):
-    template_name = "recognitions/category_confirm_delete.html"
-    model = RecognitionCategory
-    success_url = reverse_lazy("recognition_dashboard")
+@login_required
+@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+def category_delete_post(request, pk):
+    if request.method != "POST":
+        return redirect("recognition_dashboard")
+    obj = get_object_or_404(RecognitionCategory, pk=pk)
+    obj.delete()
+    return redirect("recognition_dashboard")
+
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser or u.is_staff)

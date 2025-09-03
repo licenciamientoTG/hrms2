@@ -5,7 +5,6 @@
   const coverPreview = document.getElementById('coverPreview');
   const coverImage   = document.getElementById('coverImage');
   const coverInput   = document.getElementById('coverInput');
-  const pointsSwitch = document.getElementById('pointsSwitch');
   const pointsBadge  = document.getElementById('pointsBadge');
   const pointsValue  = document.getElementById('pointsValue');
   const pointsInput  = document.querySelector('input[name="points"]');
@@ -17,11 +16,6 @@
     colorHexLbl.textContent = hex;
     coverPreview.style.background = hex;
   }
-  function applyPoints(){
-    const on = pointsSwitch?.checked;
-    pointsBadge.style.display = on ? 'inline-block' : 'none';
-    pointsValue.textContent = pointsInput?.value || '0';
-  }
   function toggleConfetti(){
     if(!confettiSwitch?.checked && !coverInput?.value){
       coverImage.style.display = "none";
@@ -30,7 +24,6 @@
     }
   }
   colorPicker?.addEventListener('input', applyColor);
-  pointsSwitch?.addEventListener('change', applyPoints);
   pointsInput?.addEventListener('input', applyPoints);
   confettiSwitch?.addEventListener('change', toggleConfetti);
   coverInput?.addEventListener('change', (e)=>{
@@ -41,7 +34,7 @@
     reader.readAsDataURL(file);
   });
 
-  applyColor(); applyPoints(); toggleConfetti();
+  applyColor();  toggleConfetti();
 })();
 
 (function(){
@@ -63,11 +56,6 @@
     colorHexLbl.textContent = hex;
     coverPreview.style.background = hex;
   }
-  function applyPoints(){
-    const on = pointsSwitch?.checked;
-    pointsBadge.style.display = on ? 'inline-block' : 'none';
-    pointsValue.textContent = pointsInput?.value || '0';
-  }
   function toggleConfetti(){
     if(!confettiSwitch?.checked && !coverInput?.value){
       coverImage.style.display = "none";
@@ -76,7 +64,6 @@
     }
   }
   colorPicker?.addEventListener('input', applyColor);
-  pointsSwitch?.addEventListener('change', applyPoints);
   pointsInput?.addEventListener('input', applyPoints);
   confettiSwitch?.addEventListener('change', toggleConfetti);
   coverInput?.addEventListener('change', (e)=>{
@@ -87,5 +74,5 @@
     reader.readAsDataURL(file);
   });
 
-  applyColor(); applyPoints(); toggleConfetti();
+  applyColor();  toggleConfetti();
 })();

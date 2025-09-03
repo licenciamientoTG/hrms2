@@ -60,9 +60,10 @@
                   </li>
                   <li><hr class="dropdown-divider"></li>
                   <li>
-                    <a class="dropdown-item text-danger" href="{% url 'category_delete' c.pk %}">
-                      Eliminar
-                    </a>
+                    <form method="post" action="{% url 'category_delete_post' c.pk %}" onsubmit="return confirm('¿Eliminar esta categoría?');">
+                      {% csrf_token %}
+                      <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                    </form>
                   </li>
                 </ul>
               </div>

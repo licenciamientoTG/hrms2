@@ -18,7 +18,7 @@
 
   <div class="progress mb-4">
     <div class="progress-bar bg-primary" role="progressbar" style="width: 60%;" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100">
-      Semana 30 $17,000.00
+      (próximamente)
     </div>
   </div>
 
@@ -40,8 +40,10 @@
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Cursos activos</h6>
-        <h2>{{in_progress_courses_count}}</h2>
-        <a href="{% url 'course_wizard' %}" class="btn btn-success btn-sm">Ir →</a>
+        {% comment %} <h2>{{in_progress_courses_count}}</h2> {% endcomment %}
+        <p>próximamente</p>
+        <a href="#" class="btn btn-success btn-sm">Ir →</a>
+        {% comment %} <a href="{% url 'course_wizard' %}" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
       </div>
     </div>
     <div class="col-md-3 mb-1">

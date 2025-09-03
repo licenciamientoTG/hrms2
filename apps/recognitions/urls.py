@@ -6,9 +6,9 @@ from .views import (
 
     CategoryListView,
     CategoryUpdateView,
-    CategoryDeleteView,
     category_toggle_active,
     category_create,
+    category_delete_post,
 
 )
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path('categories/', CategoryListView.as_view(), name='category_list'),
     path('categories/new/', category_create, name='category_create'),  # ← función
     path('categories/<int:pk>/edit/', CategoryUpdateView.as_view(), name='category_edit'),
-    path('categories/<int:pk>/delete/', CategoryDeleteView.as_view(), name='category_delete'),
     path('categories/<int:pk>/toggle/', category_toggle_active, name='category_toggle'),
+    path('categories/<int:pk>/delete-post/', category_delete_post, name='category_delete_post'),
+
 ]
