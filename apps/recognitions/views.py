@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import path
+from django.core.paginator import Paginator
 
 from .models import RecognitionCategory
 
@@ -20,8 +21,20 @@ def recognition_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def recognition_dashboard_admin(request):
+    # Query + orden
+    qs = RecognitionCategory.objects.order_by('order', 'title')
 
-    return render(request, 'recognitions/admin/recognition_dashboard_admin.html')
+    # Paginación (opcional – 20 por página)
+    paginator = Paginator(qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "categories": page_obj.object_list,          # lo que tu tabla usa
+        "page_obj": page_obj,                        # para controles de paginación
+        "is_paginated": page_obj.has_other_pages(),
+    }
+    return render(request, "recognitions/admin/recognition_dashboard_admin.html", context)
 
 # esta vista es para el usuario
 @login_required
@@ -91,7 +104,7 @@ def category_create(request):
             if cover_image:
                 obj.cover_image = cover_image
             obj.save()
-            return redirect("category_list")  # lista
+            return redirect("recognition_dashboard")  # lista
 
     return render(request, "recognitions/admin/recognition_category_create.html", ctx)
 
@@ -99,12 +112,12 @@ def category_create(request):
 class CategoryUpdateView(LoginRequiredMixin, AdminOnlyMixin, UpdateView):
     template_name = "recognitions/admin/recognition_dashboard_create.html" # puedes reutilizarlo
     model = RecognitionCategory
-    success_url = reverse_lazy("category_list")
+    success_url = reverse_lazy("recognition_dashboard")
 
 class CategoryDeleteView(LoginRequiredMixin, AdminOnlyMixin, DeleteView):
     template_name = "recognitions/category_confirm_delete.html"
     model = RecognitionCategory
-    success_url = reverse_lazy("category_list")
+    success_url = reverse_lazy("recognition_dashboard")
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser or u.is_staff)
@@ -112,4 +125,4 @@ def category_toggle_active(request, pk):
     obj = get_object_or_404(RecognitionCategory, pk=pk)
     obj.is_active = not obj.is_active
     obj.save(update_fields=["is_active"])
-    return redirect("category_list")
+    return redirect("recognition_dashboard")
