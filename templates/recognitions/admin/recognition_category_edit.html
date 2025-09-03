@@ -1,0 +1,133 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Crear categoría{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-3" style="max-width:920px;">
+  <h3 class="mb-1">{% if object %}Editar categoría{% else %}Crear categoría{% endif %}</h3>
+  <p class="text-muted mb-4">
+    {% if object %}Aquí podrás modificar la información necesaria para este tipo de reconocimiento.{% else %}
+    Aquí podrás agregar la información necesaria para este tipo de reconocimiento.{% endif %}
+  </p>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <!-- Información básica -->
+    <div class="card shadow-sm mb-3 rounded-3">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Información básica</h6>
+
+        <div class="mb-3">
+          <label class="form-label">Nombre</label>
+          <input type="text" name="title" class="form-control" placeholder="Nombre de la categoría"
+                 value="{{ object.title|default:'' }}">
+          {% if errors.title %}<div class="text-danger small">{{ errors.title }}</div>{% endif %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">Puntos</label>
+            <input type="number" min="0" name="points" class="form-control"
+                   value="{{ object.points|default:'0' }}">
+            {% if errors.points %}<div class="text-danger small">{{ errors.points }}</div>{% endif %}
+          </div>
+
+          <div class="col-6">
+            <label class="form-label d-block">Color</label>
+            <div class="d-flex align-items-center gap-3">
+              <span id="colorSwatch" class="rounded-circle border"
+                    style="display:inline-block;width:28px;height:28px;background:{{ object.color_hex|default:'#1E3361' }};"></span>
+              <div class="d-flex align-items-center gap-2">
+                <input id="colorPicker" type="color" name="color_hex" class="form-control"
+                       value="{{ object.color_hex|default:'#1E3361' }}" style="width:70px;padding:0;">
+                <code id="colorHexLabel" class="small text-muted ms-1">{{ object.color_hex|default:'#1E3361' }}</code>
+              </div>
+            </div>
+            {% if errors.color_hex %}<div class="text-danger small">{{ errors.color_hex }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Imagen de portada -->
+    <div class="card shadow-sm mb-3 rounded-3">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Imagen de portada</h6>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <div class="fw-semibold">Efecto confeti</div>
+            <div class="text-muted small">Incorpora un elemento de celebración para personalizar la portada.</div>
+          </div>
+          <div class="form-check form-switch fs-5 m-0">
+            <input id="confettiSwitch" class="form-check-input" type="checkbox" name="confetti_enabled"
+                   {% if object %}{% if object.confetti_enabled %}checked{% endif %}
+                   {% else %}checked{% endif %}>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="fw-semibold">Mostrar puntaje</div>
+            <div class="text-muted small">Los colaboradores podrán ver cuántos puntos darán en cada reconocimiento que otorguen.</div>
+          </div>
+          <div class="form-check form-switch fs-5 m-0">
+            <input id="pointsSwitch" class="form-check-input" type="checkbox" name="show_points"
+                   {% if object and object.show_points %}checked{% endif %}>
+          </div>
+        </div>
+
+        <div class="mb-2 fw-semibold">Previsualización</div>
+
+        <div id="coverPreview" class="rounded-3 overflow-hidden border"
+             style="background:{{ object.color_hex|default:'#1E3361' }}; height:300px; position:relative;">
+          <img id="coverImage"
+               src="{% if object.cover_image %}{{ object.cover_image.url }}{% else %}{% static 'template/img/wallpaper/confetti.png' %}{% endif %}"
+               alt="preview" style="width:100%;height:100%;object-fit:cover;opacity:0.95;">
+          <div id="pointsBadge" class="position-absolute top-0 end-0 m-2 badge bg-light text-dark"
+               style="display:{% if object and object.show_points %}inline-block{% else %}none{% endif %};">
+            <span id="pointsValue">{{ object.points|default:'0' }}</span> pts
+          </div>
+        </div>
+
+        <div class="mt-2 d-flex align-items-center gap-2">
+          <label for="coverInput" class="btn btn-link p-0">Cambiar imagen</label>
+          <input id="coverInput" type="file" name="cover_image" accept="image/*" class="d-none">
+        </div>
+
+        <div class="row g-3 mt-2">
+          <div class="col-6">
+            <label class="form-label">Orden (opcional)</label>
+            <input type="number" min="0" name="order" class="form-control"
+                   value="{{ object.order|default:'0' }}">
+            {% if errors.order %}<div class="text-danger small">{{ errors.order }}</div>{% endif %}
+          </div>
+          <div class="col-6 d-flex align-items-end justify-content-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_active"
+                     {% if object %}{% if object.is_active %}checked{% endif %}
+                     {% else %}checked{% endif %}>
+              <label class="form-check-label">Activo</label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-3">
+      <a href="{% url 'recognition_dashboard' %}" class="btn btn-light border">Cancelar</a>
+      <button type="submit" class="btn btn-primary">{% if object %}Actualizar{% else %}Crear{% endif %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/recognition.js' %}"></script>
+{% endblock %}

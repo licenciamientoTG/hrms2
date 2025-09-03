@@ -1,0 +1,4 @@
+/* Rojo claro solo para el título inactivo */
+.text-danger-light {
+  color: #f89696 !important;   /* fuerza sobre el color base de la tabla */
+}

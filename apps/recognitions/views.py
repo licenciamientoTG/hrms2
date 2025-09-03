@@ -110,9 +110,14 @@ def category_create(request):
 
 
 class CategoryUpdateView(LoginRequiredMixin, AdminOnlyMixin, UpdateView):
-    template_name = "recognitions/admin/recognition_dashboard_create.html" # puedes reutilizarlo
     model = RecognitionCategory
-    success_url = reverse_lazy("recognition_dashboard")
+    template_name = "recognitions/admin/recognition_category_edit.html" 
+    fields = [
+        "title", "points", "color_hex",
+        "confetti_enabled", "show_points",
+        "cover_image", "order", "is_active",
+    ]
+    success_url = reverse_lazy("recognition_dashboard")  # o "recognition_dashboard_admin"
 
 class CategoryDeleteView(LoginRequiredMixin, AdminOnlyMixin, DeleteView):
     template_name = "recognitions/category_confirm_delete.html"

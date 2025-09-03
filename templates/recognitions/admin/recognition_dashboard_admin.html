@@ -33,16 +33,18 @@
         </thead>
         <tbody>
           {% for c in categories %}
-          <tr class="{% if not c.is_active %}opacity-50{% endif %}">
-            <td class="fw-semibold">{{ c.title }}</td>
-            <td>
-              <span class="d-inline-flex align-items-center gap-2">
-                <span class="rounded border" style="display:inline-block;width:28px;height:18px;background:{{ c.color_hex }};"></span>
-                <code class="small">{{ c.color_hex }}</code>
-              </span>
-            </td>
+            <tr>
+              <td class="fw-semibold {% if not c.is_active %}text-danger-light{% endif %}">
+                {{ c.title }}
+              </td>
+              <td>
+                <span class="d-inline-flex align-items-center gap-2">
+                  <span class="rounded border" style="display:inline-block;width:28px;height:18px;background:{{ c.color_hex }};"></span>
+                  <code class="small">{{ c.color_hex }}</code>
+                </span>
+              </td>
             <td class="text-end">
-              <div class="dropdown">
+              <div class="dropdownclass="dropdown-item"">
                 <button class="btn btn-sm btn-light border" data-bs-toggle="dropdown" aria-expanded="false">
                   ⋮
                 </button>
