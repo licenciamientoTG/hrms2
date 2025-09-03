@@ -49,9 +49,9 @@
                   ⋮
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                  <li><a class="dropdown-item" href="{% url 'recognitions:category_edit' c.pk %}">Editar</a></li>
+                  <li><a class="dropdown-item" href="{% url 'category_edit' c.pk %}">Editar</a></li>
                   <li>
-                    <form method="post" action="{% url 'recognitions:category_toggle' c.pk %}">
+                    <form method="post" action="{% url 'category_toggle' c.pk %}">
                       {% csrf_token %}
                       <button class="dropdown-item" type="submit">
                         {% if c.is_active %}Desactivar{% else %}Activar{% endif %}
@@ -60,7 +60,7 @@
                   </li>
                   <li><hr class="dropdown-divider"></li>
                   <li>
-                    <a class="dropdown-item text-danger" href="{% url 'recognitions:category_delete' c.pk %}">
+                    <a class="dropdown-item text-danger" href="{% url 'category_delete' c.pk %}">
                       Eliminar
                     </a>
                   </li>
