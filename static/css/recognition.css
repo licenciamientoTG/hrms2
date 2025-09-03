@@ -2,3 +2,56 @@
 .text-danger-light {
   color: #f89696 !important;   /* fuerza sobre el color base de la tabla */
 }
+
+/* ===== Modal slide-out derecha, ancho configurable y alto completo ===== */
+:root {
+  --aside-width: 560px;               /* ancho base */
+}
+
+@media (min-width: 992px) {           /* md+ */
+  :root { --aside-width: 640px; }
+}
+@media (min-width: 1200px) {          /* lg+ */
+  :root { --aside-width: 720px; }
+}
+
+.modal-dialog-aside {
+  position: fixed;
+  top: 0;
+  right: 0;
+  margin: 0;
+  height: 100vh;                      /* ocupa toda la altura */
+  width: 100%;
+  max-width: var(--aside-width);      /* controla el ancho */
+  transform: translateX(100%);
+  transition: transform .3s ease-out;
+  pointer-events: none;               /* evita click-through del backdrop */
+}
+
+.modal.show .modal-dialog-aside {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.modal-dialog-aside .modal-content {
+  height: 100vh;                      /* contenido a alto completo */
+  border: 0;
+  border-left: 1px solid rgba(0,0,0,.1);
+  border-radius: 0;                    /* sin esquinas redondas para “panel” */
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-dialog-aside .modal-header,
+.modal-dialog-aside .modal-footer {
+  flex-shrink: 0;
+}
+
+.modal-dialog-aside .modal-body {
+  overflow: auto;                      /* scroll suave del contenido */
+}
+
+/* Opcional: que el backdrop oscurezca menos */
+.modal-backdrop.show {
+  opacity: .35;
+}

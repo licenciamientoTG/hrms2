@@ -8,7 +8,102 @@
 {% block title %}Panel de Reconocimientos{% endblock %}
 
 {% block content %}
-Aquí va a ir el panel de reconocimientos.user
+<div class="container py-3" style="max-width:820px;">
+  <h3 class="mb-3">Reconocimientos</h3>
+
+  <!-- Tarjeta: input para abrir el modal -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex align-items-center gap-3">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:38px;height:38px;background:#a6d65e;color:#fff;font-weight:600;">
+        {{ request.user.first_name|default:request.user.username|slice:":1" }}{{ request.user.last_name|slice:":1" }}
+      </div>
+      <div class="flex-grow-1">
+        <input id="openNewRec" class="form-control" placeholder="Envía un reconocimiento…" readonly>
+      </div>
+    </div>
+  </div>
+
+  {# … aquí luego mostraremos el feed de reconocimientos … #}
+
+</div>
+
+<!-- MODAL: Nuevo reconocimiento -->
+<div class="modal fade" id="newRecognitionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-aside modal-lg">
+    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo reconocimiento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ¿A quién deseas reconocer? -->
+        <div class="mb-3">
+          <label class="form-label">¿A quién deseas reconocer?</label>
+          <select class="form-select" name="recipients" id="recipientsSelect" multiple>
+            {% for p in people %}
+              <option value="{{ p.id }}">
+                {{ p.get_full_name|default:p.username }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Puedes reconocer hasta 30 colaboradores</div>
+        </div>
+
+        <!-- Selecciona la categoría -->
+        <div class="mb-3">
+          <label class="form-label">Selecciona la categoría</label>
+          <div class="input-group">
+            <span id="catColorBox"
+                  class="input-group-text p-0 flex-shrink-0"
+                  style="width: 2.5rem; border-radius: .375rem 0 0 .375rem; background:#E9ECEF;"></span>
+            <select class="form-select" name="category" id="categorySelect">
+              <option value="">Categorías</option>
+              {% for c in categories %}
+                <option value="{{ c.id }}" data-color="{{ c.color_hex }}">{{ c.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Dropzone simple (solo imágenes) -->
+        <div class="mb-1">
+          <label class="form-label">Sube una imagen (Opcional)</label>
+          <div id="dropZone" class="border rounded-3 text-center p-4" style="border-style:dashed;">
+            <div class="mb-2">Elija una imagen o arrástrela aquí</div>
+            <div class="text-muted small">Solo imágenes. Tamaño máximo 10 MB.</div>
+            <input id="mediaInput"
+                  type="file"
+                  name="media"
+                  class="d-none"
+                  accept="image/*">  <!-- 👈 solo imágenes -->
+            <div class="mt-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">
+                Subir imagen
+              </button>
+            </div>
+            <div id="previewArea" class="mt-3"></div>
+          </div>
+        </div>
+
+        <!-- Mensaje (solo texto) -->
+        <textarea class="form-control"
+                  name="message"
+                  rows="3"
+                  placeholder="Cuéntales por qué marcó la diferencia"
+                  maxlength="1000"></textarea> <!-- opcional: límite -->
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" id="publishBtn" class="btn btn-primary" disabled>Publicar</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 {% block scripts %}
   <script src="{% static 'js/recognition.js' %}"></script>
