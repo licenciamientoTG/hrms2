@@ -25,7 +25,108 @@
     </div>
   </div>
 
-  {# … aquí luego mostraremos el feed de reconocimientos … #}
+  <!-- FEED: tarjetas de reconocimientos -->
+  {% for rec in feed %}
+    <div class="card shadow-sm mb-4 overflow-hidden post-card">
+
+      {# Cabecera #}
+      <div class="card-body d-flex align-items-center gap-3 pb-2 pt-3">
+        <div class="post-avatar" style="background:#b8d37c;color:#fff;">
+          {{ rec.author.first_name|default:rec.author.username|slice:":1" }}{{ rec.author.last_name|slice:":1" }}
+        </div>
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ rec.author.get_full_name|default:rec.author.username }}</div>
+          <div class="text-muted small">{{ rec.created_at|timesince }} atrás</div>
+        </div>
+
+        {% if rec.category.show_points and rec.category.points %}
+          <span class="badge rounded-pill bg-light text-dark border">+{{ rec.category.points }} puntos</span>
+        {% endif %}
+      </div>
+
+      {# ==== HERO de la categoría (color / cover / confetti) ==== #}
+      {% with cat=rec.category %}
+        <div class="rec-hero position-relative">
+          {% if cat.cover_image %}
+            <img src="{{ cat.cover_image.url }}" alt="" class="rec-hero-img">
+          {% else %}
+            <div class="rec-hero-fill" style="background: {{ cat.color_hex|default:'#f3f4f6' }};"></div>
+          {% endif %}
+
+          {% if cat.confetti_enabled %}
+            <div class="rec-confetti-overlay"
+                style="background-image:url('{% static "template/img/wallpaper/confetti.png" %}');">
+            </div>
+          {% endif %}
+        </div>
+      {% endwith %}
+
+
+      <div class="card-body pt-3 post-center">
+
+        {# Avatares de destinatarios (hasta 4) + contador #}
+        {% with recs=rec.recipients.all %}
+          {% if recs %}
+            <div class="recipients-row d-flex align-items-center mb-2">
+              {% for r in recs|slice:":4" %}
+                <div class="recipient-avatar"
+                    title="{{ r.get_full_name|default:r.username }}">
+                  {{ r.first_name|default:r.username|slice:":1" }}{{ r.last_name|slice:":1" }}
+                </div>
+              {% endfor %}
+              {% if recs|length > 4 %}
+                <div class="recipient-avatar bg-light text-dark">+{{ recs|length|add:"-4" }}</div>
+              {% endif %}
+            </div>
+
+            {# Nombres compactos + “ver todos” centrado #}
+            <div class="fw-semibold">
+              {% for r in recs|slice:":3" %}
+                {{ r.get_full_name|default:r.username }}{% if not forloop.last %}, {% endif %}
+              {% endfor %}
+              {% if recs|length > 3 %}
+                y <button class="btn-link-sm link-primary" type="button"
+                          data-bs-toggle="collapse" data-bs-target="#rec-{{ rec.id }}-all">
+                  {{ recs|length|add:"-3" }} más
+                </button>
+              {% endif %}
+            </div>
+            {% if recs|length > 3 %}
+              <div id="rec-{{ rec.id }}-all" class="collapse mt-1">
+                <div class="small text-muted">
+                  {% for r in recs %}
+                    {{ r.get_full_name|default:r.username }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+        {% endwith %}
+
+        {# Chip de categoría (centrado) #}
+        {% if rec.category %}
+          <span class="badge rounded-pill badge-cat d-inline-block mt-2"
+                style="background: {{ rec.category.color_hex }};">
+            {{ rec.category.title }}
+          </span>
+        {% endif %}
+
+        {# Mensaje (centrado) #}
+        {% if rec.message %}
+          <p class="mt-3 mb-0" style="font-size:1.05rem; line-height:1.55;">
+            {{ rec.message }}
+          </p>
+        {% endif %}
+
+        {# Imagen que subió el autor (va debajo del texto) #}
+        {% if rec.image %}
+          <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
+        {% endif %}
+      </div> 
+    </div>
+  {% empty %}
+    <div class="text-center text-muted py-5">Aún no hay reconocimientos.</div>
+  {% endfor %}
 
 </div>
 
@@ -40,11 +141,9 @@
       </div>
 
       <div class="modal-body">
-
         <!-- ¿A quién deseas reconocer? -->
         <div class="mb-3">
           <label class="form-label">¿A quién deseas reconocer?</label>
-
           <select
             class="selectpicker"
             id="recipientsSelect"
@@ -52,12 +151,10 @@
             multiple
             data-live-search="true"
             data-width="100%"
-            data-style="btn btn-light w-100 text-start" 
+            data-style="btn btn-light w-100 text-start"
             title="Selecciona colaboradores">
             {% for p in people %}
-              <option value="{{ p.id }}">
-                {{ p.get_full_name|default:p.username }}
-              </option>
+              <option value="{{ p.id }}">{{ p.get_full_name|default:p.username }}</option>
             {% empty %}
               <option disabled>No hay colaboradores disponibles</option>
             {% endfor %}
@@ -86,32 +183,24 @@
         <!-- Mensaje (solo texto) -->
         <div class="mb-3">
           <label class="form-label">Deja un mensaje personalizado</label>
-          <textarea class="form-control"
-                    name="message"
-                    rows="3"
-                    placeholder="Cuéntales por qué marcó la diferencia"
-                    maxlength="1000"></textarea>
+          <textarea class="form-control" name="message" rows="3" placeholder="Cuéntales por qué marcó la diferencia" maxlength="1000"></textarea>
         </div>
 
         <!-- Dropzone simple (solo imágenes) -->
         <div class="mb-1">
           <label class="form-label">Sube una imagen (Opcional)</label>
           <div id="dropZone" class="border rounded-3 text-center p-4" style="border-style:dashed;">
-            <div class="mb-2">Selecciona una imagen </div>
+            <div class="mb-2">Selecciona una imagen</div>
             <div class="text-muted small">Solo imágenes. Tamaño máximo 10 MB.</div>
-            <input id="mediaInput"
-                  type="file"
-                  name="media"
-                  class="d-none"
-                  accept="image/*">
+            <input id="mediaInput" type="file" name="media" class="d-none" accept="image/*">
             <div class="mt-3">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">
-                Subir imagen
-              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">Subir imagen</button>
             </div>
             <div id="previewArea" class="mt-3"></div>
           </div>
         </div>
+      </div>
+
       <div class="modal-footer">
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" id="publishBtn" class="btn btn-primary" disabled>Publicar</button>
@@ -120,6 +209,7 @@
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
   <!-- jQuery es requerido por bootstrap-select -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>

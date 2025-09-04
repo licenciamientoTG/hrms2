@@ -1,57 +1,85 @@
-/* Rojo claro solo para el título inactivo */
-.text-danger-light {
-  color: #f89696 !important;   /* fuerza sobre el color base de la tabla */
-}
+/* ——— Utilidades ——— */
+.text-danger-light { color: #f89696 !important; }
 
-/* ===== Modal slide-out derecha, ancho configurable y alto completo ===== */
-:root {
-  --aside-width: 560px;               /* ancho base */
-}
+/* ——— Modal slide-out derecha ——— */
+:root { --aside-width: 560px; }
+@media (min-width: 992px){ :root { --aside-width: 640px; } }
+@media (min-width: 1200px){ :root { --aside-width: 720px; } }
 
-@media (min-width: 992px) {           /* md+ */
-  :root { --aside-width: 640px; }
+.modal-dialog-aside{
+  position: fixed; top: 0; right: 0; margin: 0;
+  height: 100vh; width: 100%; max-width: var(--aside-width);
+  transform: translateX(100%); transition: transform .3s ease-out;
+  pointer-events: none;
 }
-@media (min-width: 1200px) {          /* lg+ */
-  :root { --aside-width: 720px; }
+.modal.show .modal-dialog-aside{ transform: translateX(0); pointer-events: auto; }
+.modal-dialog-aside .modal-content{
+  height: 100vh; border: 0; border-left: 1px solid rgba(0,0,0,.1);
+  border-radius: 0; display: flex; flex-direction: column;
 }
-
-.modal-dialog-aside {
-  position: fixed;
-  top: 0;
-  right: 0;
-  margin: 0;
-  height: 100vh;                      /* ocupa toda la altura */
-  width: 100%;
-  max-width: var(--aside-width);      /* controla el ancho */
-  transform: translateX(100%);
-  transition: transform .3s ease-out;
-  pointer-events: none;               /* evita click-through del backdrop */
-}
-
-.modal.show .modal-dialog-aside {
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.modal-dialog-aside .modal-content {
-  height: 100vh;                      /* contenido a alto completo */
-  border: 0;
-  border-left: 1px solid rgba(0,0,0,.1);
-  border-radius: 0;                    /* sin esquinas redondas para “panel” */
-  display: flex;
-  flex-direction: column;
-}
-
 .modal-dialog-aside .modal-header,
-.modal-dialog-aside .modal-footer {
-  flex-shrink: 0;
+.modal-dialog-aside .modal-footer{ flex-shrink: 0; }
+.modal-dialog-aside .modal-body{ overflow: auto; }
+.modal-backdrop.show{ opacity: .35; }
+
+/* ——— Card / badges ——— */
+.card{ border:1px solid #e9ecef; border-radius:14px; }
+.card .badge.rounded-pill{ padding:.45rem .65rem; }
+.badge-cat{ font-weight:600; opacity:.9; color:#1f2937; }
+
+/* ——— Avatar del autor y destinatarios ——— */
+.post-avatar,
+.recipient-avatar{
+  width:56px; height:56px;                /* ↑ más grandes */
+  border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight:700; background:#f0f2f5; color:#334155;
+  border:3px solid #fff;                  /* aro blanco vistoso */
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
 }
 
-.modal-dialog-aside .modal-body {
-  overflow: auto;                      /* scroll suave del contenido */
+/* ——— Hero de la categoría (color / cover / confeti) ——— */
+.rec-hero{
+  position: relative;
+  height: 220px;                          /* ajústalo a tu gusto */
+  overflow: hidden;
+  background:#f3f4f6;
+  z-index: 0;                             /* base de apilamiento */
+}
+.rec-hero-img,
+.rec-hero-fill{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  display:block; object-fit:cover;
 }
 
-/* Opcional: que el backdrop oscurezca menos */
-.modal-backdrop.show {
-  opacity: .35;
+/* Confeti desde PNG (lo pones inline en el template con url()) */
+.rec-confetti-overlay{
+  position:absolute; inset:0; pointer-events:none;
+  opacity:.9;                              /* más marcado; baja si quieres */
+  background-repeat:repeat;               /* o no-repeat si el PNG es grande */
+  background-size:480px;                  /* prueba: 200px | contain | cover */
+  background-position:center;
+  z-index: 1;                             /* sobre el color/cover */
 }
+
+/* ——— Cuerpo centrado ——— */
+.post-center{ text-align:center; }
+
+/* ——— Fila de avatares debajo del hero, “mordiendo” el borde ——— */
+.recipients-row{
+  position: relative;
+  z-index: 2;                             /* por encima del hero */
+  margin-top: -32px;                      /* hace que “tomen” parte del hero */
+  justify-content: center;                /* centrados */
+  gap: 8px;                               /* espacio uniforme entre círculos */
+}
+
+/* Si usas una imagen después del mensaje */
+.post-card img.post-cover{
+  display:block; width:100%;
+  aspect-ratio:16/9; object-fit:cover;
+}
+
+/* Enlaces pequeños tipo “ver más” */
+.btn-link-sm{ border:none; background:none; padding:0; font-size:.9rem; }

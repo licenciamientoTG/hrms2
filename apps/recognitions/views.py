@@ -11,6 +11,10 @@ from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.http import HttpResponseForbidden
 from .models import RecognitionCategory, Recognition
+from django.db.models.deletion import ProtectedError
+from django.views.decorators.http import require_POST
+
+
 
 
 # esta vista te redirige a las vistas de usuario y administrador
@@ -43,35 +47,37 @@ def recognition_dashboard_admin(request):
 # esta vista es para el usuario
 User = get_user_model()
 
-MAX_RECIPIENTS = 30
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
-IMG_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}
+MAX_RECIPIENTS     = 30
+MAX_IMAGE_BYTES    = 10 * 1024 * 1024
+IMG_EXTS           = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}
 
 def _is_image_ok(f):
     if not f:
         return True
     if f.size > MAX_IMAGE_BYTES:
         return False
-    ct_ok = (f.content_type or '').startswith('image/')
-    name = (f.name or '').lower()
+    ct_ok  = (f.content_type or '').startswith('image/')
+    name   = (f.name or '').lower()
     ext_ok = any(name.endswith(ext) for ext in IMG_EXTS)
     return ct_ok and ext_ok
+
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
     if request.method == "POST":
-        recipients_ids = request.POST.getlist('recipients')  # ← IMPORTANTE
+        recipients_ids = request.POST.getlist('recipients')
         category_id    = request.POST.get('category')
         message        = (request.POST.get('message') or '').strip()
         media          = request.FILES.get('media')
 
-        # Validaciones
         errors = []
         if not recipients_ids:
             errors.append(_("Debes seleccionar al menos un destinatario."))
         if len(recipients_ids) > MAX_RECIPIENTS:
             errors.append(_("Máximo %(n)s colaboradores.") % {'n': MAX_RECIPIENTS})
+
+        category = None
         if not category_id:
             errors.append(_("Selecciona una categoría."))
         else:
@@ -80,29 +86,39 @@ def recognition_dashboard_user(request):
         if media and not _is_image_ok(media):
             errors.append(_("La imagen no es válida o excede 10 MB."))
 
-        # Si hay errores, vuelve al template con mensaje
         if errors:
             for e in errors:
                 messages.error(request, e)
         else:
-            # Crear reconocimiento
+            # Crear el reconocimiento
             rec = Recognition.objects.create(
                 author=request.user,
                 category=category,
                 message=message,
-                image=media if media else None,
+                image=media if media else None,   # ajusta el nombre del campo si difiere
             )
-            # Recipients
-            users = User.objects.filter(id__in=recipients_ids)
+            # Destinatarios
+            users = User.objects.filter(id__in=recipients_ids, is_active=True)
             rec.recipients.add(*users)
 
             messages.success(request, _("¡Reconocimiento publicado!"))
-            return redirect('recognition_dashboard_user')  # o al feed
+            return redirect('recognition_dashboard_user')
 
-    # GET o POST con errores → render
+    # FEED (más recientes primero)
+    feed = (
+        Recognition.objects
+        .select_related('author', 'category')
+        .prefetch_related('recipients')
+        .order_by('-created_at')  # ⚠️ si tu campo es otro (p.ej. 'created'), cámbialo aquí
+    )
+
     ctx = {
-        "people": User.objects.filter(is_active=True).order_by('first_name','last_name','username'),
-        "categories": RecognitionCategory.objects.filter(is_active=True).order_by('order','title'),
+        "people": User.objects.filter(is_active=True)
+                              .exclude(id=request.user.id)
+                              .order_by('first_name', 'last_name', 'username'),
+        "categories": RecognitionCategory.objects.filter(is_active=True)
+                                                .order_by('order', 'title'),
+        "feed": feed,
     }
     return render(request, 'recognitions/user/recognition_dashboard_user.html', ctx)
 
@@ -189,14 +205,40 @@ def category_delete_post(request, pk):
     if request.method != "POST":
         return redirect("recognition_dashboard")
     obj = get_object_or_404(RecognitionCategory, pk=pk)
-    obj.delete()
+    try:
+        obj.delete()
+        messages.success(request, "Categoría eliminada.")
+    except ProtectedError:
+        messages.error(
+            request,
+            "No se puede eliminar porque ya fue utilizada. Puedes desactivarla para impedir su uso futuro."
+        )
     return redirect("recognition_dashboard")
-
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@require_POST
 def category_toggle_active(request, pk):
     obj = get_object_or_404(RecognitionCategory, pk=pk)
-    obj.is_active = not obj.is_active
-    obj.save(update_fields=["is_active"])
+
+    # Si viene desde el SweetAlert (cuando no se puede borrar), desactiva sí o sí
+    force_deactivate = request.POST.get("force_deactivate") == "1"
+
+    if force_deactivate:
+        if obj.is_active:
+            obj.is_active = False
+            obj.save(update_fields=["is_active"])
+            messages.success(request, "Categoría desactivada.")
+        else:
+            # Ya estaba desactivada: no la actives por error
+            messages.info(request, "La categoría ya estaba desactivada.")
+    else:
+        # Toggle normal (botón “Activar/Desactivar” del menú)
+        obj.is_active = not obj.is_active
+        obj.save(update_fields=["is_active"])
+        messages.success(
+            request,
+            "Categoría activada." if obj.is_active else "Categoría desactivada."
+        )
+
     return redirect("recognition_dashboard")

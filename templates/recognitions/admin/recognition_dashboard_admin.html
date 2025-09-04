@@ -43,31 +43,39 @@
                   <code class="small">{{ c.color_hex }}</code>
                 </span>
               </td>
-            <td class="text-end">
-              <div class="dropdownclass="dropdown-item"">
-                <button class="btn btn-sm btn-light border" data-bs-toggle="dropdown" aria-expanded="false">
-                  ⋮
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                  <li><a class="dropdown-item" href="{% url 'category_edit' c.pk %}">Editar</a></li>
-                  <li>
-                    <form method="post" action="{% url 'category_toggle' c.pk %}">
-                      {% csrf_token %}
-                      <button class="dropdown-item" type="submit">
-                        {% if c.is_active %}Desactivar{% else %}Activar{% endif %}
-                      </button>
-                    </form>
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
-                  <li>
-                    <form method="post" action="{% url 'category_delete_post' c.pk %}" onsubmit="return confirm('¿Eliminar esta categoría?');">
-                      {% csrf_token %}
-                      <button class="dropdown-item text-danger" type="submit">Eliminar</button>
-                    </form>
-                  </li>
-                </ul>
-              </div>
-            </td>
+              <td class="text-end">
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-light border" data-bs-toggle="dropdown" aria-expanded="false">⋮</button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'category_edit' c.pk %}">Editar</a></li>
+
+                    <li>
+                      <form method="post" action="{% url 'category_toggle' c.pk %}">
+                        {% csrf_token %}
+                        <button class="dropdown-item" type="submit">
+                          {% if c.is_active %}Desactivar{% else %}Activar{% endif %}
+                        </button>
+                      </form>
+                    </li>
+
+                    <li><hr class="dropdown-divider"></li>
+
+                    <li>
+                      {# ⬇⬇ Form de eliminar con clase y data-* que usa el JS ⬇⬇ #}
+                      <form method="post"
+                            action="{% url 'category_delete_post' c.id %}"
+                            class="js-del-cat"
+                            data-cat-id="{{ c.id }}"
+                            data-cat-name="{{ c.title|escape }}"
+                            data-inuse="{% if c.recognition_set.all|length %}1{% else %}0{% endif %}"
+                            data-toggle-url="{% url 'category_toggle' c.id %}">
+                        {% csrf_token %}
+                        <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              </td>
           </tr>
           {% empty %}
           <tr><td colspan="4" class="text-center text-muted py-5">Sin categorías aún.</td></tr>
@@ -99,5 +107,6 @@
 </div>
 {% endblock %}
 {% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="{% static 'js/recognition.js' %}"></script>
 {% endblock %}

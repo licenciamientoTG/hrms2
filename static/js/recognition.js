@@ -156,3 +156,69 @@
     bindOnce(tx, 'input', (e) => { e.target.value = e.target.value.replace(/<[^>]*>/g,''); });
   });
 })();
+
+
+(function(){
+  function getCookie(name){
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m.pop()) : '';
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  document.querySelectorAll('.js-del-cat').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const catName   = form.dataset.catName || 'esta categoría';
+      const inUse     = form.dataset.inuse === '1';
+      const toggleUrl = form.dataset.toggleUrl;   // <-- viene del HTML
+
+      if (inUse) {
+        const r = await Swal.fire({
+          icon: 'warning',
+          title: 'No se puede eliminar',
+          html: `
+            <div class="text-start">
+              <p><strong>${catName}</strong> ya que fue utilizada como reconocimiento.</p>
+              <p>Puedes <strong>desactivarla</strong> para impedir su uso futuro.</p>
+            </div>`,
+          showCancelButton: true,
+          confirmButtonText: 'Desactivar',
+          cancelButtonText: 'Cancelar',
+        });
+        if (r.isConfirmed && toggleUrl) {
+          try {
+              const resp = await fetch(toggleUrl, {
+                method: 'POST',
+                headers: {
+                  'X-CSRFToken': csrftoken,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'force_deactivate=1'
+              });
+            if (!resp.ok) throw new Error();
+            await Swal.fire({ icon:'success', title:'Desactivada', timer:1200, showConfirmButton:false });
+            location.reload();
+          } catch {
+            Swal.fire({ icon:'error', title:'Ups', text:'No se pudo desactivar. Intenta más tarde.' });
+          }
+        }
+        return;
+      }
+
+      const r = await Swal.fire({
+        icon: 'question',
+        title: '¿Eliminar categoría?',
+        html: `<div class="text-start">
+                 <p>Se eliminará <strong>${catName}</strong>.</p>
+                 <p>Esta acción no se puede deshacer.</p>
+               </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33'
+      });
+      if (r.isConfirmed) form.submit();
+    });
+  });
+})();
