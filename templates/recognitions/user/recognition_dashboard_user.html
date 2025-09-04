@@ -1,7 +1,7 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
 {% block styles %}
-<link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+  <link rel="stylesheet" href="{% static 'css/recognition.css' %}">
 {% endblock %}
 
 {% block page_title %}Panel de Reconocimientos{% endblock %}
@@ -42,11 +42,13 @@
         <!-- ¿A quién deseas reconocer? -->
         <div class="mb-3">
           <label class="form-label">¿A quién deseas reconocer?</label>
-          <select class="form-select" name="recipients" id="recipientsSelect" multiple>
+          <select class="form-select" name="recipients" id="recipientsSelect" multiple size="8">
             {% for p in people %}
               <option value="{{ p.id }}">
                 {{ p.get_full_name|default:p.username }}
               </option>
+            {% empty %}
+              <option disabled>No hay colaboradores disponibles</option>
             {% endfor %}
           </select>
           <div class="form-text">Puedes reconocer hasta 30 colaboradores</div>
@@ -60,7 +62,7 @@
                   class="input-group-text p-0 flex-shrink-0"
                   style="width: 2.5rem; border-radius: .375rem 0 0 .375rem; background:#E9ECEF;"></span>
             <select class="form-select" name="category" id="categorySelect">
-              <option value="">Categorías</option>
+              <option value="">Seleccionar categoría...</option>
               {% for c in categories %}
                 <option value="{{ c.id }}" data-color="{{ c.color_hex }}">{{ c.title }}</option>
               {% empty %}

@@ -5,6 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import path
 from django.core.paginator import Paginator
+from django.contrib.auth import get_user_model
 
 from .models import RecognitionCategory
 
@@ -37,17 +38,26 @@ def recognition_dashboard_admin(request):
     return render(request, "recognitions/admin/recognition_dashboard_admin.html", context)
 
 # esta vista es para el usuario
+User = get_user_model()
+
+
 @login_required
 def recognition_dashboard_user(request):
     categories = (RecognitionCategory.objects
                   .filter(is_active=True)
                   .order_by('order', 'title'))
+
+    people = (User.objects
+              .filter(is_active=True)
+              .exclude(id=request.user.id)        # opcional: no incluirse a sí mismo
+              .order_by('first_name', 'last_name', 'username'))
+
     return render(
         request,
         'recognitions/user/recognition_dashboard_user.html',
         {
-            "categories": categories,   # <-- tu template ya itera {% for c in categories %}
-            # agrega aquí otros datos que ya uses, p. ej. "people"
+            "categories": categories,
+            "people": people,                     # <<--- IMPORTANTE
         }
     )
 
