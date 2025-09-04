@@ -5,7 +5,6 @@
 {% endblock %}
 
 {% block page_title %}Panel de Reconocimientos{% endblock %}
-{% block title %}Panel de Reconocimientos{% endblock %}
 
 {% block content %}
 <div class="container py-3" style="max-width:820px;">
@@ -64,9 +63,21 @@
               <option value="">Categorías</option>
               {% for c in categories %}
                 <option value="{{ c.id }}" data-color="{{ c.color_hex }}">{{ c.title }}</option>
+              {% empty %}
+                <option disabled>No hay categorías activas</option>
               {% endfor %}
             </select>
           </div>
+        </div>
+
+        <!-- Mensaje (solo texto) -->
+        <div class="mb-3">
+          <label class="form-label">Deja un mensaje personalizado</label>
+          <textarea class="form-control"
+                    name="message"
+                    rows="3"
+                    placeholder="Cuéntales por qué marcó la diferencia"
+                    maxlength="1000"></textarea>
         </div>
 
         <!-- Dropzone simple (solo imágenes) -->
@@ -79,7 +90,7 @@
                   type="file"
                   name="media"
                   class="d-none"
-                  accept="image/*">  <!-- 👈 solo imágenes -->
+                  accept="image/*">
             <div class="mt-3">
               <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">
                 Subir imagen
@@ -88,15 +99,6 @@
             <div id="previewArea" class="mt-3"></div>
           </div>
         </div>
-
-        <!-- Mensaje (solo texto) -->
-        <textarea class="form-control"
-                  name="message"
-                  rows="3"
-                  placeholder="Cuéntales por qué marcó la diferencia"
-                  maxlength="1000"></textarea> <!-- opcional: límite -->
-      </div>
-
       <div class="modal-footer">
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" id="publishBtn" class="btn btn-primary" disabled>Publicar</button>

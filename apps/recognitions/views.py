@@ -39,8 +39,17 @@ def recognition_dashboard_admin(request):
 # esta vista es para el usuario
 @login_required
 def recognition_dashboard_user(request):
-
-    return render(request, 'recognitions/user/recognition_dashboard_user.html')
+    categories = (RecognitionCategory.objects
+                  .filter(is_active=True)
+                  .order_by('order', 'title'))
+    return render(
+        request,
+        'recognitions/user/recognition_dashboard_user.html',
+        {
+            "categories": categories,   # <-- tu template ya itera {% for c in categories %}
+            # agrega aquí otros datos que ya uses, p. ej. "people"
+        }
+    )
 
 class AdminOnlyMixin(UserPassesTestMixin):
     def test_func(self):
