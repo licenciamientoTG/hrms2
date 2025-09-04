@@ -6,8 +6,11 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import path
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
-
-from .models import RecognitionCategory
+from django.views.decorators.http import require_http_methods
+from django.contrib import messages
+from django.utils.translation import gettext as _
+from django.http import HttpResponseForbidden
+from .models import RecognitionCategory, Recognition
 
 
 # esta vista te redirige a las vistas de usuario y administrador
@@ -40,26 +43,68 @@ def recognition_dashboard_admin(request):
 # esta vista es para el usuario
 User = get_user_model()
 
+MAX_RECIPIENTS = 30
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+IMG_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}
+
+def _is_image_ok(f):
+    if not f:
+        return True
+    if f.size > MAX_IMAGE_BYTES:
+        return False
+    ct_ok = (f.content_type or '').startswith('image/')
+    name = (f.name or '').lower()
+    ext_ok = any(name.endswith(ext) for ext in IMG_EXTS)
+    return ct_ok and ext_ok
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
-    categories = (RecognitionCategory.objects
-                  .filter(is_active=True)
-                  .order_by('order', 'title'))
+    if request.method == "POST":
+        recipients_ids = request.POST.getlist('recipients')  # ← IMPORTANTE
+        category_id    = request.POST.get('category')
+        message        = (request.POST.get('message') or '').strip()
+        media          = request.FILES.get('media')
 
-    people = (User.objects
-              .filter(is_active=True)
-              .exclude(id=request.user.id)        # opcional: no incluirse a sí mismo
-              .order_by('first_name', 'last_name', 'username'))
+        # Validaciones
+        errors = []
+        if not recipients_ids:
+            errors.append(_("Debes seleccionar al menos un destinatario."))
+        if len(recipients_ids) > MAX_RECIPIENTS:
+            errors.append(_("Máximo %(n)s colaboradores.") % {'n': MAX_RECIPIENTS})
+        if not category_id:
+            errors.append(_("Selecciona una categoría."))
+        else:
+            category = get_object_or_404(RecognitionCategory, pk=category_id, is_active=True)
 
-    return render(
-        request,
-        'recognitions/user/recognition_dashboard_user.html',
-        {
-            "categories": categories,
-            "people": people,                     # <<--- IMPORTANTE
-        }
-    )
+        if media and not _is_image_ok(media):
+            errors.append(_("La imagen no es válida o excede 10 MB."))
+
+        # Si hay errores, vuelve al template con mensaje
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            # Crear reconocimiento
+            rec = Recognition.objects.create(
+                author=request.user,
+                category=category,
+                message=message,
+                image=media if media else None,
+            )
+            # Recipients
+            users = User.objects.filter(id__in=recipients_ids)
+            rec.recipients.add(*users)
+
+            messages.success(request, _("¡Reconocimiento publicado!"))
+            return redirect('recognition_dashboard_user')  # o al feed
+
+    # GET o POST con errores → render
+    ctx = {
+        "people": User.objects.filter(is_active=True).order_by('first_name','last_name','username'),
+        "categories": RecognitionCategory.objects.filter(is_active=True).order_by('order','title'),
+    }
+    return render(request, 'recognitions/user/recognition_dashboard_user.html', ctx)
 
 class AdminOnlyMixin(UserPassesTestMixin):
     def test_func(self):

@@ -2,6 +2,8 @@
 {% load static %}
 {% block styles %}
   <link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+  <!-- bootstrap-select -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css">
 {% endblock %}
 
 {% block page_title %}Panel de Reconocimientos{% endblock %}
@@ -30,7 +32,7 @@
 <!-- MODAL: Nuevo reconocimiento -->
 <div class="modal fade" id="newRecognitionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-aside modal-lg">
-    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'recognition_dashboard_user' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Nuevo reconocimiento</h5>
@@ -42,7 +44,16 @@
         <!-- ¿A quién deseas reconocer? -->
         <div class="mb-3">
           <label class="form-label">¿A quién deseas reconocer?</label>
-          <select class="form-select" name="recipients" id="recipientsSelect" multiple size="8">
+
+          <select
+            class="selectpicker"
+            id="recipientsSelect"
+            name="recipients"
+            multiple
+            data-live-search="true"
+            data-width="100%"
+            data-style="btn btn-light w-100 text-start" 
+            title="Selecciona colaboradores">
             {% for p in people %}
               <option value="{{ p.id }}">
                 {{ p.get_full_name|default:p.username }}
@@ -86,7 +97,7 @@
         <div class="mb-1">
           <label class="form-label">Sube una imagen (Opcional)</label>
           <div id="dropZone" class="border rounded-3 text-center p-4" style="border-style:dashed;">
-            <div class="mb-2">Elija una imagen o arrástrela aquí</div>
+            <div class="mb-2">Selecciona una imagen </div>
             <div class="text-muted small">Solo imágenes. Tamaño máximo 10 MB.</div>
             <input id="mediaInput"
                   type="file"
@@ -110,6 +121,9 @@
 </div>
 {% endblock %}
 {% block scripts %}
+  <!-- jQuery es requerido por bootstrap-select -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
   <script src="{% static 'js/recognition.js' %}"></script>
 {% endblock %}
 

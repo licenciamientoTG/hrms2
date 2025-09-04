@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 HEX_VALIDATOR = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
@@ -37,3 +38,21 @@ class RecognitionCategory(models.Model):
 
     def __str__(self):
         return self.title
+
+User = settings.AUTH_USER_MODEL
+
+class Recognition(models.Model):
+    author      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recognitions_sent')
+    category    = models.ForeignKey('RecognitionCategory', on_delete=models.PROTECT)
+    message     = models.TextField(blank=True)
+    image       = models.ImageField(upload_to='recognitions/', blank=True, null=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
+
+    def __str__(self):
+        return f'{self.author} → {self.category} ({self.created_at:%Y-%m-%d})'
+
+class RecognitionRecipient(models.Model):
+    recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE)
+    user        = models.ForeignKey(User, on_delete=models.CASCADE)
