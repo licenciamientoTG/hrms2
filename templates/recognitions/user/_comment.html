@@ -1,0 +1,24 @@
+{# Un solo comentario #}
+<div id="comment-{{ c.id }}" class="p-2 rounded-4 bg-light mb-2 d-flex align-items-start gap-2">
+  <div class="post-avatar" style="background:#b8d37c;color:#fff;">
+    {{ c.author.first_name|default:c.author.username|slice:":1" }}{{ c.author.last_name|slice:":1" }}
+  </div>
+  <div class="flex-grow-1">
+    <div class="small text-muted">
+      <span class="fw-semibold">{{ c.author.get_full_name|default:c.author.username }}</span>
+      · {{ c.created_at|timesince }} atrás
+    </div>
+    <div>{{ c.body|linebreaksbr }}</div>
+  </div>
+
+  {% if request.user.id == c.author_id or request.user.is_staff %}
+    <form method="post"
+          action="{% url 'recognition_comment_delete' c.recognition_id c.id %}"
+          class="js-comment-del ms-2"
+          data-rec-id="{{ c.recognition_id }}"
+          data-comment-id="{{ c.id }}">
+      {% csrf_token %}
+      <button class="btn btn-link btn-sm text-danger p-0" type="submit">Eliminar</button>
+    </form>
+  {% endif %}
+</div>

@@ -269,7 +269,7 @@ def generar_carta_recomendacion(request):
         f"<b>A quien corresponda:</b><br/><br/>"
         f"Por medio de la presente, hacemos constar que <b>{nombre}</b> laboró en <b>{empresa}</b> "
         f"en el puesto de <b>{puesto}</b>, dentro del departamento de <b>{departamento}</b>. "
-        f"Inició labores el <b>{fecha_inicio}</b> y conlcuyó el <b>{fecha_termino}</b>."
+        f"Inició labores el <b>{fecha_inicio}</b> y concluyó el <b>{fecha_termino}</b>."
         f"<br/><br/>"
         f"Extendemos la presente carta a solicitud del interesado, para los fines que considere convenientes."
     )

@@ -25,12 +25,12 @@
                     </a>
                 </li>
                 {% endif %}
-                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
                     </a>
                 </li>
+                {% if user.is_superuser %}
                 {% endif %}
 
                 <li class="sidebar-item active">
@@ -62,17 +62,18 @@
                 </li>
             {% endif %}
                 
-            {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
                     </a>
                 </li>
+            {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
+            {% endif %}
 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
@@ -80,7 +81,6 @@
                     </a>
                 </li>
 
-            {% endif %}
             {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
@@ -101,14 +101,13 @@
                 </li>
             {% endif %} 
             {% if user.is_superuser %}
-    
+ 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">
                         <i class="fa-solid fa-briefcase"></i><span class="align-middle">Vacantes</span>
                     </a>
                 </li>
             
-
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'policies_dashboard' %}">
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>

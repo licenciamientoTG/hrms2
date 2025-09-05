@@ -9,6 +9,8 @@ from .views import (
     category_toggle_active,
     category_create,
     category_delete_post,
+    recognition_comment_create,
+    recognition_comment_delete,
 
 )
 
@@ -24,5 +26,6 @@ urlpatterns = [
     path('categories/<int:pk>/edit/', CategoryUpdateView.as_view(), name='category_edit'),
     path('categories/<int:pk>/toggle/', category_toggle_active, name='category_toggle'),
     path('categories/<int:pk>/delete-post/', category_delete_post, name='category_delete_post'),
-
+    path('recognitions/<int:pk>/comment/', recognition_comment_create, name='recognition_comment_create'),
+    path('recognitions/<int:pk>/comment/<int:cid>/delete/', recognition_comment_delete, name='recognition_comment_delete'),
 ]

@@ -222,3 +222,83 @@
     });
   });
 })();
+
+// ===== AJAX comentarios =====
+(function () {
+  // CSRF de Django
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m.pop()) : '';
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  // Crear comentario sin recargar
+  document.querySelectorAll('.js-comment-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = form.getAttribute('action');
+      const recId = form.dataset.recId;
+      const input = form.querySelector('input[name="body"]');
+      const text = (input.value || '').trim();
+      if (!text) return;
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+          },
+          body: new URLSearchParams({ body: text }).toString()
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) throw new Error(data.error || 'Error');
+
+        // Inyectar el nuevo comentario al final
+        const list = document.querySelector('#comments-' + recId);
+        list.insertAdjacentHTML('beforeend', data.html);
+
+        // Actualizar contador y limpiar input
+        const badge = document.querySelector('#ccount-' + recId);
+        if (badge) badge.textContent = data.count;
+        input.value = '';
+      } catch (err) {
+        console.error(err);
+        alert('No se pudo publicar el comentario.');
+      }
+    });
+  });
+
+  // Delegado para borrar comentario sin recargar
+  document.addEventListener('submit', async (e) => {
+    const form = e.target.closest('.js-comment-del');
+    if (!form) return;
+    e.preventDefault();
+
+    const recId = form.dataset.recId;
+    const commentId = form.dataset.commentId;
+    const url = form.getAttribute('action');
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Error');
+
+      // Quitar del DOM y actualizar contador
+      const node = document.querySelector('#comment-' + commentId);
+      if (node) node.remove();
+      const badge = document.querySelector('#ccount-' + recId);
+      if (badge) badge.textContent = data.count;
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo eliminar el comentario.');
+    }
+  });
+})();

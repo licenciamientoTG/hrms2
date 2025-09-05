@@ -122,7 +122,35 @@
         {% if rec.image %}
           <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
         {% endif %}
-      </div> 
+      </div>
+        {# === Comentarios === #}
+        {# Barra acciones sencilla: comentar + contador #}
+        <div class="border-top px-3 py-2 d-flex align-items-center justify-content-between text-muted small">
+          <a class="text-decoration-none" data-bs-toggle="collapse" href="#rec-{{ rec.id }}-comments">💬 Comentar</a>
+          <span><span id="ccount-{{ rec.id }}">{{ rec.comments.count }}</span> comentarios</span>
+        </div>
+
+        {# Sección de comentarios #}
+        <div id="rec-{{ rec.id }}-comments" class="collapse">
+          <div id="comments-{{ rec.id }}" class="px-3 pt-2">
+            {% for c in rec.comments.all %}
+              {% include 'recognitions/user/_comment.html' with c=c %}
+            {% empty %}
+              <div class="text-muted small px-2 mb-2">Sé el primero en comentar.</div>
+            {% endfor %}
+          </div>
+
+          <form method="post"
+                action="{% url 'recognition_comment_create' rec.id %}"
+                class="js-comment-form px-3 pb-3"
+                data-rec-id="{{ rec.id }}">
+            {% csrf_token %}
+            <div class="input-group">
+              <input name="body" class="form-control" placeholder="Escribe un comentario…" maxlength="500">
+              <button class="btn btn-primary" type="submit">Enviar</button>
+            </div>
+          </form>
+        </div>
     </div>
   {% empty %}
     <div class="text-center text-muted py-5">Aún no hay reconocimientos.</div>
@@ -215,5 +243,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
   <script src="{% static 'js/recognition.js' %}"></script>
+
 {% endblock %}
 

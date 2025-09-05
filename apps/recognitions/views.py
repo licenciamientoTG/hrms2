@@ -10,10 +10,12 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.http import HttpResponseForbidden
-from .models import RecognitionCategory, Recognition
+from .models import RecognitionCategory, Recognition, RecognitionComment
 from django.db.models.deletion import ProtectedError
 from django.views.decorators.http import require_POST
-
+from django.db.models import Prefetch
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 
 
 
@@ -108,8 +110,14 @@ def recognition_dashboard_user(request):
     feed = (
         Recognition.objects
         .select_related('author', 'category')
-        .prefetch_related('recipients')
-        .order_by('-created_at')  # ⚠️ si tu campo es otro (p.ej. 'created'), cámbialo aquí
+        .prefetch_related(
+            'recipients',
+            Prefetch(
+                'comments',
+                queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
+            )
+        )
+        .order_by('-created_at')
     )
 
     ctx = {
@@ -242,3 +250,50 @@ def category_toggle_active(request, pk):
         )
 
     return redirect("recognition_dashboard")
+
+# Crear comentario
+@login_required
+@require_POST
+def recognition_comment_create(request, pk):
+    rec = get_object_or_404(Recognition, pk=pk)
+    body = (request.POST.get('body') or '').strip()
+    if not body:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': False, 'error': 'Texto vacío.'}, status=400)
+        messages.error(request, 'El comentario no puede estar vacío.')
+        return redirect('recognition_dashboard_user')
+
+    c = RecognitionComment.objects.create(
+        recognition=rec,
+        author=request.user,
+        body=body
+    )
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        html = render_to_string(
+            "recognitions/user/_comment.html",   # ← tu parcial
+            {"c": c, "request": request},
+            request=request
+        )
+        count = rec.comments.count()
+        return JsonResponse({'ok': True, 'html': html, 'count': count})
+
+    return redirect('recognition_dashboard_user')
+
+# Borrar comentario (autor o superuser)
+@login_required
+@require_http_methods(["POST"])
+def recognition_comment_delete(request, pk, cid):
+    c = get_object_or_404(RecognitionComment, pk=cid, recognition_id=pk)
+    if request.user != c.author and not request.user.is_staff:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+        return HttpResponseForbidden("No autorizado")
+
+    c.delete()
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        count = RecognitionComment.objects.filter(recognition_id=pk).count()
+        return JsonResponse({"ok": True, "count": count})
+
+    return redirect('recognition_dashboard_user')
