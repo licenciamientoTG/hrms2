@@ -217,75 +217,70 @@ document.addEventListener('submit', async (e) => {
   const url = form.dataset.url;
   const fd = new FormData(form);
 
+  // (opcional) desactivar botón mientras envía
+  const btn = form.querySelector('button[type="submit"]');
+  btn?.setAttribute('disabled', 'disabled');
+
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      , body: fd
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd
     });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error();
 
-    // prepend el nuevo comentario
+    const data = await res.json(); // tu vista ya responde JSON
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!data?.html) throw new Error('Respuesta inválida');
+
+    // agregar nuevo comentario arriba
     const wrap = document.getElementById('comments');
     wrap.insertAdjacentHTML('afterbegin', data.html);
 
-    // limpiar textarea
-    form.querySelector('textarea[name="body"]').value = '';
+    // limpiar campo de comentario (input o textarea)
+    const field = form.querySelector('[name="body"]');
+    if (field) field.value = '';
+    // o: form.reset();
 
     // actualizar contador
     const cc = document.querySelector('.comment-count');
-    if (cc) cc.textContent = data.count;
+    if (cc && typeof data.count !== 'undefined') cc.textContent = data.count;
 
   } catch (err) {
     console.error(err);
-    if (window.Swal) Swal.fire({icon:'error', title:'No se pudo publicar'});
+    if (window.Swal) Swal.fire({ icon:'error', title:'No se pudo publicar' });
+  } finally {
+    btn?.removeAttribute('disabled');
   }
 });
 
-// --- Eliminar comentario (AJAX + SweetAlert) ---
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.js-delete-comment');
-  if (!btn) return;
+// --- Eliminar comentario (AJAX, sin refresh) ---
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('.js-comment-del');
+  if (!form) return;
 
   e.preventDefault();
-  const url = btn.dataset.url;
 
-  const go = async () => {
-    const res = await fetch(url, {
+  try {
+    const res = await fetch(form.action, {
       method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')?.value || '')
-      }
+      body: new FormData(form), // incluye csrf del form
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin'
     });
+
     const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error();
-    // eliminar del DOM
-    const node = btn.closest('[id^="comment-"]');
-    if (node) node.remove();
+    if (!res.ok || !data?.ok) throw new Error();
+
+    // quitar del DOM
+    document.getElementById('comment-' + form.dataset.commentId)?.remove();
+
     // actualizar contador
     const cc = document.querySelector('.comment-count');
-    if (cc) cc.textContent = data.count;
-  };
-
-  if (window.Swal) {
-    const resp = await Swal.fire({
-      title: '¿Eliminar comentario?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Eliminar',
-      cancelButtonText: 'Cancelar',
-      reverseButtons: true,
-      focusCancel: true
-    });
-    if (!resp.isConfirmed) return;
-
-    try { await go(); }
-    catch { Swal.fire({icon:'error', title:'No se pudo eliminar'}); }
-  } else {
-    if (!confirm('¿Eliminar comentario?')) return;
-    try { await go(); } catch {}
+    if (cc) cc.textContent = String(data.count ?? Math.max(0, (+cc.textContent || 0) - 1));
+  } catch (err) {
+    console.error(err);
+    if (window.Swal) Swal.fire({icon:'error', title:'No se pudo eliminar'});
   }
 });
 

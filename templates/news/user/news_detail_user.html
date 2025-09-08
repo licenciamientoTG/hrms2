@@ -51,12 +51,15 @@
 
   <form id="comment-form"
         method="post"
-        data-url="{% url 'news_comment_create' n.id %}">
+        data-url="{% url 'news_comment_create' n.id %}"
+        class="d-flex align-items-center gap-2 mt-2">
     {% csrf_token %}
-    <textarea name="body" class="form-control" rows="3" required></textarea>
-    <div class="mt-2 d-flex justify-content-end">
-      <button type="submit" class="btn btn-primary btn-sm">Publicar</button>
-    </div>
+    <input type="text"
+          name="body"
+          class="form-control"
+          placeholder="Escribe un comentario..."
+          required>
+    <button type="submit" class="btn btn-primary">Enviar</button>
   </form>
 
   <div id="comments">

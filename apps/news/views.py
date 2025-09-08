@@ -274,31 +274,32 @@ def news_comment_create(request, pk):
         'id': c.id,
     })
 
-# esta vista es para eliminar comentarios
+@require_POST
 @login_required
 def news_comment_delete(request, pk, cid):
-    # Solo permite POST vía AJAX
-    if request.method != 'POST' or request.headers.get('x-requested-with') != 'XMLHttpRequest':
-        return HttpResponseBadRequest('Bad request')
-
     news = get_object_or_404(News, pk=pk)
     comment = get_object_or_404(NewsComment, pk=cid, news=news)
+
     user = request.user
     is_super = user.is_superuser
     has_perm = user.is_staff and user.has_perm('news.delete_newscomment')
     is_owner = (comment.user_id == user.id)
 
     if not (is_super or has_perm or is_owner):
-        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        # AJAX -> JSON 403; normal -> 403 plano
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        return HttpResponseForbidden('No autorizado')
 
     comment.delete()
     new_count = NewsComment.objects.filter(news=news).count()
 
-    return JsonResponse({'ok': True, 'id': cid, 'count': new_count})
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'id': cid, 'count': new_count})
 
-def _first_token(s):
-    s = (s or "").strip()
-    return s.split()[0] if s else ""
+    # POST normal: redirige de vuelta
+    next_url = request.META.get('HTTP_REFERER') or reverse('news_detail', args=[pk])
+    return redirect(next_url)
 
 # esta vista es la visualizacion de los likes
 @login_required

@@ -1,18 +1,24 @@
-<div class="border-top pt-3 mt-3" id="comment-{{ c.id }}">
-  <div class="d-flex justify-content-between">
-    <div>
-      <strong>{{ c.user.get_full_name|default:c.user.username }}</strong>
-      · <span class="text-muted small">{{ c.created_at|timesince }} atrás</span>
-    </div>
-
-    {% if request.user.is_superuser or request.user.id == c.user_id %}
-      <a href="#"
-         class="text-danger small js-delete-comment"
-         data-url="{% url 'news_comment_delete' c.news_id c.id %}">
-        Eliminar
-      </a>
-    {% endif %}
+{# news/user/_comment.html #}
+<div id="comment-{{ c.id }}" class="p-2 rounded-4 bg-light mb-2 d-flex align-items-start gap-2">
+  <div class="post-avatar" style="background:#b8d37c;color:#fff;">
+    {{ c.user.first_name|default:c.user.username|slice:":1" }}{{ c.user.last_name|slice:":1" }}
   </div>
 
-  <div class="mt-2">{{ c.body|linebreaksbr }}</div>
+  <div class="flex-grow-1">
+    <div class="small text-muted">
+      <span class="fw-semibold">{{ c.user.get_full_name|default:c.user.username }}</span>
+      · {{ c.created_at|timesince }} atrás
+    </div>
+    <div>{{ c.body|linebreaksbr }}</div>
+  </div>
+
+  {% if request.user.is_superuser or request.user.id == c.user_id %}
+    <form method="post"
+          action="{% url 'news_comment_delete' c.news_id c.id %}"
+          class="js-comment-del"
+          data-comment-id="{{ c.id }}">
+      {% csrf_token %}
+      <button class="btn btn-link btn-sm text-danger p-0" type="submit">Eliminar</button>
+    </form>
+  {% endif %}
 </div>
