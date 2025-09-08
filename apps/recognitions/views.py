@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.http import HttpResponseForbidden
-from .models import RecognitionCategory, Recognition, RecognitionComment
+from .models import RecognitionCategory, Recognition, RecognitionComment, RecognitionMedia
 from django.db.models.deletion import ProtectedError
 from django.views.decorators.http import require_POST
 from django.db.models import Prefetch
@@ -49,20 +49,12 @@ def recognition_dashboard_admin(request):
 # esta vista es para el usuario
 User = get_user_model()
 
-MAX_RECIPIENTS     = 30
-MAX_IMAGE_BYTES    = 10 * 1024 * 1024
-IMG_EXTS           = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}
+MAX_RECIPIENTS = 30
+MAX_IMAGES_PER_POST = 10  # puedes ajustarlo
+MAX_MB = 10               # MB
 
 def _is_image_ok(f):
-    if not f:
-        return True
-    if f.size > MAX_IMAGE_BYTES:
-        return False
-    ct_ok  = (f.content_type or '').startswith('image/')
-    name   = (f.name or '').lower()
-    ext_ok = any(name.endswith(ext) for ext in IMG_EXTS)
-    return ct_ok and ext_ok
-
+    return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
 
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -71,7 +63,7 @@ def recognition_dashboard_user(request):
         recipients_ids = request.POST.getlist('recipients')
         category_id    = request.POST.get('category')
         message        = (request.POST.get('message') or '').strip()
-        media          = request.FILES.get('media')
+        files          = request.FILES.getlist('media')   # <-- CLAVE
 
         errors = []
         if not recipients_ids:
@@ -85,33 +77,44 @@ def recognition_dashboard_user(request):
         else:
             category = get_object_or_404(RecognitionCategory, pk=category_id, is_active=True)
 
-        if media and not _is_image_ok(media):
-            errors.append(_("La imagen no es válida o excede 10 MB."))
+        # Validación de imágenes
+        if files:
+            files = files[:MAX_IMAGES_PER_POST]  # límite opcional
+            bad = [f.name for f in files if not _is_image_ok(f)]
+            if bad:
+                errors.append(_("Hay imágenes no válidas o mayores a %(n)s MB: %(lst)s") %
+                              {"n": MAX_MB, "lst": ", ".join(bad)})
 
         if errors:
             for e in errors:
                 messages.error(request, e)
         else:
-            # Crear el reconocimiento
+            # Crear reconocimiento
             rec = Recognition.objects.create(
                 author=request.user,
                 category=category,
                 message=message,
-                image=media if media else None,   # ajusta el nombre del campo si difiere
+                # image=None  # ya no guardamos en el campo legacy
             )
+
             # Destinatarios
             users = User.objects.filter(id__in=recipients_ids, is_active=True)
             rec.recipients.add(*users)
 
+            # Guardar TODAS las imágenes
+            for f in files:
+                RecognitionMedia.objects.create(recognition=rec, file=f)
+
             messages.success(request, _("¡Reconocimiento publicado!"))
             return redirect('recognition_dashboard_user')
 
-    # FEED (más recientes primero)
+    # FEED (más recientes primero) + prefetch de media
     feed = (
         Recognition.objects
         .select_related('author', 'category')
         .prefetch_related(
             'recipients',
+            'media',  # <-- importante para evitar N+1
             Prefetch(
                 'comments',
                 queryset=RecognitionComment.objects.select_related('author').order_by('created_at')

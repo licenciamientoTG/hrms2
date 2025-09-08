@@ -72,3 +72,15 @@ class RecognitionComment(models.Model):
 
     def __str__(self):
         return f'Comment by {self.author} on {self.recognition_id}'
+
+class RecognitionMedia(models.Model):
+    recognition = models.ForeignKey(
+        Recognition,
+        on_delete=models.CASCADE,
+        related_name='media'
+    )
+    file = models.ImageField(upload_to='recognitions/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Media #{self.pk} of Rec #{self.recognition_id}'

@@ -118,10 +118,54 @@
           </p>
         {% endif %}
 
-        {# Imagen que subió el autor (va debajo del texto) #}
-        {% if rec.image %}
+{# === Carrusel de imágenes del reconocimiento === #}
+{% with imgs=rec.media.all %}
+{% if imgs %}
+  <div id="rec-{{ rec.id }}-carousel" class="carousel slide mt-2" data-bs-ride="carousel">
+
+    {# Indicadores (solo si hay >1) #}
+    {% if imgs|length > 1 %}
+    <div class="carousel-indicators">
+      {% for m in imgs %}
+        <button type="button"
+                data-bs-target="#rec-{{ rec.id }}-carousel"
+                data-bs-slide-to="{{ forloop.counter0 }}"
+                {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                aria-label="Slide {{ forloop.counter }}"></button>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="carousel-inner rounded overflow-hidden">
+      {% for m in imgs %}
+        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+          <img src="{{ m.file.url }}"
+               class="d-block w-100"
+               alt="Imagen del reconocimiento"
+               style="max-height:420px; object-fit:cover;">
+        </div>
+      {% endfor %}
+    </div>
+
+            {# Controles (solo si hay >1) #}
+            {% if imgs|length > 1 %}
+            <button class="carousel-control-prev" type="button"
+                    data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="prev">
+              <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Anterior</span>
+            </button>
+            <button class="carousel-control-next" type="button"
+                    data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="next">
+              <span class="carousel-control-next-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Siguiente</span>
+            </button>
+            {% endif %}
+          </div>
+        {% elif rec.image %}
+          {# Fallback legacy de 1 imagen #}
           <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
         {% endif %}
+        {% endwith %}
       </div>
         {# === Comentarios === #}
         {# Barra acciones sencilla: comentar + contador #}
@@ -214,17 +258,22 @@
           <textarea class="form-control" name="message" rows="3" placeholder="Cuéntales por qué marcó la diferencia" maxlength="1000"></textarea>
         </div>
 
-        <!-- Dropzone simple (solo imágenes) -->
+        <!-- Dropzone simple (múltiples imágenes) -->
         <div class="mb-1">
-          <label class="form-label">Sube una imagen (Opcional)</label>
+          <label class="form-label">Sube imágenes (Opcional)</label>
           <div id="dropZone" class="border rounded-3 text-center p-4" style="border-style:dashed;">
-            <div class="mb-2">Selecciona una imagen</div>
-            <div class="text-muted small">Solo imágenes. Tamaño máximo 10 MB.</div>
-            <input id="mediaInput" type="file" name="media" class="d-none" accept="image/*">
+            <div class="mb-2">Selecciona una o varias imágenes</div>
+            <div class="text-muted small">Solo imágenes. Tamaño máx. 10 MB c/u.</div>
+
+            <!-- 👇 habilita múltiples archivos con multiple -->
+            <input id="mediaInput" type="file" name="media" class="d-none" accept="image/*" multiple>
+
             <div class="mt-3">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">Subir imagen</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">Subir imágenes</button>
             </div>
-            <div id="previewArea" class="mt-3"></div>
+
+            <!-- 👇 aquí renderizamos miniaturas de TODAS las imágenes -->
+            <div id="previewArea" class="mt-3 d-flex flex-wrap gap-2"></div>
           </div>
         </div>
       </div>

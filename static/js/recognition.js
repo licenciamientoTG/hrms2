@@ -1,11 +1,15 @@
 (() => {
   // ===== Helpers =====
   const $ = (s) => document.querySelector(s);
-  const bound = new WeakSet();
+  const bound = new WeakMap();
   function bindOnce(el, type, handler, opts) {
-    if (!el || !type || bound.has(el)) return;
+    if (!el || !type) return;
+    const key = type + '|' + (opts?.capture ? '1' : '0');
+    const set = bound.get(el) || new Set();
+    if (set.has(key)) return;
     el.addEventListener(type, handler, opts);
-    bound.add(el);
+    set.add(key);
+    bound.set(el, set);
   }
 
   // ===== ADMIN: color / cover / puntos / confeti =====
@@ -94,57 +98,64 @@
   categorySelect && categorySelect.addEventListener('change', updatePublishState);
   updatePublishState();
 
-  // ===== Dropzone (solo imágenes) — una sola vez =====
-  const dropZone    = $('#dropZone');
-  const mediaInput  = $('#mediaInput');
-  const pickFileBtn = $('#pickFileBtn');
-  const preview     = $('#previewArea');
+  // ===== Dropzone (múltiples imágenes, ACUMULANDO) =====
+  (function() {
+    const dropZone    = $('#dropZone');
+    const mediaInput  = $('#mediaInput');
+    const pickFileBtn = $('#pickFileBtn');
+    const preview     = $('#previewArea');
 
-  const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-  const EXT_WHITELIST = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'];
+    const MAX_MB = 10;
+    const isImg  = f => f && f.type?.startsWith('image/');
 
-  function isImageFile(file){
-    if (!file) return false;
-    const mimeOk = file.type?.startsWith('image/');
-    const extOk  = EXT_WHITELIST.some(ext => file.name?.toLowerCase().endsWith(ext));
-    return mimeOk && extOk;
-  }
-  function errorMsg(msg){ window.Toastify ? Toastify({text:msg,duration:3500}).showToast() : alert(msg); }
-  function clearSelection(){ if (mediaInput) mediaInput.value=''; if (preview) preview.innerHTML=''; }
-  function showPreview(file){
-    if (!preview) return;
-    preview.innerHTML = '';
-    const url = URL.createObjectURL(file);
-    const img = document.createElement('img');
-    img.src = url; img.alt='Vista previa';
-    img.style.maxWidth='100%'; img.style.maxHeight='220px';
-    preview.appendChild(img);
-  }
-  function handleFile(file){
-    if (!file) return;
-    if (!isImageFile(file)) { clearSelection(); return errorMsg('Solo se permiten imágenes.'); }
-    if (file.size > MAX_BYTES){ clearSelection(); return errorMsg('La imagen excede 10 MB.'); }
-    showPreview(file);
-  }
+    // Estado acumulado en memoria
+    let selected = [];
 
-  bindOnce(pickFileBtn, 'click', () => mediaInput?.click());
-  bindOnce(mediaInput, 'change', (e)=> handleFile(e.target.files?.[0]));
+    function syncInputAndRender() {
+      // Actualiza <input.files> desde selected
+      const dt = new DataTransfer();
+      selected.forEach(f => dt.items.add(f));
+      mediaInput.files = dt.files;
 
-  ['dragenter','dragover','dragleave','drop'].forEach(evt => {
-    bindOnce(dropZone, evt, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      if (evt === 'dragenter' || evt === 'dragover') dropZone.classList.add('bg-light');
-      if (evt === 'dragleave' || evt === 'drop')     dropZone.classList.remove('bg-light');
-    });
-  });
-  bindOnce(dropZone, 'drop', (e) => {
-    const f = e.dataTransfer?.files?.[0];
-    if (!f) return;
-    if (!isImageFile(f)) return errorMsg('Solo se permiten imágenes.');
-    if (f.size > MAX_BYTES) return errorMsg('La imagen excede 10 MB.');
-    if (mediaInput) mediaInput.files = e.dataTransfer.files;
-    showPreview(f);
-  });
+      // Render
+      preview.innerHTML = '';
+      selected.forEach(file => {
+        const url = URL.createObjectURL(file);
+        const fig = document.createElement('figure');
+        fig.className = 'm-0';
+        fig.style.width = '110px';
+        fig.innerHTML = `
+          <img src="${url}" class="img-fluid rounded border" style="height:84px;object-fit:cover;width:100%;">
+          <figcaption class="small text-truncate" title="${file.name}">${file.name}</figcaption>`;
+        preview.appendChild(fig);
+      });
+    }
+
+    function addFiles(fileList) {
+      const incoming = [...(fileList || [])]
+        .filter(f => isImg(f) && f.size <= MAX_MB * 1024 * 1024);
+
+      // Evita duplicados por (name,size,lastModified)
+      const key = f => `${f.name}|${f.size}|${f.lastModified}`;
+      const current = new Set(selected.map(key));
+
+      incoming.forEach(f => { if (!current.has(key(f))) selected.push(f); });
+      if (selected.length) syncInputAndRender();
+    }
+
+    pickFileBtn && pickFileBtn.addEventListener('click', () => mediaInput?.click());
+    mediaInput  && mediaInput.addEventListener('change', e => addFiles(e.target.files));
+
+    ['dragenter','dragover'].forEach(ev =>
+      dropZone && dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('border-primary'); })
+    );
+    ['dragleave','drop'].forEach(ev =>
+      dropZone && dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('border-primary'); })
+    );
+    dropZone && dropZone.addEventListener('drop', e => addFiles(e.dataTransfer?.files));
+  })();
+
+
 
   // Mensaje solo texto (anti-HTML/pegado de archivos)
   document.querySelectorAll('textarea[name="message"]').forEach(tx => {
