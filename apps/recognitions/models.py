@@ -50,8 +50,22 @@ class Recognition(models.Model):
 
     recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
 
+    # 👍 NUEVO: M2M con through para controlar likes
+    likes = models.ManyToManyField(
+        User, through='RecognitionLike',
+        related_name='recognitions_liked', blank=True
+    )
+
     def __str__(self):
         return f'{self.author} → {self.category} ({self.created_at:%Y-%m-%d})'
+
+class RecognitionLike(models.Model):
+    recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE, related_name='likes_rel')
+    user        = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (('recognition', 'user'),)  # evita duplicados
 
 class RecognitionRecipient(models.Model):
     recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE)

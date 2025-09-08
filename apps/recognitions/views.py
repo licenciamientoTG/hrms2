@@ -16,6 +16,11 @@ from django.views.decorators.http import require_POST
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+from django.views.decorators.http import require_GET
+from django.utils.timezone import now
+from django.utils.timesince import timesince
+from .models import RecognitionLike
+from django.db.models import Count, Q, Exists, OuterRef
 
 
 
@@ -110,17 +115,19 @@ def recognition_dashboard_user(request):
 
     # FEED (más recientes primero) + prefetch de media
     feed = (
-        Recognition.objects
-        .select_related('author', 'category')
-        .prefetch_related(
-            'recipients',
-            'media',  # <-- importante para evitar N+1
-            Prefetch(
-                'comments',
-                queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
-            )
-        )
-        .order_by('-created_at')
+    Recognition.objects
+    .select_related('author', 'category')
+    .annotate(
+        like_count=Count('likes_rel', distinct=True),
+        my_liked=Exists(
+            RecognitionLike.objects.filter(recognition=OuterRef('pk'), user=request.user)
+        ),
+    )
+    .prefetch_related(
+        'recipients', 'media',
+        Prefetch('comments', queryset=RecognitionComment.objects.select_related('author').order_by('created_at'))
+    )
+    .order_by('-created_at')
     )
 
     ctx = {
@@ -300,3 +307,50 @@ def recognition_comment_delete(request, pk, cid):
         return JsonResponse({"ok": True, "count": count})
 
     return redirect('recognition_dashboard_user')
+
+# toggle
+@login_required
+@require_POST
+def recognition_like_toggle(request, pk):
+    rec = get_object_or_404(Recognition, pk=pk)
+    obj, created = RecognitionLike.objects.get_or_create(recognition=rec, user=request.user)
+    liked = created
+    if not created:
+        obj.delete()
+    count = RecognitionLike.objects.filter(recognition=rec).count()
+    return JsonResponse({'ok': True, 'liked': liked, 'count': count})
+
+# lista
+# helpers
+def _first_token(s: str) -> str:
+    s = (s or "").strip()
+    return s.split()[0] if s else ""
+
+def _display_name(user) -> str:
+    fn = _first_token(getattr(user, "first_name", ""))
+    ln = _first_token(getattr(user, "last_name", ""))
+    full = f"{fn} {ln}".strip()
+    return full or user.get_username()
+
+@login_required
+@require_GET
+def recognition_likes_list(request, pk):
+    rec = get_object_or_404(Recognition, pk=pk)
+
+    # Usamos el modelo intermedio RecognitionLike
+    qs = (RecognitionLike.objects
+          .filter(recognition=rec)
+          .select_related("user")
+          .order_by("-created_at"))
+
+    items = [{
+        "name": _display_name(like.user),
+        "liked_at": "",
+    } for like in qs]
+
+    return JsonResponse({
+        "rec_id": rec.id,
+        "title": (rec.message or "")[:60],
+        "count": qs.count(),
+        "items": items,
+    })

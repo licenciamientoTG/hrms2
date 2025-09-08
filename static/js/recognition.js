@@ -313,3 +313,121 @@
     }
   });
 })();
+
+function getCookie(name){
+  const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-like');
+  if (!btn) return;
+
+  const url = btn.dataset.url;
+  if (!url) return;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin' // <-- asegúrate que envíe cookies
+    });
+
+    // Si redirige (login), te mando ahí
+    if (res.redirected) { window.location = res.url; return; }
+
+    const ctype = (res.headers.get('content-type') || '').toLowerCase();
+    const raw = await res.text();
+    let data = null; try { data = JSON.parse(raw); } catch {}
+
+    if (!res.ok || !data?.ok) {
+      console.error('[like] status:', res.status, 'ctype:', ctype, 'body:', raw.slice(0, 500));
+      throw new Error('Like failed');
+    }
+
+    const countEl = btn.querySelector('.like-count');
+    if (countEl) countEl.textContent = data.count;
+    btn.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
+    btn.classList.toggle('btn-success', data.liked);
+    btn.classList.toggle('btn-outline-secondary', !data.liked);
+
+  } catch (err) {
+    console.error(err);
+    window.Swal?.fire({icon:'error', title:'No se pudo registrar tu like'});
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Offcanvas: ver likes
+(function () {
+  const off = document.getElementById('likesOffcanvas');
+  if (!off) return;
+
+  const likesList   = document.getElementById('likes-list');
+  const likesLoader = document.getElementById('likes-loader');
+  const likesEmpty  = document.getElementById('likes-empty');
+  const likesCount  = document.getElementById('likes-count');
+  const likesTitle  = document.getElementById('likesOffcanvasLabel');
+
+  const show = (which) => {
+    likesLoader.classList.toggle('d-none', which !== 'loader');
+    likesEmpty.classList.toggle('d-none', which !== 'empty');
+    likesList.classList.toggle('d-none', which !== 'list');
+  };
+
+  async function fetchLikes(url) {
+    show('loader'); likesList.innerHTML=''; likesCount.textContent='0';
+
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+      if (!res.ok) {
+        console.error('HTTP', res.status, await res.text().catch(()=>'')); 
+        throw new Error('HTTP ' + res.status);
+      }
+      const ctype = (res.headers.get('content-type') || '').toLowerCase();
+      if (!ctype.includes('application/json')) {
+        console.error('Respuesta no JSON', await res.text().catch(()=>'')); 
+        throw new Error('not-json');
+      }
+
+      const data = await res.json();
+      likesTitle.textContent = data.title ? `Likes: ${data.title}` : 'Likes';
+      likesCount.textContent = data.count ?? 0;
+
+      if (!Array.isArray(data.items) || data.items.length === 0) { show('empty'); return; }
+
+      const frag = document.createDocumentFragment();
+      for (const it of data.items) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center gap-3';
+        const icon = document.createElement('span'); icon.className = 'fs-4'; icon.textContent = '👍';
+        const wrap = document.createElement('div');
+        const strong = document.createElement('strong'); strong.textContent = it.name || '—';
+        const small = document.createElement('small'); small.className = 'text-muted d-block'; small.textContent = it.liked_at || '';
+        wrap.appendChild(strong); wrap.appendChild(small);
+        li.appendChild(icon); li.appendChild(wrap);
+        frag.appendChild(li);
+      }
+      likesList.appendChild(frag);
+      show('list');
+
+    } catch (e) {
+      likesEmpty.textContent = 'No se pudieron cargar los likes.';
+      show('empty');
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('.btn-view-likes');
+    if (!a) return;
+    e.preventDefault();
+    const url = a.getAttribute('data-url');
+    if (url) fetchLikes(url);
+  });
+})();

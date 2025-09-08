@@ -166,20 +166,23 @@
           <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
         {% endif %}
         {% endwith %}
-          <div class="d-flex align-items-center gap-3 mt-3 pt-2">
-            <button type="button"
-                    class="btn btn-sm rounded-3 btn-like {% if n.my_liked %}btn-success {% else %}btn-outline-secondary{% endif %}"
-                    data-url="#"
-                    aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
-              👍 <span class="like-count">{{ n.like_count }}</span>
-            </button>
-              <a class="btn btn-sm btn-outline-primary btn-view-likes"
-                data-url="#"
-                data-bs-toggle="offcanvas"
-                data-bs-target="#likesOffcanvas">
-                Ver likes
-              </a>
-          </div>
+        <div class="d-flex align-items-center gap-3 mt-3 pt-2 border-top">
+          <button type="button"
+                  class="btn btn-sm rounded-3 btn-like {% if rec.my_liked %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                  data-url="{% url 'recognition_like_toggle' rec.id %}"
+                  aria-pressed="{{ rec.my_liked|yesno:'true,false' }}">
+            👍 <span class="like-count">{{ rec.like_count }}</span>
+          </button>
+
+          <a class="btn btn-sm btn-outline-primary btn-view-likes"
+            data-url="{% url 'recognition_likes_list' rec.id %}"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#likesOffcanvas">
+            Ver likes
+          </a>
+        </div>
+
+
         </div>
         {# === Comentarios === #}
         {# Barra acciones sencilla: comentar + contador #}
@@ -299,6 +302,25 @@
     </form>
   </div>
 </div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="likesOffcanvas" aria-labelledby="likesOffcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 >A quién le gusta este reconocimiento</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div id="likes-loader" class="text-center d-none">
+      <div class="spinner-border" role="status"></div>
+      <div class="mt-2">Cargando...</div>
+    </div>
+    <div id="likes-empty" class="alert alert-light border d-none">Aún no hay likes.</div>
+    <ul id="likes-list" class="list-group list-group-flush d-none"></ul>
+  </div>
+  <div class="offcanvas-footer p-3 border-top">
+    <small class="text-muted"><span id="likes-count">0</span> personas han dado like</small>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

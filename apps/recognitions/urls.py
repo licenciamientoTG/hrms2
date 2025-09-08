@@ -11,6 +11,8 @@ from .views import (
     category_delete_post,
     recognition_comment_create,
     recognition_comment_delete,
+    recognition_like_toggle,
+    recognition_likes_list,
 
 )
 
@@ -28,4 +30,7 @@ urlpatterns = [
     path('categories/<int:pk>/delete-post/', category_delete_post, name='category_delete_post'),
     path('recognitions/<int:pk>/comment/', recognition_comment_create, name='recognition_comment_create'),
     path('recognitions/<int:pk>/comment/<int:cid>/delete/', recognition_comment_delete, name='recognition_comment_delete'),
+    path('recognitions/<int:pk>/like/',  recognition_like_toggle, name='recognition_like_toggle'),
+    path('recognitions/<int:pk>/likes/', recognition_likes_list,   name='recognition_likes_list'),
+
 ]
