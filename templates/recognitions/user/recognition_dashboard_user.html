@@ -166,7 +166,21 @@
           <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
         {% endif %}
         {% endwith %}
-      </div>
+          <div class="d-flex align-items-center gap-3 mt-3 pt-2">
+            <button type="button"
+                    class="btn btn-sm rounded-3 btn-like {% if n.my_liked %}btn-success {% else %}btn-outline-secondary{% endif %}"
+                    data-url="#"
+                    aria-pressed="{{ n.my_liked|yesno:'true,false' }}">
+              👍 <span class="like-count">{{ n.like_count }}</span>
+            </button>
+              <a class="btn btn-sm btn-outline-primary btn-view-likes"
+                data-url="#"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#likesOffcanvas">
+                Ver likes
+              </a>
+          </div>
+        </div>
         {# === Comentarios === #}
         {# Barra acciones sencilla: comentar + contador #}
         <div class="border-top px-3 py-2 d-flex align-items-center justify-content-between text-muted small">
