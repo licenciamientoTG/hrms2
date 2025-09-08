@@ -15,6 +15,8 @@ from django.utils.timezone import now
 from django.utils.timesince import timesince
 from django.db.models import Value, CharField, F
 from django.db.models.functions import Coalesce
+from django.views.decorators.http import require_GET
+
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -302,50 +304,49 @@ def news_comment_delete(request, pk, cid):
     return redirect(next_url)
 
 # esta vista es la visualizacion de los likes
+# === helpers ===
+def _first_token(s: str) -> str:
+    s = (s or "").strip()
+    return s.split()[0] if s else ""
+
+def _display_name(user) -> str:
+    fn = _first_token(getattr(user, 'first_name', ''))
+    ln = _first_token(getattr(user, 'last_name', ''))
+    full = f"{fn} {ln}".strip()
+    return full or user.get_username()
+
+# === vista likes: soporta M2M directa o modelo intermedio ===
+@require_GET
 @login_required
 def news_likes_list(request, pk):
     news = get_object_or_404(News, pk=pk)
 
-    items = []
-    count = 0
+    # Opción A: ManyToMany directa "news.likes" (usuarios)
+    likes_m2m = getattr(news, 'likes', None)
+    if likes_m2m is not None:
+        users_qs = likes_m2m.all().order_by('id')
+        items = [{"name": _display_name(u), "liked_at": ""} for u in users_qs]
+        return JsonResponse({
+            "news_id": news.id,
+            "title": news.title,
+            "count": users_qs.count(),
+            "items": items,
+        })
 
-    try:
-        likes_qs = (NewsLike.objects
-                    .filter(news=news)
-                    .select_related('user')
-                    .order_by('-created_at'))
-        count = likes_qs.count()
-        for like in likes_qs:
-            u = like.user
-            fn = _first_token(getattr(u, 'first_name', ''))
-            ln = _first_token(getattr(u, 'last_name', ''))
-            display = (fn + ' ' + ln).strip() or u.get_username()
-            items.append({
-                "name": display,
-                "liked_at": timesince(getattr(like, 'created_at', now()), now()) + " atrás",
-            })
+    # Opción B: modelo intermedio NewsLike(user, news, created_at)
+    qs = (NewsLike.objects
+          .filter(news=news)
+          .select_related('user')
+          .order_by('-created_at'))
 
-    except Exception:
-        # 2) Si NO hay modelo intermedio, intenta ManyToMany directo:
-        likes_m2m = getattr(news, 'likes', None)
-        if likes_m2m is None:
-            # Nada que devolver (modelo no tiene likes configurado)
-            return JsonResponse({"news_id": news.id, "title": news.title, "count": 0, "items": []})
-
-        users_qs = likes_m2m.all().order_by('id')  # ajusta orden si quieres
-        count = users_qs.count()
-        for u in users_qs:
-            fn = _first_token(getattr(u, 'first_name', ''))
-            ln = _first_token(getattr(u, 'last_name', ''))
-            display = (fn + ' ' + ln).strip() or u.get_username()
-            items.append({
-                "name": display,
-                "liked_at": "",  # sin modelo intermedio no tenemos fecha
-            })
+    items = [{
+        "name": _display_name(like.user),
+        "liked_at": timesince(getattr(like, 'created_at', now()), now()) + " atrás",
+    } for like in qs]
 
     return JsonResponse({
         "news_id": news.id,
         "title": news.title,
-        "count": count,
+        "count": qs.count(),
         "items": items,
     })
