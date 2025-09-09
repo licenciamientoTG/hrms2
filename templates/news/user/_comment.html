@@ -12,7 +12,7 @@
     <div>{{ c.body|linebreaksbr }}</div>
   </div>
 
-  {% if request.user.is_superuser or request.user.id == c.user_id %}
+  {% if request.user.id == c.user_id or perms.news.delete_newscomment %}
     <form method="post"
           action="{% url 'news_comment_delete' c.news_id c.id %}"
           class="js-comment-del"

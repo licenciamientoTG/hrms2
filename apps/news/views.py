@@ -283,12 +283,11 @@ def news_comment_delete(request, pk, cid):
     comment = get_object_or_404(NewsComment, pk=cid, news=news)
 
     user = request.user
+    is_owner = (getattr(comment, 'user_id', None) == user.id)  # o comment.author_id si tu campo se llama así
+    can_moderate = user.has_perm('news.delete_newscomment')    # 👈 sin exigir is_staff
     is_super = user.is_superuser
-    has_perm = user.is_staff and user.has_perm('news.delete_newscomment')
-    is_owner = (comment.user_id == user.id)
 
-    if not (is_super or has_perm or is_owner):
-        # AJAX -> JSON 403; normal -> 403 plano
+    if not (is_owner or can_moderate or is_super):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
         return HttpResponseForbidden('No autorizado')
@@ -299,7 +298,6 @@ def news_comment_delete(request, pk, cid):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'ok': True, 'id': cid, 'count': new_count})
 
-    # POST normal: redirige de vuelta
     next_url = request.META.get('HTTP_REFERER') or reverse('news_detail', args=[pk])
     return redirect(next_url)
 
