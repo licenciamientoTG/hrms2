@@ -12,6 +12,7 @@
 <div class="container py-3" style="max-width:820px;">
   <h3 class="mb-3">Reconocimientos</h3>
 
+  {% if perms.recognitions.add_recognition %}
   <!-- Tarjeta: input para abrir el modal -->
   <div class="card shadow-sm mb-4">
     <div class="card-body d-flex align-items-center gap-3">
@@ -24,6 +25,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- FEED: tarjetas de reconocimientos -->
   {% for rec in feed %}
@@ -219,6 +221,7 @@
 
 </div>
 
+{% if perms.recognitions.add_recognition %}
 <!-- MODAL: Nuevo reconocimiento -->
 <div class="modal fade" id="newRecognitionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-aside modal-lg">
@@ -302,6 +305,7 @@
     </form>
   </div>
 </div>
+{% endif %}
 
 <div class="offcanvas offcanvas-end" tabindex="-1" id="likesOffcanvas" aria-labelledby="likesOffcanvasLabel">
   <div class="offcanvas-header">

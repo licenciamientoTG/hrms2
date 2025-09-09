@@ -61,9 +61,24 @@ MAX_MB = 10               # MB
 def _is_image_ok(f):
     return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
 
+from django.contrib import messages
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Prefetch, Count, Exists, OuterRef
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
+    # ⬇️ Bloquea creación si no tiene permiso
+    if request.method == "POST" and not request.user.has_perm('recognitions.add_recognition'):
+        # Si viene por AJAX, responde 403 JSON; si no, redirige con mensaje
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        messages.error(request, "No tienes permiso para enviar reconocimientos.")
+        return redirect('recognition_dashboard_user')
+
     if request.method == "POST":
         recipients_ids = request.POST.getlist('recipients')
         category_id    = request.POST.get('category')
@@ -99,7 +114,6 @@ def recognition_dashboard_user(request):
                 author=request.user,
                 category=category,
                 message=message,
-                # image=None  # ya no guardamos en el campo legacy
             )
 
             # Destinatarios
@@ -115,22 +129,23 @@ def recognition_dashboard_user(request):
 
     # FEED (más recientes primero) + prefetch de media
     feed = (
-    Recognition.objects
-    .select_related('author', 'category')
-    .annotate(
-        like_count=Count('likes_rel', distinct=True),
-        my_liked=Exists(
-            RecognitionLike.objects.filter(recognition=OuterRef('pk'), user=request.user)
-        ),
-    )
-    .prefetch_related(
-        'recipients', 'media',
-        Prefetch('comments', queryset=RecognitionComment.objects.select_related('author').order_by('created_at'))
-    )
-    .order_by('-created_at')
+        Recognition.objects
+        .select_related('author', 'category')
+        .annotate(
+            like_count=Count('likes_rel', distinct=True),
+            my_liked=Exists(
+                RecognitionLike.objects.filter(recognition=OuterRef('pk'), user=request.user)
+            ),
+        )
+        .prefetch_related(
+            'recipients', 'media',
+            Prefetch('comments', queryset=RecognitionComment.objects.select_related('author').order_by('created_at'))
+        )
+        .order_by('-created_at')
     )
 
     ctx = {
+        # Estos dos solo se usan por el modal; el template puede ocultarlos con {% if perms.recognitions.add_recognition %}
         "people": User.objects.filter(is_active=True)
                               .exclude(id=request.user.id)
                               .order_by('first_name', 'last_name', 'username'),
