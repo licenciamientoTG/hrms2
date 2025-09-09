@@ -11,7 +11,7 @@
     <div>{{ c.body|linebreaksbr }}</div>
   </div>
 
-  {% if request.user.id == c.author_id or request.user.is_staff %}
+  {% if request.user == c.author or perms.recognitions.delete_recognitioncomment %}
     <form method="post"
           action="{% url 'recognition_comment_delete' c.recognition_id c.id %}"
           class="js-comment-del ms-2"

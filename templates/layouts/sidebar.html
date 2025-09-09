@@ -80,27 +80,27 @@
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
-
             {% if user.is_superuser %}
+
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
+            {% endif %} 
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
                     </a>
                 </li>
+            {% if user.is_superuser %}
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i><span class="align-middle">Mis documentos</span>
                     </a>
                 </li>
-            {% endif %} 
-            {% if user.is_superuser %}
  
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">

@@ -305,12 +305,17 @@ def recognition_comment_create(request, pk):
 
     return redirect('recognition_dashboard_user')
 
-# Borrar comentario (autor o superuser)
+# Borrar comentario (autor o moderador con permiso delete)
 @login_required
 @require_http_methods(["POST"])
 def recognition_comment_delete(request, pk, cid):
     c = get_object_or_404(RecognitionComment, pk=cid, recognition_id=pk)
-    if request.user != c.author and not request.user.is_staff:
+
+    can_delete = (
+        request.user == c.author or
+        request.user.has_perm('recognitions.delete_recognitioncomment')  # 👈 permiso built-in
+    )
+    if not can_delete:
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
         return HttpResponseForbidden("No autorizado")
@@ -322,6 +327,7 @@ def recognition_comment_delete(request, pk, cid):
         return JsonResponse({"ok": True, "count": count})
 
     return redirect('recognition_dashboard_user')
+
 
 # toggle
 @login_required
