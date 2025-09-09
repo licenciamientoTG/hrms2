@@ -1,0 +1,21 @@
+.survey-row { 
+    border-radius: 12px; 
+    background: var(--bs-body-bg); 
+}
+
+.survey-row:hover { 
+    background: rgba(0,0,0,.025); 
+}
+.progress { 
+    height: 6px; 
+}
+.kebab { 
+    width: 36px; 
+    height: 36px; 
+    display:flex; 
+    align-items:center; 
+    justify-content:center; 
+}
+.w-600 { 
+    max-width: 600px; 
+}

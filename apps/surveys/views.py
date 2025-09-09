@@ -22,3 +22,11 @@ def survey_dashboard_admin(request):
 def survey_dashboard_user(request):
 
     return render(request, 'surveys/user/survey_dashboard_user.html')
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_new(request):
+    # Solo mostrar la plantilla de creación (sin lógica de guardado aún)
+    return render(request, 'surveys/admin/survey_new.html', {
+        # puedes pasar datos base si quieres (vacío por ahora)
+    })
