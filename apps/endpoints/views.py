@@ -9,6 +9,7 @@ import json
 from apps.employee.models import Employee
 from departments.models import Department
 from apps.employee.models import JobPosition  # ajusta el import a tu estructura real
+from django.contrib.auth.models import User
 
 
 def _as_bool(v):
@@ -89,6 +90,55 @@ def _diff_instance(current, incoming_dict, field_names):
             changed_fields.append(f)
 
     return changes, changed_fields
+
+def _create_user_for_employee(employee):
+    """
+    Función para crear usuario de empleado activo
+    """
+    if not employee.is_active:
+        return None, "Empleado no está activo"
+    
+    if employee.user:
+        return employee.user, "Ya tiene usuario"
+    
+    try:
+        from authapp.models import UserProfile  # Ajusta el import según tu estructura
+        
+        emp_number = str(employee.employee_number)
+        birth_date_part = employee.curp[4:10] if employee.curp and len(employee.curp) >= 11 else "000000"
+        username = emp_number
+        password = f"{emp_number}{birth_date_part}"
+
+        # Verificar username único
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        # Crear usuario
+        user = User.objects.create_user(
+            username=username,
+            email=employee.email or "",
+            password=password,
+            first_name=employee.first_name,
+            last_name=employee.last_name,
+            is_active=True
+        )
+
+        # Crear perfil de usuario
+        UserProfile.objects.create(user=user)
+        
+        # Asignar usuario al empleado
+        employee.user = user
+        employee.save(update_fields=['user'])
+
+        print(f"✅ Usuario creado: {username} / Contraseña: {password}")
+        return user, f"Usuario creado: {username}"
+        
+    except Exception as e:
+        print(f"❌ Error creando usuario para {employee.first_name} {employee.last_name}: {e}")
+        return None, f"Error: {str(e)}"
 
 
 @csrf_exempt
@@ -172,52 +222,97 @@ def recibir_datos1(request):
             existing = Employee.objects.select_for_update().filter(employee_number=employee_number).first()
 
             if not existing:
-                # Crear
+                # Crear empleado
                 empleado = Employee.objects.create(**incoming_defaults)
+                
+                # 🆕 Crear usuario si el empleado está activo
+                user_result = None
+                user_message = ""
+                if empleado.is_active:
+                    user, user_msg = _create_user_for_employee(empleado)
+                    user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
+                    user_message = user_msg
+                
                 # Reportar lo creado (solo campos con valor no vacío/None)
                 created_fields = [
                     {'field': k, 'old': None, 'new': v}
                     for k, v in incoming_defaults.items()
                 ]
                 print(f"[Empleado creado] {empleado.employee_number} -> {empleado.first_name} {empleado.last_name}")
+                if user_result:
+                    print(f"  {user_result}")
                 for ch in created_fields:
                     print(f"  - {ch['field']}: {ch['old']} -> {ch['new']}")
-                return JsonResponse({
+                
+                response_data = {
                     'success': True,
                     'status': 'created',
                     'mensaje': f'Empleado creado: {empleado.first_name} {empleado.last_name}',
                     'changes': created_fields
-                })
+                }
+                if user_message:
+                    response_data['user_info'] = user_message
+                
+                return JsonResponse(response_data)
 
             # Ya existe: comparar diferencias
             fields_to_check = list(incoming_defaults.keys())
             changes, changed_fields = _diff_instance(existing, incoming_defaults, fields_to_check)
 
             if not changed_fields:
-                # Sin cambios reales
-                print(f"[Sin cambios] {existing.employee_number} ({existing.first_name} {existing.last_name})")
-                return JsonResponse({
+                # Sin cambios, pero verificar si necesita usuario
+                user_result = None
+                user_message = ""
+                if existing.is_active and not existing.user:
+                    user, user_msg = _create_user_for_employee(existing)
+                    user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
+                    user_message = user_msg
+                    print(f"[Sin cambios - Usuario creado] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+                    if user_result:
+                        print(f"  {user_result}")
+                else:
+                    print(f"[Sin cambios] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+                
+                response_data = {
                     'success': True,
                     'status': 'no_change',
                     'mensaje': f'Empleado sin cambios: {existing.first_name} {existing.last_name}',
                     'changes': []
-                })
+                }
+                if user_message:
+                    response_data['user_info'] = user_message
+                
+                return JsonResponse(response_data)
 
             # Aplicar cambios mínimos necesarios
             for f in changed_fields:
                 setattr(existing, f, incoming_defaults[f])
             existing.save(update_fields=changed_fields)
 
+            # 🆕 Verificar creación de usuario después de actualizar
+            user_result = None
+            user_message = ""
+            if existing.is_active and not existing.user:
+                user, user_msg = _create_user_for_employee(existing)
+                user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
+                user_message = user_msg
+
             print(f"[Empleado actualizado] {existing.employee_number} -> {existing.first_name} {existing.last_name}")
+            if user_result:
+                print(f"  {user_result}")
             for ch in changes:
                 print(f"  - {ch['field']}: {ch['old']} -> {ch['new']}")
 
-            return JsonResponse({
+            response_data = {
                 'success': True,
                 'status': 'updated',
                 'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
                 'changes': changes
-            })
+            }
+            if user_message:
+                response_data['user_info'] = user_message
+
+            return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
