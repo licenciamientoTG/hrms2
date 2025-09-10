@@ -3,50 +3,7 @@
 {% block page_title %}{{ survey.title|default:"Encuesta sin título" }}{% endblock %}
 
 {% block styles %}
-<style>
-  /* ======== Header / Tabs ======== */
-  .builder-head{display:flex;align-items:center;gap:.75rem}
-  .builder-top{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid #e9ecef}
-  .status-pill{padding:.25rem .6rem;border-radius:1rem;font-size:.8rem;background:#f1f3f5;color:#6c757d}
-
-  .builder-tabs .nav-link{border:none;color:#6c757d;font-weight:600}
-  .builder-tabs .nav-link.active{color:#0d6efd;border-bottom:2px solid #0d6efd}
-
-  /* ======== STRIP HORIZONTAL DE SECCIONES ========
-     usamos CSS grid con flujo por columnas y scroll-x  */
-  .sections-strip{
-    display:grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 420px; /* ancho de cada columna */
-    column-gap: 16px;
-    padding: 16px;
-    overflow-x: auto;
-    align-items: start;
-  }
-  .section-col{min-height: 240px;}
-  /* tarjeta de sección */
-  .section-card{background:#fff;border:1px solid #e9ecef;border-radius:12px;overflow:hidden}
-  .section-head{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #f1f3f5;font-weight:600}
-  .section-foot{border-top:1px solid #f1f3f5;padding:.5rem .75rem}
-  .section-actions .btn{--bs-btn-padding-y:.15rem;--bs-btn-padding-x:.5rem}
-
-  /* tarjeta de pregunta */
-  .q-card{background:#fafafa;border:1px solid #eee;border-radius:10px;padding:.75rem;margin:.75rem 1rem}
-  .q-title{font-weight:700;margin-bottom:.25rem}
-  .q-actions{display:flex;gap:.25rem}
-  .q-footer{color:#6c757d;font-size:.85rem;margin-top:.25rem}
-
-  /* “Nueva sección” como tarjeta vacía */
-  .new-section-card{
-    height: 64px; display:flex; align-items:center; justify-content:center;
-    border:1px dashed #cfd4da; border-radius:12px; background:#fff; color:#4c6ef5;
-    font-weight:600; cursor:pointer;
-  }
-
-  /* utilidades */
-  .link-add{color:#4c6ef5; font-weight:600; text-decoration:none; cursor:pointer}
-  .link-add:hover{text-decoration:underline}
-</style>
+    <link rel="stylesheet" href="{% static 'css/survey.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -154,85 +111,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function(){
-  // --- contador simple para IDs de secciones/preguntas (solo UI)
-  let sectionSeq = 1;
-  const sectionsStrip = document.getElementById('sectionsStrip');
-  const newSectionCol = document.getElementById('newSectionCol');
-  const btnNewSection = document.getElementById('btnNewSection');
-
-  function createSectionEl(idx){
-    const col = document.createElement('div');
-    col.className = 'section-col';
-    col.innerHTML = `
-      <div class="section-card">
-        <div class="section-head">
-          <span>Sección ${idx}</span>
-          <div class="section-actions">
-            <button class="btn btn-sm btn-outline-secondary" title="Renombrar">✎</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Más">⋮</button>
-          </div>
-        </div>
-        <div id="qList-${idx}"></div>
-        <div class="px-3 pb-2">
-          <a class="link-add" data-add-question data-section="${idx}">Nueva pregunta</a>
-        </div>
-        <div class="section-foot">
-          <div class="d-flex align-items-center gap-2">
-            <span>Después de la sección ${idx}</span>
-            <select class="form-select form-select-sm w-auto">
-              <option>Ir a la siguiente sección</option>
-              <option>Finalizar encuesta</option>
-            </select>
-          </div>
-        </div>
-      </div>`;
-    return col;
-  }
-
-  function addSection(){
-    sectionSeq += 1;
-    const col = createSectionEl(sectionSeq);
-    sectionsStrip.insertBefore(col, newSectionCol);      // aparece a la derecha
-    col.scrollIntoView({behavior:'smooth', inline:'end'}); // desplazamos el strip
-  }
-
-  function addQuestion(sectionId){
-    const list = document.getElementById(`qList-${sectionId}`);
-    if (!list) return;
-    const qCount = list.querySelectorAll('.q-card').length + 1;
-    const node = document.createElement('div');
-    node.className = 'q-card';
-    node.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center">
-        <div class="q-title">Pregunta ${qCount}</div>
-        <div class="q-actions">
-          <button class="btn btn-sm btn-outline-secondary" title="Requerida">✱</button>
-          <button class="btn btn-sm btn-outline-secondary" title="Tipo">◌</button>
-        </div>
-      </div>
-      <div class="form-check mt-1">
-        <input class="form-check-input" type="radio" disabled>
-        <label class="form-check-label">Opción 1</label>
-      </div>
-      <div class="q-footer"></div>
-    `;
-    list.appendChild(node);
-    node.scrollIntoView({behavior:'smooth', block:'end'});
-  }
-
-  // Botón "Nueva sección"
-  btnNewSection?.addEventListener('click', addSection);
-
-  // Delegación para "Nueva pregunta"
-  document.addEventListener('click', (e)=>{
-    const a = e.target.closest('[data-add-question]');
-    if (!a) return;
-    e.preventDefault();
-    const sid = a.getAttribute('data-section');
-    addQuestion(sid);
-  });
-})();
-</script>
+  <script src="{% static 'js/survey.js' %}"></script>
 {% endblock %}

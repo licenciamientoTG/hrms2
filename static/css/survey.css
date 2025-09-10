@@ -1,21 +1,116 @@
-.survey-row { 
-    border-radius: 12px; 
-    background: var(--bs-body-bg); 
+
+/* ======== Header / Tabs ======== */
+.builder-head{
+    display:flex;
+    align-items:center;
+    gap:.75rem
+}
+.builder-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.5rem 1rem;
+    border-bottom:1px solid #e9ecef
+}
+.status-pill{
+    padding:.25rem .6rem;
+    border-radius:1rem;
+    font-size:.8rem;
+    background:#f1f3f5;
+    color:#6c757d
 }
 
-.survey-row:hover { 
-    background: rgba(0,0,0,.025); 
+.builder-tabs .nav-link{
+    border:none;
+    color:#6c757d;
+    font-weight:600
 }
-.progress { 
-    height: 6px; 
+.builder-tabs .nav-link.active{
+    color:#0d6efd;
+    border-bottom:2px solid #0d6efd
 }
-.kebab { 
-    width: 36px; 
-    height: 36px; 
-    display:flex; 
-    align-items:center; 
-    justify-content:center; 
+
+/* ======== STRIP HORIZONTAL DE SECCIONES ========
+    usamos CSS grid con flujo por columnas y scroll-x  */
+.sections-strip{
+    display:grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 420px; /* ancho de cada columna */
+    column-gap: 16px;
+    padding: 16px;
+    overflow-x: auto;
+    align-items: start;
 }
-.w-600 { 
-    max-width: 600px; 
+.section-col{
+    min-height: 240px;
+}
+/* tarjeta de sección */
+.section-card{
+    background:#fff;
+    border:1px solid #e9ecef;
+    border-radius:12px;
+    overflow:hidden
+}
+.section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.75rem 1rem;
+    border-bottom:1px solid #f1f3f5;
+    font-weight:600
+}
+.section-foot{
+    border-top:1px solid #f1f3f5;
+    padding:.5rem .75rem
+}
+.section-actions .btn{
+    --bs-btn-padding-y:.15rem;
+    --bs-btn-padding-x:.5rem
+}
+
+/* tarjeta de pregunta */
+.q-card{
+    background:#fafafa;
+    border:1px solid #eee;
+    border-radius:10px;
+    padding:.75rem;
+    margin:.75rem 1rem
+}
+.q-title{
+    font-weight:700;
+    margin-bottom:.25rem
+}
+.q-actions{
+    display:flex;
+    gap:.25rem
+}
+.q-footer{
+    color:#6c757d;
+    font-size:.85rem;
+    margin-top:.25rem
+}
+
+/* “Nueva sección” como tarjeta vacía */
+.new-section-card{
+    height: 64px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px dashed #cfd4da;
+    border-radius:12px;
+    background:#fff;
+    color:#4c6ef5;
+    font-weight:600;
+    cursor:pointer;
+}
+
+/* utilidades */
+.link-add{
+    color:#4c6ef5;
+    font-weight:600;
+    text-decoration:none;
+    cursor:pointer
+}
+.link-add:hover{
+    text-decoration:underline
 }

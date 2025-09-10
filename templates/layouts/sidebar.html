@@ -24,26 +24,24 @@
                         <i class="fa-solid fa-user"></i></i><span class="align-middle">Usuarios</span>
                     </a>
                 </li>
-                {% endif %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
                     </a>
                 </li>
-                {% if user.is_superuser %}
-                {% endif %}
 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
                         <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
                     </a>
                 </li>
+            {% endif %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'request_form' %}">
                         <i class="fa-brands fa-wpforms"></i><span class="align-middle">Solicitud de constancias</span>
                     </a>
                 </li>
-                {% if user.is_superuser %}
+            {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'vacation_request' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
@@ -60,41 +58,36 @@
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
                     </a>
                 </li>
-            {% endif %}
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
                     </a>
                 </li>
-            {% if user.is_superuser %}
+
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
-            {% endif %}
 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
-            {% if user.is_superuser %}
 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
-            {% endif %} 
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
                     </a>
                 </li>
-            {% if user.is_superuser %}
                 
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
