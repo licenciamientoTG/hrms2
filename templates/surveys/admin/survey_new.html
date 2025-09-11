@@ -32,82 +32,90 @@
   </ul>
 
   <div class="tab-content">
-    <!-- ===== CONTENIDO ===== -->
     <div class="tab-pane fade show active" id="tab-content">
-      <div class="sections-strip" id="sectionsStrip">
-        <!-- Columna: Sección 1 (ejemplo inicial) -->
-        <div class="section-col">
-          <div class="section-card">
-            <div class="section-head">
-              <span>Sección 1</span>
-              <div class="section-actions">
-                <button class="btn btn-outline-secondary btn-sm" title="Renombrar">✎</button>
-                <button class="btn btn-outline-secondary btn-sm" title="Más">⋮</button>
-              </div>
-            </div>
+      <div
+        class="sections-strip" id="sectionsStrip"
+        data-survey-id="{{ survey.id }}"
+        data-create-section-url="#"
+        data-sections-options-url="#"
+      >
+        {% for section in sections %}
+          {% include "surveys/admin/_section.html" with section=section %}
+        {% endfor %}
 
-            <!-- preguntas apiladas hacia abajo -->
-            <div id="qList-1">
-              <div class="q-card">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div class="q-title">Pregunta 1</div>
-                  <div class="q-actions">
-                    <button class="btn btn-sm btn-outline-secondary" title="Requerida">✱</button>
-                    <button class="btn btn-sm btn-outline-secondary" title="Tipo">◌</button>
-                  </div>
-                </div>
-                <div class="form-check mt-1">
-                  <input class="form-check-input" type="radio" disabled>
-                  <label class="form-check-label">Opción 1</label>
-                </div>
-                <div class="q-footer"></div>
-              </div>
-            </div>
-
-            <div class="px-3 pb-2">
-              <a class="link-add" data-add-question data-section="1">Nueva pregunta</a>
-            </div>
-
-            <div class="section-foot">
-              <div class="d-flex align-items-center gap-2">
-                <span>Después de la sección 1</span>
-                <select class="form-select form-select-sm w-auto">
-                  <option>Ir a la siguiente sección</option>
-                  <option>Finalizar encuesta</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tarjeta: Nueva sección a la derecha -->
         <div class="section-col" id="newSectionCol">
           <div class="new-section-card" id="btnNewSection">Nueva sección</div>
         </div>
       </div>
     </div>
 
-    <!-- ===== AJUSTES (placeholder) ===== -->
-    <div class="tab-pane fade" id="tab-settings">
-      <div class="p-3">
-        <div class="card"><div class="card-body">
-          <div class="fw-semibold">Ajustes</div>
-          <div class="text-muted">Aquí configuraremos disponibilidad, público, fechas…</div>
-        </div></div>
-      </div>
-    </div>
 
-    <!-- ===== RESULTADOS (placeholder) ===== -->
-    <div class="tab-pane fade" id="tab-results">
-      <div class="p-3">
-        <div class="card"><div class="card-body">
-          <div class="fw-semibold">Resultados</div>
-          <div class="text-muted">Aquí irán estadísticas y exportes.</div>
-        </div></div>
+  </div>
+</div>
+
+<!-- ===== TEMPLATE: SECCIÓN ===== -->
+<template id="tpl-section">
+  <div class="section-col" data-section-id="">
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sec-title" data-bind="sec-title">Sección</span>
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button class="dropdown-item" data-action="sec.rename" data-id="">Renombrar</button></li>
+            <li><button class="dropdown-item" data-action="sec.duplicate" data-id="" disabled>Duplicar (luego)</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item text-danger" data-action="sec.delete" data-id="">Eliminar</button></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="q-list" data-bind="q-list"></div>
+
+      <div class="px-3 pb-2">
+        <a class="link-add" data-add-question data-section="">Nueva pregunta</a>
+      </div>
+
+      <div class="section-foot">
+        <div class="d-flex align-items-center gap-2">
+          <span data-bind="sec-after-label">Después de la sección</span>
+          <div class="dropdown">
+            <button class="btn btn-light btn-sm dropdown-toggle"
+                    type="button"
+                    data-section-jump
+                    data-section=""
+                    data-bs-toggle="dropdown">Ir a la siguiente sección</button>
+            <ul class="dropdown-menu dropdown-menu-end" data-jump-menu data-section=""></ul>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
+</template>
+
+<!-- ===== TEMPLATE: PREGUNTA ===== -->
+<template id="tpl-question">
+  <div class="q-card" data-question-id="">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="q-title" data-bind="q-title">Pregunta</div>
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button class="dropdown-item" data-action="q.rename" data-id="">Renombrar</button></li>
+          <li><button class="dropdown-item" disabled>Duplicar (luego)</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item text-danger" data-action="q.delete" data-id="">Eliminar</button></li>
+        </ul>
+      </div>
+    </div>
+    <div class="form-check mt-1">
+      <input class="form-check-input" type="radio" disabled>
+      <label class="form-check-label">Opción 1</label>
+    </div>
+    <div class="q-footer"></div>
+  </div>
+</template>
+
 {% endblock %}
 
 {% block scripts %}

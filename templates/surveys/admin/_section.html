@@ -1,0 +1,51 @@
+{# templates/surveys/_section.html #}
+<div class="section-col" data-section-id="{{ section.id }}">
+  <div class="section-card">
+
+    <div class="section-head">
+      <span class="sec-title">
+        {{ section.title|default_if_none:""|default:"Sección " }}{% if not section.title %}{{ section.order }}{% endif %}
+      </span>
+
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button class="dropdown-item" data-action="sec.rename">Renombrar</button></li>
+          <li><button class="dropdown-item" data-action="sec.duplicate" disabled>Duplicar (luego)</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item text-danger" data-action="sec.delete">Eliminar</button></li>
+        </ul>
+      </div>
+    </div>
+
+    {# 👇 IMPORTANTE: endpoint para crear preguntas en esta sección #}
+    <div class="q-list"
+         id="qList-{{ section.id }}"
+         data-create-question-url="{% url 'survey_question_create' section.id %}">
+      {% for q in section.questions.all %}
+        {% include "surveys/admin/_question.html" with q=q %}
+      {% endfor %}
+    </div>
+
+    <div class="px-3 pb-2">
+      <a class="link-add" data-add-question data-section="{{ section.id }}">Nueva pregunta</a>
+    </div>
+
+    <div class="section-foot">
+      <div class="d-flex align-items-center gap-2">
+        <span>Después de la sección {{ section.order }}</span>
+        <div class="dropdown">
+          <button class="btn btn-light btn-sm dropdown-toggle"
+                  data-section-jump
+                  data-survey="{{ section.survey_id }}"
+                  data-section="{{ section.id }}"
+                  type="button" data-bs-toggle="dropdown">
+            Ir a la siguiente sección
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" data-jump-menu></ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
