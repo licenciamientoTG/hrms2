@@ -26,9 +26,6 @@
     <li class="nav-item">
       <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-settings" type="button">AJUSTES</button>
     </li>
-    <li class="nav-item">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-results" type="button">RESULTADOS</button>
-    </li>
   </ul>
 
   <div class="tab-content">
@@ -95,26 +92,105 @@
 
 <!-- ===== TEMPLATE: PREGUNTA ===== -->
 <template id="tpl-question">
-  <div class="q-card" data-question-id="">
+  <div class="q-card" data-question-id="" data-type="" data-required="">
     <div class="d-flex justify-content-between align-items-center">
       <div class="q-title" data-bind="q-title">Pregunta</div>
       <div class="dropdown">
         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li><button class="dropdown-item" data-action="q.rename" data-id="">Renombrar</button></li>
           <li><button class="dropdown-item" disabled>Duplicar (luego)</button></li>
           <li><hr class="dropdown-divider"></li>
           <li><button class="dropdown-item text-danger" data-action="q.delete" data-id="">Eliminar</button></li>
         </ul>
       </div>
     </div>
-    <div class="form-check mt-1">
+
+    <!-- Preview opcional para 'single' -->
+    <div class="form-check mt-1" data-preview="single">
       <input class="form-check-input" type="radio" disabled>
       <label class="form-check-label">Opción 1</label>
     </div>
+
     <div class="q-footer"></div>
   </div>
 </template>
+
+
+<!-- 3.3 UN SOLO MODAL en toda la página -->
+<div class="modal fade" id="qEditor" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar pregunta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-lg-8">
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <input id="qeTitle" class="form-control" placeholder="Pregunta">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Adjuntos</label>
+              <div class="border rounded p-3 text-muted small">
+                No hay documentos adjuntos.
+                <div class="mt-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Agregar adjuntos (luego)</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="qeOptionsWrap" class="mb-3 d-none">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fw-semibold">Opciones</span>
+              </div>
+              <div id="qeOptionsList"></div>
+              <button id="qeAddOption" type="button" class="btn btn-outline-primary btn-sm mt-2">Nueva opción</button>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="fw-semibold mb-2">Tipo de respuesta</div>
+            <div class="list-group" id="qeTypeList">
+              <button type="button" class="list-group-item list-group-item-action" data-type="text">Texto</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="decimal">Número decimal</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="integer">Número entero</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="phone">Teléfono</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="single">Opciones (selección única)</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="multiple">Opciones (selección múltiple)</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="dropdown">Desplegable</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="rating">Calificación</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="date">Fecha (dd/mm/aaaa)</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="time">Hora</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="file">Subir archivos</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="photo">Subir fotos o videos</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="signature">Firma</button>
+              <button type="button" class="list-group-item list-group-item-action" data-type="none">Sin respuesta</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer flex-column flex-sm-row gap-2">
+        <div class="me-auto d-flex align-items-center gap-4">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="qeRequired">
+            <label class="form-check-label" for="qeRequired">Obligatoria</label>
+          </div>
+          <div class="form-check form-switch" title="(próximamente)">
+            <input class="form-check-input" type="checkbox" id="qeBranch" disabled>
+            <label class="form-check-label" for="qeBranch">Ir a la sección según la respuesta</label>
+          </div>
+        </div>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="qeSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 

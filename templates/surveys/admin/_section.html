@@ -2,21 +2,32 @@
 <div class="section-col" data-section-id="{{ section.id }}">
   <div class="section-card">
 
-    <div class="section-head">
-      <span class="sec-title">
-        {{ section.title|default_if_none:""|default:"Sección " }}{% if not section.title %}{{ section.order }}{% endif %}
-      </span>
+    <div class="section-head d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <span class="sec-title" data-bind="sec-title">
+            {{ section.title|default_if_none:""|default:"Sección " }}{% if not section.title %}{{ section.order }}{% endif %}
+            </span>
+            <!-- Botón lápiz -->
+            <button type="button"
+                    class="btn btn-sm btn-link text-muted p-0"
+                    data-action="sec.rename"
+                    data-id="{{ section.id }}"
+                    title="Renombrar sección">
+            <i class="bi bi-pencil"></i>
+            </button>
+        </div>
 
-      <div class="dropdown">
-        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><button class="dropdown-item" data-action="sec.rename">Renombrar</button></li>
-          <li><button class="dropdown-item" data-action="sec.duplicate" disabled>Duplicar (luego)</button></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><button class="dropdown-item text-danger" data-action="sec.delete">Eliminar</button></li>
-        </ul>
-      </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Quita el item Renombrar de aquí -->
+            <li><button class="dropdown-item" data-action="sec.duplicate" disabled>Duplicar (luego)</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item text-danger" data-action="sec.delete">Eliminar</button></li>
+            </ul>
+        </div>
     </div>
+
 
     {# 👇 IMPORTANTE: endpoint para crear preguntas en esta sección #}
     <div class="q-list"

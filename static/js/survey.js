@@ -169,17 +169,6 @@
     rerenderSection(sec.id);
   }
 
-  function renameQuestion(questionId){
-    const sec = state.sections.find(s => (s.questions||[]).some(q => q.id === questionId));
-    if (!sec) return;
-    const q = sec.questions.find(x => x.id === questionId);
-    const v = prompt('Título de la pregunta', q.title || 'Pregunta');
-    if (v == null) return;
-    q.title = v.trim();
-    saveDraft(state);
-    rerenderSection(sec.id);
-  }
-
   // ---- eliminar sección ----
   async function deleteSectionById(sectionId){
     const ok = window.Swal
@@ -255,7 +244,6 @@
     if (!item) return;
 
     if (item.dataset.action === 'sec.rename') return renameSection(item.dataset.id);
-    if (item.dataset.action === 'q.rename')   return renameQuestion(item.dataset.id);
     if (item.dataset.action === 'sec.delete') return deleteSectionById(item.dataset.id || item.closest('.section-col')?.dataset.sectionId);
     if (item.dataset.action === 'q.delete')   return deleteQuestionById(item.dataset.id || item.closest('.q-card')?.dataset.questionId);
   });
@@ -292,4 +280,67 @@
     set: (s) => { state = normalize(s); saveDraft(state); renderAll(); },
     clear: () => { localStorage.removeItem(KEY); state = loadDraft(); renderAll(); }
   };
+})();
+
+// ==== Abrir modal de edición al hacer click en una pregunta ====
+(function () {
+  const modalEl = document.getElementById('qEditor');
+  if (!modalEl) return;
+
+  function getModal() {
+    const bs = window.bootstrap;
+    return bs?.Modal ? bs.Modal.getOrCreateInstance(modalEl) : null;
+  }
+  function showModal() {
+    const m = getModal();
+    if (m) m.show();
+    else { modalEl.classList.add('show'); modalEl.style.display = 'block'; modalEl.removeAttribute('aria-hidden'); }
+  }
+  function hideModal() {
+    const m = getModal();
+    if (m) m.hide();
+    else { modalEl.classList.remove('show'); modalEl.style.display = 'none'; modalEl.setAttribute('aria-hidden','true'); }
+  }
+
+  function toggleOptionsByType(type) {
+    const wrap = document.getElementById('qeOptionsWrap');
+    const optTypes = new Set(['single', 'multiple', 'dropdown']);
+    if (wrap) wrap.classList.toggle('d-none', !optTypes.has(type));
+  }
+  function highlightType(type) {
+    const list = document.getElementById('qeTypeList');
+    if (!list) return;
+    list.querySelectorAll('.list-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    toggleOptionsByType(type);
+  }
+
+  // Delegación: click en .q-card (se ignora si fue dentro del dropdown)
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.q-card');
+    if (!card || e.target.closest('.dropdown')) return;
+
+    const title = (card.querySelector('.q-title') || card.querySelector('[data-bind="q-title"]'))?.textContent?.trim() || 'Pregunta';
+    const type  = card.dataset.type || 'single';
+    const req   = card.dataset.required === 'true';
+
+    const tInput = document.getElementById('qeTitle');
+    const rChk   = document.getElementById('qeRequired');
+    if (tInput) tInput.value = title;
+    if (rChk)   rChk.checked = req;
+
+    highlightType(type);
+    showModal();
+  });
+
+  // Cambiar tipo dentro del modal (UI)
+  document.getElementById('qeTypeList')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.list-group-item[data-type]');
+    if (!btn) return;
+    highlightType(btn.dataset.type);
+  });
+
+  // Guardar (por ahora solo cierra)
+  document.getElementById('qeSave')?.addEventListener('click', hideModal);
 })();

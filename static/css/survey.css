@@ -114,3 +114,23 @@
 .link-add:hover{
     text-decoration:underline
 }
+
+/* estilo base de la tarjeta */
+.q-card {
+  background-color: #f8f9fa;  /* gris clarito bootstrap */
+  border: 1px solid #dee2e6;
+  border-radius: .5rem;
+  padding: .75rem;
+  transition: background-color .2s ease-in-out;
+  cursor: pointer;
+}
+
+/* al pasar el cursor */
+.q-card:hover {
+  background-color: #e9ecef; /* un gris más oscuro */
+}
+
+
+.q-card .dropdown, .q-card .dropdown * { 
+    cursor: default; 
+}
