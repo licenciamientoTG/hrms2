@@ -880,28 +880,4 @@
     });
   });
 
-  // answersByQuestion: { [qid]: índice seleccionado o valor }
-  function nextSectionIdAfter(sec, answersByQuestion){
-    // 1) Busca la primera pregunta con branching que aplique
-    for (const q of (sec.questions || [])){
-      if (q?.branch?.enabled && branchAllowed(q.type)) {
-        const ansIdx = answersByQuestion?.[q.id]; // asumiendo índice de opción
-        if (ansIdx != null) {
-          const target = q.branch.byOption?.[ansIdx] ?? null;
-          if (target === 'submit') return 'submit';
-          if (target) return target;
-        }
-      }
-    }
-    // 2) Si no hubo branch, usa el "Después de la sección"
-    if (sec.go_to === 'submit') return 'submit';
-    if (sec.go_to) return sec.go_to;
-
-    // 3) Siguiente por orden
-    const ordered = [...state.sections].sort((a,b)=>a.order-b.order);
-    const idx = ordered.findIndex(s => s.id === sec.id);
-    const next = ordered[idx+1];
-    return next ? next.id : 'submit';
-  }
-
 })();
