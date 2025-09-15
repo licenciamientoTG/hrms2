@@ -14,7 +14,7 @@
     <div class="builder-head">
       <a href="{% url 'survey_dashboard_admin' %}" class="btn btn-light btn-sm me-1">←</a>
       <div class="fs-5 fw-semibold">{{ survey.title|default:"Encuesta sin título" }}</div>
-      <span class="status-pill">Desactivado</span>
+      <span id="statusPill" class="status-pill off" role="button" tabindex="0" aria-pressed="false">Desactivada</span>
     </div>
   </div>
 

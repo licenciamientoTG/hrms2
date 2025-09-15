@@ -18,6 +18,7 @@
   function saveDraft(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
   function normalize(s){
     s.version ||= 1;
+    s.active  = !!s.active;
     s.lastSeq ||= {section:0,question:0};
     s.sections ||= [];
     const optTypes = new Set(['single','multiple','dropdown']);
@@ -154,8 +155,55 @@
       node.insertBefore(wrap, node.querySelector('.q-footer'));
     }
   }
+  
+  // ---- Helpers de activación (solo local) ----
+  const statusPill     = document.getElementById('statusPill');
 
+  function hasAtLeastOneQuestion(){
+    return (state.sections || []).some(s => (s.questions || []).length > 0);
+  }
 
+  function renderSurveyStatus(){
+    const on = !!state.active;
+    if (statusPill){
+      statusPill.textContent = on ? 'Activada' : 'Desactivada';
+      statusPill.classList.toggle('on',  on);
+      statusPill.classList.toggle('off', !on);
+      statusPill.setAttribute('aria-pressed', String(on));
+    }
+  }
+
+  async function toggleSurveyActive(){
+    const currentlyActive = !!state.active;
+
+    if (!currentlyActive && !hasAtLeastOneQuestion()){
+      if (window.Swal){
+        await Swal.fire({icon:'info', title:'Sin preguntas', text:'Agrega al menos una pregunta para activar la encuesta.'});
+      } else { alert('Agrega al menos una pregunta para activar la encuesta.'); }
+      return;
+    }
+
+    if (window.Swal){
+      const {isConfirmed} = await Swal.fire({
+        icon: currentlyActive ? 'warning' : 'question',
+        title: currentlyActive ? 'Desactivar encuesta' : 'Activar encuesta',
+        text:  currentlyActive ? 'Los participantes dejarán de poder responder.' : 'La encuesta quedará disponible para responder.',
+        showCancelButton: true,
+        confirmButtonText: currentlyActive ? 'Desactivar' : 'Activar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!isConfirmed) return;
+    }
+
+    state.active = !currentlyActive;
+    saveDraft(state);
+    renderSurveyStatus();
+  }
+
+  statusPill?.addEventListener('click', toggleSurveyActive);
+  statusPill?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSurveyActive(); }
+  });
 
   // ---------- TEMPLATES: CLONE & BIND ----------
   function cloneSection(sec){
@@ -231,6 +279,7 @@
       qs.forEach(q => list.appendChild(cloneQuestion(q)));
 
       strip.insertBefore(col, newSectionCol);
+      renderSurveyStatus(); 
     });
   }
 
@@ -800,6 +849,7 @@
 
   // ---------- INIT ----------
   renderAll();
+  renderSurveyStatus(); 
 
   // debug opcional
   window.__surveyDraft = {
