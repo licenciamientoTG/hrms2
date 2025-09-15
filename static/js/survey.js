@@ -272,12 +272,44 @@
     rerenderSection(sec.id);
   }
 
-  function renameSection(sectionId){
+  async function renameSection(sectionId){
     const sec = state.sections.find(s => s.id === sectionId);
     if (!sec) return;
-    const v = prompt('Nombre de la sección', sec.title || `Sección ${sec.order}`);
-    if (v == null) return;
-    sec.title = v.trim();
+
+    const { value, isConfirmed } = await Swal.fire({
+      title: 'Renombrar sección',
+      input: 'text',
+      inputLabel: 'Nombre de la sección',
+      inputValue: sec.title || `Sección ${sec.order}`,
+      icon: 'question',
+      width: 520,
+      backdrop: 'rgba(15,23,42,.35)',     // overlay suave
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      buttonsStyling: false,               // usamos clases Bootstrap
+      focusConfirm: false,                 // mantenemos el foco en el input
+      allowEnterKey: true,
+      customClass: {
+        popup: 'sa-modal',
+        title: 'sa-title',
+        inputLabel: 'sa-label',
+        input: 'form-control sa-input',
+        actions: 'sa-actions',
+        confirmButton: 'btn btn-primary',
+        cancelButton: 'btn btn-light ms-2'
+      },
+      didOpen: () => { Swal.getInput()?.select(); },
+      preConfirm: (val) => {
+        const v = (val || '').trim();
+        if (!v) { Swal.showValidationMessage('Escribe un nombre'); return false; }
+        if (v.length > 120) { Swal.showValidationMessage('Máximo 120 caracteres'); return false; }
+        return v;
+      }
+    });
+
+    if (!isConfirmed || !value) return;
+    sec.title = value.trim();
     saveDraft(state);
     rerenderSection(sec.id);
   }
