@@ -1,3 +1,6 @@
+// surveys/static/js/survey.js
+// Builder de encuestas con editor de preguntas en modal (localStorage)
+
 (function () {
   const strip = document.getElementById('sectionsStrip');
   if (!strip) return;
@@ -12,6 +15,26 @@
   const tplQuestion = document.getElementById('tpl-question');
 
   // ---------- STATE ----------
+  function saveDraft(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
+  function normalize(s){
+    s.version ||= 1;
+    s.lastSeq ||= {section:0,question:0};
+    s.sections ||= [];
+    const optTypes = new Set(['single','multiple','dropdown']);
+    s.sections.forEach(sec => {
+      sec.questions ||= [];
+      sec.questions.forEach(q => {
+        q.type ||= 'single';
+        q.required = !!q.required;
+        if (optTypes.has(q.type)) {
+          q.options ||= ['Opción 1'];
+        } else {
+          delete q.options;
+        }
+      });
+    });
+    return s;
+  }
   function loadDraft() {
     try {
       const raw = localStorage.getItem(KEY);
@@ -25,15 +48,19 @@
         title: 'Sección 1',
         order: 1,
         go_to: null,
-        questions: [{ id: 'q1', title: 'Pregunta 1', type: 'single', required: false, order: 1 }]
+        questions: [{
+          id: 'q1',
+          title: 'Pregunta 1',
+          type: 'single',
+          required: false,
+          order: 1,
+          options: ['Opción 1']
+        }]
       }]
     };
     saveDraft(init);
     return init;
   }
-  function saveDraft(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
-  function normalize(s){ s.version ||= 1; s.lastSeq ||= {section:0,question:0}; s.sections ||= []; return s; }
-
   let state = loadDraft();
 
   // ---------- HELPERS ----------
@@ -49,6 +76,71 @@
   }
   function renumberQuestionsState(sec){
     (sec.questions||[]).sort((a,b)=>a.order-b.order).forEach((q,i)=>{ q.order = i+1; });
+  }
+  function findQuestionById(qid) {
+    for (const sec of state.sections) {
+      const q = (sec.questions || []).find(x => x.id === qid);
+      if (q) return { sec, q };
+    }
+    return null;
+  }
+  function ensureOptionsShape(q) {
+    const optTypes = new Set(['single', 'multiple', 'dropdown']);
+    if (optTypes.has(q.type)) {
+      q.options ||= [];
+      if (!q.options.length) q.options = ['Opción 1'];
+    } else {
+      delete q.options;
+    }
+  }
+  function renderQuestionPreview(node, q) {
+    node.querySelectorAll('[data-preview]').forEach(el => el.remove());
+
+    if (q.type === 'single') {
+      const wrap = document.createElement('div');
+      wrap.className = 'mt-1';
+      wrap.dataset.preview = 'single';
+      (q.options || ['Opción 1']).slice(0, 3).forEach((label, i) => {
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        div.innerHTML = `
+          <input class="form-check-input" type="radio" disabled name="p_${q.id}">
+          <label class="form-check-label">${label || `Opción ${i+1}`}</label>`;
+        wrap.appendChild(div);
+      });
+      node.insertBefore(wrap, node.querySelector('.q-footer'));
+    }
+
+    if (q.type === 'multiple') {
+      const wrap = document.createElement('div');
+      wrap.className = 'mt-1';
+      wrap.dataset.preview = 'multiple';
+      (q.options || ['Opción 1']).slice(0, 3).forEach((label, i) => {
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        div.innerHTML = `
+          <input class="form-check-input" type="checkbox" disabled>
+          <label class="form-check-label">${label || `Opción ${i+1}`}</label>`;
+        wrap.appendChild(div);
+      });
+      node.insertBefore(wrap, node.querySelector('.q-footer'));
+    }
+
+    if (q.type === 'dropdown') {
+      const wrap = document.createElement('div');
+      wrap.className = 'mt-2';
+      wrap.dataset.preview = 'dropdown';
+      const sel = document.createElement('select');
+      sel.className = 'form-select';
+      sel.disabled = true;
+      (q.options || ['Opción 1']).forEach(label => {
+        const opt = document.createElement('option');
+        opt.textContent = label;
+        sel.appendChild(opt);
+      });
+      wrap.appendChild(sel);
+      node.insertBefore(wrap, node.querySelector('.q-footer'));
+    }
   }
 
   // ---------- TEMPLATES: CLONE & BIND ----------
@@ -84,31 +176,33 @@
   }
 
   function cloneQuestion(q){
+    ensureOptionsShape(q);
+
     const frag = tplQuestion.content.cloneNode(true);
     const node = frag.querySelector('.q-card');
 
     node.dataset.questionId = q.id;
+    node.dataset.type = q.type || 'single';
+    node.dataset.required = String(!!q.required);
 
     const titleEl = node.querySelector('[data-bind="q-title"]');
     titleEl.textContent = q.title || 'Pregunta';
 
-    // set id en acciones
-    node.querySelectorAll('[data-action="q.rename"]').forEach(b => b.dataset.id = q.id);
     node.querySelectorAll('[data-action="q.delete"]').forEach(b => b.dataset.id = q.id);
+
+    renderQuestionPreview(node, q);
 
     return node;
   }
 
   // ---------- RENDER ----------
   function renderAll(){
-    // quita todo menos "nueva sección"
     [...strip.querySelectorAll('.section-col')].forEach(c => { if (c !== newSectionCol) c.remove(); });
 
     const sections = [...state.sections].sort((a,b)=>a.order-b.order);
     sections.forEach(sec => {
       const col = cloneSection(sec);
 
-      // preguntas
       const list = col.querySelector('[data-bind="q-list"]');
       const qs   = [...(sec.questions||[])].sort((a,b)=>a.order-b.order);
       qs.forEach(q => list.appendChild(cloneQuestion(q)));
@@ -152,9 +246,16 @@
     state.lastSeq.question = nextQ;
     const order = Math.max(0, ...(sec.questions||[]).map(q => q.order)) + 1;
 
-    (sec.questions ||= []).push({
-      id:`q${nextQ}`, title:`Pregunta ${order}`, type:'single', required:false, order
-    });
+    const q = {
+      id:`q${nextQ}`,
+      title:`Pregunta ${order}`,
+      type:'single',
+      required:false,
+      order,
+      options:['Opción 1']
+    };
+    (sec.questions ||= []).push(q);
+
     saveDraft(state);
     rerenderSection(sec.id);
   }
@@ -183,7 +284,6 @@
     }
 
     state.sections = state.sections.filter(s => s.id !== sectionId);
-    // limpia jumps que apuntaban a la sección borrada
     state.sections.forEach(s => { if (s.go_to === sectionId) s.go_to = null; });
     renumberSectionsState(state);
     saveDraft(state);
@@ -233,7 +333,7 @@
     });
   }
 
-  // ---------- EVENTS ----------
+  // ---------- EVENTS (builder) ----------
   btnNewSection?.addEventListener('click', addSection);
 
   document.addEventListener('click', (e) => {
@@ -248,7 +348,6 @@
     if (item.dataset.action === 'q.delete')   return deleteQuestionById(item.dataset.id || item.closest('.q-card')?.dataset.questionId);
   });
 
-  // show menú jump (lazy)
   document.addEventListener('show.bs.dropdown', (e) => {
     const btn = e.target.closest('[data-section-jump]');
     if (!btn) return;
@@ -257,7 +356,6 @@
     buildJumpMenu(ul, sid);
   });
 
-  // pick opción jump
   document.addEventListener('click', (e) => {
     const it = e.target.closest('[data-jump-menu] .dropdown-item');
     if (!it) return;
@@ -271,6 +369,234 @@
     if (btn) btn.textContent = jumpLabel(value);
   });
 
+  // ---------- MODAL: Editor de preguntas ----------
+  const modalEl = document.getElementById('qEditor');
+  const tInput  = document.getElementById('qeTitle');
+  const rChk    = document.getElementById('qeRequired');
+  const typeList = document.getElementById('qeTypeList');
+  const optsWrap = document.getElementById('qeOptionsWrap');
+  const optsList = document.getElementById('qeOptionsList');
+  const btnAddOpt = document.getElementById('qeAddOption');
+  const btnSave = document.getElementById('qeSave');
+
+  let CURRENT_QID = null;
+  const optTypes = new Set(['single', 'multiple', 'dropdown']);
+
+  // --- Normaliza ARIA al abrir y enfoca el primer control
+  modalEl.addEventListener('show.bs.modal', () => {
+    modalEl.removeAttribute('inert');
+    modalEl.removeAttribute('aria-hidden');
+  });
+  modalEl.addEventListener('shown.bs.modal', () => {
+    modalEl.setAttribute('aria-modal', 'true');
+    modalEl.removeAttribute('aria-hidden');
+    tInput?.focus();
+  });
+
+  // --- Guardián: si el modal está visible no debe tener aria-hidden
+  const ariaGuard = new MutationObserver(() => {
+    if (modalEl.classList.contains('show') && modalEl.getAttribute('aria-hidden') === 'true') {
+      modalEl.removeAttribute('aria-hidden');
+      modalEl.setAttribute('aria-modal', 'true');
+    }
+  });
+  ariaGuard.observe(modalEl, { attributes: true, attributeFilter: ['class','aria-hidden'] });
+
+  // --- Mover foco fuera del modal antes de ocultarlo (evita el warning)
+  function focusOutsideModal() {
+    const target = document.querySelector(`.q-card[data-question-id="${CURRENT_QID}"]`) || document.body;
+    if (target) {
+      if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+      try { target.focus(); } catch {}
+    }
+  }
+  modalEl.addEventListener('hide.bs.modal', focusOutsideModal);
+
+  // ---------- MODAL: helpers (usar SIEMPRE Bootstrap) ----------
+  function getModal() {
+    if (!window.bootstrap?.Modal) {
+      console.error('Bootstrap Modal no está disponible. Asegura cargar bootstrap.bundle.min.js');
+      return null;
+    }
+    return bootstrap.Modal.getOrCreateInstance(modalEl, {
+      backdrop: true,
+      focus: true,
+      keyboard: true
+    });
+  }
+
+  function showModal() {
+    const m = getModal();
+    if (!m) return;
+    modalEl.removeAttribute('inert');
+    modalEl.removeAttribute('aria-hidden');
+    m.show();
+  }
+
+  function hideModal() {
+    const m = getModal();
+    if (!m) return;
+    m.hide();
+  }
+
+  // Limpia estado/UI al cerrar
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    CURRENT_QID = null;
+    if (optsList) optsList.innerHTML = '';
+  });
+
+  function toggleOptionsByType(type) { optsWrap?.classList.toggle('d-none', !optTypes.has(type)); }
+  function highlightType(type) {
+    if (!typeList) return;
+    typeList.querySelectorAll('.list-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    toggleOptionsByType(type);
+  }
+  function readActiveType() {
+    const active = typeList?.querySelector('.list-group-item.active');
+    return active?.dataset.type || 'single';
+  }
+  function renderOptionsEditor(q) {
+    if (!optsList) return;
+    optsList.innerHTML = '';
+    const arr = (q.options || []);
+    if (!arr.length) arr.push('Opción 1');
+
+    arr.forEach((label, idx) => {
+      const row = document.createElement('div');
+      row.className = 'input-group input-group-sm mb-2';
+      row.dataset.index = String(idx);
+      row.innerHTML = `
+        <span class="input-group-text">${idx+1}</span>
+        <input type="text" class="form-control" value="${(label ?? '').replaceAll('"','&quot;')}" placeholder="Texto de la opción">
+        <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
+      `;
+      optsList.appendChild(row);
+    });
+  }
+  function collectOptionsFromUI() {
+    if (!optsList) return [];
+    const out = [];
+    optsList.querySelectorAll('.input-group').forEach(row => {
+      const val = row.querySelector('input')?.value?.trim() || '';
+      if (val) out.push(val);
+    });
+    return out;
+  }
+
+  // Abrir modal haciendo click en q-card (pero no si fue dentro del dropdown)
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.q-card');
+    if (!card || e.target.closest('.dropdown')) return;
+
+    const qid = card.dataset.questionId;
+    const found = findQuestionById(qid);
+    if (!found) return;
+
+    CURRENT_QID = qid;
+    const { q } = found;
+
+    if (tInput) tInput.value = (q.title || '').trim();
+    if (rChk)   rChk.checked = !!q.required;
+
+    const type = q.type || 'single';
+    highlightType(type);
+    toggleOptionsByType(type);
+
+    if (optTypes.has(type)) {
+      q.options ||= (q.options && Array.isArray(q.options)) ? q.options : ['Opción 1'];
+      renderOptionsEditor(q);
+    }
+
+    showModal();
+  });
+
+  // Cambiar tipo dentro del modal
+  typeList?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.list-group-item[data-type]');
+    if (!btn) return;
+    typeList.querySelectorAll('.list-group-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    toggleOptionsByType(btn.dataset.type);
+
+    if (optTypes.has(btn.dataset.type)) {
+      if (CURRENT_QID) {
+        const found = findQuestionById(CURRENT_QID);
+        if (found) {
+          const { q } = found;
+          q.options ||= ['Opción 1'];
+          renderOptionsEditor(q);
+        }
+      } else {
+        renderOptionsEditor({ options: ['Opción 1'] });
+      }
+    }
+  });
+
+  // Agregar opción
+  btnAddOpt?.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.className = 'input-group input-group-sm mb-2';
+    row.innerHTML = `
+      <span class="input-group-text">+</span>
+      <input type="text" class="form-control" value="" placeholder="Texto de la opción">
+      <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
+    `;
+    optsList?.appendChild(row);
+    row.querySelector('input')?.focus();
+  });
+
+  // Eliminar opción
+  optsList?.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-opt-del]');
+    if (!del) return;
+    const row = del.closest('.input-group');
+    row?.remove();
+  });
+
+  // Guardar cambios del modal
+  btnSave?.addEventListener('click', () => {
+    if (!CURRENT_QID) return hideModal();
+
+    const found = findQuestionById(CURRENT_QID);
+    if (!found) return hideModal();
+
+    const { sec, q } = found;
+
+    q.title = (tInput?.value || '').trim() || q.title || 'Pregunta';
+    q.required = !!rChk?.checked;
+
+    const newType = readActiveType();
+    q.type = newType;
+
+    if (optTypes.has(newType)) {
+      const opts = collectOptionsFromUI();
+      q.options = opts.length ? opts : ['Opción 1'];
+    } else {
+      delete q.options;
+    }
+
+    saveDraft(state);
+    rerenderSection(sec.id);
+
+    // Mueve el foco fuera del modal ANTES de cerrarlo (evita warning)
+    focusOutsideModal();
+    hideModal();
+
+    // Resalta la tarjeta editada
+    setTimeout(() => {
+      const card = document.querySelector(`.q-card[data-question-id="${q.id}"]`);
+      if (card) {
+        card.classList.add('ring');
+        card.style.outline = '2px solid var(--bs-primary)';
+        setTimeout(() => {
+          card.style.outline = ''; card.classList.remove('ring');
+        }, 1200);
+      }
+    }, 50);
+  });
+
   // ---------- INIT ----------
   renderAll();
 
@@ -280,67 +606,4 @@
     set: (s) => { state = normalize(s); saveDraft(state); renderAll(); },
     clear: () => { localStorage.removeItem(KEY); state = loadDraft(); renderAll(); }
   };
-})();
-
-// ==== Abrir modal de edición al hacer click en una pregunta ====
-(function () {
-  const modalEl = document.getElementById('qEditor');
-  if (!modalEl) return;
-
-  function getModal() {
-    const bs = window.bootstrap;
-    return bs?.Modal ? bs.Modal.getOrCreateInstance(modalEl) : null;
-  }
-  function showModal() {
-    const m = getModal();
-    if (m) m.show();
-    else { modalEl.classList.add('show'); modalEl.style.display = 'block'; modalEl.removeAttribute('aria-hidden'); }
-  }
-  function hideModal() {
-    const m = getModal();
-    if (m) m.hide();
-    else { modalEl.classList.remove('show'); modalEl.style.display = 'none'; modalEl.setAttribute('aria-hidden','true'); }
-  }
-
-  function toggleOptionsByType(type) {
-    const wrap = document.getElementById('qeOptionsWrap');
-    const optTypes = new Set(['single', 'multiple', 'dropdown']);
-    if (wrap) wrap.classList.toggle('d-none', !optTypes.has(type));
-  }
-  function highlightType(type) {
-    const list = document.getElementById('qeTypeList');
-    if (!list) return;
-    list.querySelectorAll('.list-group-item').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.type === type);
-    });
-    toggleOptionsByType(type);
-  }
-
-  // Delegación: click en .q-card (se ignora si fue dentro del dropdown)
-  document.addEventListener('click', (e) => {
-    const card = e.target.closest('.q-card');
-    if (!card || e.target.closest('.dropdown')) return;
-
-    const title = (card.querySelector('.q-title') || card.querySelector('[data-bind="q-title"]'))?.textContent?.trim() || 'Pregunta';
-    const type  = card.dataset.type || 'single';
-    const req   = card.dataset.required === 'true';
-
-    const tInput = document.getElementById('qeTitle');
-    const rChk   = document.getElementById('qeRequired');
-    if (tInput) tInput.value = title;
-    if (rChk)   rChk.checked = req;
-
-    highlightType(type);
-    showModal();
-  });
-
-  // Cambiar tipo dentro del modal (UI)
-  document.getElementById('qeTypeList')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.list-group-item[data-type]');
-    if (!btn) return;
-    highlightType(btn.dataset.type);
-  });
-
-  // Guardar (por ahora solo cierra)
-  document.getElementById('qeSave')?.addEventListener('click', hideModal);
 })();

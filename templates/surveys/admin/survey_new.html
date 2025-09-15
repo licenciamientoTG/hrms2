@@ -117,7 +117,7 @@
 
 
 <!-- 3.3 UN SOLO MODAL en toda la página -->
-<div class="modal fade" id="qEditor" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="qEditor" tabindex="-1" data-bs-backdrop="true" data-bs-focus="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
@@ -131,16 +131,6 @@
             <div class="mb-3">
               <label class="form-label">Descripción</label>
               <input id="qeTitle" class="form-control" placeholder="Pregunta">
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Adjuntos</label>
-              <div class="border rounded p-3 text-muted small">
-                No hay documentos adjuntos.
-                <div class="mt-2">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Agregar adjuntos (luego)</button>
-                </div>
-              </div>
             </div>
 
             <div id="qeOptionsWrap" class="mb-3 d-none">
@@ -158,16 +148,9 @@
               <button type="button" class="list-group-item list-group-item-action" data-type="text">Texto</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="decimal">Número decimal</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="integer">Número entero</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="phone">Teléfono</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="single">Opciones (selección única)</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="multiple">Opciones (selección múltiple)</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="dropdown">Desplegable</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="rating">Calificación</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="date">Fecha (dd/mm/aaaa)</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="time">Hora</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="file">Subir archivos</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="photo">Subir fotos o videos</button>
-              <button type="button" class="list-group-item list-group-item-action" data-type="signature">Firma</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="none">Sin respuesta</button>
             </div>
           </div>
