@@ -200,12 +200,21 @@
     const titleEl = node.querySelector('[data-bind="q-title"]');
     titleEl.textContent = q.title || 'Pregunta';
 
+    // --- CHIP de tipo ---
+    const meta = typeMeta(q.type);
+    const chip = document.createElement('span');
+    chip.className = `qtype-chip ${meta.cls}`;
+    chip.textContent = meta.short;
+    chip.title = meta.long;
+    chip.setAttribute('data-qtype-chip',''); // para actualizarlo en vivo
+    titleEl.after(chip);
+
     node.querySelectorAll('[data-action="q.delete"]').forEach(b => b.dataset.id = q.id);
 
     renderQuestionPreview(node, q);
-
     return node;
   }
+
 
   // ---------- RENDER ----------
   function renderAll(){
@@ -456,6 +465,20 @@
   }
   modalEl.addEventListener('hide.bs.modal', focusOutsideModal);
 
+  function typeMeta(t){
+    const map = {
+      text:     {short:'TXT',  long:'Texto',                    cls:'qtype-text'},
+      integer:  {short:'INT',  long:'Número entero',            cls:'qtype-integer'},
+      decimal:  {short:'DEC',  long:'Número decimal',           cls:'qtype-decimal'},
+      single:   {short:'ÚN',   long:'Opciones (selección única)', cls:'qtype-single'},
+      multiple: {short:'MULT', long:'Opciones (selección múltiple)', cls:'qtype-multiple'},
+      rating:   {short:'★',    long:'Calificación',             cls:'qtype-rating'},
+      none:     {short:'—',    long:'Sin respuesta',            cls:'qtype-none'},
+      dropdown: {short:'▼',    long:'Lista desplegable',        cls:'qtype-dropdown'},
+    };
+    return map[t] || {short:t || '?', long:'Tipo desconocido', cls:'qtype-none'};
+  }
+
   // ---------- MODAL: helpers (usar SIEMPRE Bootstrap) ----------
   function getModal() {
     if (!window.bootstrap?.Modal) {
@@ -591,25 +614,18 @@
     // Construye un "view model" temporal con el tipo nuevo para re-dibujar al vuelo
     let vm;
     if (CURRENT_QID) {
-      const found = findQuestionById(CURRENT_QID);
-      if (!found) return;
-      const { q } = found;
-      ensureOptionsShape(q);
-      vm = { ...q, type: newType, options: q.options.map(o => ({ ...o })) };
-    } else {
-      vm = { type: newType, options: [{ label: 'Opción 1', correct: false }] };
+      const card = document.querySelector(`.q-card[data-question-id="${CURRENT_QID}"]`);
+      const chip = card?.querySelector('[data-qtype-chip]');
+      if (chip) {
+        const m = typeMeta(newType);
+        chip.textContent = m.short;
+        chip.title = m.long;
+        chip.className = `qtype-chip ${m.cls}`;
+        // refleja también en el dataset si quieres usarlo en CSS/QA
+        card.dataset.type = newType;
+      }
     }
-
-    // Si pasas a 'single', conserva solo la primera marcada como correcta
-    if (newType === 'single') {
-      const idx = vm.options.findIndex(o => o.correct);
-      vm.options = vm.options.map((o, i) => ({ ...o, correct: idx !== -1 && i === idx }));
-    }
-
-    // Redibuja el editor con el tipo nuevo (esto cambia radio/checkbox al instante)
-    renderOptionsEditor(vm);
   });
-
 
 
   // Agregar opción
