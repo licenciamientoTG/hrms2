@@ -253,3 +253,8 @@
     color:#5f3dc4; 
     border-color:rgba(111,66,193,.22); 
 }
+
+/* Select compacto para destino de salto */
+#qeOptionsList select[data-branch-idx]{
+  max-width: 220px;
+}

@@ -27,6 +27,8 @@
         q.type ||= 'single';
         q.required = !!q.required;
         ensureOptionsShape(q);
+        ensureBranchShape(q);
+
       });
     });
     return s;
@@ -273,7 +275,7 @@
       type:'single',
       required:false,
       order,
-      options:['Opción 1']
+      options:[{ label:'Opción 1', correct:false }]
     };
     (sec.questions ||= []).push(q);
 
@@ -431,9 +433,31 @@
   const optsList = document.getElementById('qeOptionsList');
   const btnAddOpt = document.getElementById('qeAddOption');
   const btnSave = document.getElementById('qeSave');
+  const qeBranch = document.getElementById('qeBranch');
 
   let CURRENT_QID = null;
+  let CURRENT_SEC_ID = null;
   const optTypes = new Set(['single', 'multiple', 'dropdown']);
+
+  function branchAllowed(type){ return type === 'single' || type === 'dropdown'; }
+
+  function buildBranchOptionsHTML(currentSectionId, selected){
+    // Construye el <option> list para un destino
+    const sections = [...state.sections].sort((a,b)=>a.order-b.order);
+    const sel = (v) => (v === selected ? 'selected' : '');
+
+    // Nota: value "" = Siguiente
+    let html = `
+      <option value="" ${sel(null)}>— Siguiente —</option>
+      <option value="submit" ${sel('submit')}>Enviar formulario</option>
+      <optgroup label="Secciones">
+    `;
+    sections.forEach(s => {
+      html += `<option value="${s.id}" ${sel(s.id)}>Sección ${s.order} (${s.title || 'Sección'})</option>`;
+    });
+    html += '</optgroup>';
+    return html;
+  }
 
   // --- Normaliza ARIA al abrir y enfoca el primer control
   modalEl.addEventListener('show.bs.modal', () => {
@@ -531,6 +555,8 @@
     if (!arr.length) arr.push({ label:'Opción 1', correct:false });
 
     const isSingle = (q.type === 'single');
+    const branchingOn = branchAllowed(q.type) && !!qeBranch?.checked;
+    ensureBranchShape(q);
 
     arr.forEach((opt, idx) => {
       const row = document.createElement('div');
@@ -543,23 +569,42 @@
           <input type="${isSingle ? 'radio' : 'checkbox'}" name="qe-correct" ${opt.correct ? 'checked' : ''} data-opt-correct>
           <small>${isSingle ? 'Correcta' : 'Correcta(s)'}</small>
         </div>
+        <select class="form-select form-select-sm w-auto ms-2" data-branch-idx="${idx}" ${branchingOn ? '' : 'disabled'}>
+          ${buildBranchOptionsHTML(CURRENT_SEC_ID, q.branch?.byOption?.[idx] ?? null)}
+        </select>
         <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
       `;
+      if (!branchingOn) {
+        row.querySelector('select[data-branch-idx]').classList.add('d-none');
+      }
       optsList.appendChild(row);
     });
   }
 
+
   optsList?.addEventListener('change', (e) => {
-    const input = e.target.closest('[data-opt-correct]');
-    if (!input) return;
-    const isSingle = (readActiveType() === 'single');
-    if (isSingle && input.checked) {
-      // Desmarca todos los demás radios
+    // A) toggle de "correcta(s)"
+    const correct = e.target.closest('[data-opt-correct]');
+    if (correct && readActiveType() === 'single' && correct.checked) {
       optsList.querySelectorAll('[data-opt-correct]').forEach(el => {
-        if (el !== input) el.checked = false;
+        if (el !== correct) el.checked = false;
       });
     }
+
+    // B) cambio en el destino de branching
+    const sel = e.target.closest('select[data-branch-idx]');
+    if (sel && CURRENT_QID) {
+      const found = findQuestionById(CURRENT_QID);
+      if (!found) return;
+      const { q } = found;
+      ensureBranchShape(q);
+      const idx = Number(sel.dataset.branchIdx);
+      const val = sel.value || null; // "" => siguiente
+      q.branch.enabled = !!qeBranch?.checked;
+      q.branch.byOption[idx] = val;
+    }
   });
+
 
   function collectOptionsFromUI() {
     if (!optsList) return [];
@@ -582,7 +627,9 @@
     if (!found) return;
 
     CURRENT_QID = qid;
-    const { q } = found;
+    const { sec, q } = found;  
+    CURRENT_SEC_ID = sec.id;
+    ensureOptionsShape(q);      
 
     if (tInput) tInput.value = (q.title || '').trim();
     if (rChk)   rChk.checked = !!q.required;
@@ -596,6 +643,17 @@
       renderOptionsEditor(q);
     }
 
+      // 🔀 Branch UI
+    if (branchAllowed(type)) {
+      ensureBranchShape(q);
+      qeBranch.disabled = false;
+      qeBranch.checked = !!q.branch?.enabled;
+    } else {
+      qeBranch.checked = false;
+      qeBranch.disabled = true;
+      delete q.branch;
+    }
+
     showModal();
   });
 
@@ -604,15 +662,14 @@
     const btn = e.target.closest('.list-group-item[data-type]');
     if (!btn) return;
 
-    const newType = btn.dataset.type; // <- tipo recién elegido
+    const newType = btn.dataset.type;
 
     // UI: marcar activo y mostrar/ocultar opciones
     typeList.querySelectorAll('.list-group-item').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     toggleOptionsByType(newType);
 
-    // Construye un "view model" temporal con el tipo nuevo para re-dibujar al vuelo
-    let vm;
+    // Actualiza chip en la tarjeta
     if (CURRENT_QID) {
       const card = document.querySelector(`.q-card[data-question-id="${CURRENT_QID}"]`);
       const chip = card?.querySelector('[data-qtype-chip]');
@@ -621,12 +678,30 @@
         chip.textContent = m.short;
         chip.title = m.long;
         chip.className = `qtype-chip ${m.cls}`;
-        // refleja también en el dataset si quieres usarlo en CSS/QA
         card.dataset.type = newType;
       }
     }
-  });
 
+    // Re-render del editor con el tipo nuevo (para cambiar radio/checkbox al vuelo)
+    let vm = { type: newType, options: [{ label:'Opción 1', correct:false }] };
+    if (CURRENT_QID) {
+      const found = findQuestionById(CURRENT_QID);
+      if (found) {
+        const { q } = found;
+        ensureOptionsShape(q);
+        vm = { ...q, type: newType, options: q.options.map(o => ({...o})) };
+        if (newType === 'single') {
+          const idx = vm.options.findIndex(o => o.correct);
+          vm.options = vm.options.map((o,i) => ({ ...o, correct: idx !== -1 && i === idx }));
+        }
+      }
+    }
+    renderOptionsEditor(vm);
+
+    // Branching: habilita/inhabilita el switch según el tipo
+    qeBranch.disabled = !branchAllowed(newType);
+    if (!branchAllowed(newType)) qeBranch.checked = false;
+  });
 
   // Agregar opción
   btnAddOpt?.addEventListener('click', () => {
@@ -644,7 +719,18 @@
     `;
     optsList?.appendChild(row);
     row.querySelector('input.form-control')?.focus();
+
+    // Si branching está activo, añade el select de destino
+    if (branchAllowed(readActiveType()) && qeBranch?.checked) {
+      const idx = optsList.querySelectorAll('.input-group').length - 1;
+      const sel = document.createElement('select');
+      sel.className = 'form-select form-select-sm w-auto ms-2';
+      sel.setAttribute('data-branch-idx', String(idx));
+      sel.innerHTML = buildBranchOptionsHTML(CURRENT_SEC_ID, null);
+      row.insertBefore(sel, row.querySelector('[data-opt-del]'));
+    }
   });
+
 
   // Eliminar opción
   optsList?.addEventListener('click', (e) => {
@@ -667,18 +753,35 @@
     const newType = readActiveType();
     q.type = newType;
 
-    if (optTypes.has(newType)) {
-      let opts = collectOptionsFromUI();
-      if (!opts.length) opts = [{ label:'Opción 1', correct:false }];
-      // Enforcement final: si es single, garantiza 0..1 marcada
-      if (newType === 'single') {
-        const idx = opts.findIndex(o => o.correct);
-        opts = opts.map((o,i) => ({ ...o, correct: i === idx && idx !== -1 }));
-      }
-      q.options = opts;
-    } else {
-      delete q.options;
+  if (optTypes.has(newType)) {
+    let opts = collectOptionsFromUI();
+    if (!opts.length) opts = [{ label:'Opción 1', correct:false }];
+
+    if (newType === 'single') {
+      const idx = opts.findIndex(o => o.correct);
+      opts = opts.map((o,i) => ({ ...o, correct: i === idx && idx !== -1 }));
     }
+    q.options = opts;
+
+    // 🔀 Guardar branching
+    if (branchAllowed(newType) && qeBranch?.checked) {
+      // recolecta selects visibles
+      const by = {};
+      optsList?.querySelectorAll('select[data-branch-idx]').forEach(sel => {
+        const i = Number(sel.dataset.branchIdx);
+        const v = sel.value || null; // "" => siguiente
+        if (v) by[i] = v;            // guarda solo si hay destino explícito
+      });
+      q.branch = { enabled: true, byOption: by };
+    } else {
+      delete q.branch;
+    }
+
+  } else {
+    delete q.options;
+    delete q.branch;
+  }
+
 
     saveDraft(state);
     rerenderSection(sec.id);
@@ -704,4 +807,51 @@
     set: (s) => { state = normalize(s); saveDraft(state); renderAll(); },
     clear: () => { localStorage.removeItem(KEY); state = loadDraft(); renderAll(); }
   };
+
+  function ensureBranchShape(q) {
+    // Solo aplica para tipos con branching por opción
+    const allowed = new Set(['single', 'dropdown']);
+    if (!allowed.has(q.type)) { delete q.branch; return; }
+
+    const byOpt = (q.branch?.byOption && typeof q.branch.byOption === 'object') ? q.branch.byOption : {};
+    q.branch = {
+      enabled: !!q.branch?.enabled,
+      byOption: byOpt   // { [index:number]: sectionId|string|null }
+    };
+  }
+
+  qeBranch?.addEventListener('change', () => {
+    const allow = branchAllowed(readActiveType());
+    const on = allow && !!qeBranch.checked;
+    // Mostrar/ocultar todos los selects
+    optsList?.querySelectorAll('select[data-branch-idx]').forEach(sel => {
+      sel.toggleAttribute('disabled', !on);
+      sel.classList.toggle('d-none', !on);
+    });
+  });
+
+  // answersByQuestion: { [qid]: índice seleccionado o valor }
+  function nextSectionIdAfter(sec, answersByQuestion){
+    // 1) Busca la primera pregunta con branching que aplique
+    for (const q of (sec.questions || [])){
+      if (q?.branch?.enabled && branchAllowed(q.type)) {
+        const ansIdx = answersByQuestion?.[q.id]; // asumiendo índice de opción
+        if (ansIdx != null) {
+          const target = q.branch.byOption?.[ansIdx] ?? null;
+          if (target === 'submit') return 'submit';
+          if (target) return target;
+        }
+      }
+    }
+    // 2) Si no hubo branch, usa el "Después de la sección"
+    if (sec.go_to === 'submit') return 'submit';
+    if (sec.go_to) return sec.go_to;
+
+    // 3) Siguiente por orden
+    const ordered = [...state.sections].sort((a,b)=>a.order-b.order);
+    const idx = ordered.findIndex(s => s.id === sec.id);
+    const next = ordered[idx+1];
+    return next ? next.id : 'submit';
+  }
+
 })();
