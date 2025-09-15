@@ -18,7 +18,7 @@
   </div>
 
   {% if q.qtype == 'single' %}
-    {% for opt in q.options.all|slice:":3" %}
+    {% for opt in q.options.all%}
       <div class="form-check mt-1" data-preview="single">
         <input class="form-check-input correct-preview"
               type="radio"

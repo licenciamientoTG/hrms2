@@ -102,7 +102,7 @@
       const wrap = document.createElement('div');
       wrap.className = 'mt-1';
       wrap.dataset.preview = 'single';
-      (q.options || [{label:'Opción 1', correct:false}]).slice(0, 3).forEach((opt, i) => {
+      (q.options || [{label:'Opción 1', correct:false}]).forEach((opt, i) => {
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
@@ -121,7 +121,7 @@
       const wrap = document.createElement('div');
       wrap.className = 'mt-1';
       wrap.dataset.preview = 'multiple';
-      (q.options || [{label:'Opción 1', correct:false}]).slice(0, 3).forEach((opt, i) => {
+      (q.options || [{label:'Opción 1', correct:false}]).forEach((opt, i) => {
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
