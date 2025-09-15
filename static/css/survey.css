@@ -134,3 +134,14 @@
 .q-card .dropdown, .q-card .dropdown * { 
     cursor: default; 
 }
+
+/* Marca verde para opciones correctas en el builder */
+.form-check-input.correct-preview:checked {
+  background-color: #198754; /* bs-success */
+  border-color: #198754;
+}
+
+/* Opcional: halo suave al estar checked (accesibilidad visual) */
+.form-check-input.correct-preview:checked:focus {
+  box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .25);
+}

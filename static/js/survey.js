@@ -98,8 +98,6 @@
   function renderQuestionPreview(node, q) {
     node.querySelectorAll('[data-preview]').forEach(el => el.remove());
 
-    const badge = (ok) => ok ? `<span class="badge bg-success ms-2">✔</span>` : '';
-
     if (q.type === 'single') {
       const wrap = document.createElement('div');
       wrap.className = 'mt-1';
@@ -108,8 +106,12 @@
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
-          <input class="form-check-input" type="radio" disabled name="p_${q.id}">
-          <label class="form-check-label">${opt.label || `Opción ${i+1}`}${badge(!!opt.correct)}</label>`;
+          <input class="form-check-input correct-preview"
+                type="radio"
+                disabled
+                name="p_${q.id}"
+                ${opt.correct ? 'checked' : ''}>
+          <label class="form-check-label">${opt.label || `Opción ${i+1}`}</label>`;
         wrap.appendChild(div);
       });
       node.insertBefore(wrap, node.querySelector('.q-footer'));
@@ -123,8 +125,11 @@
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
-          <input class="form-check-input" type="checkbox" disabled>
-          <label class="form-check-label">${opt.label || `Opción ${i+1}`}${badge(!!opt.correct)}</label>`;
+          <input class="form-check-input correct-preview"
+                type="checkbox"
+                disabled
+                ${opt.correct ? 'checked' : ''}>
+          <label class="form-check-label">${opt.label || `Opción ${i+1}`}</label>`;
         wrap.appendChild(div);
       });
       node.insertBefore(wrap, node.querySelector('.q-footer'));
@@ -139,13 +144,15 @@
       sel.disabled = true;
       (q.options || [{label:'Opción 1', correct:false}]).forEach(opt => {
         const option = document.createElement('option');
-        option.textContent = opt.label + (opt.correct ? ' (✔ correcta)' : '');
+        option.textContent = opt.label;
+        if (opt.correct) option.textContent += ' (✔ correcta)';
         sel.appendChild(option);
       });
       wrap.appendChild(sel);
       node.insertBefore(wrap, node.querySelector('.q-footer'));
     }
   }
+
 
 
   // ---------- TEMPLATES: CLONE & BIND ----------

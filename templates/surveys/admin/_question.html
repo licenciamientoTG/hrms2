@@ -20,13 +20,27 @@
   {% if q.qtype == 'single' %}
     {% for opt in q.options.all|slice:":3" %}
       <div class="form-check mt-1" data-preview="single">
-        <input class="form-check-input" type="radio" disabled>
-        <label class="form-check-label">
-          {{ opt.label }}{% if opt.is_correct %} <span class="badge bg-success">✔</span>{% endif %}
-        </label>
+        <input class="form-check-input correct-preview"
+              type="radio"
+              disabled
+              {% if opt.is_correct %}checked{% endif %}>
+        <label class="form-check-label">{{ opt.label }}</label>
       </div>
     {% endfor %}
   {% endif %}
+
+  {% if q.qtype == 'multiple' %}
+    {% for opt in q.options.all|slice:":3" %}
+      <div class="form-check mt-1" data-preview="multiple">
+        <input class="form-check-input correct-preview"
+              type="checkbox"
+              disabled
+              {% if opt.is_correct %}checked{% endif %}>
+        <label class="form-check-label">{{ opt.label }}</label>
+      </div>
+    {% endfor %}
+  {% endif %}
+
 
   <div class="q-footer"></div>
 </div>
