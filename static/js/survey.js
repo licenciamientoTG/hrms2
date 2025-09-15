@@ -548,28 +548,36 @@
   typeList?.addEventListener('click', (e) => {
     const btn = e.target.closest('.list-group-item[data-type]');
     if (!btn) return;
+
+    const newType = btn.dataset.type; // <- tipo recién elegido
+
+    // UI: marcar activo y mostrar/ocultar opciones
     typeList.querySelectorAll('.list-group-item').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    toggleOptionsByType(btn.dataset.type);
+    toggleOptionsByType(newType);
 
-    if (optTypes.has(btn.dataset.type)) {
-      if (CURRENT_QID) {
-        const found = findQuestionById(CURRENT_QID);
-        if (found) {
-          const { q } = found;
-          ensureOptionsShape(q);
-          // Si cambia a single, fuerza solo 1 correcta
-          if (btn.dataset.type === 'single') {
-            const firstIdx = q.options.findIndex(o => o.correct);
-            q.options.forEach((o, i) => { o.correct = (i === (firstIdx === -1 ? 0 : firstIdx)); });
-          }
-          renderOptionsEditor(q);
-        }
-      } else {
-        renderOptionsEditor({ type: btn.dataset.type, options: [{ label:'Opción 1', correct:false }] });
-      }
+    // Construye un "view model" temporal con el tipo nuevo para re-dibujar al vuelo
+    let vm;
+    if (CURRENT_QID) {
+      const found = findQuestionById(CURRENT_QID);
+      if (!found) return;
+      const { q } = found;
+      ensureOptionsShape(q);
+      vm = { ...q, type: newType, options: q.options.map(o => ({ ...o })) };
+    } else {
+      vm = { type: newType, options: [{ label: 'Opción 1', correct: false }] };
     }
+
+    // Si pasas a 'single', conserva solo la primera marcada como correcta
+    if (newType === 'single') {
+      const idx = vm.options.findIndex(o => o.correct);
+      vm.options = vm.options.map((o, i) => ({ ...o, correct: idx !== -1 && i === idx }));
+    }
+
+    // Redibuja el editor con el tipo nuevo (esto cambia radio/checkbox al instante)
+    renderOptionsEditor(vm);
   });
+
 
 
   // Agregar opción
