@@ -188,7 +188,9 @@
 }
 
 /* Recorta el glow del foco para que no sobresalga del popup */
-.sa-modal.swal2-popup { overflow: hidden; }
+.sa-modal.swal2-popup { 
+    overflow: hidden; 
+}
 
 /* Opcional: un glow más discreto y contenido */
 .sa-modal .form-control:focus {
