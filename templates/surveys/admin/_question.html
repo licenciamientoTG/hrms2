@@ -18,10 +18,14 @@
   </div>
 
   {% if q.qtype == 'single' %}
-    <div class="form-check mt-1" data-preview="single">
-      <input class="form-check-input" type="radio" disabled>
-      <label class="form-check-label">Opción 1</label>
-    </div>
+    {% for opt in q.options.all|slice:":3" %}
+      <div class="form-check mt-1" data-preview="single">
+        <input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">
+          {{ opt.label }}{% if opt.is_correct %} <span class="badge bg-success">✔</span>{% endif %}
+        </label>
+      </div>
+    {% endfor %}
   {% endif %}
 
   <div class="q-footer"></div>

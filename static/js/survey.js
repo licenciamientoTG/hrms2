@@ -26,11 +26,7 @@
       sec.questions.forEach(q => {
         q.type ||= 'single';
         q.required = !!q.required;
-        if (optTypes.has(q.type)) {
-          q.options ||= ['Opción 1'];
-        } else {
-          delete q.options;
-        }
+        ensureOptionsShape(q);
       });
     });
     return s;
@@ -88,7 +84,13 @@
     const optTypes = new Set(['single', 'multiple', 'dropdown']);
     if (optTypes.has(q.type)) {
       q.options ||= [];
-      if (!q.options.length) q.options = ['Opción 1'];
+      // MIGRACIÓN: si vienen como strings => volver objetos
+      q.options = q.options.map(o => {
+        if (typeof o === 'string') return { label: o, correct: false };
+        // Asegura claves
+        return { label: (o?.label ?? ''), correct: !!o?.correct };
+      });
+      if (!q.options.length) q.options = [{ label: 'Opción 1', correct: false }];
     } else {
       delete q.options;
     }
@@ -96,16 +98,18 @@
   function renderQuestionPreview(node, q) {
     node.querySelectorAll('[data-preview]').forEach(el => el.remove());
 
+    const badge = (ok) => ok ? `<span class="badge bg-success ms-2">✔</span>` : '';
+
     if (q.type === 'single') {
       const wrap = document.createElement('div');
       wrap.className = 'mt-1';
       wrap.dataset.preview = 'single';
-      (q.options || ['Opción 1']).slice(0, 3).forEach((label, i) => {
+      (q.options || [{label:'Opción 1', correct:false}]).slice(0, 3).forEach((opt, i) => {
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
           <input class="form-check-input" type="radio" disabled name="p_${q.id}">
-          <label class="form-check-label">${label || `Opción ${i+1}`}</label>`;
+          <label class="form-check-label">${opt.label || `Opción ${i+1}`}${badge(!!opt.correct)}</label>`;
         wrap.appendChild(div);
       });
       node.insertBefore(wrap, node.querySelector('.q-footer'));
@@ -115,12 +119,12 @@
       const wrap = document.createElement('div');
       wrap.className = 'mt-1';
       wrap.dataset.preview = 'multiple';
-      (q.options || ['Opción 1']).slice(0, 3).forEach((label, i) => {
+      (q.options || [{label:'Opción 1', correct:false}]).slice(0, 3).forEach((opt, i) => {
         const div = document.createElement('div');
         div.className = 'form-check';
         div.innerHTML = `
           <input class="form-check-input" type="checkbox" disabled>
-          <label class="form-check-label">${label || `Opción ${i+1}`}</label>`;
+          <label class="form-check-label">${opt.label || `Opción ${i+1}`}${badge(!!opt.correct)}</label>`;
         wrap.appendChild(div);
       });
       node.insertBefore(wrap, node.querySelector('.q-footer'));
@@ -133,15 +137,16 @@
       const sel = document.createElement('select');
       sel.className = 'form-select';
       sel.disabled = true;
-      (q.options || ['Opción 1']).forEach(label => {
-        const opt = document.createElement('option');
-        opt.textContent = label;
-        sel.appendChild(opt);
+      (q.options || [{label:'Opción 1', correct:false}]).forEach(opt => {
+        const option = document.createElement('option');
+        option.textContent = opt.label + (opt.correct ? ' (✔ correcta)' : '');
+        sel.appendChild(option);
       });
       wrap.appendChild(sel);
       node.insertBefore(wrap, node.querySelector('.q-footer'));
     }
   }
+
 
   // ---------- TEMPLATES: CLONE & BIND ----------
   function cloneSection(sec){
@@ -461,26 +466,46 @@
     if (!optsList) return;
     optsList.innerHTML = '';
     const arr = (q.options || []);
-    if (!arr.length) arr.push('Opción 1');
+    if (!arr.length) arr.push({ label:'Opción 1', correct:false });
 
-    arr.forEach((label, idx) => {
+    const isSingle = (q.type === 'single');
+
+    arr.forEach((opt, idx) => {
       const row = document.createElement('div');
-      row.className = 'input-group input-group-sm mb-2';
+      row.className = 'input-group input-group-sm mb-2 align-items-center';
       row.dataset.index = String(idx);
       row.innerHTML = `
         <span class="input-group-text">${idx+1}</span>
-        <input type="text" class="form-control" value="${(label ?? '').replaceAll('"','&quot;')}" placeholder="Texto de la opción">
+        <input type="text" class="form-control" value="${(opt.label ?? '').replaceAll('"','&quot;')}" placeholder="Texto de la opción">
+        <div class="input-group-text" style="gap:.35rem">
+          <input type="${isSingle ? 'radio' : 'checkbox'}" name="qe-correct" ${opt.correct ? 'checked' : ''} data-opt-correct>
+          <small>${isSingle ? 'Correcta' : 'Correcta(s)'}</small>
+        </div>
         <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
       `;
       optsList.appendChild(row);
     });
   }
+
+  optsList?.addEventListener('change', (e) => {
+    const input = e.target.closest('[data-opt-correct]');
+    if (!input) return;
+    const isSingle = (readActiveType() === 'single');
+    if (isSingle && input.checked) {
+      // Desmarca todos los demás radios
+      optsList.querySelectorAll('[data-opt-correct]').forEach(el => {
+        if (el !== input) el.checked = false;
+      });
+    }
+  });
+
   function collectOptionsFromUI() {
     if (!optsList) return [];
     const out = [];
     optsList.querySelectorAll('.input-group').forEach(row => {
-      const val = row.querySelector('input')?.value?.trim() || '';
-      if (val) out.push(val);
+      const label = row.querySelector('input.form-control')?.value?.trim() || '';
+      const correct = !!row.querySelector('[data-opt-correct]')?.checked;
+      if (label) out.push({ label, correct });
     });
     return out;
   }
@@ -525,26 +550,37 @@
         const found = findQuestionById(CURRENT_QID);
         if (found) {
           const { q } = found;
-          q.options ||= ['Opción 1'];
+          ensureOptionsShape(q);
+          // Si cambia a single, fuerza solo 1 correcta
+          if (btn.dataset.type === 'single') {
+            const firstIdx = q.options.findIndex(o => o.correct);
+            q.options.forEach((o, i) => { o.correct = (i === (firstIdx === -1 ? 0 : firstIdx)); });
+          }
           renderOptionsEditor(q);
         }
       } else {
-        renderOptionsEditor({ options: ['Opción 1'] });
+        renderOptionsEditor({ type: btn.dataset.type, options: [{ label:'Opción 1', correct:false }] });
       }
     }
   });
 
+
   // Agregar opción
   btnAddOpt?.addEventListener('click', () => {
     const row = document.createElement('div');
-    row.className = 'input-group input-group-sm mb-2';
+    const isSingle = (readActiveType() === 'single');
+    row.className = 'input-group input-group-sm mb-2 align-items-center';
     row.innerHTML = `
       <span class="input-group-text">+</span>
       <input type="text" class="form-control" value="" placeholder="Texto de la opción">
+      <div class="input-group-text" style="gap:.35rem">
+        <input type="${isSingle ? 'radio' : 'checkbox'}" name="qe-correct" data-opt-correct>
+        <small>${isSingle ? 'Correcta' : 'Correcta(s)'}</small>
+      </div>
       <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
     `;
     optsList?.appendChild(row);
-    row.querySelector('input')?.focus();
+    row.querySelector('input.form-control')?.focus();
   });
 
   // Eliminar opción
@@ -558,12 +594,10 @@
   // Guardar cambios del modal
   btnSave?.addEventListener('click', () => {
     if (!CURRENT_QID) return hideModal();
-
     const found = findQuestionById(CURRENT_QID);
     if (!found) return hideModal();
 
     const { sec, q } = found;
-
     q.title = (tInput?.value || '').trim() || q.title || 'Pregunta';
     q.required = !!rChk?.checked;
 
@@ -571,31 +605,32 @@
     q.type = newType;
 
     if (optTypes.has(newType)) {
-      const opts = collectOptionsFromUI();
-      q.options = opts.length ? opts : ['Opción 1'];
+      let opts = collectOptionsFromUI();
+      if (!opts.length) opts = [{ label:'Opción 1', correct:false }];
+      // Enforcement final: si es single, garantiza 0..1 marcada
+      if (newType === 'single') {
+        const idx = opts.findIndex(o => o.correct);
+        opts = opts.map((o,i) => ({ ...o, correct: i === idx && idx !== -1 }));
+      }
+      q.options = opts;
     } else {
       delete q.options;
     }
 
     saveDraft(state);
     rerenderSection(sec.id);
-
-    // Mueve el foco fuera del modal ANTES de cerrarlo (evita warning)
     focusOutsideModal();
     hideModal();
-
-    // Resalta la tarjeta editada
     setTimeout(() => {
       const card = document.querySelector(`.q-card[data-question-id="${q.id}"]`);
       if (card) {
         card.classList.add('ring');
         card.style.outline = '2px solid var(--bs-primary)';
-        setTimeout(() => {
-          card.style.outline = ''; card.classList.remove('ring');
-        }, 1200);
+        setTimeout(() => { card.style.outline = ''; card.classList.remove('ring'); }, 1200);
       }
     }, 50);
   });
+
 
   // ---------- INIT ----------
   renderAll();
