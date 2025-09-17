@@ -892,4 +892,52 @@
     });
   });
 
+  document.addEventListener('DOMContentLoaded', () => {
+    // --- IDs del DOM ---
+    const audAll = document.getElementById('audAll');
+    const audSeg = document.getElementById('audSeg');
+    const segBlock = document.getElementById('segmentationBlock');
+
+    if (!audAll || !audSeg || !segBlock) return; // por si aún no existe el tab
+
+    // --- Key para LocalStorage (usa el survey-id del strip si existe) ---
+    const SURVEY_ID = document.getElementById('sectionsStrip')?.dataset.surveyId || 'draft';
+    const LS_KEY = `survey:${SURVEY_ID}:settings`;
+
+    // --- Helpers de estado ---
+    const readState = () => {
+      try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
+      catch { return {}; }
+    };
+    const writeState = (patch) => {
+      const prev = readState();
+      const next = { audience_mode: 'all', ...prev, ...patch };
+      localStorage.setItem(LS_KEY, JSON.stringify(next));
+    };
+
+    // --- Mostrar/ocultar bloque de segmentación ---
+    const toggleSeg = () => {
+      const segmented = !!audSeg.checked;
+      segBlock.classList.toggle('d-none', !segmented);
+      writeState({ audience_mode: segmented ? 'segmented' : 'all' });
+    };
+
+    // --- Eventos ---
+    audAll.addEventListener('change', toggleSeg);
+    audSeg.addEventListener('change', toggleSeg);
+
+    // --- Estado inicial (lee localStorage y aplica UI) ---
+    const init = () => {
+      const s = readState();
+      if (s.audience_mode === 'segmented') {
+        audSeg.checked = true;
+      } else {
+        audAll.checked = true;
+      }
+      toggleSeg(); // aplica visibilidad acorde
+    };
+
+    init();
+  });
+
 })();

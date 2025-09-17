@@ -72,7 +72,6 @@
 .q-card{
     background:#fafafa;
     border:1px solid #eee;
-    border-radius:10px;
     padding:.75rem;
     margin:.75rem 1rem
 }
@@ -115,15 +114,7 @@
     text-decoration:underline
 }
 
-/* estilo base de la tarjeta */
-.q-card {
-  background-color: #f8f9fa;  /* gris clarito bootstrap */
-  border: 1px solid #dee2e6;
-  border-radius: .5rem;
-  padding: .75rem;
-  transition: background-color .2s ease-in-out;
-  cursor: pointer;
-}
+
 
 /* al pasar el cursor */
 .q-card:hover {
@@ -323,3 +314,29 @@
   line-height:1;
 }
 
+.chips-wrap {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 42px;
+  padding: .35rem .5rem;
+  overflow-x: auto;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .2rem .5rem;
+  background: #0d6efd;
+  color: #fff;
+  border-radius: 999px;
+  font-size: .85rem;
+  white-space: nowrap;
+}
+.chip .chip-close {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  line-height: 1;
+  cursor: pointer;
+}
