@@ -288,3 +288,38 @@
     outline:2px solid var(--bs-primary); 
     outline-offset:2px; 
 }
+
+.q-card .q-footer{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:.25rem;
+}
+.q-card .q-meta{
+  display:flex;
+  gap:.5rem;
+}
+
+/* círculo con contenido centrado */
+.q-card .q-ico{
+  width:28px; height:28px;
+  display:inline-flex;
+  align-items:center; justify-content:center;
+  font-size:.75rem;    /* si usas texto (TXT, ÚN, …) */
+  font-weight:600;
+  line-height:1;
+}
+.q-card .q-ico:hover{
+  background:#f8f9fa;
+  color:var(--bs-gray-900);
+}
+.q-card .q-ico.req{
+  color:#dc3545;
+  font-weight:700;
+}
+
+/* si usas <i class="bi ..."> dentro del círculo: */
+.q-card .q-ico i{
+  font-size:1rem;     /* visible dentro del círculo */
+  line-height:1;
+}
+

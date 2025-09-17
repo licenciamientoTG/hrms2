@@ -250,21 +250,33 @@
     const titleEl = node.querySelector('[data-bind="q-title"]');
     titleEl.textContent = q.title || 'Pregunta';
 
-    // --- CHIP de tipo ---
-    const meta = typeMeta(q.type);
-    const chip = document.createElement('span');
-    chip.className = `qtype-chip ${meta.cls}`;
-    chip.textContent = meta.short;
-    chip.title = meta.long;
-    chip.setAttribute('data-qtype-chip',''); // para actualizarlo en vivo
-    titleEl.after(chip);
-
     node.querySelectorAll('[data-action="q.delete"]').forEach(b => b.dataset.id = q.id);
 
     renderQuestionPreview(node, q);
+
+    // --- META en el footer: tipo + obligatoria con tooltips (texto en círculo) ---
+    const foot = node.querySelector('.q-footer');
+    const m = typeMeta(q.type); // ya lo tienes
+    foot.innerHTML = `
+      <div class="q-meta">
+        <span class="q-ico" data-bs-toggle="tooltip" title="Tipo de respuesta: ${m.long}">
+          ${m.short}
+        </span>
+        ${q.required ? `
+          <span class="q-ico req" data-bs-toggle="tooltip" title="Respuesta obligatoria">✱</span>
+        ` : ``}
+      </div>`;
+
     return node;
   }
 
+  function refreshTooltips(){
+    if (!window.bootstrap?.Tooltip) return;
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+      // evita duplicados
+      if (!bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el);
+    });
+  }
 
   // ---------- RENDER ----------
   function renderAll(){

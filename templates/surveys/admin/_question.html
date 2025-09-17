@@ -3,6 +3,7 @@
      data-question-id="{{ q.id }}"
      data-type="{{ q.qtype|default:'single' }}"
      data-required="{{ q.required|default_if_none:False|yesno:'true,false' }}">
+
   <div class="d-flex justify-content-between align-items-center">
     <div class="q-title">{{ q.title|default:'Pregunta' }}</div>
 
@@ -16,13 +17,11 @@
     </div>
   </div>
 
+  {# PREVIEWS (igual que tienes)… #}
   {% if q.qtype == 'single' %}
-    {% for opt in q.options.all%}
+    {% for opt in q.options.all %}
       <div class="form-check mt-1" data-preview="single">
-        <input class="form-check-input correct-preview"
-              type="radio"
-              disabled
-              {% if opt.is_correct %}checked{% endif %}>
+        <input class="form-check-input correct-preview" type="radio" disabled {% if opt.is_correct %}checked{% endif %}>
         <label class="form-check-label">{{ opt.label }}</label>
       </div>
     {% endfor %}
@@ -31,15 +30,29 @@
   {% if q.qtype == 'multiple' %}
     {% for opt in q.options.all|slice:":3" %}
       <div class="form-check mt-1" data-preview="multiple">
-        <input class="form-check-input correct-preview"
-              type="checkbox"
-              disabled
-              {% if opt.is_correct %}checked{% endif %}>
+        <input class="form-check-input correct-preview" type="checkbox" disabled {% if opt.is_correct %}checked{% endif %}>
         <label class="form-check-label">{{ opt.label }}</label>
       </div>
     {% endfor %}
   {% endif %}
 
+  {# --- META: icono de tipo + icono de “obligatoria” --- #}
+  <div class="q-footer">
+    <div class="q-meta">
+      {# Tipo de respuesta #}
+      {% with t=q.qtype %}
+      <span class="q-ico" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Tipo de respuesta: {% if t=='text' %}Texto{% elif t=='integer' %}Número entero{% elif t=='decimal' %}Número decimal{% elif t=='single' %}Opciones (selección única){% elif t=='multiple' %}Opciones (selección múltiple){% elif t=='rating' %}Calificación{% elif t=='dropdown' %}Lista desplegable{% else %}Sin respuesta{% endif %}">
+        <i class="bi bi-info-circle"></i>
+      </span>
+      {% endwith %}
 
-  <div class="q-footer"></div>
+      {# Obligatoria #}
+      {% if q.required %}
+        <span class="q-ico req" data-bs-toggle="tooltip" data-bs-placement="top" title="Respuesta obligatoria">
+          <i class="bi bi-asterisk"></i>
+        </span>
+      {% endif %}
+    </div>
+  </div>
 </div>
