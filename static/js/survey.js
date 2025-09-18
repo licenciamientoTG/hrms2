@@ -892,213 +892,17 @@
     });
   });
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // --- IDs del DOM ---
-    const audAll = document.getElementById('audAll');
-    const audSeg = document.getElementById('audSeg');
-    const segBlock = document.getElementById('segmentationBlock');
-
-    if (!audAll || !audSeg || !segBlock) return; // por si aún no existe el tab
-
-    // --- Key para LocalStorage (usa el survey-id del strip si existe) ---
-    const SURVEY_ID = document.getElementById('sectionsStrip')?.dataset.surveyId || 'draft';
-    const LS_KEY = `survey:${SURVEY_ID}:settings`;
-
-    // --- Helpers de estado ---
-    const readState = () => {
-      try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
-      catch { return {}; }
-    };
-    const writeState = (patch) => {
-      const prev = readState();
-      const next = { audience_mode: 'all', ...prev, ...patch };
-      localStorage.setItem(LS_KEY, JSON.stringify(next));
-    };
-
-    // --- Mostrar/ocultar bloque de segmentación ---
-    const toggleSeg = () => {
-      const segmented = !!audSeg.checked;
-      segBlock.classList.toggle('d-none', !segmented);
-      writeState({ audience_mode: segmented ? 'segmented' : 'all' });
-    };
-
-    // --- Eventos ---
-    audAll.addEventListener('change', toggleSeg);
-    audSeg.addEventListener('change', toggleSeg);
-
-    // --- Estado inicial (lee localStorage y aplica UI) ---
-    const init = () => {
-      const s = readState();
-      if (s.audience_mode === 'segmented') {
-        audSeg.checked = true;
-      } else {
-        audAll.checked = true;
-      }
-      toggleSeg(); // aplica visibilidad acorde
-    };
-
-    init();
-  });
-
 })();
 
-/* ======= SEGMENTACIÓN (AJUSTES) — live en localStorage ======= */
-(function audienceSeg(){
-  const form = document.getElementById('surveySettingsForm');
-  if (!form) return;
-
-  const LS_KEY = `survey:${form.dataset.surveyId || 'draft'}:audience`;
-  const META_URL = form.dataset.metaUrl;
-  const PREVIEW_URL = form.dataset.previewUrl;
-
-  const audAll = document.getElementById('audAll');
-  const audSeg = document.getElementById('audSeg');
-  const segBlock = document.getElementById('segmentationBlock');
-
-  const chipsWrap = document.getElementById('selectedUsers');
-  const userSearch = document.getElementById('userSearch');
-  const userMenu   = document.getElementById('userSearchMenu');
-
-  const fDepartments = document.getElementById('fDepartments');
-  const fPositions   = document.getElementById('fPositions');
-  const fLocations   = document.getElementById('fLocations');
-
-  const reachCount = document.getElementById('reachCount');
-  const audTbody   = document.getElementById('audTbody');
-
-  // helpers
-  const getCookie = (n)=>{ const v=`; ${document.cookie}`.split(`; ${n}=`); return v.length===2 ? v.pop().split(';').shift() : undefined; };
-  const debounce = (fn,ms=300)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
-  const readLS = ()=>{ try{return JSON.parse(localStorage.getItem(LS_KEY)||'{}');}catch{return{}}; };
-  const writeLS = (patch)=>{ const prev=readLS(); const next={audience_mode:'all', users:[], filters:{departments:[],positions:[],locations:[]}, ...prev, ...patch}; localStorage.setItem(LS_KEY, JSON.stringify(next)); };
-  const multiValues = sel => Array.from(sel?.selectedOptions||[]).map(o=>o.value);
-
-  // chips
-  function chipIds(){ return Array.from(chipsWrap.querySelectorAll('.chip')).map(c=>c.dataset.id); }
-  function chipData(){ return Array.from(chipsWrap.querySelectorAll('.chip')).map(c=>({id:c.dataset.id, label:c.querySelector('span')?.textContent||''})); }
-  function renderChip(u){
-    if (chipsWrap.querySelector(`.chip[data-id="${u.id}"]`)) return;
-    const el = document.createElement('span');
-    el.className = 'chip'; el.dataset.id = String(u.id);
-    el.innerHTML = `<span>${u.label || u.email}</span><button type="button" class="chip-close" aria-label="Quitar">&times;</button>`;
-    el.querySelector('.chip-close').addEventListener('click', ()=>{ el.remove(); saveAndPreview(); });
-    chipsWrap.appendChild(el);
-  }
-
-  // cargar catálogos
-  async function loadMeta(){
-    if (!META_URL) return;
-    const r = await fetch(META_URL); const data = await r.json();
-    const fill = (sel, items, v, l)=>{
-      sel.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=String(it[v]); o.textContent=it[l]; sel.appendChild(o); });
-    };
-    fill(fDepartments, data.departments||[], 'id','name');
-    fill(fPositions,   data.positions||[],   'id','title');
-    fill(fLocations,   data.locations||[],   'id','name');
-  }
-
-  // restaurar desde LS
-  function restore(){
-    const s = readLS();
-    if (s.audience_mode === 'segmented'){ audSeg.checked = true; segBlock.classList.remove('d-none'); }
-    else { audAll.checked = true; segBlock.classList.add('d-none'); }
-
-    (s.users||[]).forEach(renderChip);
-
-    const setSel=(sel,ids)=>{ const set=new Set((ids||[]).map(String)); Array.from(sel.options).forEach(o=>{o.selected=set.has(o.value);}); };
-    setSel(fDepartments, s.filters?.departments);
-    setSel(fPositions,   s.filters?.positions);
-    setSel(fLocations,   s.filters?.locations);
-  }
-
-  // estado actual
-  function state(forPreview=false){
-    const segmented = !!audSeg.checked;
-    const st = {
-      audience_mode: segmented ? 'segmented':'all',
-      users: chipData(),
-      filters: {
-        departments: multiValues(fDepartments),
-        positions:   multiValues(fPositions),
-        locations:   multiValues(fLocations),
-      }
-    };
-    if (forPreview){
-      return { allUsers: !segmented, users: chipIds(), filters: st.filters };
-    }
-    return st;
-  }
-
-  // preview
-  async function runPreview(){
-    if (!PREVIEW_URL) return;
-    const r = await fetch(PREVIEW_URL, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-      body: JSON.stringify(state(true))
-    });
-    if (!r.ok){ reachCount.textContent='—'; audTbody.innerHTML=''; return; }
-    const data = await r.json();
-    reachCount.textContent = data.count ?? '—';
-    audTbody.innerHTML='';
-    (data.results||[]).forEach(row=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML = `<td>${row.name||''}</td><td>${row.email||''}</td><td>${row.department||''}</td><td>${row.position||''}</td><td>${row.location||''}</td>`;
-      audTbody.appendChild(tr);
-    });
-  }
-  const debouncedPreview = debounce(runPreview, 250);
-  function saveAndPreview(){ writeLS(state()); debouncedPreview(); }
-
-  // eventos radios
-  function toggleSeg(){ segBlock.classList.toggle('d-none', !audSeg.checked); saveAndPreview(); }
-  audAll?.addEventListener('change', toggleSeg);
-  audSeg?.addEventListener('change', toggleSeg);
-
-  // eventos selects
-  [fDepartments,fPositions,fLocations].forEach(sel=> sel?.addEventListener('change', saveAndPreview));
-
-  // autocomplete
-  const runSearch = debounce(async ()=>{
-    const base = userSearch?.dataset.url;
-    const q = userSearch?.value?.trim();
-    if (!base || !q){ userMenu.innerHTML=''; return; }
-    const r = await fetch(`${base}?q=${encodeURIComponent(q)}&limit=25`);
-    const items = await r.json();
-    userMenu.innerHTML='';
-    items.forEach(it=>{
-      const li=document.createElement('li');
-      li.innerHTML = `<button type="button" class="dropdown-item">
-        <div class="fw-semibold">${it.label||it.email}</div>
-        <div class="small text-muted">${it.meta||''}</div>
-      </button>`;
-      li.querySelector('button').addEventListener('click', ()=>{
-        renderChip(it);
-        userSearch.value=''; userMenu.innerHTML='';
-        saveAndPreview();
-      });
-      userMenu.appendChild(li);
-    });
-  }, 300);
-  userSearch?.addEventListener('input', runSearch);
-
-  // init
-  (async ()=>{ await loadMeta(); restore(); debouncedPreview(); })();
-
-  // utilidad pública (si luego quieres publicarla al servidor)
-  window.getAudienceState = ()=> readLS();
-})();
-
-// ===== Audiencia / Segmentación (usuarios + filtros) =====
+// ===== Audiencia / Segmentación (usuarios + filtros) — LIST-GROUP =====
 (function () {
   const form = document.getElementById('surveySettingsForm');
   if (!form) return;
 
-  // Dom
+  // DOM
   const audAll = document.getElementById('audAll');
   const audSeg = document.getElementById('audSeg');
   const segBlock = document.getElementById('segmentationBlock');
-
   const reachCount = document.getElementById('reachCount');
 
   const selectedUsersWrap = document.getElementById('selectedUsers');
@@ -1106,32 +910,28 @@
   const userMenu = document.getElementById('userSearchMenu');
   const userSearchUrl = userInput?.dataset.url;
 
-  const selDeps = document.getElementById('fDepartments');
-  const selPos  = document.getElementById('fPositions');
-  const selLocs = document.getElementById('fLocations');
+  // TUS NUEVOS LIST-GROUPS (no <select>)
+  const listDeps = document.getElementById('fDepartments');
+  const listPos  = document.getElementById('fPositions');
+  const listLocs = document.getElementById('fLocations');
 
   const SURVEY_ID = form.dataset.surveyId || 'draft';
   const LS_KEY = `survey:${SURVEY_ID}:audience`;
-
   const metaUrl = form.dataset.metaUrl;
   const previewUrl = form.dataset.previewUrl;
 
-  // CSRF (para POST preview)
+  // CSRF
   function getCookie(name){
     const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
     return m ? m.pop() : '';
   }
   const csrftoken = getCookie('csrftoken');
 
-  // ---- Estado persistido
+  // Estado
   const emptyState = {
-    mode: 'all',           // 'all' | 'segmented'
-    users: [],             // [user_id, ...] (int)
-    filters: {
-      departments: [],     // [id, ...]
-      positions: [],
-      locations: []
-    }
+    mode: 'all',
+    users: [],
+    filters: { departments: [], positions: [], locations: [] }
   };
   function readState(){
     try { return { ...emptyState, ...(JSON.parse(localStorage.getItem(LS_KEY))||{}) }; }
@@ -1148,50 +948,73 @@
     return writeState({ filters: f });
   }
 
-  // ---- Helpers
+  // Helpers UI
   function setAudienceMode(segmented){
     segBlock.classList.toggle('d-none', !segmented);
     writeState({ mode: segmented ? 'segmented' : 'all' });
     updatePreviewDebounced();
   }
 
-  function selectOptionsByIds(select, ids){
-    if (!select) return;
-    const set = new Set(ids.map(String));
-    [...select.options].forEach(opt => { opt.selected = set.has(opt.value); });
+  // ----- LIST-GROUP helpers -----
+  function renderListGroup(el, items, selectedIds){
+    if (!el) return;
+    const sel = new Set((selectedIds||[]).map(String));
+    el.innerHTML = '';
+    items.forEach(x => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'list-group-item list-group-item-action';
+      b.dataset.id = String(x.id);
+      b.textContent = x.name || x.title;
+      const active = sel.has(String(x.id));
+      if (active) b.classList.add('active');
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      el.appendChild(b);
+    });
   }
-
-  function getMultiSelectValues(select){
-    return [...(select?.selectedOptions || [])].map(o => parseInt(o.value, 10)).filter(Boolean);
+  function getSelectedFromGroup(el){
+    return [...el.querySelectorAll('.list-group-item.active')]
+            .map(b => parseInt(b.dataset.id, 10))
+            .filter(Number.isFinite);
   }
+  function bindGroup(el){
+    el?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.list-group-item');
+      if (!btn) return;
+      const active = btn.classList.toggle('active');
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      writeFilters({
+        departments: getSelectedFromGroup(listDeps),
+        positions:   getSelectedFromGroup(listPos),
+        locations:   getSelectedFromGroup(listLocs),
+      });
+      updatePreviewDebounced();
+    });
+  }
+  bindGroup(listDeps);
+  bindGroup(listPos);
+  bindGroup(listLocs);
 
+  // ----- Chips usuarios -----
   function chipHtml(item){
-    // item: {id, label, email}
     const email = item.email ? ` <small class="text-muted">(${item.email})</small>` : '';
     return `
       <span class="badge bg-light text-dark me-2 mb-2 d-inline-flex align-items-center" data-user-chip data-id="${item.id}">
         <span class="me-2">${item.label}${email}</span>
         <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-remove-user="${item.id}" aria-label="Quitar">×</button>
-      </span>
-    `;
+      </span>`;
   }
-
   function renderUserChips(){
     const s = readState();
-    if (!selectedUsersWrap) return;
     selectedUsersWrap.innerHTML = '';
     (s.__userCache || []).forEach(u => {
-      if (s.users.includes(u.id)) {
-        selectedUsersWrap.insertAdjacentHTML('beforeend', chipHtml(u));
-      }
+      if (s.users.includes(u.id)) selectedUsersWrap.insertAdjacentHTML('beforeend', chipHtml(u));
     });
   }
-
   function addUser(item){
     const s = readState();
     if (!s.users.includes(item.id)) {
       s.users.push(item.id);
-      // guardo en cache mínima para re-render chips
       const cache = s.__userCache ? [...s.__userCache] : [];
       if (!cache.find(c => c.id === item.id)) cache.push(item);
       localStorage.setItem(LS_KEY, JSON.stringify({ ...s, __userCache: cache }));
@@ -1199,27 +1022,22 @@
       updatePreviewDebounced();
     }
   }
-
   function removeUser(id){
     const s = readState();
-    const nextUsers = s.users.filter(u => u !== id);
-    localStorage.setItem(LS_KEY, JSON.stringify({ ...s, users: nextUsers }));
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...s, users: s.users.filter(u => u !== id) }));
     renderUserChips();
     updatePreviewDebounced();
   }
+  selectedUsersWrap?.addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-remove-user]'); if (rm) removeUser(parseInt(rm.dataset.removeUser, 10));
+  });
 
-  // ---- Buscar usuarios
-
-  // Instancia única del dropdown del buscador
+  // Búsqueda de usuarios (sin perder foco)
   const toggleBtn = userInput?.parentElement?.querySelector('[data-bs-toggle="dropdown"]');
   const dd = (toggleBtn && window.bootstrap)
     ? bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' })
     : null;
-
-  // Al abrir el menú, regresa el foco al input (Bootstrap lo mueve al toggle)
   toggleBtn?.addEventListener('shown.bs.dropdown', () => { userInput?.focus(); });
-
-  // Evita que Enter envíe el form desde este input
   userInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 
   async function runUserSearch(q){
@@ -1227,167 +1045,80 @@
     const url = `${userSearchUrl}?q=${encodeURIComponent(q)}&limit=25`;
     const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
     if (!resp.ok) return [];
-    return await resp.json(); // [{id,label,email,meta,...}]
+    return await resp.json();
   }
-
   function openUserMenu(items){
     if (!userMenu) return;
+    userMenu.innerHTML = items.length
+      ? items.map(it => `
+          <li>
+            <button type="button" class="dropdown-item d-flex flex-column"
+                    data-user-item='${JSON.stringify(it).replace(/'/g,"&apos;")}'>
+              <span>${it.label} <small class="text-muted">${it.email||''}</small></span>
+              ${it.meta ? `<small class="text-muted">${it.meta}</small>` : ``}
+            </button>
+          </li>`).join('')
+      : `<li><span class="dropdown-item-text text-muted">Sin resultados</span></li>`;
 
-    // Rellenar resultados
-    userMenu.innerHTML = '';
-    if (!items.length) {
-      userMenu.innerHTML = `<li><span class="dropdown-item-text text-muted">Sin resultados</span></li>`;
-    } else {
-      items.forEach(it => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <button type="button" class="dropdown-item d-flex flex-column"
-                  data-user-item='${JSON.stringify(it).replace(/'/g,"&apos;")}'>
-            <span>${it.label} <small class="text-muted">${it.email||''}</small></span>
-            ${it.meta ? `<small class="text-muted">${it.meta}</small>` : ``}
-          </button>`;
-        userMenu.appendChild(li);
-      });
-    }
-
-    // Mostrar sólo si no está abierto ya
     const expanded = toggleBtn?.getAttribute('aria-expanded') === 'true';
-    if (dd && !expanded) {
-      dd.show();
-      // Asegura que el foco queda en el input aunque Bootstrap lo cambie
-      setTimeout(() => userInput?.focus(), 0);
-    } else if (!dd) {
-      userMenu.classList.add('show'); // fallback sin Bootstrap
-    }
+    if (dd && !expanded) { dd.show(); setTimeout(() => userInput?.focus(), 0); }
+    else if (!dd) userMenu.classList.add('show');
   }
-
-  // Debounce util
-  function debounce(fn, ms){
-    let id;
-    return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), ms); };
-  }
-
-  // Búsqueda con debounce; si está vacío, cierra el menú
+  const debounce = (fn, ms)=>{ let id; return (...a)=>{ clearTimeout(id); id=setTimeout(()=>fn(...a), ms); }; };
   const onUserType = debounce(async () => {
     const q = (userInput.value || '').trim();
-
-    if (!q) {
-      if (dd) dd.hide(); else userMenu?.classList.remove('show');
-      if (userMenu) userMenu.innerHTML = '';
-      return;
-    }
-
-    const rows = await runUserSearch(q);
-    openUserMenu(rows);
+    if (!q) { if (dd) dd.hide(); else userMenu?.classList.remove('show'); userMenu.innerHTML = ''; return; }
+    openUserMenu(await runUserSearch(q));
   }, 250);
-
   userInput?.addEventListener('input', onUserType);
-
-  // Selección de usuario desde el menú
   userMenu?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-user-item]');
-    if (!btn) return;
+    const btn = e.target.closest('[data-user-item]'); if (!btn) return;
     const item = JSON.parse(btn.getAttribute('data-user-item').replaceAll('&apos;', "'"));
     addUser(item);
-
-    // Cierra el menú y vuelve al input
     if (dd) dd.hide(); else userMenu.classList.remove('show');
-    userInput.value = '';
-    userInput.focus();
+    userInput.value = ''; userInput.focus();
   });
 
-
-  selectedUsersWrap?.addEventListener('click', (e) => {
-    const rm = e.target.closest('[data-remove-user]');
-    if (rm) removeUser(parseInt(rm.dataset.removeUser, 10));
-  });
-
-  // ---- Meta: poblar selects
+  // Cargar catálogos y pintar list-groups
   async function loadMeta(){
     if (!metaUrl) return;
     const resp = await fetch(metaUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
     if (!resp.ok) return;
     const { departments, positions, locations } = await resp.json();
-
-    function fill(select, items, getId, getLabel){
-      if (!select) return;
-      select.innerHTML = '';
-      items.forEach(x => {
-        const opt = document.createElement('option');
-        opt.value = String(getId(x));
-        opt.textContent = getLabel(x);
-        select.appendChild(opt);
-      });
-    }
-    fill(selDeps, departments, x => x.id, x => x.name);
-    fill(selPos,  positions,   x => x.id, x => x.title);
-    fill(selLocs, locations,   x => x.id, x => x.name);
-
-    // aplicar selección desde localStorage
     const s = readState();
-    selectOptionsByIds(selDeps, s.filters.departments);
-    selectOptionsByIds(selPos,  s.filters.positions);
-    selectOptionsByIds(selLocs, s.filters.locations);
+    renderListGroup(listDeps, departments || [], s.filters.departments);
+    renderListGroup(listPos,  positions   || [], s.filters.positions);
+    renderListGroup(listLocs, locations   || [], s.filters.locations);
   }
 
-  // ---- Preview (alcance)
+  // Preview
   async function updatePreview(){
     if (!previewUrl) return;
     const s = readState();
-    const payload = {
-      allUsers: (s.mode === 'all'),
-      users: s.users,
-      filters: s.filters
-    };
+    const payload = { allUsers: (s.mode === 'all'), users: s.users, filters: s.filters };
     try {
       const resp = await fetch(previewUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify(payload)
       });
       const data = await resp.json();
       reachCount.textContent = (data && typeof data.count === 'number') ? data.count : '0';
-    } catch {
-      reachCount.textContent = '—';
-    }
+    } catch { reachCount.textContent = '—'; }
   }
   const updatePreviewDebounced = debounce(updatePreview, 150);
 
-  // ---- Eventos selects
-  selDeps?.addEventListener('change', () => {
-    writeFilters({ departments: getMultiSelectValues(selDeps) });
-    updatePreviewDebounced();
-  });
-  selPos?.addEventListener('change', () => {
-    writeFilters({ positions: getMultiSelectValues(selPos) });
-    updatePreviewDebounced();
-  });
-  selLocs?.addEventListener('change', () => {
-    writeFilters({ locations: getMultiSelectValues(selLocs) });
-    updatePreviewDebounced();
-  });
-
-  // ---- Radios (audiencia)
+  // Radios
   audAll?.addEventListener('change', () => setAudienceMode(false));
   audSeg?.addEventListener('change', () => setAudienceMode(true));
 
-  // ---- Init (carga estado)
+  // Init
   (async function initAudience(){
-    // estado -> UI
     const s = readState();
     if (s.mode === 'segmented') { audSeg.checked = true; setAudienceMode(true); }
     else { audAll.checked = true; setAudienceMode(false); }
-
     await loadMeta();
-
-    // reconstruir chips desde cache si existe
     renderUserChips();
-
-    // primer preview
     updatePreview();
   })();
 })();
