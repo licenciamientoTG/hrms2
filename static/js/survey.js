@@ -915,6 +915,11 @@
   const listPos  = document.getElementById('fPositions');
   const listLocs = document.getElementById('fLocations');
 
+  // --- AGRUPACIÓN DE POSICIONES POR TÍTULO ---
+  let posTitleMap = {};      
+  let selectedPosTitles = new Set();  
+
+
   const SURVEY_ID = form.dataset.surveyId || 'draft';
   const LS_KEY = `survey:${SURVEY_ID}:audience`;
   const metaUrl = form.dataset.metaUrl;
@@ -931,12 +936,27 @@
   const emptyState = {
     mode: 'all',
     users: [],
-    filters: { departments: [], positions: [], locations: [] }
+    filters: {
+      departments: [],
+      positions: [],          // (se enviará al backend, lo vamos a sobreescribir)
+      positionsTitles: [],    // <<< NUEVO: títulos elegidos en la UI
+      locations: []
+    }
   };
+
   function readState(){
-    try { return { ...emptyState, ...(JSON.parse(localStorage.getItem(LS_KEY))||{}) }; }
-    catch { return { ...emptyState }; }
+    try {
+      const s = JSON.parse(localStorage.getItem(LS_KEY)) || {};
+      return {
+        ...emptyState,
+        ...s,
+        filters: { ...emptyState.filters, ...(s.filters || {}) }
+      };
+    } catch {
+      return { ...emptyState };
+    }
   }
+
   function writeState(patch){
     const next = { ...readState(), ...patch };
     localStorage.setItem(LS_KEY, JSON.stringify(next));
@@ -992,8 +1012,29 @@
     });
   }
   bindGroup(listDeps);
-  bindGroup(listPos);
   bindGroup(listLocs);
+
+  // Posición: toggle por TÍTULO (agrupado)
+  listPos?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.list-group-item');
+    if (!btn) return;
+    const key = btn.dataset.key;
+    if (!key) return;
+
+    const active = btn.classList.toggle('active');
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+    if (active) selectedPosTitles.add(key);
+    else selectedPosTitles.delete(key);
+
+    // Persistimos SOLO títulos; los IDs se expanden antes del preview
+    const s = readState();
+    s.filters.positionsTitles = [...selectedPosTitles];
+    s.filters.positions = []; // limpia posibles restos de versiones previas
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+
+    updatePreviewDebounced();
+  });
 
   // ----- Chips usuarios -----
   function chipHtml(item){
@@ -1079,23 +1120,74 @@
     userInput.value = ''; userInput.focus();
   });
 
-  // Cargar catálogos y pintar list-groups
+  // Cargar catálogos y pintar list-groups (deps/locs normal, pos AGRUPADAS)
   async function loadMeta(){
     if (!metaUrl) return;
     const resp = await fetch(metaUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
     if (!resp.ok) return;
+
     const { departments, positions, locations } = await resp.json();
     const s = readState();
+
+    // Deps y Locs: list-group normal por id
     renderListGroup(listDeps, departments || [], s.filters.departments);
-    renderListGroup(listPos,  positions   || [], s.filters.positions);
     renderListGroup(listLocs, locations   || [], s.filters.locations);
+
+    // --- AGRUPAR POSICIONES POR TÍTULO (case-insensitive) ---
+    posTitleMap = {}; // { key: { title, ids:[] } }
+    (positions || []).forEach(p => {
+      const t = (p.title || '').trim();
+      if (!t) return;
+      const key = t.toLowerCase();
+      if (!posTitleMap[key]) posTitleMap[key] = { title: t, ids: [] };
+      posTitleMap[key].ids.push(p.id);
+    });
+
+    // Restaurar títulos seleccionados y render
+    selectedPosTitles = new Set(s.filters.positionsTitles || []);
+    renderPositionList();
+  }
+
+  function renderPositionList(){
+    if (!listPos) return;
+    listPos.innerHTML = '';
+
+    Object.entries(posTitleMap)
+      .sort((a,b) => a[1].title.localeCompare(b[1].title))
+      .forEach(([key, obj]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action';
+        btn.dataset.key = key;               // clave del título
+        btn.textContent = obj.title;         // título visible
+
+        const active = selectedPosTitles.has(key);
+        if (active) btn.classList.add('active');
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+        listPos.appendChild(btn);
+      });
+  }
+
+  function expandPositionTitlesToIds(filters){
+    const keys = filters.positionsTitles || [];
+    return keys.flatMap(k => posTitleMap[k]?.ids || []);
   }
 
   // Preview
   async function updatePreview(){
     if (!previewUrl) return;
     const s = readState();
-    const payload = { allUsers: (s.mode === 'all'), users: s.users, filters: s.filters };
+    const payload = {
+      allUsers: (s.mode === 'all'),
+      users: s.users,
+      filters: {
+        departments: s.filters.departments,
+        positions:   expandPositionTitlesToIds(s.filters), // <<< aquí mandamos IDs
+        locations:   s.filters.locations
+      }
+    };
+
     try {
       const resp = await fetch(previewUrl, {
         method: 'POST',
@@ -1123,3 +1215,39 @@
   })();
 })();
 
+/* === AJUSTES: Mensaje + Anónima (persistir en localStorage) === */
+(function settingsLocal(){
+  const form = document.getElementById('surveySettingsForm');
+  if (!form) return;
+
+  const SURVEY_ID    = form.dataset.surveyId || 'draft';
+  const SETTINGS_KEY = `survey:${SURVEY_ID}:settings`;
+
+  const msgEl  = document.getElementById('autoMessage');
+  const anonEl = document.getElementById('isAnonymous');
+
+  // <-- aquí definimos los valores por defecto
+  const DEFAULTS = { autoMessage: '', isAnonymous: false };
+
+  function readSettings(){
+    try {
+      return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  }
+  function writeSettings(patch){
+    const next = { ...readSettings(), ...patch };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    return next;
+  }
+
+  // Restaurar al cargar
+  const s = readSettings();
+  if (msgEl)  msgEl.value    = s.autoMessage;
+  if (anonEl) anonEl.checked = !!s.isAnonymous; // quedará false si no hay nada guardado
+
+  // Guardar cambios en caliente
+  msgEl ?.addEventListener('input',  () => writeSettings({ autoMessage: msgEl.value }));
+  anonEl?.addEventListener('change', () => writeSettings({ isAnonymous: !!anonEl.checked }));
+})();
