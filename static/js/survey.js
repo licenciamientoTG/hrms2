@@ -1158,8 +1158,8 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'list-group-item list-group-item-action';
-        btn.dataset.key = key;               // clave del título
-        btn.textContent = obj.title;         // título visible
+        btn.dataset.key = key;
+        btn.textContent = obj.title;
 
         const active = selectedPosTitles.has(key);
         if (active) btn.classList.add('active');
@@ -1183,7 +1183,7 @@
       users: s.users,
       filters: {
         departments: s.filters.departments,
-        positions:   expandPositionTitlesToIds(s.filters), // <<< aquí mandamos IDs
+        positions:   expandPositionTitlesToIds(s.filters), 
         locations:   s.filters.locations
       }
     };
