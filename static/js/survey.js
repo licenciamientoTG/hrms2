@@ -1088,3 +1088,307 @@
   // utilidad pública (si luego quieres publicarla al servidor)
   window.getAudienceState = ()=> readLS();
 })();
+
+// ===== Audiencia / Segmentación (usuarios + filtros) =====
+(function () {
+  const form = document.getElementById('surveySettingsForm');
+  if (!form) return;
+
+  // Dom
+  const audAll = document.getElementById('audAll');
+  const audSeg = document.getElementById('audSeg');
+  const segBlock = document.getElementById('segmentationBlock');
+
+  const reachCount = document.getElementById('reachCount');
+
+  const selectedUsersWrap = document.getElementById('selectedUsers');
+  const userInput = document.getElementById('userSearch');
+  const userMenu = document.getElementById('userSearchMenu');
+  const userSearchUrl = userInput?.dataset.url;
+
+  const selDeps = document.getElementById('fDepartments');
+  const selPos  = document.getElementById('fPositions');
+  const selLocs = document.getElementById('fLocations');
+
+  const SURVEY_ID = form.dataset.surveyId || 'draft';
+  const LS_KEY = `survey:${SURVEY_ID}:audience`;
+
+  const metaUrl = form.dataset.metaUrl;
+  const previewUrl = form.dataset.previewUrl;
+
+  // CSRF (para POST preview)
+  function getCookie(name){
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  // ---- Estado persistido
+  const emptyState = {
+    mode: 'all',           // 'all' | 'segmented'
+    users: [],             // [user_id, ...] (int)
+    filters: {
+      departments: [],     // [id, ...]
+      positions: [],
+      locations: []
+    }
+  };
+  function readState(){
+    try { return { ...emptyState, ...(JSON.parse(localStorage.getItem(LS_KEY))||{}) }; }
+    catch { return { ...emptyState }; }
+  }
+  function writeState(patch){
+    const next = { ...readState(), ...patch };
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    return next;
+  }
+  function writeFilters(patch){
+    const s = readState();
+    const f = { ...s.filters, ...patch };
+    return writeState({ filters: f });
+  }
+
+  // ---- Helpers
+  function setAudienceMode(segmented){
+    segBlock.classList.toggle('d-none', !segmented);
+    writeState({ mode: segmented ? 'segmented' : 'all' });
+    updatePreviewDebounced();
+  }
+
+  function selectOptionsByIds(select, ids){
+    if (!select) return;
+    const set = new Set(ids.map(String));
+    [...select.options].forEach(opt => { opt.selected = set.has(opt.value); });
+  }
+
+  function getMultiSelectValues(select){
+    return [...(select?.selectedOptions || [])].map(o => parseInt(o.value, 10)).filter(Boolean);
+  }
+
+  function chipHtml(item){
+    // item: {id, label, email}
+    const email = item.email ? ` <small class="text-muted">(${item.email})</small>` : '';
+    return `
+      <span class="badge bg-light text-dark me-2 mb-2 d-inline-flex align-items-center" data-user-chip data-id="${item.id}">
+        <span class="me-2">${item.label}${email}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-remove-user="${item.id}" aria-label="Quitar">×</button>
+      </span>
+    `;
+  }
+
+  function renderUserChips(){
+    const s = readState();
+    if (!selectedUsersWrap) return;
+    selectedUsersWrap.innerHTML = '';
+    (s.__userCache || []).forEach(u => {
+      if (s.users.includes(u.id)) {
+        selectedUsersWrap.insertAdjacentHTML('beforeend', chipHtml(u));
+      }
+    });
+  }
+
+  function addUser(item){
+    const s = readState();
+    if (!s.users.includes(item.id)) {
+      s.users.push(item.id);
+      // guardo en cache mínima para re-render chips
+      const cache = s.__userCache ? [...s.__userCache] : [];
+      if (!cache.find(c => c.id === item.id)) cache.push(item);
+      localStorage.setItem(LS_KEY, JSON.stringify({ ...s, __userCache: cache }));
+      renderUserChips();
+      updatePreviewDebounced();
+    }
+  }
+
+  function removeUser(id){
+    const s = readState();
+    const nextUsers = s.users.filter(u => u !== id);
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...s, users: nextUsers }));
+    renderUserChips();
+    updatePreviewDebounced();
+  }
+
+  // ---- Buscar usuarios
+
+  // Instancia única del dropdown del buscador
+  const toggleBtn = userInput?.parentElement?.querySelector('[data-bs-toggle="dropdown"]');
+  const dd = (toggleBtn && window.bootstrap)
+    ? bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' })
+    : null;
+
+  // Al abrir el menú, regresa el foco al input (Bootstrap lo mueve al toggle)
+  toggleBtn?.addEventListener('shown.bs.dropdown', () => { userInput?.focus(); });
+
+  // Evita que Enter envíe el form desde este input
+  userInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+
+  async function runUserSearch(q){
+    if (!userSearchUrl) return [];
+    const url = `${userSearchUrl}?q=${encodeURIComponent(q)}&limit=25`;
+    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+    if (!resp.ok) return [];
+    return await resp.json(); // [{id,label,email,meta,...}]
+  }
+
+  function openUserMenu(items){
+    if (!userMenu) return;
+
+    // Rellenar resultados
+    userMenu.innerHTML = '';
+    if (!items.length) {
+      userMenu.innerHTML = `<li><span class="dropdown-item-text text-muted">Sin resultados</span></li>`;
+    } else {
+      items.forEach(it => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <button type="button" class="dropdown-item d-flex flex-column"
+                  data-user-item='${JSON.stringify(it).replace(/'/g,"&apos;")}'>
+            <span>${it.label} <small class="text-muted">${it.email||''}</small></span>
+            ${it.meta ? `<small class="text-muted">${it.meta}</small>` : ``}
+          </button>`;
+        userMenu.appendChild(li);
+      });
+    }
+
+    // Mostrar sólo si no está abierto ya
+    const expanded = toggleBtn?.getAttribute('aria-expanded') === 'true';
+    if (dd && !expanded) {
+      dd.show();
+      // Asegura que el foco queda en el input aunque Bootstrap lo cambie
+      setTimeout(() => userInput?.focus(), 0);
+    } else if (!dd) {
+      userMenu.classList.add('show'); // fallback sin Bootstrap
+    }
+  }
+
+  // Debounce util
+  function debounce(fn, ms){
+    let id;
+    return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), ms); };
+  }
+
+  // Búsqueda con debounce; si está vacío, cierra el menú
+  const onUserType = debounce(async () => {
+    const q = (userInput.value || '').trim();
+
+    if (!q) {
+      if (dd) dd.hide(); else userMenu?.classList.remove('show');
+      if (userMenu) userMenu.innerHTML = '';
+      return;
+    }
+
+    const rows = await runUserSearch(q);
+    openUserMenu(rows);
+  }, 250);
+
+  userInput?.addEventListener('input', onUserType);
+
+  // Selección de usuario desde el menú
+  userMenu?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-user-item]');
+    if (!btn) return;
+    const item = JSON.parse(btn.getAttribute('data-user-item').replaceAll('&apos;', "'"));
+    addUser(item);
+
+    // Cierra el menú y vuelve al input
+    if (dd) dd.hide(); else userMenu.classList.remove('show');
+    userInput.value = '';
+    userInput.focus();
+  });
+
+
+  selectedUsersWrap?.addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-remove-user]');
+    if (rm) removeUser(parseInt(rm.dataset.removeUser, 10));
+  });
+
+  // ---- Meta: poblar selects
+  async function loadMeta(){
+    if (!metaUrl) return;
+    const resp = await fetch(metaUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+    if (!resp.ok) return;
+    const { departments, positions, locations } = await resp.json();
+
+    function fill(select, items, getId, getLabel){
+      if (!select) return;
+      select.innerHTML = '';
+      items.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = String(getId(x));
+        opt.textContent = getLabel(x);
+        select.appendChild(opt);
+      });
+    }
+    fill(selDeps, departments, x => x.id, x => x.name);
+    fill(selPos,  positions,   x => x.id, x => x.title);
+    fill(selLocs, locations,   x => x.id, x => x.name);
+
+    // aplicar selección desde localStorage
+    const s = readState();
+    selectOptionsByIds(selDeps, s.filters.departments);
+    selectOptionsByIds(selPos,  s.filters.positions);
+    selectOptionsByIds(selLocs, s.filters.locations);
+  }
+
+  // ---- Preview (alcance)
+  async function updatePreview(){
+    if (!previewUrl) return;
+    const s = readState();
+    const payload = {
+      allUsers: (s.mode === 'all'),
+      users: s.users,
+      filters: s.filters
+    };
+    try {
+      const resp = await fetch(previewUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      reachCount.textContent = (data && typeof data.count === 'number') ? data.count : '0';
+    } catch {
+      reachCount.textContent = '—';
+    }
+  }
+  const updatePreviewDebounced = debounce(updatePreview, 150);
+
+  // ---- Eventos selects
+  selDeps?.addEventListener('change', () => {
+    writeFilters({ departments: getMultiSelectValues(selDeps) });
+    updatePreviewDebounced();
+  });
+  selPos?.addEventListener('change', () => {
+    writeFilters({ positions: getMultiSelectValues(selPos) });
+    updatePreviewDebounced();
+  });
+  selLocs?.addEventListener('change', () => {
+    writeFilters({ locations: getMultiSelectValues(selLocs) });
+    updatePreviewDebounced();
+  });
+
+  // ---- Radios (audiencia)
+  audAll?.addEventListener('change', () => setAudienceMode(false));
+  audSeg?.addEventListener('change', () => setAudienceMode(true));
+
+  // ---- Init (carga estado)
+  (async function initAudience(){
+    // estado -> UI
+    const s = readState();
+    if (s.mode === 'segmented') { audSeg.checked = true; setAudienceMode(true); }
+    else { audAll.checked = true; setAudienceMode(false); }
+
+    await loadMeta();
+
+    // reconstruir chips desde cache si existe
+    renderUserChips();
+
+    // primer preview
+    updatePreview();
+  })();
+})();
+

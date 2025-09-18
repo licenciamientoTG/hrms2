@@ -1,5 +1,9 @@
 from django.urls import path
-from .views import survey_dashboard_admin, survey_dashboard_user, survey_dashboard,survey_new, section_create, section_rename, section_options, question_create, question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview
+from .views import (
+    survey_dashboard_admin, survey_dashboard_user, survey_dashboard,survey_new,
+    section_create, section_rename, section_options, question_create, 
+    question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview
+)
 
 urlpatterns = [
     path('', survey_dashboard,   name='survey_dashboard'),
