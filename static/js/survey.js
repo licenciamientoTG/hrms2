@@ -941,3 +941,150 @@
   });
 
 })();
+
+/* ======= SEGMENTACIÓN (AJUSTES) — live en localStorage ======= */
+(function audienceSeg(){
+  const form = document.getElementById('surveySettingsForm');
+  if (!form) return;
+
+  const LS_KEY = `survey:${form.dataset.surveyId || 'draft'}:audience`;
+  const META_URL = form.dataset.metaUrl;
+  const PREVIEW_URL = form.dataset.previewUrl;
+
+  const audAll = document.getElementById('audAll');
+  const audSeg = document.getElementById('audSeg');
+  const segBlock = document.getElementById('segmentationBlock');
+
+  const chipsWrap = document.getElementById('selectedUsers');
+  const userSearch = document.getElementById('userSearch');
+  const userMenu   = document.getElementById('userSearchMenu');
+
+  const fDepartments = document.getElementById('fDepartments');
+  const fPositions   = document.getElementById('fPositions');
+  const fLocations   = document.getElementById('fLocations');
+
+  const reachCount = document.getElementById('reachCount');
+  const audTbody   = document.getElementById('audTbody');
+
+  // helpers
+  const getCookie = (n)=>{ const v=`; ${document.cookie}`.split(`; ${n}=`); return v.length===2 ? v.pop().split(';').shift() : undefined; };
+  const debounce = (fn,ms=300)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+  const readLS = ()=>{ try{return JSON.parse(localStorage.getItem(LS_KEY)||'{}');}catch{return{}}; };
+  const writeLS = (patch)=>{ const prev=readLS(); const next={audience_mode:'all', users:[], filters:{departments:[],positions:[],locations:[]}, ...prev, ...patch}; localStorage.setItem(LS_KEY, JSON.stringify(next)); };
+  const multiValues = sel => Array.from(sel?.selectedOptions||[]).map(o=>o.value);
+
+  // chips
+  function chipIds(){ return Array.from(chipsWrap.querySelectorAll('.chip')).map(c=>c.dataset.id); }
+  function chipData(){ return Array.from(chipsWrap.querySelectorAll('.chip')).map(c=>({id:c.dataset.id, label:c.querySelector('span')?.textContent||''})); }
+  function renderChip(u){
+    if (chipsWrap.querySelector(`.chip[data-id="${u.id}"]`)) return;
+    const el = document.createElement('span');
+    el.className = 'chip'; el.dataset.id = String(u.id);
+    el.innerHTML = `<span>${u.label || u.email}</span><button type="button" class="chip-close" aria-label="Quitar">&times;</button>`;
+    el.querySelector('.chip-close').addEventListener('click', ()=>{ el.remove(); saveAndPreview(); });
+    chipsWrap.appendChild(el);
+  }
+
+  // cargar catálogos
+  async function loadMeta(){
+    if (!META_URL) return;
+    const r = await fetch(META_URL); const data = await r.json();
+    const fill = (sel, items, v, l)=>{
+      sel.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=String(it[v]); o.textContent=it[l]; sel.appendChild(o); });
+    };
+    fill(fDepartments, data.departments||[], 'id','name');
+    fill(fPositions,   data.positions||[],   'id','title');
+    fill(fLocations,   data.locations||[],   'id','name');
+  }
+
+  // restaurar desde LS
+  function restore(){
+    const s = readLS();
+    if (s.audience_mode === 'segmented'){ audSeg.checked = true; segBlock.classList.remove('d-none'); }
+    else { audAll.checked = true; segBlock.classList.add('d-none'); }
+
+    (s.users||[]).forEach(renderChip);
+
+    const setSel=(sel,ids)=>{ const set=new Set((ids||[]).map(String)); Array.from(sel.options).forEach(o=>{o.selected=set.has(o.value);}); };
+    setSel(fDepartments, s.filters?.departments);
+    setSel(fPositions,   s.filters?.positions);
+    setSel(fLocations,   s.filters?.locations);
+  }
+
+  // estado actual
+  function state(forPreview=false){
+    const segmented = !!audSeg.checked;
+    const st = {
+      audience_mode: segmented ? 'segmented':'all',
+      users: chipData(),
+      filters: {
+        departments: multiValues(fDepartments),
+        positions:   multiValues(fPositions),
+        locations:   multiValues(fLocations),
+      }
+    };
+    if (forPreview){
+      return { allUsers: !segmented, users: chipIds(), filters: st.filters };
+    }
+    return st;
+  }
+
+  // preview
+  async function runPreview(){
+    if (!PREVIEW_URL) return;
+    const r = await fetch(PREVIEW_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(state(true))
+    });
+    if (!r.ok){ reachCount.textContent='—'; audTbody.innerHTML=''; return; }
+    const data = await r.json();
+    reachCount.textContent = data.count ?? '—';
+    audTbody.innerHTML='';
+    (data.results||[]).forEach(row=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${row.name||''}</td><td>${row.email||''}</td><td>${row.department||''}</td><td>${row.position||''}</td><td>${row.location||''}</td>`;
+      audTbody.appendChild(tr);
+    });
+  }
+  const debouncedPreview = debounce(runPreview, 250);
+  function saveAndPreview(){ writeLS(state()); debouncedPreview(); }
+
+  // eventos radios
+  function toggleSeg(){ segBlock.classList.toggle('d-none', !audSeg.checked); saveAndPreview(); }
+  audAll?.addEventListener('change', toggleSeg);
+  audSeg?.addEventListener('change', toggleSeg);
+
+  // eventos selects
+  [fDepartments,fPositions,fLocations].forEach(sel=> sel?.addEventListener('change', saveAndPreview));
+
+  // autocomplete
+  const runSearch = debounce(async ()=>{
+    const base = userSearch?.dataset.url;
+    const q = userSearch?.value?.trim();
+    if (!base || !q){ userMenu.innerHTML=''; return; }
+    const r = await fetch(`${base}?q=${encodeURIComponent(q)}&limit=25`);
+    const items = await r.json();
+    userMenu.innerHTML='';
+    items.forEach(it=>{
+      const li=document.createElement('li');
+      li.innerHTML = `<button type="button" class="dropdown-item">
+        <div class="fw-semibold">${it.label||it.email}</div>
+        <div class="small text-muted">${it.meta||''}</div>
+      </button>`;
+      li.querySelector('button').addEventListener('click', ()=>{
+        renderChip(it);
+        userSearch.value=''; userMenu.innerHTML='';
+        saveAndPreview();
+      });
+      userMenu.appendChild(li);
+    });
+  }, 300);
+  userSearch?.addEventListener('input', runSearch);
+
+  // init
+  (async ()=>{ await loadMeta(); restore(); debouncedPreview(); })();
+
+  // utilidad pública (si luego quieres publicarla al servidor)
+  window.getAudienceState = ()=> readLS();
+})();

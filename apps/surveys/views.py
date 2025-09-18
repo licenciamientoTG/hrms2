@@ -1,4 +1,7 @@
 # surveys/views.py
+import json
+from django.db.models import Q
+from apps.employee.models import Employee, JobPosition
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST, require_http_methods, require_GET
@@ -7,7 +10,8 @@ from django.template.loader import render_to_string
 from django.db.models import Max
 from .models import Survey, SurveySection, SurveyQuestion
 from uuid import uuid4
-
+from departments.models import Department
+from apps.location.models import Location
 
 @login_required
 def survey_dashboard(request):
@@ -92,3 +96,93 @@ def question_rename(request, question_id):
     q.title = title
     q.save(update_fields=['title'])
     return JsonResponse({'ok': True})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_GET
+def survey_audience_meta(request):
+    deps = list(Department.objects.values('id', 'name').order_by('name'))
+    pos  = list(JobPosition.objects.values('id', 'title').order_by('title'))
+    locs = list(Location.objects.values('id', 'name').order_by('name'))
+    return JsonResponse({'departments': deps, 'positions': pos, 'locations': locs})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_GET
+def survey_audience_user_search(request):
+    q = (request.GET.get('q') or '').strip()
+    limit = int(request.GET.get('limit') or 25)
+
+    qs = (Employee.objects
+          .select_related('user', 'department', 'job_position', 'station')
+          .filter(user__isnull=False, user__is_active=True, is_active=True))
+
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q)  |
+            Q(email__icontains=q)      |
+            Q(employee_number__icontains=q)
+        )
+
+    items = []
+    for e in qs.order_by('first_name', 'last_name')[:limit]:
+        items.append({
+            'id': e.user_id,
+            'label': f"{e.first_name} {e.last_name}",
+            'email': e.email or (e.user.email if e.user else ''),
+            'meta': ' · '.join(filter(None, [
+                e.department.name if e.department else None,
+                e.job_position.title if e.job_position else None,
+                e.station.name if e.station else None
+            ])),
+            'department': e.department_id,
+            'job_position': e.job_position_id,
+            'station': e.station_id,
+        })
+    return JsonResponse(items, safe=False)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def survey_audience_preview(request):
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'count': 0, 'results': []})
+
+    all_users = bool(data.get('allUsers'))
+    user_ids  = list(map(int, data.get('users') or []))
+    f         = data.get('filters') or {}
+    dep_ids   = list(map(int, f.get('departments') or []))
+    pos_ids   = list(map(int, f.get('positions')   or []))
+    loc_ids   = list(map(int, f.get('locations')   or []))
+
+    qs = (Employee.objects
+          .select_related('user', 'department', 'job_position', 'station')
+          .filter(user__isnull=False, user__is_active=True, is_active=True))
+
+    if not all_users:
+        # combinación por “OR”: usuarios específicos o por cualquiera de los filtros
+        cond = Q()
+        if user_ids: cond |= Q(user_id__in=user_ids)
+        if dep_ids:  cond |= Q(department_id__in=dep_ids)
+        if pos_ids:  cond |= Q(job_position_id__in=pos_ids)
+        if loc_ids:  cond |= Q(station_id__in=loc_ids)
+
+        if cond:
+            qs = qs.filter(cond)
+        else:
+            qs = qs.none()
+
+    qs = qs.distinct()
+    total = qs.count()
+    results = [{
+        'name': f"{e.first_name} {e.last_name}",
+        'email': e.email or (e.user.email if e.user else ''),
+        'department': e.department.name if e.department else '',
+        'position':   e.job_position.title if e.job_position else '',
+        'location':   e.station.name if e.station else '',
+    } for e in qs.order_by('first_name', 'last_name')[:50]]
+
+    return JsonResponse({'count': total, 'results': results})
