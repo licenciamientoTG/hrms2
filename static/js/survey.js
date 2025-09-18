@@ -21,7 +21,7 @@
     s.active  = !!s.active;
     s.lastSeq ||= {section:0,question:0};
     s.sections ||= [];
-    const optTypes = new Set(['single','multiple','dropdown']);
+    const optTypes = new Set(['single','multiple']);
     s.sections.forEach(sec => {
       sec.questions ||= [];
       sec.questions.forEach(q => {
@@ -135,23 +135,6 @@
           <label class="form-check-label">${opt.label || `Opción ${i+1}`}</label>`;
         wrap.appendChild(div);
       });
-      node.insertBefore(wrap, node.querySelector('.q-footer'));
-    }
-
-    if (q.type === 'dropdown') {
-      const wrap = document.createElement('div');
-      wrap.className = 'mt-2';
-      wrap.dataset.preview = 'dropdown';
-      const sel = document.createElement('select');
-      sel.className = 'form-select';
-      sel.disabled = true;
-      (q.options || [{label:'Opción 1', correct:false}]).forEach(opt => {
-        const option = document.createElement('option');
-        option.textContent = opt.label;
-        if (opt.correct) option.textContent += ' (✔ correcta)';
-        sel.appendChild(option);
-      });
-      wrap.appendChild(sel);
       node.insertBefore(wrap, node.querySelector('.q-footer'));
     }
   }
@@ -498,9 +481,9 @@
 
   let CURRENT_QID = null;
   let CURRENT_SEC_ID = null;
-  const optTypes = new Set(['single', 'multiple', 'dropdown']);
+  const optTypes = new Set(['single', 'multiple']);
 
-  function branchAllowed(type){ return type === 'single' || type === 'dropdown'; }
+  function branchAllowed(type){ return type === 'single'; }
 
   function buildBranchOptionsHTML(currentSectionId, selected){
     // Construye el <option> list para un destino
@@ -559,7 +542,6 @@
       multiple: {short:'MULT', long:'Opciones (selección múltiple)', cls:'qtype-multiple'},
       rating:   {short:'★',    long:'Calificación',             cls:'qtype-rating'},
       none:     {short:'—',    long:'Sin respuesta',            cls:'qtype-none'},
-      dropdown: {short:'▼',    long:'Lista desplegable',        cls:'qtype-dropdown'},
     };
     return map[t] || {short:t || '?', long:'Tipo desconocido', cls:'qtype-none'};
   }
@@ -872,7 +854,7 @@
 
   function ensureBranchShape(q) {
     // Solo aplica para tipos con branching por opción
-    const allowed = new Set(['single', 'dropdown']);
+    const allowed = new Set(['single']);
     if (!allowed.has(q.type)) { delete q.branch; return; }
 
     const byOpt = (q.branch?.byOption && typeof q.branch.byOption === 'object') ? q.branch.byOption : {};
@@ -914,6 +896,12 @@
   const listDeps = document.getElementById('fDepartments');
   const listPos  = document.getElementById('fPositions');
   const listLocs = document.getElementById('fLocations');
+
+    // Buscadores (inputs)
+  const searchDeps = document.getElementById('searchDeps');
+  const searchPos  = document.getElementById('searchPos');
+  const searchLocs = document.getElementById('searchLocs');
+
 
   // --- AGRUPACIÓN DE POSICIONES POR TÍTULO ---
   let posTitleMap = {};      
@@ -1106,6 +1094,25 @@
     else if (!dd) userMenu.classList.add('show');
   }
   const debounce = (fn, ms)=>{ let id; return (...a)=>{ clearTimeout(id); id=setTimeout(()=>fn(...a), ms); }; };
+
+  // Normaliza texto: minúsculas y sin acentos
+  function norm(s){
+    return (s||'')
+      .toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase();
+  }
+
+  // Filtra un list-group ocultando ítems que no coinciden
+  function filterListGroup(listEl, query){
+    const q = norm(query);
+    listEl?.querySelectorAll('.list-group-item').forEach(btn => {
+      const txt = norm(btn.textContent);
+      const show = !q || txt.includes(q);
+      btn.classList.toggle('d-none', !show);
+    });
+  }
+
   const onUserType = debounce(async () => {
     const q = (userInput.value || '').trim();
     if (!q) { if (dd) dd.hide(); else userMenu?.classList.remove('show'); userMenu.innerHTML = ''; return; }
@@ -1119,6 +1126,20 @@
     if (dd) dd.hide(); else userMenu.classList.remove('show');
     userInput.value = ''; userInput.focus();
   });
+
+  // Filtro en vivo: Departamento y Ubicación
+  searchDeps?.addEventListener('input', debounce(() => {
+    filterListGroup(listDeps, searchDeps.value);
+  }, 150));
+
+  searchLocs?.addEventListener('input', debounce(() => {
+    filterListGroup(listLocs, searchLocs.value);
+  }, 150));
+
+  // Filtro en vivo: Posición (como está agrupada por título, re-renderizamos)
+  searchPos?.addEventListener('input', debounce(() => {
+    renderPositionList(searchPos.value);
+  }, 150));
 
   // Cargar catálogos y pintar list-groups (deps/locs normal, pos AGRUPADAS)
   async function loadMeta(){
@@ -1148,13 +1169,16 @@
     renderPositionList();
   }
 
-  function renderPositionList(){
+  function renderPositionList(query=''){
     if (!listPos) return;
     listPos.innerHTML = '';
+    const q = norm(query);
 
     Object.entries(posTitleMap)
       .sort((a,b) => a[1].title.localeCompare(b[1].title))
       .forEach(([key, obj]) => {
+        if (q && !norm(obj.title).includes(q)) return; // aplica filtro
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'list-group-item list-group-item-action';

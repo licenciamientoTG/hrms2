@@ -100,19 +100,31 @@
               <!-- Departamento -->
               <div class="mb-3">
                 <label class="form-label">Departamento</label>
+                  <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text">🔎</span>
+                    <input id="searchDeps" type="text" class="form-control" placeholder="Buscar departamento…">
+                  </div>
                 <div id="fDepartments" class="list-group border rounded-3 overflow-auto" style="max-height:220px"></div>
-                <div class="form-text">Selecciona uno o varios.</div>
               </div>
 
               <!-- Posición -->
               <div class="mb-3">
                 <label class="form-label">Posición</label>
+                  <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text">🔎</span>
+                    <input id="searchPos" type="text" class="form-control" placeholder="Buscar posición…">
+                  </div>
                 <div id="fPositions" class="list-group border rounded-3 overflow-auto" style="max-height:220px"></div>
               </div>
 
               <!-- Ubicación -->
               <div class="mb-1">
                 <label class="form-label">Ubicación</label>
+                  <!-- NUEVO: buscador de ubicaciones -->
+                  <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text">🔎</span>
+                    <input id="searchLocs" type="text" class="form-control" placeholder="Buscar ubicación…">
+                  </div>
                 <div id="fLocations" class="list-group border rounded-3 overflow-auto" style="max-height:220px"></div>
               </div>
             </div>
