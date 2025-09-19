@@ -24,7 +24,7 @@ urlpatterns = [
     path('admin/audience/user-search/', survey_audience_user_search, name='survey_audience_user_search'),
     path('admin/audience/preview/',     survey_audience_preview,     name='survey_audience_preview'),
 
-    path("surveys/import/", SurveyImportView.as_view(), name="survey-import-create"),
-    path("surveys/<int:survey_id>/import/", SurveyImportView.as_view(), name="survey-import-update"),
+    path("import/", SurveyImportView.as_view(), name="survey_import_create"),
+    path("<int:survey_id>/import/", SurveyImportView.as_view(), name="survey_import_update"),
 
 ]

@@ -1299,12 +1299,13 @@ function getCookie(name){
   return m ? m.pop() : '';
 }
 
-document.getElementById('btnPersist')?.addEventListener('click', async () => {
+async function persistSurvey(e){
+  if (e) e.preventDefault();
+
   const strip = document.getElementById('sectionsStrip');
   const rawId = strip?.dataset.surveyId || 'new';
   const isNew = (rawId === 'new');
 
-  // claves locales (con tu esquema actual)
   const builderKey  = `survey:draft:${rawId}`;
   const settingsKey = `survey:${rawId}:settings`;
   const audienceKey = `survey:${rawId}:audience`;
@@ -1330,12 +1331,9 @@ document.getElementById('btnPersist')?.addEventListener('click', async () => {
   const data = await resp.json().catch(() => ({}));
   if (resp.ok && data.ok) {
     if (isNew && data.id) {
-      // migrar todas las claves de 'new' al ID real que devolvió el server
       const newId = String(data.id);
       renameLocalStoragePrefix('survey:draft:new', `survey:draft:${newId}`);
       renameLocalStoragePrefix('survey:new:',       `survey:${newId}:`);
-
-      // actualizar los data-attrs para que desde ahora trabajes "con ID"
       strip.dataset.surveyId = newId;
       const titleBox = document.getElementById('titleBox');
       if (titleBox) titleBox.dataset.surveyId = newId;
@@ -1345,8 +1343,10 @@ document.getElementById('btnPersist')?.addEventListener('click', async () => {
     console.error(data);
     alert('Error al guardar');
   }
-});
+}
 
+document.getElementById('btnPublish')?.addEventListener('click', persistSurvey);
+document.getElementById('surveySettingsForm')?.addEventListener('submit', persistSurvey);
 
 (function () {
   const box = document.getElementById('titleBox');
