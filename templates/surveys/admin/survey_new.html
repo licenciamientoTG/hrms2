@@ -8,15 +8,51 @@
 
 {% block content %}
 <div class="container-fluid p-0">
-
-  <!-- Top -->
-  <div class="builder-top">
+  <!-- Encabezado superior -->
+  <div class="builder-top"> 
     <div class="builder-head">
       <a href="{% url 'survey_dashboard_admin' %}" class="btn btn-light btn-sm me-1">←</a>
-      <div class="fs-5 fw-semibold">{{ survey.title|default:"Encuesta sin título" }}</div>
+
+      <!-- Título: vista y edición -->
+      <div id="titleBox"
+          class="title-box"
+          data-survey-id="{{ survey.id|default:'new' }}"
+          data-default-title="Encuesta sin título">
+        <!-- Vista (texto + lápiz) -->
+        <div class="title-view" id="titleView">
+          <span class="title-text" data-title-target="header">
+            {{ survey.title|default:"Encuesta sin título" }}
+          </span>
+          <button type="button" class="edit-btn" id="titleEditBtn" aria-label="Editar título">
+            <!-- ícono de lápiz simple (SVG inline) -->
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 
+                      7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 
+                      1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Edición (input con label estilo “chip”) -->
+        <div class="title-edit" id="titleEdit" hidden>
+          <label class="title-label" for="surveyTitleInput">Título</label>
+          <input id="surveyTitleInput" class="title-input" type="text"
+                maxlength="120" autocomplete="off" />
+          <div class="title-actions">
+            <button type="button" class="btn-ghost" id="titleCancelBtn">Cancelar</button>
+            <button type="button" class="btn-primary" id="titleSaveBtn">Guardar</button>
+          </div>
+        </div>
+      </div>
+
       <span id="statusPill" class="status-pill off" role="button" tabindex="0" aria-pressed="false">Desactivada</span>
     </div>
   </div>
+
+  <!-- En la lista/edición de secciones puedes reutilizar el mismo valor -->
+  <h5 class="section-title" data-title-target="section">Sección 1</h5>
+
+
 
   <!-- Tabs -->
   <ul class="nav nav-tabs builder-tabs px-3 mt-2" role="tablist">
@@ -32,7 +68,7 @@
     <div class="tab-pane fade show active" id="tab-content">
       <div
         class="sections-strip" id="sectionsStrip"
-        data-survey-id="{{ survey.id }}"
+        data-survey-id="{{ survey.id|default:'new' }}"
         data-create-section-url="#"
         data-sections-options-url="#"
       >
@@ -49,7 +85,7 @@
     <!-- =================== AJUSTES (solo UI) =================== -->
     <div class="tab-pane fade" id="tab-settings">
     <form id="surveySettingsForm" class="p-3"
-          data-survey-id="{{ survey.id|default:'draft' }}"
+          data-survey-id="{{ survey.id|default:'new' }}"
           data-meta-url="{% url 'survey_audience_meta' %}"
           data-preview-url="{% url 'survey_audience_preview' %}">
 

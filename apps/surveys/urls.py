@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     survey_dashboard_admin, survey_dashboard_user, survey_dashboard,survey_new,
     section_create, section_rename, section_options, question_create, 
-    question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview
+    question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview,
+    SurveyImportView
 )
 
 urlpatterns = [
@@ -22,5 +23,8 @@ urlpatterns = [
     path('admin/audience/meta/',        survey_audience_meta,        name='survey_audience_meta'),
     path('admin/audience/user-search/', survey_audience_user_search, name='survey_audience_user_search'),
     path('admin/audience/preview/',     survey_audience_preview,     name='survey_audience_preview'),
+
+    path("surveys/import/", SurveyImportView.as_view(), name="survey-import-create"),
+    path("surveys/<int:survey_id>/import/", SurveyImportView.as_view(), name="survey-import-update"),
 
 ]

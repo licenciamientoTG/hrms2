@@ -12,6 +12,9 @@ from .models import Survey, SurveySection, SurveyQuestion
 from uuid import uuid4
 from departments.models import Department
 from apps.location.models import Location
+from django.views import View
+from django.utils.decorators import method_decorator
+from .services import persist_builder_state, persist_settings, persist_audience
 
 @login_required
 def survey_dashboard(request):
@@ -29,10 +32,9 @@ def survey_dashboard_user(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def survey_new(request):
-    draft_id = uuid4().hex  # id efímero para el localStorage / URL
     return render(request, 'surveys/admin/survey_new.html', {
-        "draft_id": draft_id,
-        # no pasamos survey ni sections
+        "survey": None,
+        "sections": [], 
     })
 
 # ---------- AJAX ----------
@@ -186,3 +188,37 @@ def survey_audience_preview(request):
     } for e in qs.order_by('first_name', 'last_name')[:50]]
 
     return JsonResponse({'count': total, 'results': results})
+
+
+@method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
+class SurveyImportView(View):
+    def post(self, request, survey_id=None):
+        if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+            return HttpResponseBadRequest("AJAX only")
+
+        try:
+            payload = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+        title    = (payload.get('title') or 'Encuesta sin título').strip()
+        builder  = payload.get('builder')  or {}
+        settings = payload.get('settings') or {}
+        audience = payload.get('audience') or {}
+
+        if survey_id is None:
+            # Crear
+            survey = Survey.objects.create(title=title, creator=request.user)
+        else:
+            # Actualizar
+            survey = get_object_or_404(Survey, pk=survey_id)
+            if title:
+                survey.title = title
+                survey.save(update_fields=['title'])
+
+        # Guardar todo
+        persist_builder_state(survey, builder)
+        persist_settings(survey, settings)
+        persist_audience(survey, audience)
+
+        return JsonResponse({'ok': True, 'id': survey.id})

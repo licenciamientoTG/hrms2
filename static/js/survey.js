@@ -1275,3 +1275,166 @@
   msgEl ?.addEventListener('input',  () => writeSettings({ autoMessage: msgEl.value }));
   anonEl?.addEventListener('change', () => writeSettings({ isAnonymous: !!anonEl.checked }));
 })();
+
+function getCookie(name){
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+
+function renameLocalStoragePrefix(fromPrefix, toPrefix){
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(fromPrefix)) keys.push(k);
+  }
+  keys.forEach(k => {
+    const v = localStorage.getItem(k);
+    localStorage.setItem(k.replace(fromPrefix, toPrefix), v);
+    localStorage.removeItem(k);
+  });
+}
+
+function getCookie(name){
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+
+document.getElementById('btnPersist')?.addEventListener('click', async () => {
+  const strip = document.getElementById('sectionsStrip');
+  const rawId = strip?.dataset.surveyId || 'new';
+  const isNew = (rawId === 'new');
+
+  // claves locales (con tu esquema actual)
+  const builderKey  = `survey:draft:${rawId}`;
+  const settingsKey = `survey:${rawId}:settings`;
+  const audienceKey = `survey:${rawId}:audience`;
+  const titleKey    = `survey:${rawId}:title`;
+
+  const builder  = JSON.parse(localStorage.getItem(builderKey)  || '{}');
+  const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+  const audience = JSON.parse(localStorage.getItem(audienceKey) || '{}');
+  const title    = (localStorage.getItem(titleKey) || '').trim();
+
+  const url = isNew ? `/surveys/import/` : `/surveys/${rawId}/import/`;
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken'),
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({ builder, settings, audience, title })
+  });
+
+  const data = await resp.json().catch(() => ({}));
+  if (resp.ok && data.ok) {
+    if (isNew && data.id) {
+      // migrar todas las claves de 'new' al ID real que devolvió el server
+      const newId = String(data.id);
+      renameLocalStoragePrefix('survey:draft:new', `survey:draft:${newId}`);
+      renameLocalStoragePrefix('survey:new:',       `survey:${newId}:`);
+
+      // actualizar los data-attrs para que desde ahora trabajes "con ID"
+      strip.dataset.surveyId = newId;
+      const titleBox = document.getElementById('titleBox');
+      if (titleBox) titleBox.dataset.surveyId = newId;
+    }
+    alert('¡Guardado!');
+  } else {
+    console.error(data);
+    alert('Error al guardar');
+  }
+});
+
+
+(function () {
+  const box = document.getElementById('titleBox');
+  if (!box) return;
+
+  const view = document.getElementById('titleView');
+  const edit = document.getElementById('titleEdit');
+  const btnEdit = document.getElementById('titleEditBtn');
+  const btnSave = document.getElementById('titleSaveBtn');
+  const btnCancel = document.getElementById('titleCancelBtn');
+  const input = document.getElementById('surveyTitleInput');
+  const viewText = view.querySelector('.title-text');
+
+  const surveyId = box.dataset.surveyId || 'unknown';
+  const LS_KEY = `survey:${surveyId}:title`;
+  const defaultTitle = box.dataset.defaultTitle || 'Encuesta sin título';
+
+  const qsa = (sel) => Array.from(document.querySelectorAll(sel));
+
+  // Seguridad mínima (evita HTML en el título)
+  const sanitize = (s) => (s || '').replace(/<[^>]+>/g, '').trim();
+
+  // Carga inicial desde LS o del DOM
+  const stored = sanitize(localStorage.getItem(LS_KEY) || '');
+  if (stored) {
+    setTitle(stored, { persist:false });
+  } else {
+    // si viene vacío/placeholder en server, mantenlo
+    setTitle(sanitize(viewText.textContent) || defaultTitle, { persist:false });
+  }
+
+  // Entrar a modo edición
+  btnEdit.addEventListener('click', () => {
+    input.value = getTitle();
+    toggle(true);
+    // foco al final
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  });
+
+  // Guardar
+  btnSave.addEventListener('click', saveFromInput);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveFromInput();
+    if (e.key === 'Escape') cancelEdit();
+  });
+
+  // Cancelar
+  btnCancel.addEventListener('click', cancelEdit);
+  input.addEventListener('blur', () => {
+    // guarda al salir del foco (si no deseas esto, comenta esta línea)
+    saveFromInput();
+  });
+
+  function saveFromInput() {
+    const v = sanitize(input.value) || defaultTitle;
+    setTitle(v, { persist:true });
+    toggle(false);
+  }
+  function cancelEdit() {
+    input.value = getTitle();
+    toggle(false);
+  }
+
+  function toggle(editMode) {
+    edit.hidden = !editMode;
+    view.hidden = editMode;
+  }
+
+  function getTitle() {
+    return sanitize(viewText.textContent) || defaultTitle;
+  }
+
+  // Actualiza todos los lugares donde muestres el título
+  function setTitle(value, { persist=true } = {}) {
+    viewText.textContent = value;
+    // cualquier otro lugar que lo consuma (ej. encabezados de secciones)
+    qsa('[data-title-target="header"]').forEach(el => el.textContent = value);
+    qsa('[data-title-target="section"]').forEach(el => el.textContent = value);
+    if (persist) {
+      try { localStorage.setItem(LS_KEY, value); } catch(e) {}
+    }
+  }
+
+  // Guardar por si navegan
+  window.addEventListener('beforeunload', () => {
+    try { localStorage.setItem(LS_KEY, getTitle()); } catch(e) {}
+  });
+})();
