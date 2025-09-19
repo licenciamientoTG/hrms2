@@ -82,7 +82,13 @@
     <form id="surveySettingsForm" class="p-3"
           data-survey-id="{{ survey.id|default:'new' }}"
           data-meta-url="{% url 'survey_audience_meta' %}"
-          data-preview-url="{% url 'survey_audience_preview' %}">
+          data-preview-url="{% url 'survey_audience_preview' %}"
+          data-import-create-url="{% url 'survey_import_create' %}"
+          {% if survey %}
+          data-import-update-url="{% url 'survey_import_update' survey.id %}"
+          {% endif %}
+          data-dashboard-url="{% url 'survey_dashboard_admin' %}">
+
 
         <!-- Automensaje -->
         <div class="card mb-3 rounded-3">

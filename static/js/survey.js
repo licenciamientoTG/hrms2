@@ -1294,60 +1294,6 @@ function renameLocalStoragePrefix(fromPrefix, toPrefix){
   });
 }
 
-function getCookie(name){
-  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-  return m ? m.pop() : '';
-}
-
-async function persistSurvey(e){
-  if (e) e.preventDefault();
-
-  const strip = document.getElementById('sectionsStrip');
-  const rawId = strip?.dataset.surveyId || 'new';
-  const isNew = (rawId === 'new');
-
-  const builderKey  = `survey:draft:${rawId}`;
-  const settingsKey = `survey:${rawId}:settings`;
-  const audienceKey = `survey:${rawId}:audience`;
-  const titleKey    = `survey:${rawId}:title`;
-
-  const builder  = JSON.parse(localStorage.getItem(builderKey)  || '{}');
-  const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
-  const audience = JSON.parse(localStorage.getItem(audienceKey) || '{}');
-  const title    = (localStorage.getItem(titleKey) || '').trim();
-
-  const url = isNew ? `/surveys/import/` : `/surveys/${rawId}/import/`;
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCookie('csrftoken'),
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({ builder, settings, audience, title })
-  });
-
-  const data = await resp.json().catch(() => ({}));
-  if (resp.ok && data.ok) {
-    if (isNew && data.id) {
-      const newId = String(data.id);
-      renameLocalStoragePrefix('survey:draft:new', `survey:draft:${newId}`);
-      renameLocalStoragePrefix('survey:new:',       `survey:${newId}:`);
-      strip.dataset.surveyId = newId;
-      const titleBox = document.getElementById('titleBox');
-      if (titleBox) titleBox.dataset.surveyId = newId;
-    }
-    alert('¡Guardado!');
-  } else {
-    console.error(data);
-    alert('Error al guardar');
-  }
-}
-
-document.getElementById('btnPublish')?.addEventListener('click', persistSurvey);
-document.getElementById('surveySettingsForm')?.addEventListener('submit', persistSurvey);
-
 (function () {
   const box = document.getElementById('titleBox');
   if (!box) return;
@@ -1436,5 +1382,85 @@ document.getElementById('surveySettingsForm')?.addEventListener('submit', persis
   // Guardar por si navegan
   window.addEventListener('beforeunload', () => {
     try { localStorage.setItem(LS_KEY, getTitle()); } catch(e) {}
+  });
+})();
+
+(function publishHandler(){
+  const form = document.getElementById('surveySettingsForm');
+  if (!form) return;
+
+  const SURVEY_ID = form.dataset.surveyId || 'new';
+
+  function removeLocalStorageByPrefix(prefix){
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    keys.forEach(k => localStorage.removeItem(k));
+  }
+
+  function clearAllSurveyKeys(idLike){
+    // borra tanto los draft como settings/título/audience
+    removeLocalStorageByPrefix(`survey:draft:${idLike}`);
+    removeLocalStorageByPrefix(`survey:${idLike}:`);
+  }
+
+  async function persistOnServer(){
+    const rawId = SURVEY_ID;
+    const isNew = (rawId === 'new');
+
+    const builderKey  = `survey:draft:${rawId}`;
+    const settingsKey = `survey:${rawId}:settings`;
+    const audienceKey = `survey:${rawId}:audience`;
+    const titleKey    = `survey:${rawId}:title`;
+
+    const payload = {
+      builder:  JSON.parse(localStorage.getItem(builderKey)  || '{}'),
+      settings: JSON.parse(localStorage.getItem(settingsKey) || '{}'),
+      audience: JSON.parse(localStorage.getItem(audienceKey) || '{}'),
+      title:    (localStorage.getItem(titleKey) || '').trim()
+    };
+
+    const url = isNew
+      ? (form.dataset.importCreateUrl)
+      : (form.dataset.importUpdateUrl || `/surveys/${rawId}/import/`);
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) throw new Error('Error al guardar');
+    return String(data.id);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnPublish');
+    btn?.setAttribute('disabled', 'disabled');
+
+    try {
+      const newId = await persistOnServer();
+
+      // limpia "new" y también el id real devuelto por el backend
+      clearAllSurveyKeys('new');
+      clearAllSurveyKeys(newId);
+
+      // redirige al dashboard admin
+      const backUrl = form.dataset.dashboardUrl || '/surveys/admin/';
+      window.location.assign(backUrl);
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar');
+    } finally {
+      btn?.removeAttribute('disabled');
+    }
   });
 })();
