@@ -29,6 +29,4 @@ urlpatterns = [
     path("admin/surveys/<int:pk>/export.xlsx", survey_export_excel, name="survey_export_excel"),
     path("admin/surveys/<int:pk>/delete/", survey_delete, name="survey_delete"),
     path("admin/surveys/<int:pk>/edit/", survey_edit, name="survey_edit"),
-
-
 ]

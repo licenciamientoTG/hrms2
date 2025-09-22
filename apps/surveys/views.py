@@ -16,6 +16,7 @@ from django.utils.decorators import method_decorator
 from .services import persist_builder_state, persist_settings, persist_audience
 from django.core.paginator import Paginator
 from django.db.models import Case, When, Value, CharField, F
+from django.contrib import messages
 
 
 try:
@@ -258,40 +259,6 @@ class SurveyImportView(View):
         persist_audience(survey, audience)
 
         return JsonResponse({'ok': True, 'id': survey.id})
-
-# -------- dashboard (ya lo tenías; dejo el mismo con el fix de creator) --------
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def survey_dashboard_admin(request):
-    q = (request.GET.get("q") or "").strip()
-    sort = (request.GET.get("sort") or "-created_at").strip()
-
-    qs = Survey.objects.select_related("creator")
-    if q:
-        qs = qs.filter(title__icontains=q)
-
-    qs = qs.annotate(
-        status=Case(
-            When(is_active=True, then=Value("active")),
-            default=Value("draft"),
-            output_field=CharField(),
-        )
-    )
-
-    sort_map = {"created_at": "created_at", "-created_at": "-created_at", "position": "-created_at"}
-    qs = qs.order_by(sort_map.get(sort, "-created_at"), "id")
-
-    paginator = Paginator(qs, 15)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    start_idx = (page_obj.number - 1) * paginator.per_page
-    for i, s in enumerate(page_obj.object_list, start=1):
-        s.responses_count = 0
-        s.progress = 0.0
-        s.position = start_idx + i
-
-    ctx = {"page_obj": page_obj, "is_paginated": page_obj.has_other_pages(), "q": q, "sort": sort}
-    return render(request, "surveys/admin/survey_dashboard_admin.html", ctx)
 
 # ---------------- Eliminar (AJAX/POST) ----------------
 @login_required
