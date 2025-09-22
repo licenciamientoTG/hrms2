@@ -11,8 +11,6 @@
   <!-- Encabezado superior -->
   <div class="builder-top"> 
     <div class="builder-head">
-      <a href="{% url 'survey_dashboard_admin' %}" class="btn btn-light btn-sm me-1">←</a>
-
       <!-- Título: vista y edición -->
       <div id="titleBox"
           class="title-box"
@@ -179,9 +177,18 @@
         </div>
 
         <!-- Footer -->
-        <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <div class="d-flex flex-wrap gap-2 justify-content-between">
+          <!-- Izquierda -->
+          <a href="{% url 'survey_dashboard_admin' %}"
+            class="btn btn-outline-danger"
+            id="btnCancelSurvey">
+            Cancelar
+          </a>
+
+          <!-- Derecha -->
           <button type="submit" class="btn btn-primary" id="btnPublish">Publicar</button>
         </div>
+
       </form>
     </div>
   </div>

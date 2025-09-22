@@ -1,6 +1,3 @@
-// surveys/static/js/survey.js
-// Builder de encuestas con editor de preguntas en modal (localStorage)
-
 (function () {
   const strip = document.getElementById('sectionsStrip');
   if (!strip) return;
@@ -1379,11 +1376,22 @@ function renameLocalStoragePrefix(fromPrefix, toPrefix){
     }
   }
 
-  // Guardar por si navegan
   window.addEventListener('beforeunload', () => {
+    if (window.__SURVEY_NAVIGATING__) return; // 👈 no re-escribas si cancelo
     try { localStorage.setItem(LS_KEY, getTitle()); } catch(e) {}
   });
 })();
+
+function blockSurveyAutosaveWrites() {
+  // Evita que cualquier módulo vuelva a escribir survey:* mientras salimos
+  const orig = Storage.prototype.setItem;
+  if (Storage.prototype.__surveyPatched__) return; // evita doble parche
+  Storage.prototype.__surveyPatched__ = true;
+  Storage.prototype.setItem = function (k, v) {
+    if (window.__SURVEY_NAVIGATING__ && String(k).startsWith('survey:')) return;
+    return orig.apply(this, arguments);
+  };
+}
 
 (function publishHandler(){
   const form = document.getElementById('surveySettingsForm');
@@ -1448,14 +1456,15 @@ function renameLocalStoragePrefix(fromPrefix, toPrefix){
 
     try {
       const newId = await persistOnServer();
+      window.__SURVEY_NAVIGATING__ = 'publish';
+      blockSurveyAutosaveWrites();
 
       // limpia "new" y también el id real devuelto por el backend
       clearAllSurveyKeys('new');
       clearAllSurveyKeys(newId);
 
-      // redirige al dashboard admin
       const backUrl = form.dataset.dashboardUrl || '/surveys/admin/';
-      window.location.assign(backUrl);
+      location.replace(backUrl);
     } catch (err) {
       console.error(err);
       alert('Error al guardar');
@@ -1464,3 +1473,44 @@ function renameLocalStoragePrefix(fromPrefix, toPrefix){
     }
   });
 })();
+
+function clearSurveyStorage() {
+  const strip = document.getElementById("sectionsStrip");
+  const SURVEY_ID = strip?.dataset.surveyId || "new";
+
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+
+    // Borra todo lo que empiece con survey:<id>: o survey:new:
+    if (key.startsWith(`survey:${SURVEY_ID}:`) || key === `survey:draft:${SURVEY_ID}`) {
+      localStorage.removeItem(key);
+    }
+
+    // Caso especial: cuando se trabaja con encuesta "nueva"
+    if (SURVEY_ID === "new" && key.startsWith("survey:new:")) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
+document.getElementById("btnCancelSurvey")?.addEventListener("click", function (e) {
+  e.preventDefault();
+
+  Swal.fire({
+    title: "¿Cancelar encuesta?",
+    text: "Se perderán todos los cambios no guardados.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6c757d",
+    confirmButtonText: "Sí, cancelar",
+    cancelButtonText: "Volver"
+  }).then((result) => {
+    if (result.isConfirmed) {
+      window.__SURVEY_CANCELING__ = true;
+      clearSurveyStorage();
+      location.replace(this.href); 
+    }
+  });
+});
