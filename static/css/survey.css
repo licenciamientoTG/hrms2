@@ -425,3 +425,12 @@
   text-overflow:ellipsis; 
   white-space:nowrap; 
 }
+
+.table-responsive{
+  overflow: visible;       
+}
+
+/* por si algo lo tapa */
+.dropdown-menu{
+  z-index: 2000;
+}
