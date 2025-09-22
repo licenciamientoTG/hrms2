@@ -1514,3 +1514,60 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
     }
   });
 });
+
+(function () {
+  // CSRF (usa esto si CSRF_COOKIE_HTTPONLY = False)
+  function getCookie(name){
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('a[data-action="delete"]');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    // Confirmación
+    const ask = window.Swal
+      ? await Swal.fire({
+          icon: 'warning',
+          title: 'Eliminar encuesta',
+          text: 'Esta acción no se puede deshacer.',
+          showCancelButton: true,
+          confirmButtonText: 'Eliminar',
+          cancelButtonText: 'Cancelar'
+        })
+      : { isConfirmed: confirm('¿Eliminar encuesta?') };
+
+    if (!ask.isConfirmed) return;
+
+    const url = btn.dataset.url;
+    const row = btn.closest('tr');
+
+    try {
+      btn.classList.add('disabled'); // evita doble click
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': getCookie('csrftoken')   // <- token de cookie
+        }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.ok) throw new Error('Delete failed');
+
+      // Quitar la fila sin recargar
+      if (row) row.remove();
+
+      if (window.Swal) Swal.fire({icon:'success', title:'Eliminada', timer:1200, showConfirmButton:false});
+    } catch (err) {
+      if (window.Swal) Swal.fire({icon:'error', title:'No se pudo eliminar'});
+      else alert('No se pudo eliminar');
+    } finally {
+      btn.classList.remove('disabled');
+    }
+  });
+})();

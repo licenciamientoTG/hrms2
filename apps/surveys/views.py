@@ -1,11 +1,10 @@
-# surveys/views.py
 import json
 from django.db.models import Q
 from apps.employee.models import Employee, JobPosition
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST, require_http_methods, require_GET
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.db.models import Max
 from .models import Survey, SurveySection, SurveyQuestion
@@ -15,15 +14,51 @@ from apps.location.models import Location
 from django.views import View
 from django.utils.decorators import method_decorator
 from .services import persist_builder_state, persist_settings, persist_audience
+from django.core.paginator import Paginator
+from django.db.models import Case, When, Value, CharField, F
+
+try:
+    from openpyxl import Workbook
+except Exception:
+    Workbook = None
 
 @login_required
 def survey_dashboard(request):
     return redirect('survey_dashboard_admin') if request.user.is_superuser else redirect('survey_dashboard_user')
 
+# -------- dashboard (ya lo tenías; dejo el mismo con el fix de creator) --------
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def survey_dashboard_admin(request):
-    return render(request, 'surveys/admin/survey_dashboard_admin.html')
+    q = (request.GET.get("q") or "").strip()
+    sort = (request.GET.get("sort") or "-created_at").strip()
+
+    qs = Survey.objects.select_related("creator")
+    if q:
+        qs = qs.filter(title__icontains=q)
+
+    qs = qs.annotate(
+        status=Case(
+            When(is_active=True, then=Value("active")),
+            default=Value("draft"),
+            output_field=CharField(),
+        )
+    )
+
+    sort_map = {"created_at": "created_at", "-created_at": "-created_at", "position": "-created_at"}
+    qs = qs.order_by(sort_map.get(sort, "-created_at"), "id")
+
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    start_idx = (page_obj.number - 1) * paginator.per_page
+    for i, s in enumerate(page_obj.object_list, start=1):
+        s.responses_count = 0
+        s.progress = 0.0
+        s.position = start_idx + i
+
+    ctx = {"page_obj": page_obj, "is_paginated": page_obj.has_other_pages(), "q": q, "sort": sort}
+    return render(request, "surveys/admin/survey_dashboard_admin.html", ctx)
 
 @login_required
 def survey_dashboard_user(request):
@@ -222,3 +257,141 @@ class SurveyImportView(View):
         persist_audience(survey, audience)
 
         return JsonResponse({'ok': True, 'id': survey.id})
+
+# -------- dashboard (ya lo tenías; dejo el mismo con el fix de creator) --------
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_dashboard_admin(request):
+    q = (request.GET.get("q") or "").strip()
+    sort = (request.GET.get("sort") or "-created_at").strip()
+
+    qs = Survey.objects.select_related("creator")
+    if q:
+        qs = qs.filter(title__icontains=q)
+
+    qs = qs.annotate(
+        status=Case(
+            When(is_active=True, then=Value("active")),
+            default=Value("draft"),
+            output_field=CharField(),
+        )
+    )
+
+    sort_map = {"created_at": "created_at", "-created_at": "-created_at", "position": "-created_at"}
+    qs = qs.order_by(sort_map.get(sort, "-created_at"), "id")
+
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    start_idx = (page_obj.number - 1) * paginator.per_page
+    for i, s in enumerate(page_obj.object_list, start=1):
+        s.responses_count = 0
+        s.progress = 0.0
+        s.position = start_idx + i
+
+    ctx = {"page_obj": page_obj, "is_paginated": page_obj.has_other_pages(), "q": q, "sort": sort}
+    return render(request, "surveys/admin/survey_dashboard_admin.html", ctx)
+
+# ---------------- Eliminar (AJAX/POST) ----------------
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def survey_delete(request, pk: int):
+    s = get_object_or_404(Survey, pk=pk)
+    s.delete()
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({"ok": True})
+    messages.success(request, "Encuesta eliminada.")
+    return redirect("survey_dashboard_admin")
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_export_excel(request, pk: int):
+    s = get_object_or_404(Survey, pk=pk)
+
+    # Si no hay openpyxl instalado, devolvemos CSV como salida segura
+    if Workbook is None:
+        return survey_export_csv(request, pk)
+
+    import io
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Encuesta"
+
+    ws.append(["Título", s.title])
+    ws.append(["Activa", "Sí" if s.is_active else "No"])
+    ws.append(["Anónima", "Sí" if s.is_anonymous else "No"])
+    ws.append(["Creada en", s.created_at.strftime("%Y-%m-%d %H:%M")])
+    ws.append(["Creador", s.creator.get_full_name() or s.creator.username])
+    ws.append([])
+    ws.append(["Sección", "Orden", "Pregunta", "Tipo", "Obligatoria", "Opción", "Correcta", "Salto a sección"])
+
+    for sec in s.sections.all().order_by("order"):
+        if sec.questions.exists():
+            for q in sec.questions.all().order_by("order"):
+                if q.options.exists():
+                    for opt in q.options.all().order_by("order"):
+                        ws.append([
+                            sec.title or f"Sección {sec.order}",
+                            sec.order,
+                            q.title,
+                            q.qtype,
+                            "Sí" if q.required else "No",
+                            opt.label,
+                            "Sí" if opt.is_correct else "No",
+                            (opt.branch_to_section.title if opt.branch_to_section else ""),
+                        ])
+                else:
+                    ws.append([sec.title or f"Sección {sec.order}", sec.order, q.title, q.qtype,
+                               "Sí" if q.required else "No", "", "", ""])
+        else:
+            ws.append([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    resp = HttpResponse(
+        out.read(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    resp["Content-Disposition"] = f'attachment; filename="encuesta_{s.pk}.xlsx"'
+    return resp
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_export_csv(request, pk: int):
+    s = get_object_or_404(Survey, pk=pk)
+    import csv
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="encuesta_{s.pk}.csv"'
+    w = csv.writer(resp)
+
+    w.writerow(["Título", s.title])
+    w.writerow(["Activa", "Sí" if s.is_active else "No"])
+    w.writerow(["Anónima", "Sí" if s.is_anonymous else "No"])
+    w.writerow(["Creada en", s.created_at.strftime("%Y-%m-%d %H:%M")])
+    w.writerow(["Creador", s.creator.get_full_name() or s.creator.username])
+    w.writerow([])
+
+    w.writerow(["Sección", "Orden", "Pregunta", "Tipo", "Obligatoria", "Opción", "Correcta", "Salto a sección"])
+    for sec in s.sections.all().order_by("order"):
+        if sec.questions.exists():
+            for q in sec.questions.all().order_by("order"):
+                if q.options.exists():
+                    for opt in q.options.all().order_by("order"):
+                        w.writerow([
+                            sec.title or f"Sección {sec.order}",
+                            sec.order,
+                            q.title,
+                            q.qtype,
+                            "Sí" if q.required else "No",
+                            opt.label,
+                            "Sí" if opt.is_correct else "No",
+                            (opt.branch_to_section.title if opt.branch_to_section else ""),
+                        ])
+                else:
+                    w.writerow([sec.title or f"Sección {sec.order}", sec.order, q.title, q.qtype,
+                                "Sí" if q.required else "No", "", "", ""])
+        else:
+            w.writerow([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
+    return resp
