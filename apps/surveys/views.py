@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST, require_http_methods, req
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.db.models import Max
-from .models import Survey, SurveySection, SurveyQuestion
+from .models import Survey, SurveySection, SurveyQuestion, SurveyAudience, SurveyOption
 from uuid import uuid4
 from departments.models import Department
 from apps.location.models import Location
@@ -16,6 +16,7 @@ from django.utils.decorators import method_decorator
 from .services import persist_builder_state, persist_settings, persist_audience
 from django.core.paginator import Paginator
 from django.db.models import Case, When, Value, CharField, F
+
 
 try:
     from openpyxl import Workbook
@@ -395,3 +396,123 @@ def survey_export_csv(request, pk: int):
         else:
             w.writerow([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
     return resp
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_edit(request, pk: int):
+    s = (Survey.objects
+         .prefetch_related(
+             'sections__questions__options',
+             'audience__users'
+         )
+         .get(pk=pk))
+
+    # ---- Builder draft (misma forma que usa survey.js) ----
+    sections_json = []
+    sec_id_map = {}          # {sec_db_id: "sN"}
+    qseq = 0
+
+    # Asegura orden
+    sections_qs = s.sections.all().order_by('order', 'id')
+
+    for i, sec in enumerate(sections_qs, start=1):
+        sid = f"s{i}"
+        sec_id_map[sec.id] = sid
+
+        # go_to: None | "submit" | "sX" (lo resolvemos luego)
+        go_to = "submit" if sec.submit_on_finish else (sec.go_to_section_id or None)
+
+        qs_json = []
+        questions_qs = sec.questions.all().order_by('order', 'id')
+
+        for j, q in enumerate(questions_qs, start=1):
+            qseq += 1
+            qj = {
+                "id": f"q{qseq}",
+                "title": q.title,
+                "type": q.qtype,            # los nombres coinciden con tu builder
+                "required": bool(q.required),
+                "order": j,
+            }
+
+            if q.qtype in ("single", "multiple"):
+                opts = []
+                for k, op in enumerate(q.options.all().order_by('order', 'id'), start=1):
+                    opts.append({
+                        "label": op.label,
+                        "correct": bool(op.is_correct),
+                        # guardamos el id de sección para mapear luego si existe branching:
+                        "_branch_to": op.branch_to_section_id,
+                    })
+                qj["options"] = opts or [{"label": "Opción 1", "correct": False}]
+
+                if q.qtype == "single" and q.branch_enabled:
+                    by = {}
+                    for idx, op in enumerate(q.options.all().order_by('order', 'id')):
+                        if op.branch_to_section_id:
+                            by[idx] = op.branch_to_section_id   # temporal
+                    if by:
+                        qj["branch"] = {"enabled": True, "byOption": by}
+
+            qs_json.append(qj)
+
+        sections_json.append({
+            "id": sid,
+            "title": sec.title,
+            "order": i,
+            "go_to": go_to,   # mapeamos abajo
+            "questions": qs_json
+        })
+
+    # Reemplaza ids reales por "sN"
+    for sec in sections_json:
+        v = sec["go_to"]
+        if isinstance(v, int):
+            sec["go_to"] = sec_id_map.get(v, None)
+
+        for q in sec["questions"]:
+            if q.get("branch"):
+                q["branch"]["byOption"] = {
+                    int(k): (sec_id_map.get(v) if isinstance(v, int) else v)
+                    for k, v in q["branch"]["byOption"].items()
+                }
+            # limpia helper
+            if "options" in q:
+                for op in q["options"]:
+                    op.pop("_branch_to", None)
+
+    draft = {
+        "version": 1,
+        "active": bool(s.is_active),
+        "lastSeq": {"section": len(sections_json), "question": qseq},
+        "sections": sections_json,
+    }
+
+    # ---- Settings local ----
+    settings_json = {
+        "autoMessage": s.auto_message or "",
+        "isAnonymous": bool(s.is_anonymous),
+    }
+
+    # ---- Audience local ----
+    try:
+        aud = s.audience
+        audience_json = {
+            "mode": aud.mode,
+            "filters": aud.filters or {},
+            "users": list(aud.users.values_list("id", flat=True)),
+        }
+    except SurveyAudience.DoesNotExist:
+        audience_json = {"mode": "all", "filters": {}, "users": []}
+
+    ctx = {
+        "survey": s,
+        # para la tabla inicial si la usas:
+        "sections": sections_qs,
+        # JSON listos para soltar en localStorage desde la plantilla:
+        "builder_json": json.dumps(draft, ensure_ascii=False),
+        "settings_json": json.dumps(settings_json, ensure_ascii=False),
+        "audience_json": json.dumps(audience_json, ensure_ascii=False),
+    }
+    # Reutilizamos la MISMA plantilla del builder de “Nueva encuesta”
+    return render(request, "surveys/admin/survey_new.html", ctx)
