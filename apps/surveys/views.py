@@ -474,12 +474,11 @@ def survey_edit(request, pk: int):
 
     ctx = {
         "survey": s,
-        # para la tabla inicial si la usas:
         "sections": sections_qs,
-        # JSON listos para soltar en localStorage desde la plantilla:
-        "builder_json": json.dumps(draft, ensure_ascii=False),
-        "settings_json": json.dumps(settings_json, ensure_ascii=False),
-        "audience_json": json.dumps(audience_json, ensure_ascii=False),
+        # ASEGÚRATE de que estos JSON se escapen correctamente para HTML
+        "builder_json": json.dumps(draft, ensure_ascii=False).replace('</script>', '<\\/script>'),
+        "settings_json": json.dumps(settings_json, ensure_ascii=False).replace('</script>', '<\\/script>'),
+        "audience_json": json.dumps(audience_json, ensure_ascii=False).replace('</script>', '<\\/script>'),
     }
     # Reutilizamos la MISMA plantilla del builder de “Nueva encuesta”
     return render(request, "surveys/admin/survey_new.html", ctx)

@@ -31,32 +31,113 @@
     });
     return s;
   }
-  function loadDraft() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) return normalize(JSON.parse(raw));
-    } catch {}
-    const init = {
-      version: 1,
-      lastSeq: { section: 1, question: 1 },
-      sections: [{
-        id: 's1',
-        title: 'Sección 1',
-        order: 1,
-        go_to: null,
-        questions: [{
-          id: 'q1',
-          title: 'Pregunta 1',
-          type: 'single',
-          required: false,
-          order: 1,
-          options: ['Opción 1']
-        }]
-      }]
-    };
-    saveDraft(init);
-    return init;
+function loadDraft() {
+  // 0) Si existe un draft en localStorage para este ID, úsalo
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return normalize(JSON.parse(raw));
+  } catch {}
+
+  // 1) Si la plantilla inyectó preload (editar), úsalo y siembra settings/audience/title
+  try {
+    const preNode = document.getElementById('builderPreload');
+    if (preNode && preNode.textContent.trim()) {
+      const serverDraft = normalize(JSON.parse(preNode.textContent));
+      saveDraft(serverDraft);
+
+      const sid   = (window.__SURVEY_PRELOAD__ && window.__SURVEY_PRELOAD__.id) || SURVEY_ID;
+      const title = (window.__SURVEY_PRELOAD__ && window.__SURVEY_PRELOAD__.title) || 'Encuesta sin título';
+      const settingsNode = document.getElementById('settingsPreload');
+      const audienceNode = document.getElementById('audiencePreload');
+
+      if (sid && settingsNode?.textContent) {
+        localStorage.setItem(`survey:${sid}:settings`, settingsNode.textContent);
+      }
+      if (sid && audienceNode?.textContent) {
+        localStorage.setItem(`survey:${sid}:audience`, audienceNode.textContent);
+      }
+      if (sid) {
+        localStorage.setItem(`survey:${sid}:title`, String(title));
+      }
+      return serverDraft;
+    }
+  } catch (e) {
+    console.error('Preload parse error', e);
   }
+
+  // 2) ⚠️ Si NO es “nuevo”, NO inventes inicial. Construye desde el DOM del servidor.
+  if (SURVEY_ID !== 'new') {
+    const fromDom = buildStateFromServerDOM();
+    if (fromDom) { saveDraft(fromDom); return fromDom; }
+    // último recurso: evita romper la UI devolviendo un esqueleto vacío
+    return normalize({ version:1, lastSeq:{section:0,question:0}, sections:[] });
+  }
+
+  // 3) Solo para “nueva encuesta”, usa el inicial por defecto
+  const init = {
+    version: 1,
+    lastSeq: { section: 1, question: 1 },
+    sections: [{
+      id: 's1',
+      title: 'Sección 1',
+      order: 1,
+      go_to: null,
+      questions: [{
+        id: 'q1',
+        title: 'Pregunta 1',
+        type: 'single',
+        required: false,
+        order: 1,
+        options: ['Opción 1']
+      }]
+    }]
+  };
+  saveDraft(init);
+  return init;
+}
+
+// Convierte lo que venía renderizado por Django en estado del builder
+function buildStateFromServerDOM(){
+  const strip = document.getElementById('sectionsStrip');
+  if (!strip) return null;
+
+  const secs = [...strip.querySelectorAll('.section-col[data-section-id]')];
+  if (!secs.length) return null;
+
+  let qseq = 0;
+  const sections = secs.map((col, idx) => {
+    const secId = `s${idx+1}`;
+    const title = col.querySelector('[data-bind="sec-title"]')?.textContent?.trim() || `Sección ${idx+1}`;
+    const qCards = [...col.querySelectorAll('.q-card[data-question-id]')];
+    const questions = qCards.map((card, j) => {
+      qseq += 1;
+      const qTitle = card.querySelector('[data-bind="q-title"], .q-title')?.textContent?.trim() || `Pregunta ${j+1}`;
+      const type = card.dataset.type || 'single';
+      const required = (card.dataset.required === 'true');
+      const opts = [];
+      if (type === 'single' || type === 'multiple') {
+        card.querySelectorAll('[data-preview] .form-check-label').forEach((lab, k) => {
+          const row = lab.closest('.form-check');
+          const checked = !!row?.querySelector('.correct-preview:checked');
+          opts.push({ label: lab.textContent.trim() || `Opción ${k+1}`, correct: !!checked });
+        });
+      }
+      const q = { id:`q${qseq}`, title:qTitle, type, required, order:j+1 };
+      if (opts.length) q.options = opts;
+      return q;
+    });
+
+    return { id: secId, title, order: idx+1, go_to: null, questions };
+  });
+
+  return normalize({
+    version: 1,
+    active: false,
+    lastSeq: { section: sections.length, question: qseq },
+    sections
+  });
+}
+
   let state = loadDraft();
 
   // ---------- HELPERS ----------
