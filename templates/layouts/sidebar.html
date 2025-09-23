@@ -82,13 +82,15 @@
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
-                
+                {% endif %} 
+                {% if perms.forms_requests.puede_solicitar_personal %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
                     </a>
                 </li>
-                
+                {% endif %} 
+                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i><span class="align-middle">Mis documentos</span>

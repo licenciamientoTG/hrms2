@@ -5,11 +5,46 @@
 {% endblock %}
 
 {% block page_title %}Panel de Encuestas{% endblock %}
-{% block title %}Panel de Encuestas{% endblock %}
 
 {% block content %}
-Aquí va a ir el panel de encuestas. del usuario
+<h2 class="mb-4">Encuestas</h2>
+<div class="surveys-page">
+  <!-- Buscador -->
+  <div class="surveys-search">
+    <span class="icon-search" aria-hidden="true"></span>
+    <input id="surveySearchInput" type="text" placeholder="Buscar encuestas" autocomplete="off">
+  </div>
+
+  <!-- Tabs -->
+  <div class="surveys-tabs" role="tablist" aria-label="Estados de encuestas">
+    <button id="tab-available" class="tab active" role="tab" aria-selected="true" data-target="available">
+      DISPONIBLES
+    </button>
+    <button id="tab-completed" class="tab" role="tab" aria-selected="false" data-target="completed">
+      COMPLETADOS
+    </button>
+  </div>
+
+  <!-- Listas -->
+  <div class="surveys-lists">
+    <!-- Disponibles -->
+    <ul id="list-available" class="survey-list" data-list="available">
+      <li class="survey-item" data-status="available" data-title="{{ label|lower }}">
+        <div class="left">
+          <span class="doc-icon" aria-hidden="true"></span>
+          <span class="title">{{ label }}</span>
+        </div>
+      </li>
+    </ul>
+
+    <!-- Completados -->
+    <ul id="list-completed" class="survey-list is-hidden" data-list="completed">
+      <!-- Dejar vacío o poblar con encuestas completadas -->
+    </ul>
+  </div>
+</div>
 {% endblock %}
+
 {% block scripts %}
   <script src="{% static 'js/survey.js' %}"></script>
 {% endblock %}

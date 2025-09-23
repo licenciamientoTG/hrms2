@@ -1652,3 +1652,34 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
     }
   });
 })();
+
+(function(){
+  const $ = (s,ctx=document)=>ctx.querySelector(s);
+  const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
+
+  // Tabs
+  const tabs = $$('.surveys-tabs .tab');
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabs.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const target = btn.dataset.target;
+      $$('.survey-list').forEach(list=>{
+        list.classList.toggle('is-hidden', list.dataset.list !== target);
+      });
+    });
+  });
+
+  // Search
+  const input = $('#surveySearchInput');
+  const filter = () => {
+    const term = (input.value || '').trim().toLowerCase();
+    const visibleList = $$('.survey-list').find(l=>!l.classList.contains('is-hidden')) || $('#list-available');
+    $$('.survey-item', visibleList).forEach(li=>{
+      const hay = li.dataset.title.includes(term);
+      li.style.display = hay ? '' : 'none';
+    });
+  };
+  input.addEventListener('input', filter);
+})();
