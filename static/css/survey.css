@@ -568,3 +568,10 @@
 @media (max-width: 640px){
   .title{ max-width: 58vw; }
 }
+
+.survey-item{ position: relative; }      /* para posicionar el link */
+.row-link{
+  position: absolute; inset: 0;          /* cubre toda la fila */
+  border-radius: inherit;
+}
+.row-link:focus{ outline: 2px solid #c7d2fe; outline-offset: -2px; }

@@ -17,6 +17,7 @@ from .services import persist_builder_state, persist_settings, persist_audience
 from django.core.paginator import Paginator
 from django.db.models import Case, When, Value, CharField, F
 from django.contrib import messages
+from django.urls import reverse
 
 
 try:
@@ -64,7 +65,37 @@ def survey_dashboard_admin(request):
 
 @login_required
 def survey_dashboard_user(request):
-    return render(request, 'surveys/user/survey_dashboard_user.html')
+    user = request.user
+
+    # Encuestas activas visibles para el usuario:
+    # - sin audiencia (por si alguna quedó sin crear)
+    # - o audiencia en modo "all"
+    # - o usuario en la M2M de audiencia.users
+    visible_qs = (
+        Survey.objects.filter(is_active=True)
+        .filter(
+            Q(audience__isnull=True) |
+            Q(audience__mode=SurveyAudience.MODE_ALL) |           # 'all'
+            Q(audience__mode__iexact='all') |                     # robusto por si hay mayúsculas
+            Q(audience__users=user)
+        )
+        .select_related('audience')
+        .order_by('title')
+        .distinct()
+    )
+
+    available = [{
+        "id": s.id,
+        "title": s.title,
+        "take_url": reverse("survey_take", args=[s.id]),
+        "status": "available",
+    } for s in visible_qs]
+
+    context = {
+        "available": available,
+        "completed": [],  # cuando tengamos submissions, lo llenamos
+    }
+    return render(request, "surveys/user/survey_dashboard_user.html", context)
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -475,10 +506,55 @@ def survey_edit(request, pk: int):
     ctx = {
         "survey": s,
         "sections": sections_qs,
-        # ASEGÚRATE de que estos JSON se escapen correctamente para HTML
         "builder_json": json.dumps(draft, ensure_ascii=False).replace('</script>', '<\\/script>'),
         "settings_json": json.dumps(settings_json, ensure_ascii=False).replace('</script>', '<\\/script>'),
         "audience_json": json.dumps(audience_json, ensure_ascii=False).replace('</script>', '<\\/script>'),
     }
-    # Reutilizamos la MISMA plantilla del builder de “Nueva encuesta”
     return render(request, "surveys/admin/survey_new.html", ctx)
+
+@login_required
+def surveys_panel(request):
+    user = request.user
+
+    # Encuestas activas visibles para el usuario:
+    # - audiencia modo "Todos"
+    # - o usuario incluido explícitamente en audience.users (M2M)
+    visible = (
+        Survey.objects.filter(is_active=True)
+        .filter(Q(audience__mode='all') | Q(audience__users=user))
+        .select_related('audience')
+        .order_by('title')
+        .distinct()
+    )
+
+    available = [{
+        "id": s.id,
+        "title": s.title,
+        "status": "available",
+        "take_url": reverse("surveys:take", args=[s.id]),
+    } for s in visible]
+
+    context = {
+        "available": available,
+        "completed": [],  # aún no distinguimos completadas (eso será con submissions)
+    }
+    return render(request, "surveys/panel.html", context)
+
+
+@login_required
+def take_survey(request, survey_id: int):
+    """Pantalla para 'realizar' la encuesta. Por ahora solo maqueta con título."""
+    survey = get_object_or_404(
+        Survey.objects.select_related("audience"),
+        pk=survey_id,
+        is_active=True
+    )
+
+    # (Opcional) aquí puedes validar que el usuario tenga acceso por audiencia:
+    aud = getattr(survey, "audience", None)
+    allowed = aud and (aud.mode == "all" or request.user in aud.users.all())
+    if not allowed:
+        # 403 suave con template propio si prefieres
+        return render(request, "surveys/not_allowed.html", {"survey": survey}, status=403)
+
+    return render(request, "surveys/take.html", {"survey": survey})

@@ -31,70 +31,71 @@
     });
     return s;
   }
-function loadDraft() {
-  // 0) Si existe un draft en localStorage para este ID, úsalo
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return normalize(JSON.parse(raw));
-  } catch {}
 
-  // 1) Si la plantilla inyectó preload (editar), úsalo y siembra settings/audience/title
-  try {
-    const preNode = document.getElementById('builderPreload');
-    if (preNode && preNode.textContent.trim()) {
-      const serverDraft = normalize(JSON.parse(preNode.textContent));
-      saveDraft(serverDraft);
+  // --- helpers para leer los <script type="application/json"> del template ---
+  function readScriptJSON(id){
+    const el = document.getElementById(id);
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || ''); } catch { return null; }
+  }
 
-      const sid   = (window.__SURVEY_PRELOAD__ && window.__SURVEY_PRELOAD__.id) || SURVEY_ID;
-      const title = (window.__SURVEY_PRELOAD__ && window.__SURVEY_PRELOAD__.title) || 'Encuesta sin título';
-      const settingsNode = document.getElementById('settingsPreload');
-      const audienceNode = document.getElementById('audiencePreload');
+  // Carga el estado inicial del builder
+  function loadDraft() {
+    // 0) Si hay draft local para este ID, úsalo
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return normalize(JSON.parse(raw));
+    } catch {}
 
-      if (sid && settingsNode?.textContent) {
-        localStorage.setItem(`survey:${sid}:settings`, settingsNode.textContent);
-      }
-      if (sid && audienceNode?.textContent) {
-        localStorage.setItem(`survey:${sid}:audience`, audienceNode.textContent);
-      }
-      if (sid) {
-        localStorage.setItem(`survey:${sid}:title`, String(title));
-      }
-      return serverDraft;
+    // 1) Si el servidor inyectó JSON (editar), úsalo y siembra settings/audience/título
+    const serverDraft =
+      readScriptJSON('builder-data') ||                // nuevo id del template
+      readScriptJSON('builderPreload');                // compat. con nombre viejo
+
+    if (serverDraft) {
+      const seed = normalize(serverDraft);
+      saveDraft(seed);
+
+      const sid = SURVEY_ID;
+      const settings = readScriptJSON('settings-data')  || readScriptJSON('settingsPreload') || {};
+      const audience = readScriptJSON('audience-data')  || readScriptJSON('audiencePreload') || {};
+      const titleText = (document.querySelector('#titleView .title-text')?.textContent || 'Encuesta sin título').trim();
+
+      localStorage.setItem(`survey:${sid}:settings`, JSON.stringify(settings));
+      localStorage.setItem(`survey:${sid}:audience`, JSON.stringify(audience));
+      localStorage.setItem(`survey:${sid}:title`,    titleText);
+      return seed;
     }
-  } catch (e) {
-    console.error('Preload parse error', e);
-  }
 
-  // 2) ⚠️ Si NO es “nuevo”, NO inventes inicial. Construye desde el DOM del servidor.
-  if (SURVEY_ID !== 'new') {
-    const fromDom = buildStateFromServerDOM();
-    if (fromDom) { saveDraft(fromDom); return fromDom; }
-    // último recurso: evita romper la UI devolviendo un esqueleto vacío
-    return normalize({ version:1, lastSeq:{section:0,question:0}, sections:[] });
-  }
+    // 2) Si NO es “new”, intenta reconstruir desde el DOM del servidor
+    if (SURVEY_ID !== 'new') {
+      const fromDom = buildStateFromServerDOM();
+      if (fromDom) { saveDraft(fromDom); return fromDom; }
+      return normalize({ version:1, lastSeq:{section:0,question:0}, sections:[] });
+    }
 
-  // 3) Solo para “nueva encuesta”, usa el inicial por defecto
-  const init = {
-    version: 1,
-    lastSeq: { section: 1, question: 1 },
-    sections: [{
-      id: 's1',
-      title: 'Sección 1',
-      order: 1,
-      go_to: null,
-      questions: [{
-        id: 'q1',
-        title: 'Pregunta 1',
-        type: 'single',
-        required: false,
+    // 3) NUEVA encuesta: esqueleto por defecto
+    const init = {
+      version: 1,
+      lastSeq: { section: 1, question: 1 },
+      sections: [{
+        id: 's1',
+        title: 'Sección 1',
         order: 1,
-        options: ['Opción 1']
+        go_to: null,
+        questions: [{
+          id: 'q1',
+          title: 'Pregunta 1',
+          type: 'single',
+          required: false,
+          order: 1,
+          options: [{ label: 'Opción 1', correct: false }]
+        }]
       }]
-    }]
-  };
-  saveDraft(init);
-  return init;
-}
+    };
+    saveDraft(init);
+    return init;
+  }
 
 // Convierte lo que venía renderizado por Django en estado del builder
 function buildStateFromServerDOM(){
@@ -1242,6 +1243,26 @@ function buildStateFromServerDOM(){
       posTitleMap[key].ids.push(p.id);
     });
 
+    // ⚠️ Si BD guardó IDs (filters.positions) pero no títulos, derivamos titles aquí:
+    if ((!s.filters.positionsTitles || !s.filters.positionsTitles.length) &&
+        s.filters.positions && s.filters.positions.length) {
+      const idSet = new Set(s.filters.positions.map(String));
+      const titles = new Set();
+      (positions || []).forEach(p => {
+        if (idSet.has(String(p.id))) {
+          const key = (p.title || '').trim().toLowerCase();
+          if (key) titles.add(key);
+        }
+      });
+      s.filters.positionsTitles = [...titles];
+      localStorage.setItem(LS_KEY, JSON.stringify(s)); // persistimos para que la UI marque bien
+    }
+
+    // Restaurar selección en la lista de Posiciones por título
+    selectedPosTitles = new Set(s.filters.positionsTitles || []);
+    renderPositionList();
+
+
     // Restaurar títulos seleccionados y render
     selectedPosTitles = new Set(s.filters.positionsTitles || []);
     renderPositionList();
@@ -1556,24 +1577,13 @@ function blockSurveyAutosaveWrites() {
 })();
 
 function clearSurveyStorage() {
-  const strip = document.getElementById("sectionsStrip");
-  const SURVEY_ID = strip?.dataset.surveyId || "new";
-
+  // Borra absolutamente todo lo que empiece con "survey:"
   for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-
-    // Borra todo lo que empiece con survey:<id>: o survey:new:
-    if (key.startsWith(`survey:${SURVEY_ID}:`) || key === `survey:draft:${SURVEY_ID}`) {
-      localStorage.removeItem(key);
-    }
-
-    // Caso especial: cuando se trabaja con encuesta "nueva"
-    if (SURVEY_ID === "new" && key.startsWith("survey:new:")) {
-      localStorage.removeItem(key);
-    }
+    const k = localStorage.key(i);
+    if (k && k.startsWith('survey:')) localStorage.removeItem(k);
   }
 }
+
 
 document.getElementById("btnCancelSurvey")?.addEventListener("click", function (e) {
   e.preventDefault();
@@ -1588,11 +1598,17 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
     confirmButtonText: "Sí, cancelar",
     cancelButtonText: "Volver"
   }).then((result) => {
-    if (result.isConfirmed) {
-      window.__SURVEY_CANCELING__ = true;
-      clearSurveyStorage();
-      location.replace(this.href); 
-    }
+    if (!result.isConfirmed) return;
+
+    // Evita que cualquier módulo vuelva a escribir survey:* al salir
+    window.__SURVEY_NAVIGATING__ = 'cancel';
+    blockSurveyAutosaveWrites();
+
+    // Borra todo lo de survey:*
+    clearSurveyStorage();
+
+    // Navega
+    location.replace(this.href);
   });
 });
 
@@ -1651,35 +1667,4 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
       btn.classList.remove('disabled');
     }
   });
-})();
-
-(function(){
-  const $ = (s,ctx=document)=>ctx.querySelector(s);
-  const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
-
-  // Tabs
-  const tabs = $$('.surveys-tabs .tab');
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabs.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const target = btn.dataset.target;
-      $$('.survey-list').forEach(list=>{
-        list.classList.toggle('is-hidden', list.dataset.list !== target);
-      });
-    });
-  });
-
-  // Search
-  const input = $('#surveySearchInput');
-  const filter = () => {
-    const term = (input.value || '').trim().toLowerCase();
-    const visibleList = $$('.survey-list').find(l=>!l.classList.contains('is-hidden')) || $('#list-available');
-    $$('.survey-item', visibleList).forEach(li=>{
-      const hay = li.dataset.title.includes(term);
-      li.style.display = hay ? '' : 'none';
-    });
-  };
-  input.addEventListener('input', filter);
 })();
