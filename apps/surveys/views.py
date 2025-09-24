@@ -18,6 +18,7 @@ from django.core.paginator import Paginator
 from django.db.models import Case, When, Value, CharField, F
 from django.contrib import messages
 from django.urls import reverse
+from django.db.models import Prefetch
 
 
 try:
@@ -87,7 +88,7 @@ def survey_dashboard_user(request):
     available = [{
         "id": s.id,
         "title": s.title,
-        "take_url": reverse("survey_take", args=[s.id]),
+        "take_url": reverse("survey_view", args=[s.id]),
         "status": "available",
     } for s in visible_qs]
 
@@ -542,19 +543,87 @@ def surveys_panel(request):
 
 
 @login_required
-def take_survey(request, survey_id: int):
-    """Pantalla para 'realizar' la encuesta. Por ahora solo maqueta con título."""
+def survey_view(request, survey_id: int):
     survey = get_object_or_404(
         Survey.objects.select_related("audience"),
         pk=survey_id,
         is_active=True
     )
 
-    # (Opcional) aquí puedes validar que el usuario tenga acceso por audiencia:
+    # Acceso por audiencia: permite sin audiencia, o modo 'all', o si el usuario está incluido
     aud = getattr(survey, "audience", None)
-    allowed = aud and (aud.mode == "all" or request.user in aud.users.all())
+    allowed = (
+        aud is None
+        or getattr(aud, "mode", "").lower() == "all"
+        or aud.users.filter(pk=request.user.pk).exists()
+    )
     if not allowed:
-        # 403 suave con template propio si prefieres
         return render(request, "surveys/not_allowed.html", {"survey": survey}, status=403)
 
-    return render(request, "surveys/take.html", {"survey": survey})
+    sections = _sections_for_template(survey)
+
+    ctx = {
+        "survey": {"id": survey.id, "title": survey.title},
+        "sections": sections,
+        "post_url": request.path,  # o reverse("survey_submit", args=[survey.id]) si ya tienes esa url
+    }
+    return render(request, "surveys/user/survey_view.html", ctx)
+
+
+def _sections_for_template(survey) -> list[dict]:
+    # Carga eficiente de relaciones
+    q_qs = (SurveyQuestion.objects
+            .order_by("order", "pk")
+            .prefetch_related(
+                Prefetch(
+                    "options",
+                    queryset=SurveyOption.objects
+                        .select_related("branch_to_section")
+                        .order_by("order", "pk")
+                )
+            ))
+
+    sections_qs = (survey.sections
+                   .select_related("go_to_section")
+                   .prefetch_related(Prefetch("questions", queryset=q_qs))
+                   .order_by("order", "pk"))
+
+    out = []
+    for s in sections_qs:
+        sec = {
+            "id":     f"s{s.pk}",
+            "title":  s.title,
+            "order":  s.order,
+            "go_to":  ("submit" if s.submit_on_finish
+                       else (f"s{s.go_to_section_id}" if s.go_to_section_id else None)),
+            "questions": []
+        }
+
+        for q in s.questions.all():
+            qd = {
+                "id":       f"q{q.pk}",
+                "title":    q.title,
+                "type":     q.qtype,           # single | multiple | text | integer | decimal | rating | none
+                "required": bool(q.required),
+                "options":  [],
+                "branch":   None,
+            }
+
+            if q.qtype in {"single", "multiple", "dropdown"}:
+                opts = list(q.options.all())
+                qd["options"] = [{"label": o.label} for o in opts]
+
+                # Branching por opción (solo SINGLE)
+                if q.qtype == "single" and q.branch_enabled:
+                    by = {}
+                    for idx, o in enumerate(opts):
+                        if o.branch_to_section_id:
+                            by[idx] = f"s{o.branch_to_section_id}"
+                    if by:
+                        qd["branch"] = {"enabled": True, "byOption": by}
+
+            sec["questions"].append(qd)
+
+        out.append(sec)
+
+    return out

@@ -1,0 +1,251 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/survey.css' %}">
+{% endblock %}
+
+{% block page_title %}Responder encuesta{% endblock %}
+
+{% block content %}
+<div class="container my-3" id="surveyApp" data-survey-id="{{ survey.id }}">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-9">
+
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <a href="javascript:history.back()" class="btn btn-link p-0" aria-label="Atrás"><i class="bi bi-arrow-left"></i></a>
+        <h2>{{ survey.title|default:'Encuesta' }}</h2>
+      </div>
+
+
+      <div class="small text-danger mb-3">* Obligatorio</div>
+
+      <form id="surveyForm" method="post" action="{{ post_url|default:request.get_full_path }}" novalidate>
+        {% csrf_token %}
+
+        <div id="sectionsStrip">
+          {# === SECCIONES === #}
+          {% for sec in sections %}
+          <section class="survey-section" data-section-id="{{ sec.id }}" data-order="{{ sec.order }}" data-go-to="{{ sec.go_to|default_if_none:'' }}" {% if not forloop.first %}hidden{% endif %}>
+
+            {% if sec.title %}
+              <h3 class="h6 text-primary mb-3">{{ sec.title }}</h3>
+            {% endif %}
+
+            {# === PREGUNTAS === #}
+            {% for q in sec.questions %}
+            <div class="card mb-3 shadow-sm border-0 q-card" data-question-id="{{ q.id }}" data-type="{{ q.type }}" data-required="{{ q.required|yesno:'true,false' }}">
+              <div class="card-body">
+                <label class="fw-semibold mb-2 q-title" for="q_{{ q.id }}">
+                  {{ q.title }}{% if q.required %} <span class="text-danger" title="Obligatorio">*</span>{% endif %}
+                </label>
+
+                <div class="q-body">
+                  {% if q.type == 'single' %}
+                    {% for opt in q.options %}
+                    <div class="form-check mb-1">
+                      <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_{{ forloop.counter0 }}" value="{{ forloop.counter0 }}">
+                      <label class="form-check-label" for="q{{ q.id }}_{{ forloop.counter0 }}">{{ opt.label }}</label>
+                    </div>
+                    {% endfor %}
+
+                    {# Si hay branching para esta pregunta, insertamos el mapa como JSON #}
+                    {% if q.branch and q.branch.enabled %}
+                      {% with 'branch_'|add:q.id as bid %}
+                        {{ q.branch.byOption|json_script:bid }}
+                        <input type="hidden" data-branch-id="{{ bid }}" data-for-question="{{ q.id }}">
+                      {% endwith %}
+                    {% endif %}
+
+                  {% elif q.type == 'multiple' %}
+                    {% for opt in q.options %}
+                    <div class="form-check mb-1">
+                      <input class="form-check-input" type="checkbox" name="q_{{ q.id }}[]" id="q{{ q.id }}_{{ forloop.counter0 }}" value="{{ forloop.counter0 }}">
+                      <label class="form-check-label" for="q{{ q.id }}_{{ forloop.counter0 }}">{{ opt.label }}</label>
+                    </div>
+                    {% endfor %}
+
+                  {% elif q.type == 'dropdown' %}
+                    <select class="form-select" id="q_{{ q.id }}" name="q_{{ q.id }}">
+                      <option value="">Seleccione…</option>
+                      {% for opt in q.options %}
+                        <option value="{{ forloop.counter0 }}">{{ opt.label }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% elif q.type == 'text' %}
+                    <textarea class="form-control" id="q_{{ q.id }}" name="q_{{ q.id }}" rows="3" placeholder="Escribe tu respuesta…"></textarea>
+
+                  {% elif q.type == 'integer' or q.type == 'decimal' %}
+                    <input class="form-control" id="q_{{ q.id }}" name="q_{{ q.id }}" type="number" {% if q.type == 'integer' %}step="1"{% else %}step="any"{% endif %}>
+
+                  {% elif q.type == 'rating' %}
+                    <div class="rating" data-max="5">
+                      {% for i in '12345' %}
+                        <input class="btn-check" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_r{{ forloop.counter }}" value="{{ forloop.counter }}">
+                        <label class="btn btn-outline-secondary btn-sm me-1" for="q{{ q.id }}_r{{ forloop.counter }}">★ {{ forloop.counter }}</label>
+                      {% endfor %}
+                    </div>
+
+                  {% else %}
+                    <input class="form-control" id="q_{{ q.id }}" name="q_{{ q.id }}" type="text">
+                  {% endif %}
+                </div>
+                {% if q.required %}
+                <div class="invalid-feedback d-block small mt-2" data-error-for="q_{{ q.id }}" hidden>
+                  Esta pregunta es obligatoria.
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </section>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex align-items-center gap-3 mt-3 sticky-bottom bg-white py-3 border-top" id="navBar">
+          <button type="button" class="btn btn-light" id="btnPrev" disabled>⟵ Atrás</button>
+          <div class="flex-grow-1">
+            <div class="progress" role="progressbar" aria-label="Progreso">
+              <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="text-center small text-muted mt-1"><span id="pageNum">1</span>/<span id="pageTotal">{{ sections|length }}</span></div>
+          </div>
+          <button type="button" class="btn btn-success" id="btnNext">Siguiente</button>
+          <button type="submit" class="btn btn-primary d-none" id="btnSubmit">Enviar</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const strip = document.getElementById('sectionsStrip');
+  if(!strip) return;
+
+  const sections = [...strip.querySelectorAll('.survey-section')]
+    .sort((a,b)=>Number(a.dataset.order||0)-Number(b.dataset.order||0));
+  const idToSection = Object.fromEntries(sections.map(s=>[s.dataset.sectionId, s]));
+
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const btnSubmit = document.getElementById('btnSubmit');
+  const pageNumEl = document.getElementById('pageNum');
+  const pageTotalEl = document.getElementById('pageTotal');
+  const progressBar = document.getElementById('progressBar');
+
+  let idx = 0;
+  pageTotalEl.textContent = String(sections.length);
+
+  function showAt(i){
+    idx = Math.max(0, Math.min(sections.length-1, i));
+    sections.forEach((s,k)=> s.hidden = (k !== idx));
+
+    btnPrev.disabled = (idx === 0);
+    const last = (idx === sections.length-1);
+    btnNext.classList.toggle('d-none', last);
+    btnSubmit.classList.toggle('d-none', !last);
+
+    pageNumEl.textContent = String(idx+1);
+    progressBar.style.width = Math.round(((idx+1)/sections.length)*100) + '%';
+  }
+
+  function getBranchMapForQuestion(qCard){
+    const hid = qCard.querySelector('[data-branch-id]');
+    if(!hid) return null;
+    const id = hid.getAttribute('data-branch-id');
+    const el = document.getElementById(id);
+    if(!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
+  }
+
+  function getNextSectionIdFromCurrent(){
+    const current = sections[idx];
+
+    // 1) Branching por opción (solo single)
+    const singles = [...current.querySelectorAll('.q-card[data-type="single"]')];
+    for(const card of singles){
+      const name = 'q_' + card.dataset.questionId;
+      const chosen = card.querySelector('input[type="radio"][name="'+name+'"]:checked');
+      if(chosen){
+        const map = getBranchMapForQuestion(card);
+        if(map){
+          const key = String(chosen.value);
+          if(map[key]) return map[key]; // 'submit' o id de sección
+        }
+      }
+    }
+
+    // 2) go_to a nivel sección
+    const setDest = current.dataset.goTo || '';
+    if(setDest) return setDest;
+
+    // 3) siguiente por orden
+    const n = sections[idx+1];
+    return n ? n.dataset.sectionId : '';
+  }
+
+  function validateSection(section){
+    let ok = true;
+    const required = section.querySelectorAll('.q-card[data-required="true"]');
+    required.forEach(card=>{
+      const qid = card.dataset.questionId;
+      const type = card.dataset.type;
+      const err = card.querySelector('[data-error-for="q_'+qid+'"]');
+      let filled = false;
+      if(type==='single' || type==='rating'){
+        filled = !!card.querySelector('input[type="radio"]:checked');
+      } else if(type==='multiple'){
+        filled = !!card.querySelector('input[type="checkbox"]:checked');
+      } else {
+        const inp = card.querySelector('[name="q_'+qid+'"], [name="q_'+qid+'[]"]');
+        if(inp){
+          if(inp.tagName==='SELECT') filled = !!inp.value;
+          else filled = !!(inp.value && inp.value.trim());
+        }
+      }
+      if(err) err.hidden = filled;
+      ok = ok && filled;
+    });
+    return ok;
+  }
+
+  btnPrev.addEventListener('click', ()=> showAt(idx-1));
+
+  btnNext.addEventListener('click', ()=>{
+    const current = sections[idx];
+    if(!validateSection(current)){
+      current.scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
+    const dest = getNextSectionIdFromCurrent();
+    if(dest === 'submit'){
+      showAt(sections.length-1);
+      btnNext.classList.add('d-none');
+      btnSubmit.classList.remove('d-none');
+      return;
+    }
+    if(dest && idToSection[dest]){
+      showAt(sections.indexOf(idToSection[dest]));
+    } else {
+      showAt(idx+1);
+    }
+  });
+
+  document.getElementById('surveyForm').addEventListener('submit', (e)=>{
+    const current = sections[idx];
+    if(!validateSection(current)){
+      e.preventDefault();
+      current.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  });
+
+  showAt(0);
+})();
+</script>
+<script src="{% static 'js/survey.js' %}"></script>
+{% endblock %}

@@ -24,6 +24,8 @@
                         <i class="fa-solid fa-user"></i></i><span class="align-middle">Usuarios</span>
                     </a>
                 </li>
+                {% endif %}
+                {% if perms.forms_requests.puede_solicitar_personal %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
@@ -70,13 +72,15 @@
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
-
+{% endif %} 
+                {% if perms.forms_requests.puede_solicitar_personal %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
-
+{% endif %}
+                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
