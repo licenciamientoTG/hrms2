@@ -34,7 +34,7 @@
 
             {# === PREGUNTAS === #}
             {% for q in sec.questions %}
-            <div class="card mb-3 shadow-sm border-0 q-card" data-question-id="{{ q.id }}" data-type="{{ q.type }}" data-required="{{ q.required|yesno:'true,false' }}">
+            <div class="card mb-3 shadow-sm border-0 q-card rounded-4" data-question-id="{{ q.id }}" data-type="{{ q.type }}" data-required="{{ q.required|yesno:'true,false' }}">
               <div class="card-body">
                 <label class="fw-semibold mb-2 q-title" for="q_{{ q.id }}">
                   {{ q.title }}{% if q.required %} <span class="text-danger" title="Obligatorio">*</span>{% endif %}
