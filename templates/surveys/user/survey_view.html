@@ -88,9 +88,6 @@
                         <label class="btn btn-outline-secondary btn-sm me-1" for="q{{ q.id }}_r{{ forloop.counter }}">★ {{ forloop.counter }}</label>
                       {% endfor %}
                     </div>
-
-                  {% else %}
-                    <input class="form-control" id="q_{{ q.id }}" name="q_{{ q.id }}" type="text">
                   {% endif %}
                 </div>
                 {% if q.required %}
