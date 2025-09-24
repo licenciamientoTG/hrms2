@@ -1668,3 +1668,66 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
     }
   });
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('surveySearchInput');
+  if (!input) return;
+
+  const lists = [
+    document.getElementById('list-available'),
+    document.getElementById('list-completed')
+  ].filter(Boolean);
+
+  // normaliza: minúsculas y sin acentos
+  const norm = s => (s||'')
+    .toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim();
+
+  function getPlaceholderRow(ul){
+    // Reutiliza el placeholder existente (el <li> sin data-status) o crea uno
+    let row = ul.querySelector('.survey-item:not([data-status])');
+    if (!row) {
+      row = document.createElement('li');
+      row.className = 'survey-item';
+      row.innerHTML = `
+        <div class="left">
+          <span class="title" style="font-weight:500;color:#6b7280;"></span>
+        </div>`;
+      ul.appendChild(row);
+    }
+    return row;
+  }
+
+  function applyFilter(){
+    const q = norm(input.value);
+
+    lists.forEach(ul => {
+      const items = [...ul.querySelectorAll('.survey-item[data-status]')]; // solo encuestas reales
+      const placeholder = getPlaceholderRow(ul);
+
+      let visible = 0;
+      items.forEach(li => {
+        const title = li.dataset.title || li.querySelector('.title')?.textContent || '';
+        const ok = !q || norm(title).includes(q);
+        li.hidden = !ok;
+        if (ok) visible++;
+      });
+
+      // Mensaje según haya resultados o no
+      const msgEl = placeholder.querySelector('.title');
+      if (visible === 0) {
+        msgEl.textContent = q ? `No hay resultados para “${input.value}”.` : `No tienes encuestas disponibles.`;
+        placeholder.hidden = false;
+      } else {
+        placeholder.hidden = true;
+      }
+    });
+  }
+
+  // filtra mientras escribes; Esc borra
+  input.addEventListener('input', applyFilter);
+  input.addEventListener('keydown', e => { if (e.key === 'Escape'){ input.value=''; applyFilter(); }});
+
+  applyFilter(); // estado inicial
+});
