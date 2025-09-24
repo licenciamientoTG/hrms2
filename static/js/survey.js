@@ -163,7 +163,7 @@ function buildStateFromServerDOM(){
     return null;
   }
   function ensureOptionsShape(q) {
-    const optTypes = new Set(['single', 'multiple', 'dropdown']);
+    const optTypes = new Set(['single', 'multiple', 'assessment', 'frecuency']);
     if (optTypes.has(q.type)) {
       q.options ||= [];
       // MIGRACIÓN: si vienen como strings => volver objetos
@@ -620,6 +620,8 @@ function buildStateFromServerDOM(){
       single:   {short:'ÚN',   long:'Opciones (selección única)', cls:'qtype-single'},
       multiple: {short:'MULT', long:'Opciones (selección múltiple)', cls:'qtype-multiple'},
       rating:   {short:'★',    long:'Calificación',             cls:'qtype-rating'},
+      assessment:{short:'ASG', long:'Evaluación',               cls:'qtype-assessment'},
+      frecuency: {short:'FREC', long:'Frecuencia',              cls:'qtype-frecuency'},
       none:     {short:'—',    long:'Sin respuesta',            cls:'qtype-none'},
     };
     return map[t] || {short:t || '?', long:'Tipo desconocido', cls:'qtype-none'};

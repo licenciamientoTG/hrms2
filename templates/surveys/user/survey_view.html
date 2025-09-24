@@ -67,13 +67,73 @@
                     </div>
                     {% endfor %}
 
-                  {% elif q.type == 'dropdown' %}
-                    <select class="form-select" id="q_{{ q.id }}" name="q_{{ q.id }}">
-                      <option value="">Seleccione…</option>
+                    {% elif q.type == 'assessment' %}
+                    {# Si vinieran opciones desde BD, úsalas; si no, usa la escala por defecto #}
+                    {% if q.options and q.options|length %}
                       {% for opt in q.options %}
-                        <option value="{{ forloop.counter0 }}">{{ opt.label }}</option>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio"
+                               name="q_{{ q.id }}" id="q{{ q.id }}_{{ forloop.counter0 }}"
+                               value="{{ forloop.counter0 }}">
+                        <label class="form-check-label" for="q{{ q.id }}_{{ forloop.counter0 }}">{{ opt.label }}</label>
+                      </div>
                       {% endfor %}
-                    </select>
+                    {% else %}
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_0" value="0">
+                        <label class="form-check-label" for="q{{ q.id }}_0">Muy positivo</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_1" value="1">
+                        <label class="form-check-label" for="q{{ q.id }}_1">Positivo</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_2" value="2">
+                        <label class="form-check-label" for="q{{ q.id }}_2">Neutral</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_3" value="3">
+                        <label class="form-check-label" for="q{{ q.id }}_3">Negativo</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_4" value="4">
+                        <label class="form-check-label" for="q{{ q.id }}_4">Muy Negativo</label>
+                      </div>
+                    {% endif %}
+
+                  {% elif q.type == 'frecuency' %}
+                    {# Si vinieran opciones desde BD, úsalas; si no, usa la escala por defecto #}
+                    {% if q.options and q.options|length %}
+                      {% for opt in q.options %}
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio"
+                               name="q_{{ q.id }}" id="q{{ q.id }}_{{ forloop.counter0 }}"
+                               value="{{ forloop.counter0 }}">
+                        <label class="form-check-label" for="q{{ q.id }}_{{ forloop.counter0 }}">{{ opt.label }}</label>
+                      </div>
+                      {% endfor %}
+                    {% else %}
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_0" value="0">
+                        <label class="form-check-label" for="q{{ q.id }}_0">Siempre</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_1" value="1">
+                        <label class="form-check-label" for="q{{ q.id }}_1">Casi siempre</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_2" value="2">
+                        <label class="form-check-label" for="q{{ q.id }}_2">Algunas veces</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_3" value="3">
+                        <label class="form-check-label" for="q{{ q.id }}_3">Casi nunca</label>
+                      </div>
+                      <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_4" value="4">
+                        <label class="form-check-label" for="q{{ q.id }}_4">Nunca</label>
+                      </div>
+                    {% endif %}
 
                   {% elif q.type == 'text' %}
                     <textarea class="form-control" id="q_{{ q.id }}" name="q_{{ q.id }}" rows="3" placeholder="Escribe tu respuesta…"></textarea>
@@ -225,7 +285,7 @@
       const type = card.dataset.type;
       const err = card.querySelector('[data-error-for="q_'+qid+'"]');
       let filled = false;
-      if(type==='single' || type==='rating'){
+      if (type === 'single' || type === 'rating' || type === 'frecuency' || type === 'assessment') {
         filled = !!card.querySelector('input[type="radio"]:checked');
       } else if(type==='multiple'){
         filled = !!card.querySelector('input[type="checkbox"]:checked');
