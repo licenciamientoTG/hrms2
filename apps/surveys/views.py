@@ -565,7 +565,8 @@ def survey_view(request, survey_id: int):
     ctx = {
         "survey": {"id": survey.id, "title": survey.title},
         "sections": sections,
-        "post_url": request.path,  # o reverse("survey_submit", args=[survey.id]) si ya tienes esa url
+        "post_url": request.path,  
+        "back_url": reverse("survey_dashboard_user"),
     }
     return render(request, "surveys/user/survey_view.html", ctx)
 

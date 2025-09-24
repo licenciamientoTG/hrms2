@@ -13,14 +13,16 @@
     <div class="col-12 col-lg-10 col-xl-9">
 
       <div class="d-flex align-items-center gap-2 mb-3">
-        <a href="javascript:history.back()" class="btn btn-link p-0" aria-label="Atrás"><i class="bi bi-arrow-left"></i></a>
+        <a href="{{ back_url }}" data-back-link class="btn btn-link p-0" aria-label="Regresar">
+          <i class="bi bi-arrow-left"></i>
+        </a>        
         <h2>{{ survey.title|default:'Encuesta' }}</h2>
       </div>
 
 
       <div class="small text-danger mb-3">* Obligatorio</div>
 
-      <form id="surveyForm" method="post" action="{{ post_url|default:request.get_full_path }}" novalidate>
+      <form id="surveyForm" method="post" action="{{ post_url|default:request.get_full_path }}" data-back-url="{{ back_url }}" novalidate>
         {% csrf_token %}
 
         <div id="sectionsStrip">
@@ -103,7 +105,7 @@
           {% endfor %}
         </div>
 
-        <div class="d-flex align-items-center gap-3 mt-3 sticky-bottom bg-white py-3 border-top" id="navBar">
+        <div class="d-flex align-items-center gap-3 mt-3 sticky-bottom py-3 border-top" id="navBar">
           <button type="button" class="btn btn-light" id="btnPrev" disabled>⟵ Atrás</button>
           <div class="flex-grow-1">
             <div class="progress" role="progressbar" aria-label="Progreso">
@@ -126,6 +128,24 @@
 (function(){
   const strip = document.getElementById('sectionsStrip');
   if(!strip) return;
+  
+  const form = document.getElementById('surveyForm');
+  const backUrl = form?.dataset.backUrl || document.referrer || '/';
+
+  function goBackSmart(){
+    const ref = document.referrer || '';
+    try {
+      const sameOrigin = ref && new URL(ref, location.href).origin === location.origin;
+      if (history.length > 1 && sameOrigin) history.back();
+      else location.assign(backUrl);
+    } catch { location.assign(backUrl); }
+  }
+
+  // clic del ícono de regresar del header
+  document.querySelector('[data-back-link]')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    goBackSmart();
+  });
 
   const sections = [...strip.querySelectorAll('.survey-section')]
     .sort((a,b)=>Number(a.dataset.order||0)-Number(b.dataset.order||0));
@@ -138,6 +158,17 @@
   const pageTotalEl = document.getElementById('pageTotal');
   const progressBar = document.getElementById('progressBar');
 
+  // ====== (arriba) NO BORRAR ESTA LÍNEA ======
+  function updatePrevButton(){
+    const atStart = (idx === 0);
+    btnPrev.textContent = atStart ? '⟵ Regresar' : '⟵ Atrás';
+    btnPrev.disabled = false;
+    btnPrev.classList.toggle('btn-outline-secondary', atStart);
+    btnPrev.classList.toggle('btn-light', !atStart);
+  }
+  // ====== (abajo) NO BORRAR ESTA LÍNEA ======
+
+
   let idx = 0;
   pageTotalEl.textContent = String(sections.length);
 
@@ -145,7 +176,7 @@
     idx = Math.max(0, Math.min(sections.length-1, i));
     sections.forEach((s,k)=> s.hidden = (k !== idx));
 
-    btnPrev.disabled = (idx === 0);
+    updatePrevButton();
     const last = (idx === sections.length-1);
     btnNext.classList.toggle('d-none', last);
     btnSubmit.classList.toggle('d-none', !last);
@@ -214,8 +245,11 @@
     return ok;
   }
 
-  btnPrev.addEventListener('click', ()=> showAt(idx-1));
-
+  btnPrev.addEventListener('click', ()=>{
+    if (idx === 0) goBackSmart();
+    else showAt(idx-1);
+  });
+  
   btnNext.addEventListener('click', ()=>{
     const current = sections[idx];
     if(!validateSection(current)){
