@@ -88,7 +88,7 @@ def survey_dashboard_user(request):
     available = [{
         "id": s.id,
         "title": s.title,
-        "take_url": reverse("survey_view", args=[s.id]),
+        "take_url": reverse("survey_view_user", args=[s.id]),
         "status": "available",
     } for s in visible_qs]
 
@@ -543,7 +543,7 @@ def surveys_panel(request):
 
 
 @login_required
-def survey_view(request, survey_id: int):
+def survey_view_user(request, survey_id: int):
     survey = get_object_or_404(
         Survey.objects.select_related("audience"),
         pk=survey_id,
@@ -568,7 +568,7 @@ def survey_view(request, survey_id: int):
         "post_url": request.path,  
         "back_url": reverse("survey_dashboard_user"),
     }
-    return render(request, "surveys/user/survey_view.html", ctx)
+    return render(request, "surveys/user/survey_view_user.html", ctx)
 
 
 def _sections_for_template(survey) -> list[dict]:
