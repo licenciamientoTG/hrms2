@@ -227,6 +227,14 @@
   const pageTotalEl = document.getElementById('pageTotal');
   const progressBar = document.getElementById('progressBar');
 
+  function updatePrevButton(){
+    const atStart = (idx === 0);
+    btnPrev.textContent = atStart ? '⟵ Regresar' : '⟵ Atrás';
+    btnPrev.disabled = false;
+    btnPrev.classList.toggle('btn-outline-secondary', atStart);
+    btnPrev.classList.toggle('btn-light', !atStart);
+  }
+
   let idx = 0;
   pageTotalEl.textContent = String(sections.length);
 
@@ -234,12 +242,49 @@
     idx = Math.max(0, Math.min(sections.length-1, i));
     sections.forEach((s,k)=> s.hidden = (k !== idx));
 
+    updatePrevButton();
     const last = (idx === sections.length-1);
     btnNext.classList.toggle('d-none', last);
     btnSubmit.classList.toggle('d-none', !last);
 
     pageNumEl.textContent = String(idx+1);
     progressBar.style.width = Math.round(((idx+1)/sections.length)*100) + '%';
+  }
+
+  
+  function getBranchMapForQuestion(qCard){
+    const hid = qCard.querySelector('[data-branch-id]');
+    if(!hid) return null;
+    const id = hid.getAttribute('data-branch-id');
+    const el = document.getElementById(id);
+    if(!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
+  }
+
+  function getNextSectionIdFromCurrent(){
+    const current = sections[idx];
+
+    // 1) Branching por opción (solo single)
+    const singles = [...current.querySelectorAll('.q-card[data-type="single"]')];
+    for(const card of singles){
+      const name = 'q_' + card.dataset.questionId;
+      const chosen = card.querySelector('input[type="radio"][name="'+name+'"]:checked');
+      if(chosen){
+        const map = getBranchMapForQuestion(card);
+        if(map){
+          const key = String(chosen.value);
+          if(map[key]) return map[key]; // 'submit' o id de sección
+        }
+      }
+    }
+
+    // 2) go_to a nivel sección
+    const setDest = current.dataset.goTo || '';
+    if(setDest) return setDest;
+
+    // 3) siguiente por orden
+    const n = sections[idx+1];
+    return n ? n.dataset.sectionId : '';
   }
 
   function validateSection(section){
@@ -267,7 +312,10 @@
     return ok;
   }
 
-  btnPrev.addEventListener('click', ()=>{ showAt(idx-1); });
+  btnPrev.addEventListener('click', ()=>{
+    if (idx === 0) goBackSmart();
+    else showAt(idx-1);
+  });
   btnNext.addEventListener('click', ()=>{ 
     const current = sections[idx];
     if(!validateSection(current)){
