@@ -1,6 +1,7 @@
-# surveys/models.py
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Survey(models.Model):
@@ -50,6 +51,8 @@ class SurveyQuestion(models.Model):
     MULTIPLE = 'multiple'
     RATING   = 'rating'
     NONE     = 'none'
+    ASSESSMENT = 'assessment'
+    FRECUENCY  = 'frecuency'
 
     TYPES = [
         (TEXT, 'Texto'),
@@ -58,6 +61,8 @@ class SurveyQuestion(models.Model):
         (SINGLE, 'Opciones (selección única)'),
         (MULTIPLE, 'Opciones (selección múltiple)'),
         (RATING, 'Calificación'),
+        (ASSESSMENT,'Evaluación'), 
+        (FRECUENCY,'Frecuencia'),
         (NONE, 'Sin respuesta'),
     ]
 
@@ -118,3 +123,59 @@ class SurveyAudience(models.Model):
 
     def __str__(self):
         return f'Audiencia de "{self.survey}"'
+
+User = settings.AUTH_USER_MODEL
+
+class SurveyResponse(models.Model):
+    """Una “sesión” de respuesta a una encuesta."""
+    survey = models.ForeignKey('surveys.Survey', on_delete=models.PROTECT, related_name='responses')
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='survey_responses')
+    # Si la encuesta es anónima, guarda user=None
+    started_at = models.DateTimeField(default=timezone.now)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=[('submitted', 'Enviada'), ('draft', 'Borrador')], default='submitted')
+    meta = models.JSONField(default=dict, blank=True)  # ip, user-agent, etc.
+    # Snapshot opcional por si versionas encuestas
+    survey_title = models.CharField(max_length=255, blank=True, default='')
+
+    def __str__(self):
+        who = 'Anónimo' if not self.user else str(self.user)
+        return f'Respuesta {self.id} · {self.survey} · {who}'
+
+
+class SurveyAnswer(models.Model):
+    """
+    Respuesta a una pregunta.
+    Usamos columnas “union” para cada tipo de dato y un JSON para extras.
+    """
+    response = models.ForeignKey(SurveyResponse, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey('surveys.SurveyQuestion', on_delete=models.PROTECT, related_name='answers')
+
+    # Guardamos el tipo/título como snapshot para robustez si editas la encuesta después
+    q_type = models.CharField(max_length=20)               # single/multiple/text/integer/decimal/rating/assessment/frecuency
+    q_title = models.TextField()
+    required = models.BooleanField(default=False)
+    order = models.IntegerField(default=0)
+
+    # Valores por tipo (rellenas UN campo según el tipo)
+    value_text = models.TextField(null=True, blank=True)                   # text
+    value_int = models.IntegerField(null=True, blank=True)                 # integer / rating
+    value_decimal = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)  # decimal
+    value_choice = models.IntegerField(null=True, blank=True)              # single/assessment/frecuency (índice 0..n)
+    value_multi = models.JSONField(default=list, blank=True)               # multiple (lista de índices 0..n)
+
+    # Snapshot de opciones para reporte consistente
+    snapshot = models.JSONField(default=dict, blank=True)
+    # p.ej: {"options": ["Sí","No","Tal vez"], "selected_labels": ["Sí"]}
+
+    class Meta:
+        unique_together = (('response', 'question'),)
+        indexes = [
+            models.Index(fields=['response']),
+            models.Index(fields=['question']),
+            models.Index(fields=['q_type']),
+        ]
+
+    def __str__(self):
+        return f'Ans {self.id} · Q{self.question_id} ({self.q_type})'

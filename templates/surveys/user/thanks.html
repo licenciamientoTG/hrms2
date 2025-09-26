@@ -1,0 +1,9 @@
+<!-- templates/surveys/user/thanks.html -->
+{% extends 'layouts/base.html' %}
+{% block content %}
+<div class="container py-4">
+  <h2>¡Gracias!</h2>
+  <p>Hemos recibido tu respuesta para “{{ survey.title }}”.</p>
+  <a class="btn btn-primary" href="{% url 'survey_dashboard_user' %}">Volver</a>
+</div>
+{% endblock %}

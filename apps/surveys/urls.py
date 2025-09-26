@@ -3,7 +3,7 @@ from .views import (
     survey_dashboard_admin, survey_dashboard_user, survey_dashboard,survey_new,
     section_create, section_rename, section_options, question_create, 
     question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview,
-    SurveyImportView, survey_export_excel, survey_delete, survey_edit, survey_view_user
+    SurveyImportView, survey_export_excel, survey_delete, survey_edit, survey_view_user, take_survey, survey_thanks
 )
 
 urlpatterns = [
@@ -30,6 +30,6 @@ urlpatterns = [
     path("admin/surveys/<int:pk>/delete/", survey_delete, name="survey_delete"),
     path("admin/surveys/<int:pk>/edit/", survey_edit, name="survey_edit"),
     path('user/<int:survey_id>/', survey_view_user, name='survey_view_user'),
-
-
+    path('user/<int:survey_id>/submit/', take_survey, name='survey_take'),
+    path('user/<int:survey_id>/thanks/', survey_thanks, name='survey_thanks'),
 ]

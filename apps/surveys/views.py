@@ -4,10 +4,10 @@ from apps.employee.models import Employee, JobPosition
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST, require_http_methods, require_GET
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.db.models import Max
-from .models import Survey, SurveySection, SurveyQuestion, SurveyAudience, SurveyOption
+from .models import Survey, SurveySection, SurveyQuestion, SurveyAudience, SurveyOption, SurveyResponse, SurveyAnswer
 from uuid import uuid4
 from departments.models import Department
 from apps.location.models import Location
@@ -19,7 +19,10 @@ from django.db.models import Case, When, Value, CharField, F
 from django.contrib import messages
 from django.urls import reverse
 from django.db.models import Prefetch
-
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from django.db import transaction
+from django.utils import timezone
+from django.db import DataError
 
 try:
     from openpyxl import Workbook
@@ -532,7 +535,7 @@ def surveys_panel(request):
         "id": s.id,
         "title": s.title,
         "status": "available",
-        "take_url": reverse("surveys:take", args=[s.id]),
+        "take_url": reverse("survey_view_user", args=[s.id]),
     } for s in visible]
 
     context = {
@@ -565,29 +568,32 @@ def survey_view_user(request, survey_id: int):
     ctx = {
         "survey": {"id": survey.id, "title": survey.title},
         "sections": sections,
-        "post_url": request.path,  
+        "post_url": reverse("survey_take", args=[survey.id]), 
         "back_url": reverse("survey_dashboard_user"),
     }
     return render(request, "surveys/user/survey_view_user.html", ctx)
 
 
 def _sections_for_template(survey) -> list[dict]:
-    # Carga eficiente de relaciones
-    q_qs = (SurveyQuestion.objects
-            .order_by("order", "pk")
-            .prefetch_related(
-                Prefetch(
-                    "options",
-                    queryset=SurveyOption.objects
-                        .select_related("branch_to_section")
-                        .order_by("order", "pk")
-                )
-            ))
+    q_qs = (
+        SurveyQuestion.objects
+        .order_by("order", "pk")
+        .prefetch_related(
+            Prefetch(
+                "options",
+                queryset=SurveyOption.objects
+                    .select_related("branch_to_section")
+                    .order_by("order", "pk")
+            )
+        )
+    )
 
-    sections_qs = (survey.sections
-                   .select_related("go_to_section")
-                   .prefetch_related(Prefetch("questions", queryset=q_qs))
-                   .order_by("order", "pk"))
+    sections_qs = (
+        survey.sections
+        .select_related("go_to_section")
+        .prefetch_related(Prefetch("questions", queryset=q_qs))
+        .order_by("order", "pk")
+    )
 
     out = []
     for s in sections_qs:
@@ -597,24 +603,33 @@ def _sections_for_template(survey) -> list[dict]:
             "order":  s.order,
             "go_to":  ("submit" if s.submit_on_finish
                        else (f"s{s.go_to_section_id}" if s.go_to_section_id else None)),
-            "questions": []
+            "questions": [],
         }
 
         for q in s.questions.all():
             qd = {
                 "id":       f"q{q.pk}",
                 "title":    q.title,
-                "type":     q.qtype,           # single | multiple | text | integer | decimal | rating | none
+                "type":     q.qtype,
                 "required": bool(q.required),
                 "options":  [],
                 "branch":   None,
             }
 
-            if q.qtype in {"single", "multiple", "dropdown"}:
+            # Opciones para tipos con escala u opciones
+            if q.qtype in {"single", "multiple", "assessment", "frecuency"}:
                 opts = list(q.options.all())
-                qd["options"] = [{"label": o.label} for o in opts]
+                if opts:
+                    qd["options"] = [{"label": o.label} for o in opts]
+                else:
+                    if q.qtype == "assessment":
+                        qd["options"] = [{"label": x} for x in
+                                         ["Muy positivo", "Positivo", "Neutral", "Negativo", "Muy Negativo"]]
+                    elif q.qtype == "frecuency":
+                        qd["options"] = [{"label": x} for x in
+                                         ["Siempre", "Casi siempre", "Algunas veces", "Casi nunca", "Nunca"]]
 
-                # Branching por opción (solo SINGLE)
+                # Branching sólo para SINGLE
                 if q.qtype == "single" and q.branch_enabled:
                     by = {}
                     for idx, o in enumerate(opts):
@@ -623,8 +638,220 @@ def _sections_for_template(survey) -> list[dict]:
                     if by:
                         qd["branch"] = {"enabled": True, "byOption": by}
 
+            # Para text/integer/decimal/rating no hay opciones, pero igual se agregan
             sec["questions"].append(qd)
 
         out.append(sec)
 
     return out
+
+def _post_list(request, name_base):
+    return (request.POST.getlist(f"{name_base}[]") or
+            request.POST.getlist(name_base))
+
+def _is_empty(v):
+    return v is None or (isinstance(v, str) and v.strip() == "")
+
+def _qid_to_int(qid):             # "q123" -> 123
+    s = str(qid)
+    return int(s[1:]) if s.startswith("q") else int(s)
+
+def _as_int(s):
+    try:
+        return int(str(s).strip())
+    except Exception:
+        return None
+
+def _as_decimal(s):
+    if s is None:
+        return None
+    txt = str(s).strip().replace(",", ".")   # soporta coma decimal
+    try:
+        d = Decimal(txt)
+    except (InvalidOperation, ValueError):
+        return None
+    # numeric(12,4): 8 enteros + 4 decimales
+    d = d.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    # clamp simple para evitar overflow
+    max_int = Decimal("99999999")  # 8 dígitos antes del punto
+    if d.copy_abs() > max_int:
+        return None
+    return d
+
+@login_required
+@require_POST
+@transaction.atomic
+def take_survey(request, survey_id):
+    survey = get_object_or_404(Survey, pk=survey_id, is_active=True)
+    sections = _sections_for_template(survey)
+
+    resp = SurveyResponse.objects.create(
+        survey=survey,
+        user=None if survey.is_anonymous else request.user,
+        started_at=timezone.now(),
+        status="draft",
+        survey_title=survey.title or "",
+        meta={"ua": request.META.get("HTTP_USER_AGENT", ""),
+              "ip": request.META.get("REMOTE_ADDR", "")},
+    )
+
+    errors = []
+    answers = []
+
+    for sec in sections:
+        for q in sec["questions"]:
+            qid_str = q["id"]  # "q123"
+            qid = _qid_to_int(qid_str)  # 123  ← FK entero SIEMPRE
+            qtype = q["type"]
+            name = f"q_{qid_str}"
+
+            try:
+                # SINGLE / ASSESSMENT / FRECUENCY
+                if qtype in ("single", "assessment", "frecuency"):
+                    raw = request.POST.get(name, "")
+                    if _is_empty(raw):
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    idx = _as_int(raw)
+                    if idx is None:
+                        errors.append(qid_str)
+                        continue
+
+                    opts = q.get("options") or []
+                    labels = [opts[idx]["label"]] if (0 <= idx < len(opts)) else []
+
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_choice=idx,
+                        snapshot={"options": [o["label"] for o in opts],
+                                  "selected_labels": labels}
+                    ))
+
+                # MULTIPLE
+                elif qtype == "multiple":
+                    raw_list = _post_list(request, name)
+                    if not raw_list and q.get("required"):
+                        errors.append(qid_str)
+                        continue
+                    idxs = [i for i in (_as_int(x) for x in raw_list) if i is not None]
+                    opts = q.get("options") or []
+                    labels = [opts[i]["label"] for i in idxs if 0 <= i < len(opts)]
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_multi=idxs,
+                        snapshot={"options": [o["label"] for o in opts],
+                                  "selected_labels": labels}
+                    ))
+
+                # TEXT
+                elif qtype == "text":
+                    txt = (request.POST.get(name) or "").strip()
+                    if txt == "" and q.get("required"):
+                        errors.append(qid_str)
+                        continue
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_text=txt
+                    ))
+
+                # INTEGER
+                elif qtype == "integer":
+                    val = _as_int(request.POST.get(name, ""))
+                    if val is None:
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_int=val
+                    ))
+
+                # DECIMAL
+                elif qtype == "decimal":
+                    val = _as_decimal(request.POST.get(name, ""))
+                    if val is None:
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_decimal=val
+                    ))
+
+                # RATING (1..5)
+                elif qtype == "rating":
+                    val = _as_int(request.POST.get(name, ""))
+                    if val is None:
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_int=val,
+                        snapshot={"max": 5}
+                    ))
+
+                else:
+                    # NONE u otros
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title", ""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        snapshot={}
+                    ))
+
+            except DataError as e:
+                # Diagnóstico de errores de conversión
+                transaction.set_rollback(True)
+                return HttpResponseBadRequest(
+                    f"Fila inválida -> qid={qid_str} qtype={qtype} "
+                    f"value_text={request.POST.get(name)} value_decimal={_as_decimal(request.POST.get(name))} "
+                    f"error={str(e)}"
+                )
+
+    if errors:
+        transaction.set_rollback(True)
+        return HttpResponseBadRequest("Faltan preguntas obligatorias.")
+
+    if answers:
+        try:
+            SurveyAnswer.objects.bulk_create(answers, batch_size=200)
+        except DataError as e:
+            # Si bulk_create falla, seguimos diagnosticando y guardando 1x1
+            for a in answers:
+                try:
+                    a.save(force_insert=True)
+                except Exception as inner_error:
+                    transaction.set_rollback(True)
+                    return HttpResponseBadRequest(
+                        f"Error al guardar pregunta -> qid={a.question_id} qtype={a.q_type} "
+                        f"error={str(inner_error)}"
+                    )
+            raise
+
+    resp.submitted_at = timezone.now()
+    resp.duration_ms = int((resp.submitted_at - resp.started_at).total_seconds() * 1000)
+    resp.status = "submitted"
+    resp.save(update_fields=["submitted_at", "duration_ms", "status"])
+
+    return redirect(reverse("survey_thanks", args=[survey.id]))
+
+
+# surveys/views.py
+@login_required
+def survey_thanks(request, survey_id):
+    survey = get_object_or_404(Survey, pk=survey_id)
+    return render(request, 'surveys/user/thanks.html', {'survey': survey})
