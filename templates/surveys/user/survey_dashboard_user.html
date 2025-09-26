@@ -24,7 +24,7 @@
     <ul id="list-available" class="survey-list" data-list="available">
       {% if available %}
         {% for s in available %}
-        <li class="survey-item" data-status="available" data-title="{{ s.title|lower }}">
+        <li class="survey-item" data-status="available" data-title="{{ s.title|lower }}" data-survey-id="{{ s.id }}">
           <a class="row-link" href="{{ s.take_url }}" aria-label="Abrir {{ s.title }}"></a>
           <div class="left">
             <span class="doc-icon" aria-hidden="true"></span>
@@ -33,7 +33,8 @@
         </li>
         {% endfor %}
       {% else %}
-        <li class="survey-item">
+        <li class="survey-item" data-empty="true">
+
           <div class="left">
             <span class="title" style="font-weight:500;color:#6b7280;">No tienes encuestas disponibles.</span>
           </div>
@@ -42,7 +43,7 @@
     </ul>
 
     <ul id="list-completed" class="survey-list is-hidden" data-list="completed">
-      <li class="survey-item">
+      <li class="survey-item" data-empty="true">
         <div class="left">
           <span class="title" style="font-weight:500;color:#6b7280;">Aún no has completado encuestas.</span>
         </div>

@@ -1733,3 +1733,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyFilter(); // estado inicial
 });
+
+(function(){
+  const $ = (sel, ctx=document)=>ctx.querySelector(sel);
+  const $$ = (sel, ctx=document)=>Array.from(ctx.querySelectorAll(sel));
+
+  const avail = $('#list-available');
+  const done  = $('#list-completed');
+  if(!avail || !done) return;
+
+  function realItems(list){
+    return $$('.survey-item:not([data-empty])', list);
+  }
+
+  function ensureEmptyState(){
+    // Disponibles
+    const availHas = realItems(avail).length > 0;
+    const availEmpty = $('.survey-item[data-empty]', avail);
+    if(availEmpty) availEmpty.style.display = availHas ? 'none' : '';
+
+    // Completados
+    const doneHas = realItems(done).length > 0;
+    const doneEmpty = $('.survey-item[data-empty]', done);
+    if(doneEmpty) doneEmpty.style.display = doneHas ? 'none' : '';
+  }
+
+  // 1) Mover encuestas completadas (según localStorage)
+  realItems(avail).forEach(li=>{
+    const id = li.dataset.surveyId;
+    if(id && localStorage.getItem(`survey_completed_${id}`)){
+      li.classList.add('is-completed');
+      done.appendChild(li);
+    }
+  });
+  ensureEmptyState();
+
+  // 2) Tabs
+  $$('.surveys-tabs .tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $$('.surveys-tabs .tab').forEach(b=>{
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+      const target = btn.dataset.target; // "available" | "completed"
+      $('#list-available').classList.toggle('is-hidden', target !== 'available');
+      $('#list-completed').classList.toggle('is-hidden', target !== 'completed');
+    });
+  });
+
+  // 3) Búsqueda (filtra en ambas listas)
+  const search = $('#surveySearchInput');
+  if(search){
+    search.addEventListener('input', ()=>{
+      const q = search.value.trim().toLowerCase();
+      [avail, done].forEach(list=>{
+        realItems(list).forEach(li=>{
+          const text = (li.dataset.title||'').toLowerCase();
+          li.style.display = text.includes(q) ? '' : 'none';
+        });
+      });
+    });
+  }
+})();
