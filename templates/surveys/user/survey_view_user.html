@@ -8,7 +8,7 @@
 {% block page_title %}Responder encuesta{% endblock %}
 
 {% block content %}
-<div class="container my-3" id="surveyApp" data-survey-id="{{ survey.id }}">
+<div class="container my-3" id="surveyApp" data-survey-id="{{ survey.id }}" style="display:none;">
   <div class="row justify-content-center">
     <div class="col-12 col-lg-10 col-xl-9">
 
@@ -188,6 +188,18 @@
   
   const form = document.getElementById('surveyForm');
   const backUrl = form?.dataset.backUrl || document.referrer || '/';
+  const surveyApp = document.getElementById('surveyApp');
+  const surveyId = surveyApp.dataset.surveyId;
+
+  // Verificar si la encuesta ya fue completada
+  if (localStorage.getItem(`survey_completed_${surveyId}`)) {
+      console.log("Redirigiendo a la página de gracias para la encuesta:", surveyId);
+      window.location.href = `/surveys/user/${surveyId}/thanks/`;
+  } else {
+      // Mostrar encuesta solo si no fue completada
+      surveyApp.style.display = 'block';
+  }
+
 
   function goBackSmart(){
     const ref = document.referrer || '';
@@ -215,17 +227,6 @@
   const pageTotalEl = document.getElementById('pageTotal');
   const progressBar = document.getElementById('progressBar');
 
-  // ====== (arriba) NO BORRAR ESTA LÍNEA ======
-  function updatePrevButton(){
-    const atStart = (idx === 0);
-    btnPrev.textContent = atStart ? '⟵ Regresar' : '⟵ Atrás';
-    btnPrev.disabled = false;
-    btnPrev.classList.toggle('btn-outline-secondary', atStart);
-    btnPrev.classList.toggle('btn-light', !atStart);
-  }
-  // ====== (abajo) NO BORRAR ESTA LÍNEA ======
-
-
   let idx = 0;
   pageTotalEl.textContent = String(sections.length);
 
@@ -233,48 +234,12 @@
     idx = Math.max(0, Math.min(sections.length-1, i));
     sections.forEach((s,k)=> s.hidden = (k !== idx));
 
-    updatePrevButton();
     const last = (idx === sections.length-1);
     btnNext.classList.toggle('d-none', last);
     btnSubmit.classList.toggle('d-none', !last);
 
     pageNumEl.textContent = String(idx+1);
     progressBar.style.width = Math.round(((idx+1)/sections.length)*100) + '%';
-  }
-
-  function getBranchMapForQuestion(qCard){
-    const hid = qCard.querySelector('[data-branch-id]');
-    if(!hid) return null;
-    const id = hid.getAttribute('data-branch-id');
-    const el = document.getElementById(id);
-    if(!el) return null;
-    try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
-  }
-
-  function getNextSectionIdFromCurrent(){
-    const current = sections[idx];
-
-    // 1) Branching por opción (solo single)
-    const singles = [...current.querySelectorAll('.q-card[data-type="single"]')];
-    for(const card of singles){
-      const name = 'q_' + card.dataset.questionId;
-      const chosen = card.querySelector('input[type="radio"][name="'+name+'"]:checked');
-      if(chosen){
-        const map = getBranchMapForQuestion(card);
-        if(map){
-          const key = String(chosen.value);
-          if(map[key]) return map[key]; // 'submit' o id de sección
-        }
-      }
-    }
-
-    // 2) go_to a nivel sección
-    const setDest = current.dataset.goTo || '';
-    if(setDest) return setDest;
-
-    // 3) siguiente por orden
-    const n = sections[idx+1];
-    return n ? n.dataset.sectionId : '';
   }
 
   function validateSection(section){
@@ -302,29 +267,14 @@
     return ok;
   }
 
-  btnPrev.addEventListener('click', ()=>{
-    if (idx === 0) goBackSmart();
-    else showAt(idx-1);
-  });
-  
-  btnNext.addEventListener('click', ()=>{
+  btnPrev.addEventListener('click', ()=>{ showAt(idx-1); });
+  btnNext.addEventListener('click', ()=>{ 
     const current = sections[idx];
     if(!validateSection(current)){
       current.scrollIntoView({behavior:'smooth', block:'start'});
       return;
     }
-    const dest = getNextSectionIdFromCurrent();
-    if(dest === 'submit'){
-      showAt(sections.length-1);
-      btnNext.classList.add('d-none');
-      btnSubmit.classList.remove('d-none');
-      return;
-    }
-    if(dest && idToSection[dest]){
-      showAt(sections.indexOf(idToSection[dest]));
-    } else {
-      showAt(idx+1);
-    }
+    showAt(idx+1);
   });
 
   document.getElementById('surveyForm').addEventListener('submit', (e)=>{
@@ -332,6 +282,10 @@
     if(!validateSection(current)){
       e.preventDefault();
       current.scrollIntoView({behavior:'smooth', block:'start'});
+    } else {
+      // Limpiar el localStorage al enviar la encuesta
+      localStorage.removeItem(`survey_draft_${surveyId}`);
+      localStorage.setItem(`survey_completed_${surveyId}`, 'true'); // Marcar la encuesta como completada
     }
   });
 
