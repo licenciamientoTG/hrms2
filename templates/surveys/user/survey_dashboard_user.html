@@ -16,8 +16,12 @@
   </div>
 
   <div class="surveys-tabs" role="tablist" aria-label="Estados de encuestas">
-    <button class="tab active" role="tab" aria-selected="true" data-target="available">Disponibles</button>
-    <button class="tab" role="tab" aria-selected="false" data-target="completed">Completados</button>
+    <button class="tab active" role="tab" aria-selected="true" data-target="available">
+      Disponibles ({{ available|length }})
+    </button>
+    <button class="tab" role="tab" aria-selected="false" data-target="completed">
+      Completadas ({{ completed|length }})
+    </button>
   </div>
 
   <div class="surveys-lists">
@@ -33,8 +37,7 @@
         </li>
         {% endfor %}
       {% else %}
-        <li class="survey-item" data-empty="true">
-
+        <li class="survey-item" data-empty="available">
           <div class="left">
             <span class="title" style="font-weight:500;color:#6b7280;">No tienes encuestas disponibles.</span>
           </div>
@@ -43,11 +46,24 @@
     </ul>
 
     <ul id="list-completed" class="survey-list is-hidden" data-list="completed">
-      <li class="survey-item" data-empty="true">
-        <div class="left">
-          <span class="title" style="font-weight:500;color:#6b7280;">Aún no has completado encuestas.</span>
-        </div>
-      </li>
+      {% if completed %}
+        {% for s in completed %}
+        <li class="survey-item" data-status="completed" data-title="{{ s.title|lower }}" data-survey-id="{{ s.id }}">
+          <a class="row-link" href="{{ s.take_url }}" aria-label="Ver respuestas de {{ s.title }}"></a>
+          <div class="left">
+            <span class="doc-icon completed" aria-hidden="true"></span>
+            <span class="title">{{ s.title }}</span>
+            <span class="completed-badge">Completada</span>
+          </div>
+        </li>
+        {% endfor %}
+      {% else %}
+        <li class="survey-item" data-empty="completed">
+          <div class="left">
+            <span class="title" style="font-weight:500;color:#6b7280;">Aún no has completado encuestas.</span>
+          </div>
+        </li>
+      {% endif %}
     </ul>
   </div>
 </div>
