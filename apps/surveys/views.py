@@ -70,19 +70,56 @@ def survey_dashboard_admin(request):
 @login_required
 def survey_dashboard_user(request):
     user = request.user
+    
+    # Obtener el empleado asociado al usuario
+    try:
+        employee = Employee.objects.select_related(
+            'department', 'job_position', 'station'
+        ).get(user=user, is_active=True)
+    except Employee.DoesNotExist:
+        employee = None
 
-    # Encuestas activas visibles para el usuario:
-    visible_qs = (
-        Survey.objects.filter(is_active=True)
-        .filter(
-            Q(audience__isnull=True) |
-            Q(audience__mode=SurveyAudience.MODE_ALL) |
-            Q(audience__users=user)
-        )
-        .select_related('audience')
-        .order_by('title')
-        .distinct()
-    )
+    # Encuestas activas
+    all_surveys = Survey.objects.filter(is_active=True).select_related('audience')
+    
+    visible_surveys = []
+    
+    for survey in all_surveys:
+        audience = survey.audience
+        
+        # Sin audiencia o modo ALL: mostrar
+        if not audience or audience.mode == SurveyAudience.MODE_ALL:
+            visible_surveys.append(survey)
+            continue
+        
+        # Modo SEGMENTED: evaluar filtros
+        if audience.mode == 'segmented' and employee:
+            filters = audience.filters or {}
+            dep_ids = filters.get('departments') or []
+            pos_ids = filters.get('positions') or []
+            loc_ids = filters.get('locations') or []
+            
+            # Verificar si el empleado cumple con algún filtro (OR)
+            matches = False
+            
+            if dep_ids and employee.department_id in dep_ids:
+                matches = True
+            if pos_ids and employee.job_position_id in pos_ids:
+                matches = True
+            if loc_ids and employee.station_id in loc_ids:
+                matches = True
+            
+            # También verificar usuarios específicos
+            if audience.users.filter(pk=user.pk).exists():
+                matches = True
+            
+            if matches:
+                visible_surveys.append(survey)
+            continue
+        
+        # Usuario explícitamente incluido
+        if audience and audience.users.filter(pk=user.pk).exists():
+            visible_surveys.append(survey)
 
     # Obtener IDs de encuestas completadas por el usuario
     completed_survey_ids = set(
@@ -96,7 +133,7 @@ def survey_dashboard_user(request):
     available = []
     completed = []
     
-    for survey in visible_qs:
+    for survey in visible_surveys:
         survey_data = {
             "id": survey.id,
             "title": survey.title,
@@ -560,6 +597,7 @@ def surveys_panel(request):
     return render(request, "surveys/panel.html", context)
 
 
+
 @login_required
 def survey_view_user(request, survey_id: int):
     survey = get_object_or_404(
@@ -572,13 +610,41 @@ def survey_view_user(request, survey_id: int):
     if SurveyResponse.objects.filter(survey=survey, user=request.user, status='submitted').exists():
         return redirect('survey_thanks', survey_id=survey.id)
 
-    # Acceso por audiencia: permite sin audiencia, o modo 'all', o si el usuario está incluido
+    # Verificar acceso
     aud = getattr(survey, "audience", None)
-    allowed = (
-        aud is None
-        or getattr(aud, "mode", "").lower() == "all"
-        or aud.users.filter(pk=request.user.pk).exists()
-    )
+    allowed = False
+    
+    # Sin audiencia: permitir
+    if aud is None:
+        allowed = True
+    # Modo ALL: permitir
+    elif getattr(aud, "mode", "").lower() == "all":
+        allowed = True
+    # Usuario explícitamente incluido
+    elif aud.users.filter(pk=request.user.pk).exists():
+        allowed = True
+    # Modo SEGMENTED: evaluar filtros
+    elif aud.mode == 'segmented':
+        try:
+            employee = Employee.objects.select_related(
+                'department', 'job_position', 'station'
+            ).get(user=request.user, is_active=True)
+            
+            filters = aud.filters or {}
+            dep_ids = filters.get('departments') or []
+            pos_ids = filters.get('positions') or []
+            loc_ids = filters.get('locations') or []
+            
+            # Verificar si el empleado cumple con algún filtro (OR)
+            if dep_ids and employee.department_id in dep_ids:
+                allowed = True
+            elif pos_ids and employee.job_position_id in pos_ids:
+                allowed = True
+            elif loc_ids and employee.station_id in loc_ids:
+                allowed = True
+        except Employee.DoesNotExist:
+            pass
+    
     if not allowed:
         return render(request, "surveys/not_allowed.html", {"survey": survey}, status=403)
 
@@ -591,7 +657,7 @@ def survey_view_user(request, survey_id: int):
         "back_url": reverse("survey_dashboard_user"),
     }
     return render(request, "surveys/user/survey_view_user.html", ctx)
-
+    
 def _sections_for_template(survey) -> list[dict]:
     q_qs = (
         SurveyQuestion.objects
