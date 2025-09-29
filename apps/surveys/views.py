@@ -58,13 +58,94 @@ def survey_dashboard_admin(request):
     paginator = Paginator(qs, 15)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    # Calcular métricas para cada encuesta
     start_idx = (page_obj.number - 1) * paginator.per_page
+    
+    # Obtener todos los IDs de encuestas en esta página
+    survey_ids = [s.id for s in page_obj.object_list]
+    
+    # Contar respuestas enviadas por encuesta
+    from django.db.models import Count
+    responses_count = dict(
+        SurveyResponse.objects.filter(
+            survey_id__in=survey_ids,
+            status='submitted'
+        ).values('survey_id').annotate(
+            count=Count('id')
+        ).values_list('survey_id', 'count')
+    )
+    
+    # Contar audiencia esperada por encuesta
+    audience_counts = {}
+    for survey in page_obj.object_list:
+        try:
+            aud = survey.audience
+            if not aud or aud.mode == SurveyAudience.MODE_ALL:
+                # Todos los usuarios activos
+                total = Employee.objects.filter(
+                    user__isnull=False,
+                    user__is_active=True,
+                    is_active=True
+                ).count()
+            elif aud.mode == 'segmented':
+                # Calcular según filtros
+                filters = aud.filters or {}
+                dep_ids = filters.get('departments') or []
+                pos_ids = filters.get('positions') or []
+                loc_ids = filters.get('locations') or []
+                user_ids = list(aud.users.values_list('id', flat=True))
+                
+                qs_emp = Employee.objects.filter(
+                    user__isnull=False,
+                    user__is_active=True,
+                    is_active=True
+                )
+                
+                # Lógica OR: usuarios específicos o cualquier filtro
+                cond = Q()
+                if user_ids:
+                    cond |= Q(user_id__in=user_ids)
+                if dep_ids:
+                    cond |= Q(department_id__in=dep_ids)
+                if pos_ids:
+                    cond |= Q(job_position_id__in=pos_ids)
+                if loc_ids:
+                    cond |= Q(station_id__in=loc_ids)
+                
+                if cond:
+                    total = qs_emp.filter(cond).distinct().count()
+                else:
+                    total = 0
+            else:
+                # Modo desconocido, contar solo usuarios explícitos
+                total = aud.users.filter(is_active=True).count()
+        except SurveyAudience.DoesNotExist:
+            # Sin audiencia = todos los usuarios
+            total = Employee.objects.filter(
+                user__isnull=False,
+                user__is_active=True,
+                is_active=True
+            ).count()
+        
+        audience_counts[survey.id] = total
+    
+    # Asignar métricas a cada encuesta
     for i, s in enumerate(page_obj.object_list, start=1):
-        s.responses_count = 0
-        s.progress = 0.0
         s.position = start_idx + i
+        s.responses_count = responses_count.get(s.id, 0)
+        
+        expected = audience_counts.get(s.id, 0)
+        if expected > 0:
+            s.progress = round((s.responses_count / expected) * 100, 1)
+        else:
+            s.progress = 0.0
 
-    ctx = {"page_obj": page_obj, "is_paginated": page_obj.has_other_pages(), "q": q, "sort": sort}
+    ctx = {
+        "page_obj": page_obj,
+        "is_paginated": page_obj.has_other_pages(),
+        "q": q,
+        "sort": sort
+    }
     return render(request, "surveys/admin/survey_dashboard_admin.html", ctx)
 
 @login_required
@@ -79,46 +160,53 @@ def survey_dashboard_user(request):
     except Employee.DoesNotExist:
         employee = None
 
-    # Encuestas activas
-    all_surveys = Survey.objects.filter(is_active=True).select_related('audience')
+    # Encuestas activas con prefetch de audience.users
+    all_surveys = Survey.objects.filter(
+        is_active=True
+    ).select_related('audience').prefetch_related('audience__users')
     
     visible_surveys = []
     
     for survey in all_surveys:
-        audience = survey.audience
+        try:
+            audience = survey.audience
+        except SurveyAudience.DoesNotExist:
+            audience = None
         
-        # Sin audiencia o modo ALL: mostrar
-        if not audience or audience.mode == SurveyAudience.MODE_ALL:
-            visible_surveys.append(survey)
-            continue
+        matches = False
         
+        # Sin audiencia: mostrar a todos
+        if not audience:
+            matches = True
+        # Modo ALL: mostrar a todos
+        elif audience.mode == SurveyAudience.MODE_ALL:
+            matches = True
         # Modo SEGMENTED: evaluar filtros
-        if audience.mode == 'segmented' and employee:
-            filters = audience.filters or {}
-            dep_ids = filters.get('departments') or []
-            pos_ids = filters.get('positions') or []
-            loc_ids = filters.get('locations') or []
+        elif audience.mode == 'segmented':
+            if employee:
+                filters = audience.filters or {}
+                dep_ids = filters.get('departments') or []
+                pos_ids = filters.get('positions') or []
+                loc_ids = filters.get('locations') or []
+                
+                # Verificar si el empleado cumple con algún filtro (OR)
+                # Usar OR sin elif para que evalúe TODAS las condiciones
+                if dep_ids and employee.department_id in dep_ids:
+                    matches = True
+                if pos_ids and employee.job_position_id in pos_ids:
+                    matches = True
+                if loc_ids and employee.station_id in loc_ids:
+                    matches = True
             
-            # Verificar si el empleado cumple con algún filtro (OR)
-            matches = False
-            
-            if dep_ids and employee.department_id in dep_ids:
+            # También verificar usuarios específicos en modo segmented
+            if not matches and audience.users.filter(pk=user.pk).exists():
                 matches = True
-            if pos_ids and employee.job_position_id in pos_ids:
-                matches = True
-            if loc_ids and employee.station_id in loc_ids:
-                matches = True
-            
-            # También verificar usuarios específicos
+        # Otros modos: verificar usuarios específicos
+        else:
             if audience.users.filter(pk=user.pk).exists():
                 matches = True
-            
-            if matches:
-                visible_surveys.append(survey)
-            continue
         
-        # Usuario explícitamente incluido
-        if audience and audience.users.filter(pk=user.pk).exists():
+        if matches:
             visible_surveys.append(survey)
 
     # Obtener IDs de encuestas completadas por el usuario
@@ -130,6 +218,7 @@ def survey_dashboard_user(request):
     )
 
     # Separar encuestas disponibles y completadas
+    # SOLO mostrar las que el usuario TODAVÍA tiene permiso de ver
     available = []
     completed = []
     
@@ -361,59 +450,6 @@ def survey_delete(request, pk: int):
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-def survey_export_excel(request, pk: int):
-    s = get_object_or_404(Survey, pk=pk)
-
-    # Si no hay openpyxl instalado, devolvemos CSV como salida segura
-    if Workbook is None:
-        return survey_export_csv(request, pk)
-
-    import io
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Encuesta"
-
-    ws.append(["Título", s.title])
-    ws.append(["Activa", "Sí" if s.is_active else "No"])
-    ws.append(["Anónima", "Sí" if s.is_anonymous else "No"])
-    ws.append(["Creada en", s.created_at.strftime("%Y-%m-%d %H:%M")])
-    ws.append(["Creador", s.creator.get_full_name() or s.creator.username])
-    ws.append([])
-    ws.append(["Sección", "Orden", "Pregunta", "Tipo", "Obligatoria", "Opción", "Correcta", "Salto a sección"])
-
-    for sec in s.sections.all().order_by("order"):
-        if sec.questions.exists():
-            for q in sec.questions.all().order_by("order"):
-                if q.options.exists():
-                    for opt in q.options.all().order_by("order"):
-                        ws.append([
-                            sec.title or f"Sección {sec.order}",
-                            sec.order,
-                            q.title,
-                            q.qtype,
-                            "Sí" if q.required else "No",
-                            opt.label,
-                            "Sí" if opt.is_correct else "No",
-                            (opt.branch_to_section.title if opt.branch_to_section else ""),
-                        ])
-                else:
-                    ws.append([sec.title or f"Sección {sec.order}", sec.order, q.title, q.qtype,
-                               "Sí" if q.required else "No", "", "", ""])
-        else:
-            ws.append([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
-
-    out = io.BytesIO()
-    wb.save(out)
-    out.seek(0)
-    resp = HttpResponse(
-        out.read(),
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    resp["Content-Disposition"] = f'attachment; filename="encuesta_{s.pk}.xlsx"'
-    return resp
-
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
 def survey_export_csv(request, pk: int):
     s = get_object_or_404(Survey, pk=pk)
     import csv
@@ -620,9 +656,6 @@ def survey_view_user(request, survey_id: int):
     # Modo ALL: permitir
     elif getattr(aud, "mode", "").lower() == "all":
         allowed = True
-    # Usuario explícitamente incluido
-    elif aud.users.filter(pk=request.user.pk).exists():
-        allowed = True
     # Modo SEGMENTED: evaluar filtros
     elif aud.mode == 'segmented':
         try:
@@ -636,14 +669,22 @@ def survey_view_user(request, survey_id: int):
             loc_ids = filters.get('locations') or []
             
             # Verificar si el empleado cumple con algún filtro (OR)
+            # Usar IF sin elif para evaluar todas las condiciones
             if dep_ids and employee.department_id in dep_ids:
                 allowed = True
-            elif pos_ids and employee.job_position_id in pos_ids:
+            if pos_ids and employee.job_position_id in pos_ids:
                 allowed = True
-            elif loc_ids and employee.station_id in loc_ids:
+            if loc_ids and employee.station_id in loc_ids:
+                allowed = True
+            
+            # También verificar usuarios específicos
+            if not allowed and aud.users.filter(pk=request.user.pk).exists():
                 allowed = True
         except Employee.DoesNotExist:
             pass
+    # Usuario explícitamente incluido en otros modos
+    elif aud.users.filter(pk=request.user.pk).exists():
+        allowed = True
     
     if not allowed:
         return render(request, "surveys/not_allowed.html", {"survey": survey}, status=403)
@@ -657,7 +698,7 @@ def survey_view_user(request, survey_id: int):
         "back_url": reverse("survey_dashboard_user"),
     }
     return render(request, "surveys/user/survey_view_user.html", ctx)
-    
+
 def _sections_for_template(survey) -> list[dict]:
     q_qs = (
         SurveyQuestion.objects

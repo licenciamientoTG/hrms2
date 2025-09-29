@@ -1734,6 +1734,8 @@ document.addEventListener('DOMContentLoaded', () => {
   applyFilter(); // estado inicial
 });
 
+// Al final del archivo survey.js, REEMPLAZA esta función:
+
 (function(){
   const $ = (sel, ctx=document)=>ctx.querySelector(sel);
   const $$ = (sel, ctx=document)=>Array.from(ctx.querySelectorAll(sel));
@@ -1758,14 +1760,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(doneEmpty) doneEmpty.style.display = doneHas ? 'none' : '';
   }
 
-  // 1) Mover encuestas completadas (según localStorage)
-  realItems(avail).forEach(li=>{
-    const id = li.dataset.surveyId;
-    if(id && localStorage.getItem(`survey_completed_${id}`)){
-      li.classList.add('is-completed');
-      done.appendChild(li);
-    }
-  });
   ensureEmptyState();
 
   // 2) Tabs

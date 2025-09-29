@@ -69,10 +69,7 @@
               <button class="btn btn-light border kebab"
                       data-bs-toggle="dropdown" aria-expanded="false">⋮</button>
               <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="#">Notificar a los usuarios</a></li>
                 <li><a class="dropdown-item" href="{% url 'survey_edit' s.id %}">Editar</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{% url 'survey_export_excel' s.id %}">Descargar Excel</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="#"
                       data-action="delete" data-url="{% url 'survey_delete' s.id %}">Eliminar</a></li>
