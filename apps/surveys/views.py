@@ -23,6 +23,10 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.db import transaction
 from django.utils import timezone
 from django.db import DataError
+from collections import defaultdict, Counter
+import math  
+
+
 
 try:
     from openpyxl import Workbook
@@ -449,44 +453,44 @@ def survey_delete(request, pk: int):
     messages.success(request, "Encuesta eliminada.")
     return redirect("survey_dashboard_admin")
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def survey_export_csv(request, pk: int):
-    s = get_object_or_404(Survey, pk=pk)
-    import csv
-    resp = HttpResponse(content_type="text/csv; charset=utf-8")
-    resp["Content-Disposition"] = f'attachment; filename="encuesta_{s.pk}.csv"'
-    w = csv.writer(resp)
+# @login_required
+# @user_passes_test(lambda u: u.is_superuser)
+# def survey_export_csv(request, pk: int):
+#     s = get_object_or_404(Survey, pk=pk)
+#     import csv
+#     resp = HttpResponse(content_type="text/csv; charset=utf-8")
+#     resp["Content-Disposition"] = f'attachment; filename="encuesta_{s.pk}.csv"'
+#     w = csv.writer(resp)
 
-    w.writerow(["Título", s.title])
-    w.writerow(["Activa", "Sí" if s.is_active else "No"])
-    w.writerow(["Anónima", "Sí" if s.is_anonymous else "No"])
-    w.writerow(["Creada en", s.created_at.strftime("%Y-%m-%d %H:%M")])
-    w.writerow(["Creador", s.creator.get_full_name() or s.creator.username])
-    w.writerow([])
+#     w.writerow(["Título", s.title])
+#     w.writerow(["Activa", "Sí" if s.is_active else "No"])
+#     w.writerow(["Anónima", "Sí" if s.is_anonymous else "No"])
+#     w.writerow(["Creada en", s.created_at.strftime("%Y-%m-%d %H:%M")])
+#     w.writerow(["Creador", s.creator.get_full_name() or s.creator.username])
+#     w.writerow([])
 
-    w.writerow(["Sección", "Orden", "Pregunta", "Tipo", "Obligatoria", "Opción", "Correcta", "Salto a sección"])
-    for sec in s.sections.all().order_by("order"):
-        if sec.questions.exists():
-            for q in sec.questions.all().order_by("order"):
-                if q.options.exists():
-                    for opt in q.options.all().order_by("order"):
-                        w.writerow([
-                            sec.title or f"Sección {sec.order}",
-                            sec.order,
-                            q.title,
-                            q.qtype,
-                            "Sí" if q.required else "No",
-                            opt.label,
-                            "Sí" if opt.is_correct else "No",
-                            (opt.branch_to_section.title if opt.branch_to_section else ""),
-                        ])
-                else:
-                    w.writerow([sec.title or f"Sección {sec.order}", sec.order, q.title, q.qtype,
-                                "Sí" if q.required else "No", "", "", ""])
-        else:
-            w.writerow([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
-    return resp
+#     w.writerow(["Sección", "Orden", "Pregunta", "Tipo", "Obligatoria", "Opción", "Correcta", "Salto a sección"])
+#     for sec in s.sections.all().order_by("order"):
+#         if sec.questions.exists():
+#             for q in sec.questions.all().order_by("order"):
+#                 if q.options.exists():
+#                     for opt in q.options.all().order_by("order"):
+#                         w.writerow([
+#                             sec.title or f"Sección {sec.order}",
+#                             sec.order,
+#                             q.title,
+#                             q.qtype,
+#                             "Sí" if q.required else "No",
+#                             opt.label,
+#                             "Sí" if opt.is_correct else "No",
+#                             (opt.branch_to_section.title if opt.branch_to_section else ""),
+#                         ])
+#                 else:
+#                     w.writerow([sec.title or f"Sección {sec.order}", sec.order, q.title, q.qtype,
+#                                 "Sí" if q.required else "No", "", "", ""])
+#         else:
+#             w.writerow([sec.title or f"Sección {sec.order}", sec.order, "", "", "", "", "", ""])
+#     return resp
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -831,10 +835,79 @@ def take_survey(request, survey_id):
                         snapshot={"options": [o["label"] for o in opts],
                                   "selected_labels": labels}
                     ))
+                
+                elif qtype == "multiple":
+                    # checkboxes: name="q_qid[]"
+                    raw_list = request.POST.getlist(name + "[]")
+                    if not raw_list:
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    # indices elegidos (ints válidos)
+                    idxs = []
+                    for r in raw_list:
+                        ii = _as_int(r)
+                        if ii is not None:
+                            idxs.append(ii)
+                    if not idxs and q.get("required"):
+                        errors.append(qid_str)
+                        continue
 
-                # Otros tipos de preguntas (multiple, text, integer, etc.)
-                # Puedes agregar las condiciones necesarias para otros tipos de preguntas.
+                    opts = q.get("options") or []
+                    labels = [opts[i]["label"] for i in idxs if 0 <= i < len(opts)]
 
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title",""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        # si tu modelo tiene JSONField para esto:
+                        value_multi=idxs,
+                        snapshot={
+                            "options": [o["label"] for o in opts],
+                            "selected_indices": idxs,
+                            "selected_labels": labels,
+                        }
+                    ))
+
+                elif qtype == "text":
+                    val = (request.POST.get(name) or "").strip()
+                    if not val and q.get("required"):
+                        errors.append(qid_str); continue
+                    if val:
+                        answers.append(SurveyAnswer(
+                            response=resp, question_id=qid, q_type=qtype,
+                            q_title=q.get("title",""), required=bool(q.get("required")),
+                            order=_as_int(q.get("order")) or 0,
+                            value_text=val
+                        ))
+
+                elif qtype in ("integer", "decimal"):
+                    raw = request.POST.get(name)
+                    val = _as_int(raw) if qtype == "integer" else _as_decimal(raw)
+                    if val is None:
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    kw = {"value_int": val} if qtype == "integer" else {"value_decimal": val}
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title",""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        **kw
+                    ))
+
+                elif qtype == "rating":
+                    v = _as_int(request.POST.get(name))
+                    if v is None or not (1 <= v <= 5):
+                        if q.get("required"):
+                            errors.append(qid_str)
+                        continue
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title",""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_int=v
+                    ))
             except DataError as e:
                 transaction.set_rollback(True)
                 return HttpResponseBadRequest(
@@ -878,48 +951,259 @@ def survey_thanks(request, survey_id):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def survey_detail_admin(request, pk: int):
-    from django.db.models import Count
-    s = (Survey.objects
-         .select_related("creator", "audience")
-         .prefetch_related("sections__questions__options")
-         .get(pk=pk))
+    # evita import circular
+    from .models import Survey, SurveySection, SurveyQuestion, SurveyAudience, SurveyOption, SurveyResponse, SurveyAnswer
+    from apps.employee.models import Employee
 
-    # métricas básicas
-    responses_qs = SurveyResponse.objects.filter(survey=s, status="submitted")
-    responses_count = responses_qs.count()
+    # ---------- helpers solo para esta vista ----------
+    def _nice_step(raw_step: float) -> float:
+        """Redondea el tamaño de bin a {1,2,5,10} * 10^k para ejes más 'bonitos'."""
+        if not raw_step or raw_step <= 0:
+            return 1.0
+        exp = math.floor(math.log10(raw_step))
+        f = raw_step / (10 ** exp)
+        if f <= 1: nf = 1
+        elif f <= 2: nf = 2
+        elif f <= 5: nf = 5
+        else: nf = 10
+        return nf * (10 ** exp)
 
-    # audiencia esperada (reutiliza la lógica que ya usas en el dashboard)
+    def _fmt_num(x: float) -> str:
+        """Formato compacto para etiquetas de eje."""
+        return f"{x:.6g}"
+
+    survey = get_object_or_404(
+        Survey.objects.prefetch_related(
+            Prefetch(
+                'sections__questions__options',
+                queryset=SurveyOption.objects.order_by('order', 'id')
+            ),
+        ),
+        pk=pk
+    )
+
+    # ====== Métricas generales ======
+    responses_count = SurveyResponse.objects.filter(
+        survey=survey, status='submitted'
+    ).count()
+
+    # Audiencia esperada (igual que dashboard)
     try:
-        aud = s.audience
-        if not aud or aud.mode == SurveyAudience.MODE_ALL:
-            expected = Employee.objects.filter(
-                user__isnull=False, user__is_active=True, is_active=True
-            ).count()
-        elif aud.mode == "segmented":
-            f = aud.filters or {}
-            cond = Q()
-            if f.get("departments"): cond |= Q(department_id__in=f["departments"])
-            if f.get("positions"):   cond |= Q(job_position_id__in=f["positions"])
-            if f.get("locations"):   cond |= Q(station_id__in=f["locations"])
-            if aud.users.exists():   cond |= Q(user_id__in=aud.users.values_list("id", flat=True))
-            qs_emp = Employee.objects.filter(
-                user__isnull=False, user__is_active=True, is_active=True
-            )
-            expected = qs_emp.filter(cond).distinct().count() if cond else 0
-        else:
-            expected = aud.users.filter(is_active=True).count()
+        aud = survey.audience
     except SurveyAudience.DoesNotExist:
+        aud = None
+
+    if not aud or aud.mode == SurveyAudience.MODE_ALL:
         expected = Employee.objects.filter(
             user__isnull=False, user__is_active=True, is_active=True
         ).count()
+    elif aud.mode == 'segmented':
+        f = aud.filters or {}
+        cond = Q()
+        if f.get('departments'):
+            cond |= Q(department_id__in=f['departments'])
+        if f.get('positions'):
+            cond |= Q(job_position_id__in=f['positions'])
+        if f.get('locations'):
+            cond |= Q(station_id__in=f['locations'])
+        uids = list(aud.users.values_list('id', flat=True))
+        if uids:
+            cond |= Q(user_id__in=uids)
 
-    progress = round((responses_count / expected) * 100, 1) if expected else 0.0
+        if cond:
+            expected = (Employee.objects
+                        .filter(user__isnull=False, user__is_active=True, is_active=True)
+                        .filter(cond).distinct().count())
+        else:
+            expected = 0
+    else:
+        expected = aud.users.filter(is_active=True).count()
 
-    ctx = {
-        "survey": s,
+    progress = (responses_count / expected * 100) if expected else 0
+
+    # ====== Stats por pregunta ======
+    questions = (SurveyQuestion.objects
+                 .filter(section__survey=survey)
+                 .order_by('section__order', 'order', 'id')
+                 .prefetch_related('options'))
+
+    resp_ids = list(SurveyResponse.objects
+                    .filter(survey=survey, status='submitted')
+                    .values_list('id', flat=True))
+
+    ans_by_q: dict[int, list[SurveyAnswer]] = defaultdict(list)
+    if resp_ids:
+        for a in SurveyAnswer.objects.filter(response_id__in=resp_ids).iterator():
+            ans_by_q[a.question_id].append(a)
+
+    question_stats = []
+
+    for q in questions:
+        rows = ans_by_q.get(q.id, [])
+        opt_qs = q.options.all().order_by('order', 'id')
+        opt_labels = [o.label for o in opt_qs]
+        correct_idx = {i for i, o in enumerate(opt_qs) if getattr(o, "is_correct", False)}
+
+        q_stats = {
+            "qid": q.id,
+            "title": q.title,
+            "type": q.qtype,
+            "chart": None,   # None | "bar"
+            "labels": [],
+            "data": [],
+            "extra": {},     # notas, promedios, etc.
+        }
+
+        # ---- Tipos de opción única / escala semántica ----
+        if q.qtype in ("single", "assessment", "frecuency"):
+            if not opt_labels and q.qtype == "assessment":
+                opt_labels = ["Muy positivo", "Positivo", "Neutral", "Negativo", "Muy Negativo"]
+            if not opt_labels and q.qtype == "frecuency":
+                opt_labels = ["Siempre", "Casi siempre", "Algunas veces", "Casi nunca", "Nunca"]
+
+            c = Counter()
+            correct_hits = 0
+            for a in rows:
+                idx = a.value_choice
+                if idx is None:
+                    continue
+                c[idx] += 1
+                if correct_idx and idx in correct_idx:
+                    correct_hits += 1
+
+            counts = [c.get(i, 0) for i in range(len(opt_labels))]
+            q_stats.update({"chart": "bar", "labels": opt_labels, "data": counts})
+            if correct_idx:
+                total = sum(counts) or 1
+                q_stats["extra"]["accuracy_pct"] = round(correct_hits * 100 / total, 1)
+
+        # ---- Rating (1..5) ----
+        elif q.qtype == "rating":
+            dist = Counter()
+            for a in rows:
+                try:
+                    v = int(a.value_int or 0)  # campo correcto para rating
+                except Exception:
+                    v = 0
+                if 1 <= v <= 5:
+                    dist[v] += 1
+
+            labels = ["1", "2", "3", "4", "5"]
+            data = [dist.get(i, 0) for i in range(1, 6)]
+            total = sum(data) or 1
+            avg = round(sum(i * dist.get(i, 0) for i in range(1, 6)) / total, 2)
+
+            q_stats.update({"chart": "bar", "labels": labels, "data": data})
+            q_stats["extra"]["avg"] = avg
+
+        # ---- Numéricos: integer / decimal ----
+        elif q.qtype in ("integer", "decimal"):
+            vals = []
+            for a in rows:
+                v = a.value_decimal if q.qtype == "decimal" else a.value_int  # nombres reales
+                if v is not None:
+                    try:
+                        vals.append(float(v))
+                    except Exception:
+                        pass
+
+            if not vals:
+                q_stats["extra"]["note"] = "Sin datos numéricos."
+            else:
+                vmin, vmax = min(vals), max(vals)
+                q_stats["extra"]["min"] = round(vmin, 2)
+                q_stats["extra"]["max"] = round(vmax, 2)
+                q_stats["extra"]["avg"] = round(sum(vals) / len(vals), 2)
+
+                if vmin == vmax:
+                    q_stats["chart"] = "bar"
+                    q_stats["labels"] = [_fmt_num(vmin)]
+                    q_stats["data"] = [len(vals)]
+                else:
+                    # ENTEROS: conteo por valor si el rango es pequeño
+                    if (q.qtype == "integer"
+                        and float(vmin).is_integer() and float(vmax).is_integer()
+                        and (vmax - vmin) <= 20):
+                        start = int(vmin)
+                        end   = int(vmax)
+                        labels = [str(i) for i in range(start, end + 1)]
+                        counts = [0] * len(labels)
+                        for v in vals:
+                            i = int(round(v))
+                            if start <= i <= end:
+                                counts[i - start] += 1
+                        q_stats.update({"chart": "bar", "labels": labels, "data": counts})
+                    else:
+                        # DECIMALES o rango grande -> bins con paso “lindo”
+                        n = len(vals)
+                        target_bins = max(4, min(12, int(math.sqrt(n)) + 1))
+                        raw_step = (vmax - vmin) / target_bins
+                        step = _nice_step(raw_step)
+
+                        start = math.floor(vmin / step) * step
+                        end   = math.ceil(vmax / step) * step
+                        bins  = max(1, int(round((end - start) / step)))
+
+                        labels = [f"{_fmt_num(start + i*step)}–{_fmt_num(start + (i+1)*step)}"
+                                  for i in range(bins)]
+                        counts = [0] * bins
+                        for v in vals:
+                            idx = int((v - start) // step)
+                            if idx < 0: idx = 0
+                            if idx >= bins: idx = bins - 1
+                            counts[idx] += 1
+
+                        q_stats.update({"chart": "bar", "labels": labels, "data": counts})
+
+        # ---- Multiple (selección múltiple) ----
+        elif q.qtype == "multiple":
+            cnt = Counter()
+            for a in rows:
+                snap = a.snapshot or {}
+                labels = snap.get("selected_labels")
+                if labels:
+                    for lbl in labels:
+                        cnt[lbl] += 1
+                else:
+                    indices = snap.get("selected_indices") or []
+                    for i, lbl in ((i, opt_labels[i]) for i in indices if 0 <= i < len(opt_labels)):
+                        cnt[lbl] += 1
+
+            if cnt:
+                items = sorted(cnt.items(), key=lambda x: (-x[1], x[0]))
+                labels, data = zip(*items)
+                q_stats.update({"chart": "bar", "labels": list(labels), "data": list(data)})
+            else:
+                q_stats["extra"]["note"] = "Sin datos o no se están guardando las selecciones."
+
+        # ---- Texto libre ----
+        elif q.qtype == "text":
+            top = Counter([
+                (a.value_text or "").strip()
+                for a in rows
+                if (a.value_text or "").strip()
+            ]).most_common(10)
+            if top:
+                q_stats["extra"]["top_text"] = top  # lista de [texto, veces]
+            else:
+                q_stats["extra"]["note"] = "Sin respuestas abiertas."
+
+        else:
+            q_stats["extra"]["note"] = "Tipo no graficado aún."
+
+        question_stats.append(q_stats)
+
+    qs_json = json.dumps(question_stats, ensure_ascii=False)
+
+    context = {
+        "survey": survey,
         "responses_count": responses_count,
         "expected": expected,
         "progress": progress,
-        "latest_responses": responses_qs.order_by("-submitted_at")[:10],
+        "question_stats_json": qs_json,
+        "question_stats": question_stats,
+        "latest_responses": (SurveyResponse.objects
+                             .filter(survey=survey, status='submitted')
+                             .order_by('-submitted_at')[:5]),
     }
-    return render(request, "surveys/admin/survey_detail.html", ctx)
+    return render(request, "surveys/admin/survey_detail.html", context)

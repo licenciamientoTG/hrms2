@@ -1,5 +1,6 @@
 {# templates/surveys/admin/survey_detail.html #}
 {% extends "layouts/base.html" %}
+{% load static %}
 {% block page_title %}{{ survey.title }} — Detalle{% endblock %}
 
 {% block content %}
@@ -8,7 +9,7 @@
 
   <div class="d-flex align-items-center justify-content-between mb-2">
     <h2 class="mb-0">{{ survey.title }}</h2>
-    <a class="btn btn-primary" href="{% url 'survey_edit' survey.id %}">Editar</a>
+    <a class="btn btn-primary" href="#">Descargar</a>
   </div>
   <p class="text-muted mb-3">
     Creada el {{ survey.created_at|date:"d/m/Y" }} ·
@@ -37,22 +38,113 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-body">
-      <div class="fw-semibold mb-2">Últimas respuestas</div>
-      {% if latest_responses %}
-        <ul class="list-group list-group-flush">
-          {% for r in latest_responses %}
-            <li class="list-group-item d-flex justify-content-between">
-              {% comment %} <span>#{{ r.id }} · {{ r.user.username if r.user }} <small class="text-muted">{{ r.submitted_at|date:"d/m/Y H:i" }}</small></span> {% endcomment %}
-              <span class="text-muted">{{ r.duration_ms }} ms</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <div class="text-muted">Aún no hay respuestas.</div>
-      {% endif %}
+  {# ====== GRÁFICAS / BLOQUES POR PREGUNTA ====== #}
+  {% for q in question_stats %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold">{{ forloop.counter }}. {{ q.title }}</div>
+            <div class="text-muted small">Tipo: {{ q.type }}</div>
+          </div>
+
+          <div class="d-flex gap-2">
+            {% if q.extra.avg and q.type == "rating" %}
+              <span class="badge bg-light text-dark">Promedio: {{ q.extra.avg }}</span>
+            {% endif %}
+            {% if q.extra.accuracy_pct %}
+              <span class="badge bg-success-subtle text-success">Acierto: {{ q.extra.accuracy_pct }}%</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {# --- gráfico si hay --- #}
+        {% if q.chart %}
+          <div class="mt-3">
+            <canvas id="chart-q{{ q.qid }}" height="140"></canvas>
+          </div>
+        {% else %}
+          {# ---- bloques de texto / resumen numérico ---- #}
+          {% if q.type == "text" and q.extra.top_text %}
+            <div class="mt-3">
+              <div class="fw-semibold small mb-2">Respuestas más frecuentes</div>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="text-muted small">
+                    <tr><th>Respuesta</th><th class="text-end">Veces</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for pair in q.extra.top_text %}
+                      {# pair = [texto, conteo] #}
+                      <tr>
+                        <td>{{ pair.0 }}</td>
+                        <td class="text-end">{{ pair.1 }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {% elif q.extra.avg or q.extra.min or q.extra.max %}
+            <div class="mt-2 small text-muted">
+              {% if q.extra.avg %} Promedio: <b>{{ q.extra.avg }}</b>{% if q.extra.min or q.extra.max %} ·{% endif %}{% endif %}
+              {% if q.extra.min %} Mín: <b>{{ q.extra.min }}</b>{% if q.extra.max %} ·{% endif %}{% endif %}
+              {% if q.extra.max %} Máx: <b>{{ q.extra.max }}</b>{% endif %}
+            </div>
+          {% else %}
+            <div class="mt-2 text-muted small">Sin gráfica para este tipo.</div>
+          {% endif %}
+        {% endif %}
+      </div>
     </div>
-  </div>
+  {% empty %}
+    <div class="text-muted">No hay preguntas en esta encuesta.</div>
+  {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Datos serializados desde Django
+    const QUESTION_STATS = {{ question_stats_json|safe }};
+
+    // Paleta simple
+    function genColors(n){
+      const out = [];
+      for (let i=0;i<n;i++){
+        const h = Math.round((360/n)*i);
+        out.push(`hsl(${h} 70% 55% / .85)`);
+      }
+      return out;
+    }
+
+    // Render
+    QUESTION_STATS.forEach(q => {
+      if (!q.chart) return;
+      const el = document.getElementById('chart-q'+q.qid);
+      if (!el) return;
+
+      const cfg = {
+        type: q.chart, // usamos 'bar' para todos los soportados
+        data: {
+          labels: q.labels,
+          datasets: [{
+            label: 'Respuestas',
+            data: q.data,
+            backgroundColor: genColors(q.labels.length),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, tooltip: { intersect: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      };
+      new Chart(el, cfg);
+    });
+  </script>
 {% endblock %}

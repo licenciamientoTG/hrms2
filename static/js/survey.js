@@ -1807,7 +1807,6 @@ document.addEventListener('DOMContentLoaded', () => {
     noRows = document.createElement('tr');
     noRows.setAttribute('data-empty','1');
     noRows.className = 'd-none';
-    noRows.innerHTML = '<td colspan="6" class="text-center text-muted py-4">No hay resultados.</td>';
     tbody.appendChild(noRows);
   }
 
