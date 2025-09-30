@@ -1,9 +1,51 @@
-<!-- templates/surveys/user/thanks.html -->
+{# templates/surveys/user/thanks.html #}
 {% extends 'layouts/base.html' %}
+
 {% block content %}
 <div class="container py-4">
   <h2>¡Gracias!</h2>
   <p>Hemos recibido tu respuesta para “{{ survey.title }}”.</p>
-  <a class="btn btn-primary" href="{% url 'survey_dashboard_user' %}">Volver</a>
+  {% if survey.auto_message %}
+  <div class="mt-3">
+    {{ survey.auto_message|linebreaksbr }}
+  </div>
+  {% endif %}
+
+
+  <a id="btn-back"
+     class="btn btn-primary"
+     href="{% url 'survey_dashboard_user' %}">Volver</a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function nukeAllSurveyStorage(){
+    try{
+      const toDelete = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (/^survey[:_]/.test(k)) toDelete.push(k);
+      }
+      toDelete.forEach(k => localStorage.removeItem(k));
+    } catch(e){}
+  }
+
+  nukeAllSurveyStorage();
+
+  try{
+    const ssDel = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (/^survey[:_]/.test(k)) ssDel.push(k);
+    }
+    ssDel.forEach(k => sessionStorage.removeItem(k));
+  }catch(e){}
+
+  const btn = document.getElementById('btn-back');
+  if (btn) btn.addEventListener('click', nukeAllSurveyStorage);
+})();
+</script>
 {% endblock %}

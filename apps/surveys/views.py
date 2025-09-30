@@ -604,35 +604,6 @@ def survey_edit(request, pk: int):
     }
     return render(request, "surveys/admin/survey_new.html", ctx)
 
-@login_required
-def surveys_panel(request):
-    user = request.user
-
-    # Encuestas activas visibles para el usuario:
-    # - audiencia modo "Todos"
-    # - o usuario incluido explícitamente en audience.users (M2M)
-    visible = (
-        Survey.objects.filter(is_active=True)
-        .filter(Q(audience__mode='all') | Q(audience__users=user))
-        .select_related('audience')
-        .order_by('title')
-        .distinct()
-    )
-
-    available = [{
-        "id": s.id,
-        "title": s.title,
-        "status": "available",
-        "take_url": reverse("survey_view_user", args=[s.id]),
-    } for s in visible]
-
-    context = {
-        "available": available,
-        "completed": [],  # aún no distinguimos completadas (eso será con submissions)
-    }
-    return render(request, "surveys/panel.html", context)
-
-
 
 @login_required
 def survey_view_user(request, survey_id: int):
@@ -813,12 +784,15 @@ def take_survey(request, survey_id):
     # Crear una nueva entrada de respuesta para la encuesta
     resp = SurveyResponse.objects.create(
         survey=survey,
-        user=None if survey.is_anonymous else request.user,
+        user=request.user,                      # SIEMPRE
         started_at=timezone.now(),
         status="draft",
         survey_title=survey.title or "",
-        meta={"ua": request.META.get("HTTP_USER_AGENT", ""),
-              "ip": request.META.get("REMOTE_ADDR", "")},
+        meta={
+            "ua": request.META.get("HTTP_USER_AGENT", ""),
+            "ip": request.META.get("REMOTE_ADDR", ""),
+            "anonymous": bool(survey.is_anonymous),   # marca de anonimato
+        },
     )
 
     errors = []
