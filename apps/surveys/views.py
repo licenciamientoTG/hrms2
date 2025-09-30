@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.db import DataError
 from collections import defaultdict, Counter
 import math  
-
+from collections import Counter
 
 
 try:
@@ -952,12 +952,17 @@ def survey_thanks(request, survey_id):
 @user_passes_test(lambda u: u.is_superuser)
 def survey_detail_admin(request, pk: int):
     # evita import circular
-    from .models import Survey, SurveySection, SurveyQuestion, SurveyAudience, SurveyOption, SurveyResponse, SurveyAnswer
+    from .models import (
+        Survey, SurveyQuestion, SurveyAudience, SurveyOption, SurveyResponse, SurveyAnswer
+    )
     from apps.employee.models import Employee
+    import math, json
+    from collections import Counter, defaultdict
+    from django.db.models import Prefetch, Q
+    from django.shortcuts import get_object_or_404, render
 
     # ---------- helpers solo para esta vista ----------
     def _nice_step(raw_step: float) -> float:
-        """Redondea el tamaño de bin a {1,2,5,10} * 10^k para ejes más 'bonitos'."""
         if not raw_step or raw_step <= 0:
             return 1.0
         exp = math.floor(math.log10(raw_step))
@@ -969,8 +974,7 @@ def survey_detail_admin(request, pk: int):
         return nf * (10 ** exp)
 
     def _fmt_num(x: float) -> str:
-        """Formato compacto para etiquetas de eje."""
-        return f"{x:.6g}"
+        return f"{float(x):.6g}"
 
     survey = get_object_or_404(
         Survey.objects.prefetch_related(
@@ -987,7 +991,6 @@ def survey_detail_admin(request, pk: int):
         survey=survey, status='submitted'
     ).count()
 
-    # Audiencia esperada (igual que dashboard)
     try:
         aud = survey.audience
     except SurveyAudience.DoesNotExist:
@@ -1000,22 +1003,14 @@ def survey_detail_admin(request, pk: int):
     elif aud.mode == 'segmented':
         f = aud.filters or {}
         cond = Q()
-        if f.get('departments'):
-            cond |= Q(department_id__in=f['departments'])
-        if f.get('positions'):
-            cond |= Q(job_position_id__in=f['positions'])
-        if f.get('locations'):
-            cond |= Q(station_id__in=f['locations'])
+        if f.get('departments'): cond |= Q(department_id__in=f['departments'])
+        if f.get('positions'):   cond |= Q(job_position_id__in=f['positions'])
+        if f.get('locations'):   cond |= Q(station_id__in=f['locations'])
         uids = list(aud.users.values_list('id', flat=True))
-        if uids:
-            cond |= Q(user_id__in=uids)
-
-        if cond:
-            expected = (Employee.objects
-                        .filter(user__isnull=False, user__is_active=True, is_active=True)
-                        .filter(cond).distinct().count())
-        else:
-            expected = 0
+        if uids: cond |= Q(user_id__in=uids)
+        expected = (Employee.objects.filter(
+            user__isnull=False, user__is_active=True, is_active=True
+        ).filter(cond).distinct().count()) if cond else 0
     else:
         expected = aud.users.filter(is_active=True).count()
 
@@ -1048,13 +1043,13 @@ def survey_detail_admin(request, pk: int):
             "qid": q.id,
             "title": q.title,
             "type": q.qtype,
-            "chart": None,   # None | "bar"
+            "chart": None,   # <- dejamos None por default
             "labels": [],
             "data": [],
-            "extra": {},     # notas, promedios, etc.
+            "extra": {},
         }
 
-        # ---- Tipos de opción única / escala semántica ----
+        # ---- Opción única / escalas semánticas ----
         if q.qtype in ("single", "assessment", "frecuency"):
             if not opt_labels and q.qtype == "assessment":
                 opt_labels = ["Muy positivo", "Positivo", "Neutral", "Negativo", "Muy Negativo"]
@@ -1065,8 +1060,7 @@ def survey_detail_admin(request, pk: int):
             correct_hits = 0
             for a in rows:
                 idx = a.value_choice
-                if idx is None:
-                    continue
+                if idx is None: continue
                 c[idx] += 1
                 if correct_idx and idx in correct_idx:
                     correct_hits += 1
@@ -1081,8 +1075,11 @@ def survey_detail_admin(request, pk: int):
         elif q.qtype == "rating":
             dist = Counter()
             for a in rows:
+                v = getattr(a, "value_rating", None)
+                if v is None:
+                    v = getattr(a, "value_int", None)
                 try:
-                    v = int(a.value_int or 0)  # campo correcto para rating
+                    v = int(v or 0)
                 except Exception:
                     v = 0
                 if 1 <= v <= 5:
@@ -1092,15 +1089,14 @@ def survey_detail_admin(request, pk: int):
             data = [dist.get(i, 0) for i in range(1, 6)]
             total = sum(data) or 1
             avg = round(sum(i * dist.get(i, 0) for i in range(1, 6)) / total, 2)
-
             q_stats.update({"chart": "bar", "labels": labels, "data": data})
             q_stats["extra"]["avg"] = avg
 
-        # ---- Numéricos: integer / decimal ----
+        # ---- Numéricos: integer / decimal (SIN GRÁFICA) ----
         elif q.qtype in ("integer", "decimal"):
             vals = []
             for a in rows:
-                v = a.value_decimal if q.qtype == "decimal" else a.value_int  # nombres reales
+                v = a.value_decimal if q.qtype == "decimal" else a.value_int
                 if v is not None:
                     try:
                         vals.append(float(v))
@@ -1115,45 +1111,14 @@ def survey_detail_admin(request, pk: int):
                 q_stats["extra"]["max"] = round(vmax, 2)
                 q_stats["extra"]["avg"] = round(sum(vals) / len(vals), 2)
 
-                if vmin == vmax:
-                    q_stats["chart"] = "bar"
-                    q_stats["labels"] = [_fmt_num(vmin)]
-                    q_stats["data"] = [len(vals)]
+                # value_counts para el botón
+                if q.qtype == "decimal":
+                    vc = Counter(_fmt_num(v) for v in vals)
                 else:
-                    # ENTEROS: conteo por valor si el rango es pequeño
-                    if (q.qtype == "integer"
-                        and float(vmin).is_integer() and float(vmax).is_integer()
-                        and (vmax - vmin) <= 20):
-                        start = int(vmin)
-                        end   = int(vmax)
-                        labels = [str(i) for i in range(start, end + 1)]
-                        counts = [0] * len(labels)
-                        for v in vals:
-                            i = int(round(v))
-                            if start <= i <= end:
-                                counts[i - start] += 1
-                        q_stats.update({"chart": "bar", "labels": labels, "data": counts})
-                    else:
-                        # DECIMALES o rango grande -> bins con paso “lindo”
-                        n = len(vals)
-                        target_bins = max(4, min(12, int(math.sqrt(n)) + 1))
-                        raw_step = (vmax - vmin) / target_bins
-                        step = _nice_step(raw_step)
+                    vc = Counter(str(int(round(v))) for v in vals)
+                q_stats["extra"]["value_counts"] = sorted(vc.items(), key=lambda x: (-x[1], x[0]))[:1000]
 
-                        start = math.floor(vmin / step) * step
-                        end   = math.ceil(vmax / step) * step
-                        bins  = max(1, int(round((end - start) / step)))
-
-                        labels = [f"{_fmt_num(start + i*step)}–{_fmt_num(start + (i+1)*step)}"
-                                  for i in range(bins)]
-                        counts = [0] * bins
-                        for v in vals:
-                            idx = int((v - start) // step)
-                            if idx < 0: idx = 0
-                            if idx >= bins: idx = bins - 1
-                            counts[idx] += 1
-
-                        q_stats.update({"chart": "bar", "labels": labels, "data": counts})
+                # NO asignamos q_stats["chart"] -> no se pintan gráficas
 
         # ---- Multiple (selección múltiple) ----
         elif q.qtype == "multiple":
@@ -1162,13 +1127,12 @@ def survey_detail_admin(request, pk: int):
                 snap = a.snapshot or {}
                 labels = snap.get("selected_labels")
                 if labels:
-                    for lbl in labels:
-                        cnt[lbl] += 1
+                    for lbl in labels: cnt[lbl] += 1
                 else:
                     indices = snap.get("selected_indices") or []
-                    for i, lbl in ((i, opt_labels[i]) for i in indices if 0 <= i < len(opt_labels)):
-                        cnt[lbl] += 1
-
+                    for i in indices:
+                        if 0 <= i < len(opt_labels):
+                            cnt[opt_labels[i]] += 1
             if cnt:
                 items = sorted(cnt.items(), key=lambda x: (-x[1], x[0]))
                 labels, data = zip(*items)
@@ -1178,13 +1142,13 @@ def survey_detail_admin(request, pk: int):
 
         # ---- Texto libre ----
         elif q.qtype == "text":
-            top = Counter([
-                (a.value_text or "").strip()
-                for a in rows
-                if (a.value_text or "").strip()
-            ]).most_common(10)
-            if top:
-                q_stats["extra"]["top_text"] = top  # lista de [texto, veces]
+            texts = [(a.value_text or "").strip()
+                     for a in rows
+                     if (a.value_text or "").strip()]
+            if texts:
+                vc = Counter(texts)
+                q_stats["extra"]["value_counts"] = sorted(vc.items(), key=lambda x: (-x[1], x[0]))[:1000]
+                q_stats["extra"]["top_text"] = vc.most_common(10)
             else:
                 q_stats["extra"]["note"] = "Sin respuestas abiertas."
 
@@ -1193,7 +1157,7 @@ def survey_detail_admin(request, pk: int):
 
         question_stats.append(q_stats)
 
-    qs_json = json.dumps(question_stats, ensure_ascii=False)
+    qs_json = json.dumps(question_stats, ensure_ascii=False, default=str)
 
     context = {
         "survey": survey,
