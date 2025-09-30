@@ -575,3 +575,6 @@
   border-radius: inherit;
 }
 .row-link:focus{ outline: 2px solid #c7d2fe; outline-offset: -2px; }
+
+tr.row-clickable { cursor: pointer; }
+tr.row-clickable:hover { background: #f8fafc; }

@@ -133,6 +133,7 @@ def survey_dashboard_admin(request):
     for i, s in enumerate(page_obj.object_list, start=1):
         s.position = start_idx + i
         s.responses_count = responses_count.get(s.id, 0)
+        s.expected_total  = audience_counts.get(s.id, 0)  
         
         expected = audience_counts.get(s.id, 0)
         if expected > 0:
@@ -869,9 +870,56 @@ def take_survey(request, survey_id):
 
     return redirect(reverse("survey_thanks", args=[survey.id]))
 
-
-# surveys/views.py
 @login_required
 def survey_thanks(request, survey_id):
     survey = get_object_or_404(Survey, pk=survey_id)
     return render(request, 'surveys/user/thanks.html', {'survey': survey})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_detail_admin(request, pk: int):
+    from django.db.models import Count
+    s = (Survey.objects
+         .select_related("creator", "audience")
+         .prefetch_related("sections__questions__options")
+         .get(pk=pk))
+
+    # métricas básicas
+    responses_qs = SurveyResponse.objects.filter(survey=s, status="submitted")
+    responses_count = responses_qs.count()
+
+    # audiencia esperada (reutiliza la lógica que ya usas en el dashboard)
+    try:
+        aud = s.audience
+        if not aud or aud.mode == SurveyAudience.MODE_ALL:
+            expected = Employee.objects.filter(
+                user__isnull=False, user__is_active=True, is_active=True
+            ).count()
+        elif aud.mode == "segmented":
+            f = aud.filters or {}
+            cond = Q()
+            if f.get("departments"): cond |= Q(department_id__in=f["departments"])
+            if f.get("positions"):   cond |= Q(job_position_id__in=f["positions"])
+            if f.get("locations"):   cond |= Q(station_id__in=f["locations"])
+            if aud.users.exists():   cond |= Q(user_id__in=aud.users.values_list("id", flat=True))
+            qs_emp = Employee.objects.filter(
+                user__isnull=False, user__is_active=True, is_active=True
+            )
+            expected = qs_emp.filter(cond).distinct().count() if cond else 0
+        else:
+            expected = aud.users.filter(is_active=True).count()
+    except SurveyAudience.DoesNotExist:
+        expected = Employee.objects.filter(
+            user__isnull=False, user__is_active=True, is_active=True
+        ).count()
+
+    progress = round((responses_count / expected) * 100, 1) if expected else 0.0
+
+    ctx = {
+        "survey": s,
+        "responses_count": responses_count,
+        "expected": expected,
+        "progress": progress,
+        "latest_responses": responses_qs.order_by("-submitted_at")[:10],
+    }
+    return render(request, "surveys/admin/survey_detail.html", ctx)

@@ -1,0 +1,58 @@
+{# templates/surveys/admin/survey_detail.html #}
+{% extends "layouts/base.html" %}
+{% block page_title %}{{ survey.title }} — Detalle{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+  <a class="btn btn-light mb-3" href="{% url 'survey_dashboard_admin' %}">← Volver</a>
+
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <h2 class="mb-0">{{ survey.title }}</h2>
+    <a class="btn btn-primary" href="{% url 'survey_edit' survey.id %}">Editar</a>
+  </div>
+  <p class="text-muted mb-3">
+    Creada el {{ survey.created_at|date:"d/m/Y" }} ·
+    por {{ survey.creator.get_full_name|default:survey.creator.username }}
+  </p>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card"><div class="card-body">
+        <div class="fw-semibold">Respuestas recibidas</div>
+        <div class="display-6">{{ responses_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card"><div class="card-body">
+        <div class="fw-semibold">Audiencia esperada</div>
+        <div class="display-6">{{ expected }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card"><div class="card-body">
+        <div class="fw-semibold mb-2">Avance</div>
+        <div class="progress"><div class="progress-bar" style="width: {{ progress|floatformat:0 }}%"></div></div>
+        <div class="mt-1 text-muted">{{ progress|floatformat:0 }}%</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="fw-semibold mb-2">Últimas respuestas</div>
+      {% if latest_responses %}
+        <ul class="list-group list-group-flush">
+          {% for r in latest_responses %}
+            <li class="list-group-item d-flex justify-content-between">
+              {% comment %} <span>#{{ r.id }} · {{ r.user.username if r.user }} <small class="text-muted">{{ r.submitted_at|date:"d/m/Y H:i" }}</small></span> {% endcomment %}
+              <span class="text-muted">{{ r.duration_ms }} ms</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-muted">Aún no hay respuestas.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

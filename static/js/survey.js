@@ -1789,3 +1789,73 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 })();
+
+(function(){
+  // Input de búsqueda
+  const form  = document.querySelector('form[role="search"]');
+  const input = document.getElementById('qLive') || form?.querySelector('input[name="q"]');
+  if (!form || !input) return;
+
+  // Tabla/filas
+  const tbody = document.querySelector('.table-responsive table tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr.survey-row'));
+
+  // Fila "sin resultados"
+  let noRows = tbody.querySelector('tr[data-empty]');
+  if (!noRows) {
+    noRows = document.createElement('tr');
+    noRows.setAttribute('data-empty','1');
+    noRows.className = 'd-none';
+    noRows.innerHTML = '<td colspan="6" class="text-center text-muted py-4">No hay resultados.</td>';
+    tbody.appendChild(noRows);
+  }
+
+  // normaliza acentos y minúsculas
+  const norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+  function getTitle(tr){
+    // intenta con .col-title y si no, cae a .fw-semibold
+    const el = tr.querySelector('.col-title') || tr.querySelector('.fw-semibold');
+    return el ? el.textContent : '';
+  }
+
+  function applyFilter(){
+    const q = norm(input.value);
+    let visible = 0;
+
+    rows.forEach(tr => {
+      const title = norm(getTitle(tr));
+      const show = !q || title.includes(q);
+      tr.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    noRows.classList.toggle('d-none', visible !== 0);
+  }
+
+  const debounce = (fn, ms)=>{ let id; return (...a)=>{ clearTimeout(id); id=setTimeout(()=>fn(...a), ms); }; };
+  input.addEventListener('input', debounce(applyFilter, 120));
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { input.value = ''; applyFilter(); }
+  });
+
+  applyFilter();
+})();
+
+(function(){
+  const rows = document.querySelectorAll('tr.survey-row');
+  rows.forEach(tr => tr.classList.add('row-clickable'));
+
+  document.addEventListener('click', function(e){
+    const tr = e.target.closest('tr.survey-row');
+    if (!tr) return;
+
+    // Ignorar clics en acciones/menú/botones/enlaces dentro de la fila
+    if (e.target.closest('.dropdown, .dropdown-menu, .kebab, a, button, input, label, select, textarea')) return;
+
+    const href = tr.dataset.href;
+    if (href) window.location.href = href;
+  });
+})();
