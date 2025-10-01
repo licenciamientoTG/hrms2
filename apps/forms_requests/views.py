@@ -27,6 +27,8 @@ from django.urls import reverse
 from apps.notifications.utils import notify
 from django.contrib.contenttypes.models import ContentType
 from itertools import islice
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.units import mm
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -116,11 +118,20 @@ def generar_constancia_laboral(request):
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
-    width, height = 842, 800
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(width, height))
+    # --- PDF base para conocer tamaño ---
+    template_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_laboral.pdf'
+    )
+    base_pdf = PdfReader(template_path)
+    base_page = base_pdf.pages[0]
+    PAGE_W = float(base_page.mediabox.width)
+    PAGE_H = float(base_page.mediabox.height)
 
-    # Crear texto con estilo justificado
+    # --- Canvas overlay del mismo tamaño ---
+    overlay_buffer = BytesIO()
+    c = canvas.Canvas(overlay_buffer, pagesize=(PAGE_W, PAGE_H))
+
+    # Texto justificado
     styles = getSampleStyleSheet()
     style = ParagraphStyle(
         name='Justificado',
@@ -130,7 +141,6 @@ def generar_constancia_laboral(request):
         leading=18,
         alignment=4
     )
-
     texto = (
         f"<b>A quien corresponda:</b><br/><br/>"
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
@@ -138,35 +148,64 @@ def generar_constancia_laboral(request):
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
         f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente."
     )
-
     paragraph = Paragraph(texto, style)
+    Frame(70, 230, 480, 300, showBoundary=0).addFromList([paragraph], c)
 
-    # Definir un Frame donde poner el párrafo
-    frame = Frame(70, 230, 480, 300, showBoundary=0)
-    frame.addFromList([paragraph], c)
+    # Fecha
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(440, 644, fecha_hoy)
 
-    # fecha
-    c.setFont("Helvetica-Bold",  13)
-    fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(440, 644, f"{fecha_hoy}")
-
-    # Terminar el PDF temporal
-    c.save()
-    buffer.seek(0)
-
-    # Fusionar con la plantilla PDF
-    template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_laboral.pdf'
+    # --- Sello digital (junto a la firma) ---
+    sello_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
     )
-    base_pdf = PdfReader(template_path)
-    overlay_pdf = PdfReader(buffer)
-    writer = PdfWriter()
+    if os.path.exists(sello_path):
+        sello = ImageReader(sello_path)
+        img_w_px, img_h_px = sello.getSize()
 
-    base_page = base_pdf.pages[0]
+        # tamaño del sello
+        STAMP_W = 38 * mm               # ancho del sello (ajústalo si lo ves grande/pequeño)
+        scale   = STAMP_W / float(img_w_px)
+        STAMP_H = img_h_px * scale
+
+        # ====== POSICIÓN CERCA DE LA FIRMA ======
+        # Ancla aproximada al área de la firma en tu plantilla (ajústalo una vez)
+        SIGN_X = PAGE_W * 0.66          # más pequeño = más a la izquierda
+        SIGN_Y = PAGE_H * 0.18         # más grande = más arriba
+
+        # Desplazamientos finos desde el ancla para “pegarlo” al lado de la firma
+        OFFSET_X = -10 * mm             # negativo = más a la izquierda del ancla
+        OFFSET_Y = +6  * mm             # positivo = más arriba del ancla
+
+        STAMP_X = SIGN_X + OFFSET_X
+        STAMP_Y = SIGN_Y + OFFSET_Y
+        # ========================================
+
+        ANGLE = -12  # negativo = lado derecho ligeramente más abajo
+        c.saveState()
+        c.translate(STAMP_X, STAMP_Y)   # rota alrededor de la esquina inf-izq del sello
+        c.rotate(ANGLE)
+        c.drawImage(
+            sello, 0, 0,
+            width=STAMP_W, height=STAMP_H,
+            preserveAspectRatio=True, mask='auto'
+        )
+        c.restoreState()
+    else:
+        c.setFont("Helvetica", 8)
+        c.drawString(40, 40, "Sello no encontrado: SelloRFC.png")
+
+    # Cerrar overlay y reposicionar buffer
+    c.save()
+    overlay_buffer.seek(0)
+
+    # Mezclar overlay con plantilla
+    overlay_pdf = PdfReader(overlay_buffer)
+    writer = PdfWriter()
     base_page.merge_page(overlay_pdf.pages[0])
     writer.add_page(base_page)
 
-    # Respuesta HTTP
+    # Respuesta
     final_output = BytesIO()
     writer.write(final_output)
     final_output.seek(0)
@@ -304,7 +343,7 @@ def generar_carta_recomendacion(request):
     return response
 
 
-#esta vista genera el pdf de la constancia especial
+# esta vista genera el pdf de la constancia especial
 @login_required
 def generar_constancia_especial(request):
     employee = Employee.objects.filter(user=request.user).first()
@@ -315,16 +354,24 @@ def generar_constancia_especial(request):
     nss = employee.imss if employee and employee.imss else "(NSS)"
     curp = employee.curp if employee and employee.curp else "(CURP)"
     rfc = employee.rfc if employee and employee.rfc else "(RFC)"
-
     fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
-    width, height = 842, 800
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(width, height))
+    # --- PDF base (plantilla) -> para obtener tamaño de página ---
+    template_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_especial.pdf'
+    )
+    base_pdf = PdfReader(template_path)
+    base_page = base_pdf.pages[0]
+    PAGE_W = float(base_page.mediabox.width)
+    PAGE_H = float(base_page.mediabox.height)
 
-    # Crear texto con estilo justificado
+    # --- Canvas overlay del mismo tamaño ---
+    overlay_buffer = BytesIO()
+    c = canvas.Canvas(overlay_buffer, pagesize=(PAGE_W, PAGE_H))
+
+    # --- Texto justificado ---
     styles = getSampleStyleSheet()
     style = ParagraphStyle(
         name='Justificado',
@@ -332,7 +379,7 @@ def generar_constancia_especial(request):
         fontName='Helvetica',
         fontSize=13,
         leading=18,
-        alignment=4
+        alignment=4  # TA_JUSTIFY
     )
 
     texto = (
@@ -343,45 +390,72 @@ def generar_constancia_especial(request):
         f"NSS: <b>{nss}</b><br/>"
         f"CURP: <b>{curp}</b><br/>"
         f"RFC: <b>{rfc}</b><br/><br/>"
-        f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente.<br/><br/>"
+        f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente."
     )
-
     paragraph = Paragraph(texto, style)
+    Frame(70, 230, 480, 300, showBoundary=0).addFromList([paragraph], c)
 
-    # Definir un Frame donde poner el párrafo
-    frame = Frame(70, 230, 480, 300, showBoundary=0)
-    frame.addFromList([paragraph], c)
+    # --- Fecha ---
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(440, 658, fecha_hoy)
 
-    # fecha
-    c.setFont("Helvetica-Bold",  13)
-    fecha_hoy = date.today().strftime("%d/%m/%Y")
-    c.drawCentredString(440, 658, f"{fecha_hoy}")
-
-    # Terminar el PDF temporal
-    c.save()
-    buffer.seek(0)
-
-    # Fusionar con la plantilla PDF
-    template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_especial.pdf'
+    # --- Sello digital (rotado y al lado de la firma) ---
+    sello_path = os.path.join(
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
     )
-    base_pdf = PdfReader(template_path)
-    overlay_pdf = PdfReader(buffer)
-    writer = PdfWriter()
+    if os.path.exists(sello_path):
+        sello = ImageReader(sello_path)
+        img_w_px, img_h_px = sello.getSize()
 
-    base_page = base_pdf.pages[0]
+        # Tamaño del sello
+        STAMP_W = 38 * mm          # ajusta el ancho si lo quieres más grande/pequeño
+        scale   = STAMP_W / float(img_w_px)
+        STAMP_H = img_h_px * scale
+
+        # === Ancla aproximada a la zona de la firma (ajústala una sola vez) ===
+        # Usa proporciones del tamaño de la página para que sea independiente de px
+        SIGN_X = PAGE_W * 0.66      # menor -> más a la izquierda
+        SIGN_Y = PAGE_H * 0.13      # mayor -> más arriba
+
+        # Ajustes finos respecto al ancla para “pegarlo” al lado de la firma
+        OFFSET_X = -12 * mm         # negativo -> más a la izquierda
+        OFFSET_Y = +5  * mm         # positivo -> más arriba
+
+        STAMP_X = SIGN_X + OFFSET_X
+        STAMP_Y = SIGN_Y + OFFSET_Y
+
+        ANGLE = -12                 # giro horario: lado derecho queda un poco más abajo
+        c.saveState()
+        c.translate(STAMP_X, STAMP_Y)   # el origen pasa a la esquina inferior izquierda del sello
+        c.rotate(ANGLE)
+        c.drawImage(
+            sello, 0, 0,
+            width=STAMP_W, height=STAMP_H,
+            preserveAspectRatio=True, mask='auto'
+        )
+        c.restoreState()
+    else:
+        c.setFont("Helvetica", 8)
+        c.drawString(40, 40, "Sello no encontrado: SelloRFC.png")
+
+    # --- Cerrar overlay ---
+    c.save()
+    overlay_buffer.seek(0)
+
+    # --- Mezclar overlay con plantilla ---
+    overlay_pdf = PdfReader(overlay_buffer)
+    writer = PdfWriter()
     base_page.merge_page(overlay_pdf.pages[0])
     writer.add_page(base_page)
 
-    # Respuesta HTTP
+    # --- Respuesta HTTP ---
     final_output = BytesIO()
     writer.write(final_output)
     final_output.seek(0)
 
     response = HttpResponse(final_output, content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="constancia_laboral.pdf"'
+    response['Content-Disposition'] = 'inline; filename="constancia_especial.pdf"'
     return response
-
 
 #esta vista nos ayuda a guardar en la base de datos las solicitudes de la guardería
 @require_POST
