@@ -9,7 +9,9 @@
 
   <div class="d-flex align-items-center justify-content-between mb-2">
     <h2 class="mb-0">{{ survey.title }}</h2>
-    <a class="btn btn-primary" href="#">Descargar</a>
+    <a class="btn btn-primary" href="{% url 'survey_export_xlsx' survey.id %}">XLSX (con gráficas)</a>
+
+
   </div>
   <p class="text-muted mb-3">
     Creada el {{ survey.created_at|date:"d/m/Y" }} ·

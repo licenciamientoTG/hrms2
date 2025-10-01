@@ -1,5 +1,5 @@
 import json
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from apps.employee.models import Employee, JobPosition
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -25,8 +25,8 @@ from django.utils import timezone
 from django.db import DataError
 from collections import defaultdict, Counter
 import math  
-from collections import Counter
-
+import io
+import xlsxwriter    
 
 try:
     from openpyxl import Workbook
@@ -725,7 +725,7 @@ def _sections_for_template(survey) -> list[dict]:
                 else:
                     if q.qtype == "assessment":
                         qd["options"] = [{"label": x} for x in
-                                         ["Muy positivo", "Positivo", "Neutral", "Negativo", "Muy Negativo"]]
+                                         ["Totalmente de acuerdo", "De acuerdo", "Ni de acuerdo ni en desacuerdo", "En desacuerdo", "Totalmente en desacuerdo"]]
                     elif q.qtype == "frecuency":
                         qd["options"] = [{"label": x} for x in
                                          ["Siempre", "Casi siempre", "Algunas veces", "Casi nunca", "Nunca"]]
@@ -957,7 +957,6 @@ def survey_detail_admin(request, pk: int):
     )
     from apps.employee.models import Employee
     import math, json
-    from collections import Counter, defaultdict
     from django.db.models import Prefetch, Q
     from django.shortcuts import get_object_or_404, render
 
@@ -1052,7 +1051,7 @@ def survey_detail_admin(request, pk: int):
         # ---- Opción única / escalas semánticas ----
         if q.qtype in ("single", "assessment", "frecuency"):
             if not opt_labels and q.qtype == "assessment":
-                opt_labels = ["Muy positivo", "Positivo", "Neutral", "Negativo", "Muy Negativo"]
+                opt_labels = ["Totalmente de acuerdo", "De acuerdo", "Ni de acuerdo ni en desacuerdo", "En desacuerdo", "Totalmente en desacuerdo"]
             if not opt_labels and q.qtype == "frecuency":
                 opt_labels = ["Siempre", "Casi siempre", "Algunas veces", "Casi nunca", "Nunca"]
 
@@ -1171,3 +1170,157 @@ def survey_detail_admin(request, pk: int):
                              .order_by('-submitted_at')[:5]),
     }
     return render(request, "surveys/admin/survey_detail.html", context)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_export_xlsx(request, pk: int):
+
+    survey = get_object_or_404(
+        Survey.objects.prefetch_related(
+            Prefetch('sections__questions__options',
+                     queryset=SurveyOption.objects.order_by('order','id'))
+        ), pk=pk
+    )
+
+    # métricas (idénticas a tu CSV)
+    responses_qs = SurveyResponse.objects.filter(survey=survey, status='submitted')
+    responses_count = responses_qs.count()
+    try:
+        aud = survey.audience
+    except SurveyAudience.DoesNotExist:
+        aud = None
+    if not aud or aud.mode == SurveyAudience.MODE_ALL:
+        expected = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True).count()
+    elif aud.mode == 'segmented':
+        f = aud.filters or {}; cond = Q()
+        if f.get('departments'): cond |= Q(department_id__in=f['departments'])
+        if f.get('positions'):   cond |= Q(job_position_id__in=f['positions'])
+        if f.get('locations'):   cond |= Q(station_id__in=f['locations'])
+        uids = list(aud.users.values_list('id', flat=True))
+        if uids: cond |= Q(user_id__in=uids)
+        expected = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True).filter(cond).distinct().count() if cond else 0
+    else:
+        expected = aud.users.filter(is_active=True).count()
+    progress = (responses_count/expected*100) if expected else 0
+
+    # respuestas por pregunta
+    resp_ids = list(responses_qs.values_list('id', flat=True))
+    ans_by_q = defaultdict(list)
+    if resp_ids:
+        for a in SurveyAnswer.objects.filter(response_id__in=resp_ids).iterator():
+            ans_by_q[a.question_id].append(a)
+
+    # ----- XLSX en memoria -----
+    output = io.BytesIO()
+    wb = xlsxwriter.Workbook(output, {'in_memory': True})
+    fmt_title = wb.add_format({'bold': True})
+    fmt_percent = wb.add_format({'num_format': '0%'})
+
+    # Resumen
+    ws = wb.add_worksheet('Resumen')
+    ws.write(0,0,'Título', fmt_title);              ws.write(0,1, survey.title)
+    ws.write(1,0,'Respuestas recibidas', fmt_title);ws.write(1,1, responses_count)
+    ws.write(2,0,'Audiencia esperada', fmt_title);  ws.write(2,1, expected)
+    ws.write(3,0,'Avance', fmt_title);             ws.write_number(3,1, progress/100, fmt_percent)
+
+    # Una hoja por sección (opcional) o todo en “Resumen”
+    row = 6
+    for sec in survey.sections.all().order_by('order','id'):
+        ws.write(row, 0, sec.title or f'Sección {sec.order}', fmt_title); row += 1
+
+        for q in sec.questions.all().order_by('order','id'):
+            ws.write(row, 0, f"{q.order}. {q.title}")
+            ws.write(row+1, 0, f"Tipo: {q.qtype}")
+            row += 3
+
+            rows = ans_by_q.get(q.id, [])
+            opts = [o.label for o in q.options.all().order_by('order','id')]
+
+            # Conteos según tipo
+            labels, data = [], []
+            if q.qtype in ('single','assessment','frecuency'):
+                if not opts and q.qtype=='assessment':
+                    opts = ["Totalmente de acuerdo","De acuerdo","Ni de acuerdo ni en desacuerdo","En desacuerdo","Totalmente en desacuerdo"]
+                if not opts and q.qtype=='frecuency':
+                    opts = ["Siempre","Casi siempre","Algunas veces","Casi nunca","Nunca"]
+                c = Counter(a.value_choice for a in rows if a.value_choice is not None)
+                labels = opts
+                data   = [c.get(i,0) for i in range(len(opts))]
+            elif q.qtype == 'multiple':
+                c = Counter()
+                for a in rows:
+                    snap = a.snapshot or {}
+                    lbls = snap.get('selected_labels')
+                    if lbls:
+                        for l in lbls: c[l]+=1
+                    else:
+                        idxs = snap.get('selected_indices') or []
+                        for i in idxs:
+                            if 0<=i<len(opts): c[opts[i]] += 1
+                items = sorted(c.items(), key=lambda x:(-x[1],x[0]))
+                labels = [k for k,_ in items]
+                data   = [v for _,v in items]
+            elif q.qtype == 'rating':
+                c = Counter()
+                for a in rows:
+                    v = getattr(a,'value_rating', None) or getattr(a,'value_int', None)
+                    try: v=int(v or 0)
+                    except: v=0
+                    if 1<=v<=5: c[v]+=1
+                labels = [str(i) for i in range(1,6)]
+                data   = [c.get(i,0) for i in range(1,6)]
+            elif q.qtype in ('integer','decimal'):
+                # Sólo tabla de valores/veces (sin gráfico)
+                vals = []
+                for a in rows:
+                    v = a.value_decimal if q.qtype=='decimal' else a.value_int
+                    if v is not None:
+                        try: vals.append(float(v))
+                        except: pass
+                if vals:
+                    vc = Counter(f"{v:.6g}" if q.qtype=='decimal' else str(int(round(v))) for v in vals)
+                    ws.write(row, 0, "Valor", fmt_title); ws.write(row, 1, "Veces", fmt_title)
+                    r0 = row+1
+                    for i,(k,v) in enumerate(sorted(vc.items(), key=lambda x:(-x[1],x[0]))):
+                        ws.write(r0+i, 0, k); ws.write(r0+i, 1, v)
+                    row = r0 + len(vc) + 2
+                else:
+                    ws.write(row, 0, "Sin datos"); row += 2
+                continue  # siguiente pregunta
+
+            # Escribe tabla y crea gráfico de columnas
+            if labels:
+                ws.write(row, 0, "Opción/Valor", fmt_title)
+                ws.write(row, 1, "Veces", fmt_title)
+                r0 = row+1
+                for i, (lbl, val) in enumerate(zip(labels, data)):
+                    ws.write(r0+i, 0, lbl)
+                    ws.write_number(r0+i, 1, val)
+
+                chart = wb.add_chart({'type':'column'})
+                chart.add_series({
+                    'name':       q.title[:30],
+                    'categories': ['Resumen', r0, 0, r0+len(labels)-1, 0],
+                    'values':     ['Resumen', r0, 1, r0+len(labels)-1, 1],
+                })
+                chart.set_legend({'none': True})
+                chart.set_title({'name': ''})
+                chart.set_size({'width': 560, 'height': 280})
+
+                ws.insert_chart(r0, 3, chart)  # inserta a la derecha
+                row = r0 + len(labels) + 14
+            else:
+                ws.write(row, 0, "Sin datos"); row += 2
+
+        row += 2
+
+    wb.close()
+    output.seek(0)
+
+    resp = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    from django.utils.text import slugify
+    resp['Content-Disposition'] = f'attachment; filename="encuesta_{survey.id}_{slugify(survey.title or "reporte")}.xlsx"'
+    return resp
