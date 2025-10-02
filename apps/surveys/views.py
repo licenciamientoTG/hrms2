@@ -1215,6 +1215,7 @@ def survey_export_xlsx(request, pk: int):
     wb = xlsxwriter.Workbook(output, {'in_memory': True})
     fmt_title = wb.add_format({'bold': True})
     fmt_percent = wb.add_format({'num_format': '0%'})
+    fmt_wrap    = wb.add_format({'text_wrap': True}) 
 
     # Resumen
     ws = wb.add_worksheet('Resumen')
@@ -1269,6 +1270,23 @@ def survey_export_xlsx(request, pk: int):
                     if 1<=v<=5: c[v]+=1
                 labels = [str(i) for i in range(1,6)]
                 data   = [c.get(i,0) for i in range(1,6)]
+
+            elif q.qtype == 'text':                                    # ← NUEVO BLOQUE AQUÍ
+                texts = [(a.value_text or "").strip() for a in rows if (a.value_text or "").strip()]
+                if texts:
+                    ws.write(row, 0, "Respuesta", fmt_title)
+                    r0 = row + 1
+                    for i, txt in enumerate(texts):
+                        ws.write(r0 + i, 0, txt, fmt_wrap)
+                        #que el ancho se ajuste al texto más largo
+                        curr_width = ws.col_sizes[0] if hasattr(ws, 'col_sizes') and ws.col_sizes.get(0) else 10
+                        new_width = min(max(len(txt) * 1.1, curr_width), 50)  # máximo 50
+                        ws.set_column(0, 0, new_width)
+                    row = r0 + len(texts) + 2
+                else:
+                    ws.write(row, 0, "Sin datos"); row += 2
+                continue  
+
             elif q.qtype in ('integer','decimal'):
                 # Sólo tabla de valores/veces (sin gráfico)
                 vals = []
@@ -1324,3 +1342,84 @@ def survey_export_xlsx(request, pk: int):
     from django.utils.text import slugify
     resp['Content-Disposition'] = f'attachment; filename="encuesta_{survey.id}_{slugify(survey.title or "reporte")}.xlsx"'
     return resp
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
+    survey = get_object_or_404(Survey, pk=pk)
+
+    questions = (
+        SurveyQuestion.objects
+        .filter(section__survey=survey)
+        .select_related('section')
+        .order_by('section__order', 'order', 'id')
+    )
+
+    answers_qs = SurveyAnswer.objects.select_related('question')
+    responses = (
+        SurveyResponse.objects
+        .filter(survey=survey, status='submitted')
+        .select_related('user')
+        .prefetch_related(Prefetch('answers', queryset=answers_qs))
+        .order_by('-submitted_at')
+    )
+
+    # Prepara valores visuales por respuesta
+    for r in responses:
+        by_q = {}
+        for a in r.answers.all():
+            disp = "-"
+            qtype = (a.q_type or "").lower()
+
+            snap = a.snapshot or {}
+            opts = snap.get("options") or []  # lista de labels en el momento
+            sel_labels = snap.get("selected_labels")
+
+            if qtype in {"single", "assessment", "frecuency", "frequency"}:
+                # única / escalas
+                if sel_labels:
+                    disp = ", ".join(sel_labels)
+                elif a.value_choice is not None:
+                    idx = a.value_choice
+                    if 0 <= idx < len(opts):
+                        disp = str(opts[idx])
+                    else:
+                        disp = str(idx)
+
+            elif qtype == "multiple":
+                if sel_labels:
+                    disp = ", ".join(sel_labels)
+                elif a.value_multi:
+                    # mapear índices a labels cuando se pueda
+                    lbls = []
+                    for i in (a.value_multi or []):
+                        if isinstance(i, int) and 0 <= i < len(opts):
+                            lbls.append(str(opts[i]))
+                        else:
+                            lbls.append(str(i))
+                    disp = ", ".join(lbls) if lbls else "-"
+
+            elif qtype == "rating":
+                # calificación 1..5 guardada en value_int
+                disp = str(a.value_int) if a.value_int is not None else "-"
+
+            elif qtype == "text":
+                disp = (a.value_text or "").strip() or "-"
+
+            elif qtype == "integer":
+                disp = str(a.value_int) if a.value_int is not None else "-"
+
+            elif qtype == "decimal":
+                disp = f"{a.value_decimal}" if a.value_decimal is not None else "-"
+
+            # guarda para el template
+            a.display = disp
+            by_q[a.question_id] = a
+
+        r.cells = [by_q.get(q.id) for q in questions]
+
+    return render(request, 'surveys/admin/survey_responses.html', {
+        'survey': survey,
+        'questions': questions,
+        'responses': responses,
+    })

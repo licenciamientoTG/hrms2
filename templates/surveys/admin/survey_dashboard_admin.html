@@ -11,9 +11,15 @@
 
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h2 class="mb-0">Encuestas</h2>
-      <a href="{% url 'survey_new' %}" class="btn btn-primary">
-        <span class="me-1">+</span> Nueva encuesta
+    
+    <div class="d-flex gap-2">
+      <a href="#" target="_blank" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-chart-line me-1"></i> Resumen
       </a>
+      <a href="{% url 'survey_new' %}" class="btn btn-primary">
+        Nueva encuesta
+      </a>
+    </div>
   </div>
 
   <form class="mb-3" method="get" role="search">
