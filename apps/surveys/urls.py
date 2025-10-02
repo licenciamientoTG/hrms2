@@ -4,7 +4,7 @@ from .views import (
     section_create, section_rename, section_options, question_create, 
     question_rename, survey_audience_meta, survey_audience_user_search, survey_audience_preview,
     SurveyImportView, survey_delete, survey_edit, survey_view_user, take_survey, survey_thanks, survey_detail_admin,
-    survey_export_xlsx, survey_responses
+    survey_export_xlsx, survey_responses, survey_summary_pdf
 )
 
 urlpatterns = [
@@ -35,4 +35,6 @@ urlpatterns = [
     path("surveys/admin/<int:pk>/", survey_detail_admin, name="survey_detail_admin"),
     path("admin/surveys/<int:pk>/export/xlsx/", survey_export_xlsx, name="survey_export_xlsx"),
     path('admin/survey/<int:pk>/responses/', survey_responses, name='survey_responses'),
+    path("surveys/summary.pdf", survey_summary_pdf, name="survey_summary_pdf"),
+
 ]

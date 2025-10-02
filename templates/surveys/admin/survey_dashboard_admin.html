@@ -13,9 +13,10 @@
     <h2 class="mb-0">Encuestas</h2>
     
     <div class="d-flex gap-2">
-      <a href="#" target="_blank" class="btn btn-outline-secondary">
+      <a href="{% url 'survey_summary_pdf' %}" target="_blank" class="btn btn-outline-secondary">
         <i class="fa-solid fa-chart-line me-1"></i> Resumen
       </a>
+
       <a href="{% url 'survey_new' %}" class="btn btn-primary">
         Nueva encuesta
       </a>

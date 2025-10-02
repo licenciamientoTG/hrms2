@@ -1423,3 +1423,142 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
         'questions': questions,
         'responses': responses,
     })
+
+# imports arriba del archivo si no los tienes aún
+from io import BytesIO
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+from datetime import datetime
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def survey_summary_pdf(request):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+    elements = []
+
+    # ===== Estilos =====
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading1']
+    subtitle_style = styles['Normal']
+    subtitle_style.fontSize = 9
+    wrap_style = ParagraphStyle(
+        name="WrapStyle",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_LEFT,
+        wordWrap='CJK',
+        leading=12,
+    )
+    num_style_right = ParagraphStyle(
+        name="NumRight",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_RIGHT,
+    )
+
+    # ===== Título =====
+    elements.append(Paragraph("Concentrado de Encuestas", title_style))
+    elements.append(Paragraph(datetime.now().strftime("%d/%m/%Y %H:%M"), subtitle_style))
+    elements.append(Spacer(1, 12))
+
+    # ===== Encabezados =====
+    data = [[
+        Paragraph('<b>Encuesta</b>', wrap_style),
+        Paragraph('<b>Respuestas</b>', wrap_style),
+        Paragraph('<b>Audiencia</b>', wrap_style),
+        Paragraph('<b>Avance</b>', wrap_style),
+        Paragraph('<b>Estado</b>', wrap_style),
+        Paragraph('<b>Creada</b>', wrap_style),
+    ]]
+
+    # ===== Helper para audiencia esperada =====
+    def expected_for(survey):
+        try:
+            aud = survey.audience
+        except SurveyAudience.DoesNotExist:
+            aud = None
+
+        if not aud or getattr(aud, "mode", "").lower() == SurveyAudience.MODE_ALL:
+            return Employee.objects.filter(
+                user__isnull=False, user__is_active=True, is_active=True
+            ).count()
+
+        if aud.mode == 'segmented':
+            f = aud.filters or {}
+            cond = Q()
+            if f.get('departments'): cond |= Q(department_id__in=f['departments'])
+            if f.get('positions'):   cond |= Q(job_position_id__in=f['positions'])
+            if f.get('locations'):   cond |= Q(station_id__in=f['locations'])
+            uids = list(aud.users.values_list('id', flat=True))
+            if uids: cond |= Q(user_id__in=uids)
+            return (Employee.objects
+                    .filter(user__isnull=False, user__is_active=True, is_active=True)
+                    .filter(cond).distinct().count()) if cond else 0
+
+        # otros modos: solo lista explícita
+        return aud.users.filter(is_active=True).count()
+
+    # ===== Filas =====
+    surveys = Survey.objects.all().order_by("-created_at")
+
+    total_respuestas = 0
+    total_esperada   = 0
+
+    for s in surveys:
+        respuestas = SurveyResponse.objects.filter(survey=s, status="submitted").count()
+        esperada   = expected_for(s)
+        avance     = (respuestas / esperada * 100) if esperada else 0.0
+        estado     = "Activa" if s.is_active else "Borrador"
+        creada     = s.created_at.strftime("%d/%m/%Y") if getattr(s, "created_at", None) else ""
+
+        total_respuestas += respuestas
+        total_esperada   += esperada
+
+        data.append([
+            Paragraph(s.title or "Encuesta sin título", wrap_style),
+            Paragraph(str(respuestas), num_style_right),
+            Paragraph(str(esperada), num_style_right),
+            Paragraph(f"{avance:.1f} %", num_style_right),
+            Paragraph(estado, wrap_style),
+            Paragraph(creada, wrap_style),
+        ])
+
+    # ===== Totales (fila final) =====
+    avg_avance = (total_respuestas / total_esperada * 100) if total_esperada else 0.0
+    data.append([
+        Paragraph("<b>Totales</b>", wrap_style),
+        Paragraph(f"<b>{total_respuestas}</b>", num_style_right),
+        Paragraph(f"<b>{total_esperada}</b>", num_style_right),
+        Paragraph(f"<b>{avg_avance:.1f} %</b>", num_style_right),
+        "", ""
+    ])
+
+    # ===== Tabla =====
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[220, 60, 60, 60, 70, 70]
+    )
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN',      (1, 1), (-1, -1), 'RIGHT'),
+        ('ALIGN',      (0, 0), (0, -1), 'LEFT'),
+        ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0, 0), (-1, -1), 9),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.whitesmoke, colors.white]),
+        ('BACKGROUND', (-6, -1), (-1, -1), colors.HexColor('#f3f3f3')),  # fila de totales
+    ]))
+
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return HttpResponse(buffer, content_type='application/pdf')
