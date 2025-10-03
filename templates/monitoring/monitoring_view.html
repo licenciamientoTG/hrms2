@@ -1,0 +1,16 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/job_offers.css' %}">
+{% endblock %}
+
+
+{% block page_title %}Panel de Monitoreo{% endblock %}
+{% block title %}Panel de Monitoreo{% endblock %}
+
+{% block content %}
+Aquí van a ir los datos de monitoreo. admin     
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'js/job_offers.js' %}"></script>
+{% endblock %}

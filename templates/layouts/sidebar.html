@@ -20,7 +20,7 @@
 
             {% if user.is_superuser %}
                 <li class="sidebar-item active">
-                    <a class="sidebar-link" href="">
+                    <a class="sidebar-link" href="{% url 'monitoring_view' %}">
                         <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
                     </a>
                 </li>
