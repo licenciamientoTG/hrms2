@@ -34,3 +34,26 @@
 #alertsList .list-group-item.is-read:hover {
   background-color: #e9ecef;
 }
+/* valores por defecto */
+:root{
+  --ui-scale: 100%;          /* para font-size (rem) */
+  --ui-scale-factor: 1;      /* número: 0.8–1.5 */
+}
+
+/* Aplica la escala al contenido y al modal */
+#app,
+.modal{
+  font-size: var(--ui-scale);
+}
+
+/* Escala el ancho del modal (Bootstrap 5) */
+.modal {
+  --bs-modal-width: calc(500px * var(--ui-scale-factor));
+}
+
+/* Opcional: límites para que no quede exagerado */
+@media (min-width: 576px){
+  .modal-dialog{
+    max-width: var(--bs-modal-width);
+  }
+}
