@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'apps.staff_requisitions',
     'apps.notifications',
     "apps.courses.apps.CoursesConfig",
+    "apps.monitoring",
 ]
 
 MIDDLEWARE = [
