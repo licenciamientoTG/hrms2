@@ -17,6 +17,8 @@
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="settingsDropdown">
                 <li>
                     <a class="dropdown-item" href="{% url 'password_change' %}">Cambiar contraseña</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#uiScaleModal">Ajuste de tamaño…</a>
                 </li>
                 </ul>
             </li>
@@ -76,3 +78,40 @@
         </ul>
     </div>
 </nav>
+
+<!-- Modal -->
+<div class="modal fade" id="uiScaleModal" tabindex="-1" aria-labelledby="uiScaleLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="uiScaleLabel">Ajuste de tamaño</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 flex-wrap mb-3" role="group" aria-label="Presets de tamaño">
+          <button class="btn btn-outline-secondary btn-sm preset" data-size="90">Pequeño</button>
+          <button class="btn btn-outline-secondary btn-sm preset" data-size="100">Normal</button>
+          <button class="btn btn-outline-secondary btn-sm preset" data-size="110">Grande</button>
+          <button class="btn btn-outline-secondary btn-sm preset" data-size="120">Extra</button>
+        </div>
+
+        <label for="uiScaleRange" class="form-label mb-1">Tamaño de la interfaz</label>
+        <input type="range" class="form-range" id="uiScaleRange" min="80" max="150" step="5" value="100" aria-describedby="uiScaleValue">
+        <div class="d-flex justify-content-between small">
+          <span>80%</span>
+          <span id="uiScaleValue" aria-live="polite">100%</span>
+          <span>150%</span>
+        </div>
+
+        <div class="mt-3 p-2 border rounded small" id="uiScalePreview" aria-label="Vista previa">
+          Texto de ejemplo — así se verá el tamaño.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="uiScaleReset" class="btn btn-light">Restablecer</button>
+        <button id="uiScaleSave" class="btn btn-primary" data-bs-dismiss="modal">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+

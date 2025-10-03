@@ -225,3 +225,46 @@ document.addEventListener("DOMContentLoaded", () => {
   pollBadge();
   setInterval(pollBadge, POLL_MS);
 })();
+
+// límites y claves
+const KEY = 'uiScalePercent';
+const DEFAULT_SIZE = 100;
+
+const htmlEl = document.documentElement;
+const range = document.getElementById('uiScaleRange');
+const value = document.getElementById('uiScaleValue');
+const preview = document.getElementById('uiScalePreview');
+
+// Cargar preferencia al iniciar
+(function initUiScale(){
+  const stored = parseInt(localStorage.getItem(KEY) || DEFAULT_SIZE, 10);
+  applyScale(stored);
+})();
+
+function applyScale(percent){
+  htmlEl.style.fontSize = percent + '%';
+  if (range) range.value = percent;
+  if (value) value.textContent = percent + '%';
+  if (preview) preview.style.fontSize = percent + '%';
+}
+
+// Slider en vivo
+range?.addEventListener('input', e => applyScale(parseInt(e.target.value, 10)));
+
+// Presets
+document.querySelectorAll('.preset').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    applyScale(parseInt(btn.dataset.size, 10));
+  });
+});
+
+// Guardar
+document.getElementById('uiScaleSave')?.addEventListener('click', ()=>{
+  localStorage.setItem(KEY, String(range.value));
+  // Si tienes backend, también puedes enviar via fetch para guardarlo por usuario.
+});
+
+// Restablecer
+document.getElementById('uiScaleReset')?.addEventListener('click', ()=>{
+  applyScale(DEFAULT_SIZE);
+});
