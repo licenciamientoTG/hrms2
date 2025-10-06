@@ -10,8 +10,14 @@
 {% block content %}
 <h1 class="h3 mb-4">Panel de Monitoreo</h1>
   <form class="mb-3" method="get">
-    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o usuario">
+    <div class="input-group">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o usuario">
+
+        <a class="btn btn-outline-secondary" href="?">Limpiar</a>
+ 
+    </div>
   </form>
+
 <div class="table-responsive">
   <table class="table table-hover table-borderless table-monitor align-middle">
     <thead>
@@ -31,13 +37,13 @@
         <td>{{ row.username }}</td>
         <td>{{ row.locations }}</td>
         <td>{{ row.last_seen_human }}</td>
-<td>
-  <div class="usage-week">
-    {% for used in row.usage_week %}
-      <span class="day {% if used %}on{% endif %}" title="día {{ forloop.counter }}"></span>
-    {% endfor %}
-  </div>
-</td>
+        <td>
+          <div class="usage-week">
+            {% for used in row.usage_week %}
+              <span class="day {% if used %}on{% endif %}" title="día {{ forloop.counter }}"></span>
+            {% endfor %}
+          </div>
+        </td>
 
         <td>
           {% if row.session_open %}

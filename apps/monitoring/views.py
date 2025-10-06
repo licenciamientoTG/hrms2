@@ -6,9 +6,9 @@ from django.db.models import OuterRef, Subquery, Case, When, IntegerField
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django.utils import timezone
+from django.db.models import Q 
 
 from apps.monitoring.models import SessionEvent
-
 
 def humanize_delta(delta):
     if delta.days > 0:
@@ -19,13 +19,12 @@ def humanize_delta(delta):
     m = (delta.seconds % 3600) // 60
     return f"{m}m"
 
-
 @user_passes_test(lambda u: u.is_superuser)
 def monitoring_view(request):
     now = timezone.now()
     week_ago = now - timedelta(days=7)
 
-    # --- Subqueries para último evento por usuario (1 consulta) ---
+    # ---- Subqueries para último evento (global) ----
     last_ts_sq = (
         SessionEvent.objects
         .filter(user_id=OuterRef("id"))
@@ -39,31 +38,64 @@ def monitoring_view(request):
         .values("event")[:1]
     )
 
+    # >>> NUEVO: subqueries de última localización basada en el ÚLTIMO LOGIN
+    last_login_city_sq = (
+        SessionEvent.objects
+        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts")
+        .values("city")[:1]
+    )
+    last_login_region_sq = (
+        SessionEvent.objects
+        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts")
+        .values("region")[:1]
+    )
+    last_login_country_sq = (
+        SessionEvent.objects
+        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts")
+        .values("country")[:1]
+    )
+    last_login_ip_sq = (
+        SessionEvent.objects
+        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts")
+        .values("ip")[:1]
+    )
+
+
     # Filtro de búsqueda opcional
     q = (request.GET.get("q") or "").strip()
     users_qs = (
         User.objects.only("id", "username", "first_name", "last_name", "last_login")
         .filter(is_active=True)
     )
-    if q:
-        users_qs = (
-            users_qs.filter(username__icontains=q)
-            | users_qs.filter(first_name__icontains=q)
-            | users_qs.filter(last_name__icontains=q)
-        )
 
-    # Annotate + ORDER: abiertos primero, luego más recientes
+    if q:
+        # separa por espacios y exige que TODAS las palabras aparezcan
+        for term in q.split():
+            users_qs = users_qs.filter(
+                Q(username__icontains=term) |
+                Q(first_name__icontains=term) |
+                Q(last_name__icontains=term)
+            )
+
     users_qs = (
         users_qs
         .annotate(
             last_ts=Subquery(last_ts_sq),
             last_event=Subquery(last_event_sq),
-            is_open=Case(  # 1 si el último evento fue login
+            # >>> NUEVO: anotaciones de localización
+            last_city=Subquery(last_login_city_sq),
+            last_region=Subquery(last_login_region_sq),
+            last_country=Subquery(last_login_country_sq),
+            last_ip=Subquery(last_login_ip_sq),
+            is_open=Case(
                 When(last_event=SessionEvent.LOGIN, then=1),
                 default=0,
                 output_field=IntegerField(),
             ),
-            # actividad más reciente (cae a last_login si no hay eventos)
             last_activity=Coalesce("last_ts", "last_login"),
         )
         .order_by("-is_open", "-last_activity", "id")
@@ -100,16 +132,32 @@ def monitoring_view(request):
             last_seen_human = humanize_delta(now - u.last_login) if u.last_login else "—"
             session_open = False
 
+        # Mostrar ubicación breve: ciudad si hay; si no, región; si no, país; si no, IP; si no, —
+        if u.last_city:
+            last_place = u.last_city
+        elif u.last_region:
+            last_place = u.last_region
+        elif u.last_country:
+            last_place = u.last_country
+        elif getattr(u, "last_ip", None):
+            if str(u.last_ip).startswith(("10.", "192.168.", "172.")):
+                last_place = f"Red interna ({u.last_ip})"
+            else:
+                last_place = str(u.last_ip)
+        else:
+            last_place = "—"
+
+
         used_dates = usage_map.get(u.id, set())
         usage_week = []
-        for offset in range(6, -1, -1):  # hace 6 días ... hoy
+        for offset in range(6, -1, -1):
             d = today - timedelta(days=offset)
             usage_week.append(d in used_dates)
 
         rows.append({
             "nombre": nombre,
             "username": username,
-            "locations": "",  # pendiente de llenar
+            "locations": last_place,         # <<< ahora sí llenamos Localidades
             "last_seen_human": last_seen_human,
             "usage_week": usage_week,
             "session_open": session_open,
