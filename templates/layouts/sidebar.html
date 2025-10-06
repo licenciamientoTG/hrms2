@@ -78,7 +78,7 @@
                     </a>
                 </li>
 {% endif %} 
-                {% if perms.forms_requests.puede_solicitar_personal %}
+                {% if user.is_superuser %}
                 <li class="sidebar-item active">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
