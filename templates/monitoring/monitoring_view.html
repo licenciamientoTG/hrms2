@@ -39,10 +39,12 @@
         <td>{{ row.last_seen_human }}</td>
         <td>
           <div class="usage-week">
-            {% for used in row.usage_week %}
-              <span class="day {% if used %}on{% endif %}" title="día {{ forloop.counter }}"></span>
+            {% for cell in row.week_cells %}
+              <span class="day {% if cell.used %}on{% endif %}"
+                    title="{{ cell.label }}"></span>
             {% endfor %}
           </div>
+
         </td>
 
         <td>

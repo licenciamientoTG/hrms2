@@ -149,19 +149,33 @@ def monitoring_view(request):
 
 
         used_dates = usage_map.get(u.id, set())
-        usage_week = []
-        for offset in range(6, -1, -1):
+        week_cells = []  # <- NEW
+        dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+
+        for offset in range(6, -1, -1):  # 6..0  =>  hace 6 días ... hoy
             d = today - timedelta(days=offset)
-            usage_week.append(d in used_dates)
+            used = d in used_dates
+
+            if offset == 0:
+                base = "Hoy"
+            elif offset == 1:
+                base = "Ayer"
+            else:
+                base = f"Hace {offset} días"
+
+            label = f"{base} • {dias[d.weekday()]} {d.strftime('%d/%m')}"
+            week_cells.append({"used": used, "label": label})
 
         rows.append({
             "nombre": nombre,
             "username": username,
-            "locations": last_place,         # <<< ahora sí llenamos Localidades
+            "locations": last_place,
             "last_seen_human": last_seen_human,
-            "usage_week": usage_week,
+            "usage_week": [c["used"] for c in week_cells],  # si quieres mantenerlo
+            "week_cells": week_cells,                       # <- NEW: para el tooltip
             "session_open": session_open,
         })
+
 
     return render(request, "monitoring/monitoring_view.html", {
         "rows": rows,
