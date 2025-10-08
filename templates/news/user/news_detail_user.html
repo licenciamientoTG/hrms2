@@ -62,7 +62,7 @@
     <button type="submit" class="btn btn-primary">Enviar</button>
   </form>
 
-  <div id="comments">
+  <div id="comments" class="mt-2">
     {% if n.comments.exists %}
       {% for c in n.comments.all %}
         {% include 'news/user/_comment.html' with c=c %}

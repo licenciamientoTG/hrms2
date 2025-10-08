@@ -23,3 +23,12 @@ class SessionEvent(models.Model):
             models.Index(fields=["user", "ts"]),
             models.Index(fields=["event", "ts"]),
         ]
+
+class UserDailyUse(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField(db_index=True)           # día en hora local
+    first_seen = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "date")           # <- 1 fila por usuario/día
+        indexes = [models.Index(fields=["user", "date"])]

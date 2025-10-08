@@ -76,7 +76,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.users.middleware.ForcePasswordChangeMiddleware',
+    "apps.monitoring.middleware.DailyUsageMiddleware",
 ]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "daily-usage-cache",
+    }
+}
 
 ROOT_URLCONF = 'hrms.urls'
 
@@ -136,7 +144,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'es-mx'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "America/Ciudad_Juarez"
 
 USE_I18N = True
 

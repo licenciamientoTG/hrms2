@@ -6,9 +6,10 @@ from django.db.models import OuterRef, Subquery, Case, When, IntegerField
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django.utils import timezone
-from django.db.models import Q 
+from django.db.models import Q
 
 from apps.monitoring.models import SessionEvent
+from apps.monitoring.models import UserDailyUse   # <-- NEW
 
 def humanize_delta(delta):
     if delta.days > 0:
@@ -22,7 +23,6 @@ def humanize_delta(delta):
 @user_passes_test(lambda u: u.is_superuser)
 def monitoring_view(request):
     now = timezone.now()
-    week_ago = now - timedelta(days=7)
 
     # ---- Subqueries para último evento (global) ----
     last_ts_sq = (
@@ -38,7 +38,7 @@ def monitoring_view(request):
         .values("event")[:1]
     )
 
-    # >>> NUEVO: subqueries de última localización basada en el ÚLTIMO LOGIN
+    # Última localización basada en ÚLTIMO LOGIN
     last_login_city_sq = (
         SessionEvent.objects
         .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
@@ -64,16 +64,13 @@ def monitoring_view(request):
         .values("ip")[:1]
     )
 
-
     # Filtro de búsqueda opcional
     q = (request.GET.get("q") or "").strip()
     users_qs = (
         User.objects.only("id", "username", "first_name", "last_name", "last_login")
         .filter(is_active=True)
     )
-
     if q:
-        # separa por espacios y exige que TODAS las palabras aparezcan
         for term in q.split():
             users_qs = users_qs.filter(
                 Q(username__icontains=term) |
@@ -86,7 +83,6 @@ def monitoring_view(request):
         .annotate(
             last_ts=Subquery(last_ts_sq),
             last_event=Subquery(last_event_sq),
-            # >>> NUEVO: anotaciones de localización
             last_city=Subquery(last_login_city_sq),
             last_region=Subquery(last_login_region_sq),
             last_country=Subquery(last_login_country_sq),
@@ -108,19 +104,23 @@ def monitoring_view(request):
     page_obj = paginator.get_page(page_number)
     user_ids = list(page_obj.object_list.values_list("id", flat=True))
 
-    # --- Logins últimos 7 días (1 consulta) ---
-    login_rows = (
-        SessionEvent.objects
-        .filter(event=SessionEvent.LOGIN, ts__gte=week_ago, user_id__in=user_ids)
-        .values_list("user_id", "ts")
+    # --- USO ÚLTIMOS 7 DÍAS con UserDailyUse (hora local) ---  <-- NEW
+    today = timezone.localdate()
+    start = today - timedelta(days=6)
+
+    uses = (
+        UserDailyUse.objects
+        .filter(user_id__in=user_ids, date__range=(start, today))
+        .values_list("user_id", "date")
     )
     usage_map = {uid: set() for uid in user_ids}
-    for uid, ts in login_rows:
-        usage_map[uid].add(ts.date())
+    for uid, d in uses:
+        usage_map[uid].add(d)
 
     # --- Construcción de filas ---
     rows = []
-    today = now.date()
+    dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+
     for u in page_obj.object_list:
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
         username = u.username
@@ -132,7 +132,7 @@ def monitoring_view(request):
             last_seen_human = humanize_delta(now - u.last_login) if u.last_login else "—"
             session_open = False
 
-        # Mostrar ubicación breve: ciudad si hay; si no, región; si no, país; si no, IP; si no, —
+        # Ubicación breve
         if u.last_city:
             last_place = u.last_city
         elif u.last_region:
@@ -147,22 +147,17 @@ def monitoring_view(request):
         else:
             last_place = "—"
 
-
         used_dates = usage_map.get(u.id, set())
-        week_cells = []  # <- NEW
-        dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
-
-        for offset in range(6, -1, -1):  # 6..0  =>  hace 6 días ... hoy
+        week_cells = []
+        for offset in range(6, -1, -1):  # 6..0  => hace 6 días ... hoy
             d = today - timedelta(days=offset)
             used = d in used_dates
-
             if offset == 0:
                 base = "Hoy"
             elif offset == 1:
                 base = "Ayer"
             else:
                 base = f"Hace {offset} días"
-
             label = f"{base} • {dias[d.weekday()]} {d.strftime('%d/%m')}"
             week_cells.append({"used": used, "label": label})
 
@@ -171,11 +166,10 @@ def monitoring_view(request):
             "username": username,
             "locations": last_place,
             "last_seen_human": last_seen_human,
-            "usage_week": [c["used"] for c in week_cells],  # si quieres mantenerlo
-            "week_cells": week_cells,                       # <- NEW: para el tooltip
+            "usage_week": [c["used"] for c in week_cells],
+            "week_cells": week_cells,
             "session_open": session_open,
         })
-
 
     return render(request, "monitoring/monitoring_view.html", {
         "rows": rows,
