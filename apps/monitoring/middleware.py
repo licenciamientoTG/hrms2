@@ -46,13 +46,14 @@ class IdleTimeoutMiddleware:
                 except Exception:
                     elapsed = 0  # por si algo raro viene en la cookie
                 if elapsed > IDLE_TIMEOUT_SECONDS:
-                    # Registrar cierre por inactividad
                     SessionEvent.objects.create(
                         user=request.user,
-                        event=SessionEvent.LOGOUT_IDLE,  # asegúrate de tener esta constante
-                        ip=(request.META.get("REMOTE_ADDR")),
-                        user_agent=(request.META.get("HTTP_USER_AGENT", "")[:500]),
+                        event=SessionEvent.LOGOUT_IDLE,
+                        ip=request.META.get("REMOTE_ADDR"),
+                        user_agent=(request.META.get("HTTP_USER_AGENT","")[:500]),
                     )
+                    # marca que este logout es por inactividad
+                    setattr(request, "_logout_reason", "idle")
                     logout(request)
             request.session["last_activity_ts"] = now.timestamp()
 

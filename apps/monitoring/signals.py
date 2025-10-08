@@ -15,9 +15,12 @@ def on_login(sender, request, user, **kwargs):
 
 @receiver(user_logged_out)
 def on_logout(sender, request, user, **kwargs):
-    ip = get_client_ip(request) if request else None
-    # en logout no llamamos a geo para ahorrar; guarda lo que tengas
+    # si el logout lo disparó el middleware de inactividad, no dupliques
+    if request is not None and getattr(request, "_logout_reason", "") == "idle":
+        return
     SessionEvent.objects.create(
-        user=user, event=SessionEvent.LOGOUT, ip=ip,
-        user_agent=(request.META.get("HTTP_USER_AGENT", "")[:500] if request else "")
+        user=user,
+        event=SessionEvent.LOGOUT,
+        ip=(request.META.get("REMOTE_ADDR") if request else None),
+        user_agent=(request.META.get("HTTP_USER_AGENT","")[:500] if request else ""),
     )
