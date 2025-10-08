@@ -64,7 +64,7 @@ INSTALLED_APPS = [
     'apps.staff_requisitions',
     'apps.notifications',
     "apps.courses.apps.CoursesConfig",
-    "apps.monitoring",
+    "apps.monitoring.apps.MonitoringConfig",
 ]
 
 MIDDLEWARE = [
@@ -76,8 +76,14 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.users.middleware.ForcePasswordChangeMiddleware',
+    "apps.monitoring.middleware.IdleTimeoutMiddleware",
     "apps.monitoring.middleware.DailyUsageMiddleware",
 ]
+
+# 30 min por inactividad (para server y para la vista)
+SESSION_COOKIE_AGE = 30 * 60
+SESSION_SAVE_EVERY_REQUEST = True
+IDLE_TIMEOUT_SECONDS = 30 * 60
 
 CACHES = {
     "default": {

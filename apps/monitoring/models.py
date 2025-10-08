@@ -1,22 +1,28 @@
+# apps/monitoring/models.py
 from django.db import models
 from django.conf import settings
 
 class SessionEvent(models.Model):
-    LOGIN  = "login"
-    LOGOUT = "logout"
-    EVENT_CHOICES = [(LOGIN, "Login"), (LOGOUT, "Logout")]
+    LOGIN       = "login"
+    LOGOUT      = "logout"
+    LOGOUT_IDLE = "logout_idle"  
+
+    EVENT_CHOICES = [
+        (LOGIN, "Login"),
+        (LOGOUT, "Logout"),
+        (LOGOUT_IDLE, "Logout por inactividad"),
+    ]
 
     user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    event       = models.CharField(max_length=10, choices=EVENT_CHOICES)
+    event       = models.CharField(max_length=12, choices=EVENT_CHOICES)  
     ts          = models.DateTimeField(auto_now_add=True)
 
     ip          = models.GenericIPAddressField(null=True, blank=True)
     user_agent  = models.TextField(blank=True, default="")
 
-    # NUEVOS (ubicación del evento)
-    country     = models.CharField(max_length=64, blank=True, default="")   # p.ej. "Mexico"
-    region      = models.CharField(max_length=64, blank=True, default="")   # Estado/Provincia
-    city        = models.CharField(max_length=64, blank=True, default="")   # Ciudad
+    country     = models.CharField(max_length=64, blank=True, default="")
+    region      = models.CharField(max_length=64, blank=True, default="")
+    city        = models.CharField(max_length=64, blank=True, default="")
 
     class Meta:
         indexes = [

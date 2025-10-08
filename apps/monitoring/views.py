@@ -10,6 +10,9 @@ from django.db.models import Q
 
 from apps.monitoring.models import SessionEvent
 from apps.monitoring.models import UserDailyUse   # <-- NEW
+from django.conf import settings
+
+IDLE_SECONDS = getattr(settings, "IDLE_TIMEOUT_SECONDS", 1800)
 
 def humanize_delta(delta):
     if delta.days > 0:
@@ -127,10 +130,16 @@ def monitoring_view(request):
 
         if u.last_ts:
             last_seen_human = humanize_delta(now - u.last_ts)
-            session_open = (u.last_event == SessionEvent.LOGIN)
+            if u.last_event == SessionEvent.LOGIN:
+                session_open = (now - u.last_ts).total_seconds() <= IDLE_SECONDS
+                session_expired = not session_open
+            else:
+                session_open = False
+                session_expired = False
         else:
             last_seen_human = humanize_delta(now - u.last_login) if u.last_login else "—"
             session_open = False
+            session_expired = False
 
         # Ubicación breve
         if u.last_city:
