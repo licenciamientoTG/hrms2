@@ -114,7 +114,7 @@ def generar_constancia_laboral(request):
     empresa = employee.company if employee and employee.company else "(EMPRESA)"
     departamento = employee.department.name if employee and employee.department else "(DEPARTAMENTO)"
     equipo = employee.team if employee and employee.team else "(EQUIPO)"
-    fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
+    Antiguedad = employee.seniority_raw or "(FECHA DE INICIO)"
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
@@ -144,7 +144,7 @@ def generar_constancia_laboral(request):
     texto = (
         f"<b>A quien corresponda:</b><br/><br/>"
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
-        f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
+        f"labora en esta empresa desde el <b>{Antiguedad}</b>, desempeñando el puesto de <b>{puesto}</b> "
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
         f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente."
     )
@@ -277,7 +277,7 @@ def generar_carta_recomendacion(request):
     empresa = employee.company or "(EMPRESA)"
     puesto = employee.job_position.title if employee.job_position else "(PUESTO)"
     departamento = employee.department.name if employee.department else "(DEPARTAMENTO)"
-    fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee.start_date else "(FECHA DE INICIO)"
+    antiguedad = employee.seniority_raw or "(FECHA DE INICIO)"
     fecha_termino = (employee.termination_date.strftime("%d/%m/%Y") if employee.termination_date else "(FECHA DE TERMINO)")
 
     fecha_hoy = date.today().strftime("%d/%m/%Y")
@@ -308,7 +308,7 @@ def generar_carta_recomendacion(request):
         f"<b>A quien corresponda:</b><br/><br/>"
         f"Por medio de la presente, hacemos constar que <b>{nombre}</b> laboró en <b>{empresa}</b> "
         f"en el puesto de <b>{puesto}</b>, dentro del departamento de <b>{departamento}</b>. "
-        f"Inició labores el <b>{fecha_inicio}</b> y concluyó el <b>{fecha_termino}</b>."
+        f"Inició labores el <b>{antiguedad}</b> y concluyó el <b>{fecha_termino}</b>."
         f"<br/><br/>"
         f"Extendemos la presente carta a solicitud del interesado, para los fines que considere convenientes."
     )
@@ -354,7 +354,8 @@ def generar_constancia_especial(request):
     nss = employee.imss if employee and employee.imss else "(NSS)"
     curp = employee.curp if employee and employee.curp else "(CURP)"
     rfc = employee.rfc if employee and employee.rfc else "(RFC)"
-    fecha_inicio = employee.start_date.strftime("%d/%m/%Y") if employee and employee.start_date else "(FECHA DE INICIO)"
+    antiguedad = employee.seniority_raw or "(FECHA DE INICIO)"
+
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
@@ -385,7 +386,7 @@ def generar_constancia_especial(request):
     texto = (
         f"<b>A quien corresponda:</b><br/><br/>"
         f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre_usuario}</b> "
-        f"labora en esta empresa desde el <b>{fecha_inicio}</b>, desempeñando el puesto de <b>{puesto}</b> "
+        f"labora en esta empresa desde el <b>{antiguedad}</b>, desempeñando el puesto de <b>{puesto}</b> "
         f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
         f"NSS: <b>{nss}</b><br/>"
         f"CURP: <b>{curp}</b><br/>"

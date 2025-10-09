@@ -128,15 +128,18 @@
 
         #signin{
             display: block;
-            margin: 0 10px;
-            width: 40% !important;
+            width: 40% !important;   
             background: #A9CA48;
-            border: solid 0.5px #A9CA48;
+            border: 0.5px solid #A9CA48;
             border-radius: 7px;
             font-size: larger;
             font-weight: 500;
-            padding:10px;
-            cursor:pointer;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .form-button{
+            display: block !important;  
         }
 
         #signin:hover{
@@ -180,9 +183,9 @@
                     <label for="password"><i class="zmdi zmdi-lock"></i></label>
                     <input type="password" class="border-input" name="password" id="password" placeholder="Contraseña"/>
                 </div>
-                <div class="form-group form-button" style=" display: flex;    flex-direction: row;    flex-wrap: nowrap;    justify-content: space-between;    align-items: center;">
-                    <input type="hidden" name="next" value="{{ request.GET.next }}">
-                    <input type="submit" name="signin" id="signin" class="form-submit" value="Entrar" style="display:block; width: 100%;"/>
+                <div class="form-group form-button">
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+                <input type="submit" name="signin" id="signin" class="form-submit" value="Entrar">
                 </div>
             </form>
             <!--<a href="{% url 'password_reset' %}" class="signup-image-link" style="color: rgb(169,202,72)">¿Olvidaste tu contraseña?</a>-->

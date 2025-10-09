@@ -37,7 +37,7 @@ class Employee(models.Model):
         help_text=_("Puesto que ocupa el empleado en la organización")
     )
     
-    # Fechas y antigüedad
+    # Fechas 
     start_date = models.DateField(
         verbose_name=_("Fecha de ingreso"),
         help_text=_("Fecha en que el empleado ingresó a la empresa")
@@ -202,6 +202,12 @@ class Employee(models.Model):
         blank=True,
         verbose_name=_("Motivo de baja"),
         help_text=_("Razón de la baja del empleado")
+    )
+
+    seniority_raw = models.CharField(
+        max_length=50, null=True, blank=True,
+        verbose_name=_("Antigüedad"),
+        help_text=_("Fecha de antigüedad")
     )
 
     class Meta:

@@ -179,7 +179,17 @@ def _handle_duplicate_employees(employee_number, incoming_is_active):
         else:
             print(f"🔄 Empleado {employee_number}: Viene INACTIVO, no hay activos -> usar el primero disponible")
             return all_employees.first(), "use_existing_inactive"
-
+def _apply_seniority(employee, seniority_raw, overwrite=True):
+    """Guarda seniority_raw siempre que venga algo.
+    Si overwrite=True, sobreescribe aunque ya exista."""
+    val = _safe_str(seniority_raw)
+    if not val:
+        return False
+    if overwrite or (employee.seniority_raw or "").strip() != val:
+        employee.seniority_raw = val
+        employee.save(update_fields=["seniority_raw"])
+        return True
+    return False
 
 @csrf_exempt
 def recibir_datos1(request):
@@ -229,6 +239,8 @@ def recibir_datos1(request):
         employee_number = _safe_str(data.get('Numero'), '0')
         incoming_is_active = _as_bool(data.get('Activo'))
 
+        seniority_raw = _safe_str(data.get('Antiguedad'))
+
         # Defaults listos para guardar
         incoming_defaults = {
             "employee_number": employee_number,
@@ -256,6 +268,7 @@ def recibir_datos1(request):
             "education_level": "sin dato",
             "notes": "Sin observaciones",
             "company": company_name,
+            "seniority_raw": seniority_raw,
         }
 
         # ------- Manejar duplicados con prioridad -------
@@ -265,6 +278,7 @@ def recibir_datos1(request):
             if action == "no_existing":
                 # No existe, crear nuevo
                 empleado = Employee.objects.create(**incoming_defaults)
+                _apply_seniority(empleado, seniority_raw, overwrite=True)
                 
                 # Crear usuario si el empleado está activo
                 user_result = None
@@ -306,6 +320,8 @@ def recibir_datos1(request):
                     user_message = user_msg
                     if user_result:
                         print(f"  {user_result}")
+
+                _apply_seniority(existing, seniority_raw, overwrite=True)
                 
                 response_data = {
                     'success': True,
@@ -327,6 +343,14 @@ def recibir_datos1(request):
                 changes, changed_fields = _diff_instance(existing, incoming_defaults, fields_to_check)
 
                 if not changed_fields:
+                    if _apply_seniority(existing, seniority_raw, overwrite=True):
+                        return JsonResponse({
+                            'success': True,
+                            'status': 'updated',
+                            'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
+                            'changes': [{'field': 'seniority_raw', 'old': None, 'new': seniority_raw}],
+                        })
+
                     # Sin cambios, pero verificar usuario
                     user_result = None
                     user_message = ""
@@ -335,10 +359,13 @@ def recibir_datos1(request):
                         user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
                         user_message = user_msg
                         print(f"[Sin cambios - Usuario creado] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+
                         if user_result:
                             print(f"  {user_result}")
                     else:
                         print(f"[Sin cambios] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+                        print("RAW:", request.body.decode("utf-8", errors="replace"))
+                        print("Antigüedad:", data.get("Antigüedad"))
                     
                     response_data = {
                         'success': True,
@@ -355,6 +382,9 @@ def recibir_datos1(request):
                 for f in changed_fields:
                     setattr(existing, f, incoming_defaults[f])
                 existing.save(update_fields=changed_fields)
+
+                if _apply_seniority(existing, seniority_raw, overwrite=True) and 'seniority_raw' not in changed_fields:
+                    changes.append({'field': 'seniority_raw', 'old': None, 'new': seniority_raw})
 
                 # Manejar usuario después de actualizar
                 user_result = None
