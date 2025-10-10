@@ -1,0 +1,58 @@
+#sidebar,
+#sidebar .sidebar-content {
+background-color: #1197D5 !important;
+}
+
+/* Header de cada item sin fondo negro */
+#sidebar .sidebar-item > .sidebar-link {
+background: transparent !important;
+color: #fff !important;
+}
+
+/* Estado “active” no pinta negro */
+#sidebar .sidebar-item.active > .sidebar-link,
+#sidebar .sidebar-item .sidebar-link.active {
+background: transparent !important;
+color: #fff !important;
+}
+
+/* Submenú también transparente */
+#sidebar .submenu,
+#sidebar .submenu ul,
+#sidebar .submenu li,
+#sidebar .submenu .sidebar-link {
+background: transparent !important;
+box-shadow: none !important;
+border: 0 !important;
+color: #fff !important;
+}
+
+/* Hover sutil para feedback (ajústalo al gusto) */
+#sidebar .sidebar-link:hover,
+#sidebar .submenu .sidebar-link:hover {
+background: rgba(255,255,255,0.08) !important;
+}
+
+/* (opcional) quita la barra separadora oscura si existe */
+#sidebar .sidebar-item + .sidebar-item {
+border-top: none !important;
+}
+
+/* Logo TOTALGAS: efecto hover suave */
+#sidebar .sidebar-brand {
+display: block;
+padding: .5rem 1rem;            /* opcional: separa del borde */
+overflow: visible;               /* por si el scale sobresale */
+}
+
+#sidebar .sidebar-brand img{
+display:block;
+width:285px !important;   /* si estabas usando este ajuste */
+height:auto !important;
+transition: transform .18s ease;
+transform-origin: center center;  /* <-- aquí el cambio */
+}
+
+#sidebar .sidebar-brand:hover img{
+transform: scale(1.05);   /* crece parejo a ambos lados */
+}
