@@ -6,6 +6,62 @@
             #sidebar .sidebar-content {
             background-color: #1197D5 !important;
             }
+
+            /* Header de cada item sin fondo negro */
+            #sidebar .sidebar-item > .sidebar-link {
+            background: transparent !important;
+            color: #fff !important;
+            }
+
+            /* Estado “active” no pinta negro */
+            #sidebar .sidebar-item.active > .sidebar-link,
+            #sidebar .sidebar-item .sidebar-link.active {
+            background: transparent !important;
+            color: #fff !important;
+            }
+
+            /* Submenú también transparente */
+            #sidebar .submenu,
+            #sidebar .submenu ul,
+            #sidebar .submenu li,
+            #sidebar .submenu .sidebar-link {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: 0 !important;
+            color: #fff !important;
+            }
+
+            /* Hover sutil para feedback (ajústalo al gusto) */
+            #sidebar .sidebar-link:hover,
+            #sidebar .submenu .sidebar-link:hover {
+            background: rgba(255,255,255,0.08) !important;
+            }
+
+            /* (opcional) quita la barra separadora oscura si existe */
+            #sidebar .sidebar-item + .sidebar-item {
+            border-top: none !important;
+            }
+
+            /* Logo TOTALGAS: efecto hover suave */
+            #sidebar .sidebar-brand {
+            display: block;
+            padding: .5rem 1rem;            /* opcional: separa del borde */
+            overflow: visible;               /* por si el scale sobresale */
+            }
+
+            #sidebar .sidebar-brand img{
+            display:block;
+            width:285px !important;   /* si estabas usando este ajuste */
+            height:auto !important;
+            transition: transform .18s ease;
+            transform-origin: center center;  /* <-- aquí el cambio */
+            }
+
+            #sidebar .sidebar-brand:hover img{
+            transform: scale(1.05);   /* crece parejo a ambos lados */
+            }
+
+
         </style>
     </head>
     
@@ -19,118 +75,141 @@
             <ul class="sidebar-nav">
 
             {% if user.is_superuser %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'monitoring_view' %}">
                         <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
                     </a>
                 </li>
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'user_dashboard' %}">
                         <i class="fa-solid fa-user"></i></i><span class="align-middle">Usuarios</span>
                     </a>
                 </li>
                 {% endif %}
                 {% if perms.forms_requests.puede_solicitar_personal %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
                     </a>
                 </li>
 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
                         <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
                     </a>
                 </li>
             {% endif %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'request_form' %}">
                         <i class="fa-brands fa-wpforms"></i><span class="align-middle">Solicitud de constancias</span>
                     </a>
                 </li>
             {% if user.is_superuser %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'vacation_request' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
                     </a>
                 </li>
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'performance_review' %}">
                         <i class="fa-solid fa-chart-line"></i> <span class="align-middle">Evaluación de desempeño</span>
                     </a>
                 </li>
                 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'objective_dashboard' %}">
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
                     </a>
                 </li>
                 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
                     </a>
                 </li>
 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
 {% endif %} 
                 {% if user.is_superuser %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
 {% endif %}
                 {% if user.is_superuser %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
                 {% endif %} 
                 {% if perms.forms_requests.puede_solicitar_personal %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
                     </a>
                 </li>
                 {% endif %} 
                 {% if user.is_superuser %}
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i><span class="align-middle">Mis documentos</span>
                     </a>
                 </li>
  
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">
                         <i class="fa-solid fa-briefcase"></i><span class="align-middle">Vacantes</span>
                     </a>
                 </li>
             
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'policies_dashboard' %}">
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
                     </a>
                 </li>
 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
                         <i class="fa-solid fa-road"></i> <span class="align-middle">Plan de carrera</span>
                     </a>
                 </li>
 
-                <li class="sidebar-item active">
+                <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'staff_requisitions_home' %}">
                         <i class="fa-solid fa-user-tie"></i> <span class="align-middle">Requisición de personal</span>
                     </a>
                 </li>
                 </li>
             {% endif %} 
+
+{% if user.is_authenticated and user.id == 64 %}
+<li class="sidebar-item">  <!-- <== sin 'active' -->
+  <a class="sidebar-link d-flex justify-content-between align-items-center"
+     data-bs-toggle="collapse" data-bs-target="#menu-tools" href="#menu-tools"
+     role="button" aria-expanded="false" aria-controls="menu-tools">
+    <span><i class="fa-solid fa-id-card me-2"></i>Herramientas</span>
+    <i class="fa-solid fa-chevron-down small"></i>
+  </a>
+
+  <div class="collapse submenu" id="menu-tools">
+    <ul class="list-unstyled ps-4 py-2 m-0">
+      <li>
+        <a class="sidebar-link {% if request.path == '/tools/' %}active{% endif %}"
+           href="{% url 'tools_view' %}">
+          <i class="fa-solid fa-calculator me-2"></i> Calculadora de préstamo
+        </a>
+      </li>
+    </ul>
+  </div>
+</li>
+
+{% endif %}
 
                 {% comment %} <li class="sidebar-header">
                     Catálogos

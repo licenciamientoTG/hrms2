@@ -27,6 +27,13 @@ from collections import defaultdict, Counter
 import math  
 import io
 import xlsxwriter    
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+from datetime import datetime
 
 try:
     from openpyxl import Workbook
@@ -1424,15 +1431,7 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
         'responses': responses,
     })
 
-# imports arriba del archivo si no los tienes aún
-from io import BytesIO
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.enums import TA_LEFT, TA_RIGHT
-from datetime import datetime
+
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)

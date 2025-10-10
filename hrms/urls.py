@@ -87,6 +87,7 @@ urlpatterns = [
     path('career_plan/', include('apps.career_plan.urls')),
     path("auth/login/", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
     path('change-password/', force_password_change, name='force_password_change'),
+    path("tools/", include("apps.tools.urls")),
 
 
 
