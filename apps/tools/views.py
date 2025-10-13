@@ -5,4 +5,4 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def tools_view(request):
-    return render(request, "tools/tools_view.html")
+    return render(request, "tools/loan_calculator_view.html")

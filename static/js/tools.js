@@ -153,12 +153,27 @@
 
 
 
-
-// ====== Formateador MXN con 2 decimales ======
+// ====== Formateadores ======
 const MXN2 = new Intl.NumberFormat('es-MX', {
   style: 'currency', currency: 'MXN',
   minimumFractionDigits: 2, maximumFractionDigits: 2
 });
+const fmtDate = d => d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+// Lunes de la semana de "hoy"
+function startOfThisWeek() {
+  const d = new Date();                           // hoy (hora local del navegador)
+  const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (copy.getDay() + 6) % 7;           // 0 = lunes, 6 = domingo
+  copy.setDate(copy.getDate() - diff);            // nos vamos al lunes
+  return copy;
+}
+
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
 
 function renderDesglose() {
   const $monto   = document.getElementById('monto');
@@ -167,7 +182,7 @@ function renderDesglose() {
 
   if (!$monto || !$semanas || !$panel) return;
 
-  const total = parseInt(($monto.value || '').replace(/\D+/g, ''), 10) || 0;
+  const total = parseInt(($monto.value || '').replace(/\D+/g,''), 10) || 0;
   const weeks = parseInt(($semanas.value || '0'), 10) || 0;
 
   if ($monto.disabled || total <= 0 || weeks <= 0) {
@@ -175,15 +190,18 @@ function renderDesglose() {
     return;
   }
 
-  // ====== Reparto exacto por centavos ======
-  const totalCents  = Math.round(total * 100);
-  const baseCents   = Math.floor(totalCents / weeks);
-  let   leftover    = totalCents - baseCents * weeks; // 0..weeks-1
+  // ===== Reparto exacto por centavos =====
+  const totalCents = Math.round(total * 100);
+  const baseCents  = Math.floor(totalCents / weeks);
+  let leftover     = totalCents - baseCents * weeks;
 
   let saldoCents = totalCents;
   const rows = [];
 
-  for (let i = 1; i <= weeks; i++) {
+  // Fechas por semana (primera = semana actual: lun-dom)
+  const week0Start = startOfThisWeek();
+
+  for (let i = 0; i < weeks; i++) {
     const pagoCents = baseCents + (leftover > 0 ? 1 : 0);
     if (leftover > 0) leftover--;
 
@@ -192,16 +210,18 @@ function renderDesglose() {
     const pago  = pagoCents / 100;
     const saldo = Math.max(saldoCents / 100, 0);
 
+    const start = addDays(week0Start, i * 7);
+    const end   = addDays(start, 6);
+
     rows.push(`
       <tr>
-        <td class="text-center">${i}</td>
+        <td class="text-center">${fmtDate(start)} – ${fmtDate(end)}</td>
         <td class="text-end">${MXN2.format(pago)}</td>
         <td class="text-end">${MXN2.format(saldo)}</td>
       </tr>
     `);
   }
 
-  // ====== Render en el panel ======
   $panel.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-2">
       <div class="small text-muted">Semanas: <strong>${weeks}</strong></div>
@@ -211,9 +231,9 @@ function renderDesglose() {
       <table class="table table-sm table-striped align-middle mb-2 desglose-table">
         <thead class="table-light">
           <tr>
-            <th class="text-center" style="width: 20%;">Semana</th>
-            <th class="text-end"   style="width: 40%;">Pago</th>
-            <th class="text-end"   style="width: 40%;">Saldo pendiente</th>
+            <th class="text-center" style="width: 54 %;">Fechas</th>
+            <th class="text-end"   style="width: 23%;">Pago</th>
+            <th class="text-end"   style="width: 23%;">Saldo pendiente</th>
           </tr>
         </thead>
         <tbody>
@@ -227,7 +247,9 @@ function renderDesglose() {
         </tfoot>
       </table>
     </div>
-    <p class="text-muted small mb-0">Los pagos se reparten centavo por centavo para que la suma coincida con el monto total.</p>
+    <p class="text-muted small mb-0">
+      La información mostrada queda sujeta a revisión y aprobación.
+    </p>
   `;
 }
 
