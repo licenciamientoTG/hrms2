@@ -13,6 +13,7 @@ from departments.models import Department
 from apps.location.models import Location
 from django.views import View
 from django.utils.decorators import method_decorator
+from apps.notifications.utils import send_survey_notifications
 from .services import persist_builder_state, persist_settings, persist_audience
 from django.core.paginator import Paginator
 from django.db.models import Case, When, Value, CharField, F
@@ -445,6 +446,10 @@ class SurveyImportView(View):
         persist_builder_state(survey, builder)
         persist_settings(survey, settings)
         persist_audience(survey, audience)
+
+        # Si la encuesta quedó activa, mandar notificaciones a la audiencia
+        if survey.is_active:
+            send_survey_notifications(survey)
 
         return JsonResponse({'ok': True, 'id': survey.id})
 
