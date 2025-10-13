@@ -11,6 +11,7 @@ from django.db.models import Q
 from apps.monitoring.models import SessionEvent
 from apps.monitoring.models import UserDailyUse   # <-- NEW
 from django.conf import settings
+from django.contrib.sessions.models import Session
 
 IDLE_SECONDS = getattr(settings, "IDLE_TIMEOUT_SECONDS", 1800)
 
@@ -120,6 +121,17 @@ def monitoring_view(request):
     for uid, d in uses:
         usage_map[uid].add(d)
 
+    now = timezone.now()
+
+    active_user_ids = set()
+    for s in Session.objects.filter(expire_date__gt=now):
+        data = s.get_decoded()
+        uid = data.get("_auth_user_id")
+        if uid:
+            uid = int(uid)
+            if uid in user_ids:   # opcional: filtra solo los de la página
+                active_user_ids.add(uid)
+
     # --- Construcción de filas ---
     rows = []
     dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
@@ -130,8 +142,16 @@ def monitoring_view(request):
 
         if u.last_ts:
             last_seen_human = humanize_delta(now - u.last_ts)
+
+            # ¿está dentro de la ventana de inactividad permitida?
+            dentro_de_idle = (now - u.last_ts) <= timedelta(seconds=IDLE_SECONDS)
+
             if u.last_event == SessionEvent.LOGIN:
-                session_open = (now - u.last_ts).total_seconds() <= IDLE_SECONDS
+                # Sesión abierta SOLO si:
+                # 1) último evento = LOGIN
+                # 2) hay sesión vigente en django_session
+                # 3) no superó el idle
+                session_open = (u.id in active_user_ids) and dentro_de_idle
                 session_expired = not session_open
             else:
                 session_open = False
@@ -140,6 +160,7 @@ def monitoring_view(request):
             last_seen_human = humanize_delta(now - u.last_login) if u.last_login else "—"
             session_open = False
             session_expired = False
+
 
         # Ubicación breve
         if u.last_city:

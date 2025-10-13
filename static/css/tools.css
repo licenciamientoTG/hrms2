@@ -1,0 +1,11 @@
+.card-header {
+  border-bottom: 1px solid rgba(0,0,0,.075);
+}
+.card {
+  border-radius: .75rem;
+}
+.input-group-text {
+  background-color: #f6f6f6;
+}
+
+#monto:disabled { background-color: #f8f9fa; cursor: not-allowed; }

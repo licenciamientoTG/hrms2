@@ -1,8 +1,89 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block page_title %}Panel de herramientas{% endblock %}
-{% block title %}Panel de Herramientas{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/tools.css' %}">
+{% endblock %}
 
 {% block content %}
-Aquí va a ir el contenido de las herramientas.
+<div class="container my-4">
+
+  <div class="mx-auto" style="max-width: 520px;">
+    <div class="card shadow-sm border-0 rounded-3">
+      <div class="card-header bg-light text-center fw-semibold rounded-top-3">
+        Calculadora de Préstamos de Fondo de Ahorro
+      </div>
+
+      <div class="card-body p-4">
+
+        <!-- Monto disponible -->
+        <div class="mb-3">
+          <label class="form-label">¿Con cuánto dinero cuenta en su fondo de ahorro?</label>
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+              <input id="fondo_ahorro" type="number" class="form-control"
+                    placeholder="Escribe el monto..." aria-label="monto disponible"
+                    inputmode="numeric" pattern="\d*" min="0" max="200000" step="100"
+                    onwheel="this.blur()">
+
+          </div>
+
+          <div class="form-text">
+            El monto máximo de préstamo es de:
+            <strong class="text-body js-max-prestamo" id="max_prestamo">$0</strong>
+            que equivale al <span id="porcentaje">50%</span>
+          </div>
+        </div>
+        <hr>
+          <div class="mb-3">
+            <label class="form-label">
+              ¿Cuánto desea solicitar?
+              <span class="small text-muted ms-1">
+                (Máx <strong class="text-body js-max-prestamo">$0</strong>)
+              </span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input id="monto" type="number" class="form-control"
+                    placeholder="Ingresa primero tu fondo" aria-label="monto a solicitar"
+                    inputmode="numeric" pattern="\d*" min="0" step="1" disabled>
+            </div>
+            <div id="montoHelp" class="form-text d-none">No puede exceder el máximo.</div>
+          </div>
+
+
+        <!-- Semanas de plazo -->
+        <div class="mb-4">
+          <label class="form-label">Seleccione las semanas de plazo</label>
+          <select id="semanas" class="form-select" aria-label="semanas de plazo">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+
+        <!-- Resultados -->
+        <div class="text-center mb-3">
+          <div class="fw-bold fs-5">
+            Pago Semanal: <span class="text-dark" id="pago_semanal">$0</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/tools.js' %}"></script>
 {% endblock %}
