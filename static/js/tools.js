@@ -150,3 +150,98 @@
 
   calcularPago();
 })();
+
+
+
+
+// ====== Formateador MXN con 2 decimales ======
+const MXN2 = new Intl.NumberFormat('es-MX', {
+  style: 'currency', currency: 'MXN',
+  minimumFractionDigits: 2, maximumFractionDigits: 2
+});
+
+function renderDesglose() {
+  const $monto   = document.getElementById('monto');
+  const $semanas = document.getElementById('semanas');
+  const $panel   = document.getElementById('detalle-contenido');
+
+  if (!$monto || !$semanas || !$panel) return;
+
+  const total = parseInt(($monto.value || '').replace(/\D+/g, ''), 10) || 0;
+  const weeks = parseInt(($semanas.value || '0'), 10) || 0;
+
+  if ($monto.disabled || total <= 0 || weeks <= 0) {
+    $panel.innerHTML = `<p class="text-muted mb-0">Indica un monto y semanas para ver el desglose.</p>`;
+    return;
+  }
+
+  // ====== Reparto exacto por centavos ======
+  const totalCents  = Math.round(total * 100);
+  const baseCents   = Math.floor(totalCents / weeks);
+  let   leftover    = totalCents - baseCents * weeks; // 0..weeks-1
+
+  let saldoCents = totalCents;
+  const rows = [];
+
+  for (let i = 1; i <= weeks; i++) {
+    const pagoCents = baseCents + (leftover > 0 ? 1 : 0);
+    if (leftover > 0) leftover--;
+
+    saldoCents -= pagoCents;
+
+    const pago  = pagoCents / 100;
+    const saldo = Math.max(saldoCents / 100, 0);
+
+    rows.push(`
+      <tr>
+        <td class="text-center">${i}</td>
+        <td class="text-end">${MXN2.format(pago)}</td>
+        <td class="text-end">${MXN2.format(saldo)}</td>
+      </tr>
+    `);
+  }
+
+  // ====== Render en el panel ======
+  $panel.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="small text-muted">Semanas: <strong>${weeks}</strong></div>
+      <div class="small text-muted">Monto total: <strong>${MXN2.format(total)}</strong></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-2 desglose-table">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center" style="width: 20%;">Semana</th>
+            <th class="text-end"   style="width: 40%;">Pago</th>
+            <th class="text-end"   style="width: 40%;">Saldo pendiente</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th class="text-end" colspan="2">Total</th>
+            <th class="text-end">${MXN2.format(total)}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="text-muted small mb-0">Los pagos se reparten centavo por centavo para que la suma coincida con el monto total.</p>
+  `;
+}
+
+// --- Actualizar desglose cuando cambian datos ---
+document.getElementById('monto')?.addEventListener('input', renderDesglose);
+document.getElementById('monto')?.addEventListener('blur',  renderDesglose);
+document.getElementById('semanas')?.addEventListener('change', renderDesglose);
+document.getElementById('semanas')?.addEventListener('input',  renderDesglose);
+
+// --- También al abrir/cerrar el panel de detalles ---
+document.getElementById('btn-detalles')?.addEventListener('click', function () {
+  const wrap = document.getElementById('calc-layout');
+  const opened = wrap.classList.toggle('show-details');
+  this.textContent = opened ? 'Ocultar detalles' : 'Ver detalles';
+  this.setAttribute('aria-expanded', opened ? 'true' : 'false');
+  if (opened) renderDesglose();
+});

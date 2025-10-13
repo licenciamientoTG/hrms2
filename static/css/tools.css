@@ -1,11 +1,50 @@
-.card-header {
-  border-bottom: 1px solid rgba(0,0,0,.075);
-}
-.card {
-  border-radius: .75rem;
-}
-.input-group-text {
-  background-color: #f6f6f6;
+/* -------- estilos generales -------- */
+.card-header { border-bottom: 1px solid rgba(0,0,0,.075); }
+.card { border-radius: .75rem; }
+.input-group-text { background-color: #f6f6f6; }
+#monto:disabled { background-color: #f8f9fa; cursor: not-allowed; }
+
+/* layout base: 1 columna centrada */
+.calc-wrap { max-width: 560px; transition: max-width .25s ease; }
+.calc-wrap .details-col { display: none; } /* oculto por defecto */
+
+/* ----- MÓVIL (apilado) ----- */
+@media (max-width: 991.98px) {
+  .calc-wrap.show-details {
+    max-width: 560px;             /* sigue delgado en móvil */
+  }
+  .calc-wrap.show-details .details-col {
+    display: block;
+    margin-top: 16px;             /* aparece DEBAJO */
+  }
 }
 
-#monto:disabled { background-color: #f8f9fa; cursor: not-allowed; }
+/* ----- ESCRITORIO (2 columnas) ----- */
+@media (min-width: 992px) {
+  .calc-wrap.show-details {
+    max-width: 1024px;            /* un poco más compacto que 1140 */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;                    /* MÁS JUNTO */
+    align-items: stretch;
+    grid-auto-rows: 1fr;
+  }
+  .calc-wrap.show-details .details-col { display: block; }
+
+  /* igualar alturas */
+  .calc-wrap.show-details .calc-col,
+  .calc-wrap.show-details .details-col { display: flex; }
+
+  /* tu wrapper con max-width:520px estirará cuando hay 2 columnas */
+  .calc-wrap.show-details .calc-col > .mx-auto {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-width: none;              /* quita el 520px en desktop con detalles */
+    margin: 0;                    /* sin centrado con márgenes */
+  }
+
+  /* las cards ocupan toda la altura */
+  .calc-wrap.show-details .calc-col .card,
+  .calc-wrap.show-details .details-col .card { height: 100%; }
+}

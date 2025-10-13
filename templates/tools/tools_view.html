@@ -8,35 +8,36 @@
 {% endblock %}
 
 {% block content %}
-<div class="container my-4">
-
-  <div class="mx-auto" style="max-width: 520px;">
-    <div class="card shadow-sm border-0 rounded-3">
-      <div class="card-header bg-light text-center fw-semibold rounded-top-3">
-        Calculadora de Préstamos de Fondo de Ahorro
-      </div>
-
-      <div class="card-body p-4">
-
-        <!-- Monto disponible -->
-        <div class="mb-3">
-          <label class="form-label">¿Con cuánto dinero cuenta en su fondo de ahorro?</label>
-          <div class="input-group">
-            <span class="input-group-text">$</span>
-              <input id="fondo_ahorro" type="number" class="form-control"
-                    placeholder="Escribe el monto..." aria-label="monto disponible"
-                    inputmode="numeric" pattern="\d*" min="0" max="200000" step="100"
-                    onwheel="this.blur()">
-
-          </div>
-
-          <div class="form-text">
-            El monto máximo de préstamo es de:
-            <strong class="text-body js-max-prestamo" id="max_prestamo">$0</strong>
-            que equivale al <span id="porcentaje">50%</span>
-          </div>
+<div id="calc-layout" class="calc-wrap container my-4">
+  <!-- Columna izquierda: calculadora -->
+  <div class="calc-col">
+    <div class="mx-auto" style="max-width: 520px;">
+      <div class="card shadow-sm border-0 rounded-3 h-100">
+        <div class="card-header bg-light text-center fw-semibold rounded-top-3">
+          Calculadora de Préstamos de Fondo de Ahorro
         </div>
-        <hr>
+
+        <div class="card-body p-4">
+          <!-- Monto disponible -->
+          <div class="mb-3">
+            <label class="form-label">¿Con cuánto dinero cuenta en su fondo de ahorro?</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input id="fondo_ahorro" type="number" class="form-control"
+                     placeholder="Escribe el monto..." aria-label="monto disponible"
+                     inputmode="numeric" pattern="\d*" min="0" max="200000" step="100"
+                     onwheel="this.blur()">
+            </div>
+            <div class="form-text">
+              El monto máximo de préstamo es de:
+              <strong class="text-body js-max-prestamo" id="max_prestamo">$0</strong>
+              que equivale al <span id="porcentaje">50%</span>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Monto a solicitar -->
           <div class="mb-3">
             <label class="form-label">
               ¿Cuánto desea solicitar?
@@ -47,42 +48,56 @@
             <div class="input-group">
               <span class="input-group-text">$</span>
               <input id="monto" type="number" class="form-control"
-                    placeholder="Ingresa primero tu fondo" aria-label="monto a solicitar"
-                    inputmode="numeric" pattern="\d*" min="0" step="1" disabled>
+                     placeholder="Ingresa primero tu fondo" aria-label="monto a solicitar"
+                     inputmode="numeric" pattern="\d*" min="0" step="1" disabled>
             </div>
             <div id="montoHelp" class="form-text d-none">No puede exceder el máximo.</div>
           </div>
 
+          <!-- Semanas -->
+          <div class="mb-4">
+            <label class="form-label">Seleccione las semanas de plazo</label>
+            <select id="semanas" class="form-select" aria-label="semanas de plazo">
+              <option value="1" selected>1</option><option value="2">2</option>
+              <option value="3">3</option><option value="4">4</option>
+              <option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option><option value="8">8</option>
+              <option value="9">9</option><option value="10">10</option>
+            </select>
+          </div>
 
-        <!-- Semanas de plazo -->
-        <div class="mb-4">
-          <label class="form-label">Seleccione las semanas de plazo</label>
-          <select id="semanas" class="form-select" aria-label="semanas de plazo">
-            <option value="1" selected>1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-          </select>
-        </div>
+          <!-- Resultado -->
+          <div class="text-center mb-3">
+            <div class="fw-bold fs-5">
+              Pago Semanal: <span class="text-dark" id="pago_semanal">$0</span>
+            </div>
+          </div>
 
-        <!-- Resultados -->
-        <div class="text-center mb-3">
-          <div class="fw-bold fs-5">
-            Pago Semanal: <span class="text-dark" id="pago_semanal">$0</span>
+          <!-- Botón -->
+          <div class="text-center mb-3">
+            <button id="btn-detalles" class="btn btn-primary" aria-expanded="false">
+              Ver detalles
+            </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
 
+  <!-- Columna derecha: panel de detalles (inicia oculto) -->
+  <div class="details-col">
+    <div class="card shadow-sm border-0 rounded-3 h-100">
+      <div class="card-header bg-light text-center fw-semibold rounded-top-3">
+        Desglose del Pago Semanal
+      </div>
+      <div class="card-body p-4" id="detalle-contenido">
+        <p class="text-muted mb-0">Aquí aparecerá el desglose cuando presiones “Ver detalles”.</p>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
+
 
 {% block scripts %}
   <script src="{% static 'js/tools.js' %}"></script>
