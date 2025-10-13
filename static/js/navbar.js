@@ -134,7 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // No cerrar el dropdown por clics internos
   menuEl?.addEventListener("click", (e) => e.stopPropagation());
   if (dropdownTgl && window.bootstrap?.Dropdown) {
-    new bootstrap.Dropdown(dropdownTgl, { autoClose: false });
+    new bootstrap.Dropdown(dropdownTgl, { autoClose: 'outside' });
   }
 
   // Cargar primera página al abrir el dropdown
