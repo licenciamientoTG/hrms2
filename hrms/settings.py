@@ -73,12 +73,12 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',   # ← ARRIBA
+    'apps.monitoring.middleware.IdleTimeoutMiddleware',          # ← tus middlewares
+    'apps.monitoring.middleware.DailyUsageMiddleware',           # ← van DESPUÉS de Auth
+    'apps.users.middleware.ForcePasswordChangeMiddleware',       # ← si lo usas, aquí está bien
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'apps.users.middleware.ForcePasswordChangeMiddleware',
-    "apps.monitoring.middleware.IdleTimeoutMiddleware",
-    "apps.monitoring.middleware.DailyUsageMiddleware",
 ]
 
 # 30 min por inactividad (para server y para la vista)

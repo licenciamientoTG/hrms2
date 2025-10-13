@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone as dt_timezone
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -12,6 +12,7 @@ from apps.monitoring.models import SessionEvent
 from apps.monitoring.models import UserDailyUse   # <-- NEW
 from django.conf import settings
 from django.contrib.sessions.models import Session
+
 
 IDLE_SECONDS = getattr(settings, "IDLE_TIMEOUT_SECONDS", 1800)
 
@@ -123,14 +124,21 @@ def monitoring_view(request):
 
     now = timezone.now()
 
-    active_user_ids = set()
+    # user_id -> última actividad (datetime aware, UTC) tomando lo que guarda el middleware
+    last_activity_map = {}
     for s in Session.objects.filter(expire_date__gt=now):
         data = s.get_decoded()
         uid = data.get("_auth_user_id")
-        if uid:
-            uid = int(uid)
-            if uid in user_ids:   # opcional: filtra solo los de la página
-                active_user_ids.add(uid)
+        ts  = data.get("last_activity_ts")  # ← clave que escribe tu IdleTimeoutMiddleware
+        if not uid or not ts:
+            continue
+        uid = int(uid)
+        if uid not in user_ids:   # opcional: solo usuarios de la página actual
+            continue
+        last_act = datetime.fromtimestamp(float(ts), dt_timezone.utc)
+        prev = last_activity_map.get(uid)
+        last_activity_map[uid] = max(prev, last_act) if prev else last_act
+
 
     # --- Construcción de filas ---
     rows = []
@@ -140,26 +148,19 @@ def monitoring_view(request):
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
         username = u.username
 
-        if u.last_ts:
-            last_seen_human = humanize_delta(now - u.last_ts)
+        # Preferimos la última actividad REAL guardada por el middleware en la sesión
+        last_act = last_activity_map.get(u.id)  # ← viene del bloque que arma last_activity_map
 
-            # ¿está dentro de la ventana de inactividad permitida?
-            dentro_de_idle = (now - u.last_ts) <= timedelta(seconds=IDLE_SECONDS)
-
-            if u.last_event == SessionEvent.LOGIN:
-                # Sesión abierta SOLO si:
-                # 1) último evento = LOGIN
-                # 2) hay sesión vigente en django_session
-                # 3) no superó el idle
-                session_open = (u.id in active_user_ids) and dentro_de_idle
-                session_expired = not session_open
-            else:
-                session_open = False
-                session_expired = False
+        if last_act:
+            last_seen_human = humanize_delta(now - last_act)
+            dentro_de_idle = (now - last_act) <= timedelta(seconds=IDLE_SECONDS)
+            session_open = dentro_de_idle
         else:
-            last_seen_human = humanize_delta(now - u.last_login) if u.last_login else "—"
+            # Fallback si no hay 'last_activity_ts' en sesión: último evento o último login
+            ref_dt = u.last_ts or u.last_login
+            last_seen_human = humanize_delta(now - ref_dt) if ref_dt else "—"
             session_open = False
-            session_expired = False
+
 
 
         # Ubicación breve
