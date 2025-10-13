@@ -96,17 +96,16 @@
     $monto.value = String(val);
   };
 
-  // (Opcional) redondear al múltiplo de 100 al salir del campo
+  // (Reemplaza tu función y deja igual los demás handlers)
   const ajustarStepEnBlur = () => {
     if ($monto.disabled) return;
-    const step = 100;
     let val = parseInt($monto.value || '0', 10);
-    if (!isNaN(val) && step > 1) {
-      val = Math.floor(val / step) * step;
-      if (maxCache > 0 && val > maxCache) val = maxCache;
-      $monto.value = val || '';
-    }
+    if (isNaN(val)) { $monto.value = ''; return; }
+    if (val < 0) val = 0;
+    if (maxCache > 0 && val > maxCache) val = maxCache;
+    $monto.value = String(val); // sin redondear a múltiplos de 100
   };
+
 
   // Eventos
   $fondo.addEventListener('input', actualizarTope);
@@ -118,8 +117,11 @@
 })();
 
 (function () {
-  // Reutiliza el mismo formateador para moneda si ya lo definiste:
-  const fmt = new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 });
+  // Formateador con DOS decimales
+  const fmt2 = new Intl.NumberFormat('es-MX', {
+    style: 'currency', currency: 'MXN',
+    minimumFractionDigits: 2, maximumFractionDigits: 2
+  });
 
   const $monto        = document.getElementById('monto');
   const $semanas      = document.getElementById('semanas');
@@ -128,25 +130,23 @@
   if (!$monto || !$semanas || !$pagoSemanal ) return;
 
   const calcularPago = () => {
-    // si el campo está deshabilitado o vacío, no calculamos
     if ($monto.disabled) return;
-    const monto = parseInt(($monto.value || '').replace(/\D+/g,''), 10) || 0;
+
+    const monto   = parseInt(($monto.value || '').replace(/\D+/g,''), 10) || 0;
     const semanas = parseInt($semanas.value || '0', 10) || 0;
 
     if (monto <= 0 || semanas <= 0) {
-      $pagoSemanal.textContent = fmt.format(0);
+      $pagoSemanal.textContent = fmt2.format(0);
       return;
     }
 
-    // División en entero; usa ceil para no subpagar (ajústalo si prefieres floor)
-    const pago = Math.ceil(monto / semanas);
-    $pagoSemanal.textContent = fmt.format(pago);
+    // Pago con 2 decimales
+    const pago = Math.round((monto / semanas) * 100) / 100;
+    $pagoSemanal.textContent = fmt2.format(pago);
   };
 
-  // Recalcular si cambian semanas o monto (calcula “al vuelo”)
   $semanas.addEventListener('change', calcularPago);
   $monto.addEventListener('input', calcularPago);
 
-  // Inicial
   calcularPago();
 })();
