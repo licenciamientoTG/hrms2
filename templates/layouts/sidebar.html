@@ -11,38 +11,57 @@
             </a>
 
             <ul class="sidebar-nav">
-
-            {% if user.is_superuser %}
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'monitoring_view' %}">
-                        <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
-                    </a>
-                </li>
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'user_dashboard' %}">
-                        <i class="fa-solid fa-user"></i></i><span class="align-middle">Usuarios</span>
-                    </a>
-                </li>
+                {% if user.is_superuser %}
+                    <li class="sidebar-item ">
+                        <a class="sidebar-link" href="{% url 'monitoring_view' %}">
+                            <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item ">
+                        <a class="sidebar-link" href="{% url 'user_dashboard' %}">
+                            <i class="fa-solid fa-user"></i><span class="align-middle">Usuarios</span>
+                        </a>
+                    </li>
                 {% endif %}
-                {% if perms.forms_requests.puede_solicitar_personal %}
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'news_view' %}">
-                        <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
-                    </a>
-                </li>
 
+                {% if perms.forms_requests.puede_solicitar_personal %}
+                    <li class="sidebar-item ">
+                        <a class="sidebar-link" href="{% url 'news_view' %}">
+                            <i class="fa-solid fa-newspaper"></i><span class="align-middle">Noticias</span>
+                        </a>
+                    </li>
+
+                    <li class="sidebar-item ">
+                        <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
+                            <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
+                        </a>
+                    </li>
+                {% endif %}
+
+                    <li class="sidebar-item ">
+                        <a class="sidebar-link" href="{% url 'request_form' %}">
+                            <i class="fa-brands fa-wpforms"></i><span class="align-middle">Solicitud de constancias</span>
+                        </a>
+                    </li>
+
+                {% if perms.forms_requests.puede_solicitar_personal %}
+                    <li class="sidebar-item">
+                        <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
+                            <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
+                        </a>
+                    </li>
+                {% endif %} 
+                {% if user.is_superuser %}
                 <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
-                        <i class="fa-solid fa-award"></i><span class="align-middle">Reconocimientos</span>
+                    <a class="sidebar-link" href="{% url 'course_wizard' %}">
+                        <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
-            {% endif %}
                 <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'request_form' %}">
-                        <i class="fa-brands fa-wpforms"></i><span class="align-middle">Solicitud de constancias</span>
+                    <a class="sidebar-link" href="{% url 'org_chart' %}">
+                        <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
                     </a>
                 </li>
-            {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'vacation_request' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
@@ -59,40 +78,19 @@
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
                     </a>
                 </li>
-                
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'org_chart' %}">
-                        <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
-                    </a>
-                </li>
 
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
-{% endif %} 
-                {% if user.is_superuser %}
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'course_wizard' %}">
-                        <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
-                    </a>
-                </li>
-{% endif %}
-                {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
                 {% endif %} 
-                {% if perms.forms_requests.puede_solicitar_personal %}
-                <li class="sidebar-item">
-                    <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
-                        <i class="fa-solid fa-square-poll-vertical"></i><span class="align-middle">Encuestas</span>
-                    </a>
-                </li>
-                {% endif %} 
+
                 {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
@@ -139,7 +137,7 @@
                 <ul class="list-unstyled ps-4 py-2 m-0">
                 <li>
                     <a class="sidebar-link {% if request.path == '/tools/' %}active{% endif %}"
-                    href="{% url 'tools_view' %}">
+                    href="{% url 'calculator_view' %}">
                     <i class="fa-solid fa-calculator me-2"></i> Calculadora de préstamo
                     </a>
                 </li>

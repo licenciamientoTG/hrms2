@@ -1,6 +1,6 @@
 from django.urls import path, include
-from .views import tools_view
+from .views import calculator_view
 
 urlpatterns = [
-    path('', tools_view, name='tools_view'),
+    path('', calculator_view, name='calculator_view'),
 ]
