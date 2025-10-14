@@ -79,7 +79,35 @@ transform-origin: 50% 10%; /* pivote arriba/centro del asa */
 animation: ring 0.9s ease-in-out 1;
 }
 
-/* Respeto a usuarios con “reducir movimiento” */
 @media (prefers-reduced-motion: reduce) {
 .bell-wiggle:hover svg { animation: none; }
+}
+
+/* base */
+.gear-icon {
+  display: inline-block;    
+  transform-origin: 50% 50%;
+  transition: transform .25s ease;
+}
+
+/* gira suave al hover */
+a:hover .gear-icon {
+  transform: rotate(90deg);
+}
+
+/* glow al hover */
+a:hover .gear-icon {
+  filter: drop-shadow(0 0 2px rgba(0,0,0,.25));
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gear-icon,
+  a[aria-expanded="true"] .gear-icon {
+    animation: none !important;
+    transition: none !important;
+  }
 }

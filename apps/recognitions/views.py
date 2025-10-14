@@ -13,14 +13,14 @@ from django.http import HttpResponseForbidden
 from .models import RecognitionCategory, Recognition, RecognitionComment, RecognitionMedia
 from django.db.models.deletion import ProtectedError
 from django.views.decorators.http import require_POST
-from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET
 from django.utils.timezone import now
 from django.utils.timesince import timesince
 from .models import RecognitionLike
-from django.db.models import Count, Q, Exists, OuterRef
+from django.contrib import messages
+from django.db.models import Prefetch, Count, Exists, OuterRef, Q
 
 
 
@@ -60,13 +60,6 @@ MAX_MB = 10               # MB
 
 def _is_image_ok(f):
     return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
-
-from django.contrib import messages
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
-from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Prefetch, Count, Exists, OuterRef
 
 @login_required
 @require_http_methods(["GET", "POST"])

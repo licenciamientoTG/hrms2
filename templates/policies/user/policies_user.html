@@ -1,0 +1,51 @@
+{% extends 'layouts/base.html' %}
+
+{% block page_title %}Políticas Internas{% endblock %}
+{% block title %}Políticas Internas{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <!-- Buscador -->
+  <form method="get" class="d-flex gap-2 mb-3" role="search">
+    <input type="search" class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Buscar política…">
+    <button class="btn btn-outline-secondary">
+      <i data-feather="search"></i> Buscar
+    </button>
+  </form>
+
+  <!-- Lista de políticas publicadas -->
+  <div class="list-group shadow-sm">
+    {% if policies %}
+      {% for p in policies %}
+      <a class="list-group-item list-group-item-action" href="{% url 'policies_user_view' %}?slug={{ p.slug }}">
+        <div class="d-flex justify-content-between">
+          <div class="me-3">
+            <div class="fw-semibold">{{ p.title }}</div>
+            <small class="text-muted">Actualizada: {{ p.updated_at|date:"d/m/Y H:i" }}</small>
+          </div>
+          <span class="badge bg-success align-self-center">Publicada</span>
+        </div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="list-group-item text-muted">No hay políticas publicadas.</div>
+    {% endif %}
+  </div>
+
+  <!-- Vista de detalle opcional en la misma página (si traes ?slug=...) -->
+  {% if selected %}
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="mb-1">{{ selected.title }}</h5>
+        <div class="text-muted small mb-3">Actualizada: {{ selected.updated_at|date:"d/m/Y H:i" }}</div>
+        <div class="policy-content">
+          {{ selected.content|linebreaks }} {# usa |safe si guardas HTML #}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+
+<script>document.addEventListener('DOMContentLoaded', () => { if (window.feather) feather.replace(); });</script>
+{% endblock %}

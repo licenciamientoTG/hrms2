@@ -84,6 +84,8 @@
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
                     </a>
                 </li>
+
+
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
@@ -103,13 +105,17 @@
                         <i class="fa-solid fa-briefcase"></i><span class="align-middle">Vacantes</span>
                     </a>
                 </li>
-            
+                {% endif %} 
+
+                {% if user.is_authenticated and user.id == 64  %}
                 <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'policies_dashboard' %}">
+                    <a class="sidebar-link" href="{% url 'policies_dashboard_view' %}">
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
                     </a>
                 </li>
+                {% endif %} 
 
+                {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
                         <i class="fa-solid fa-road"></i> <span class="align-middle">Plan de carrera</span>
