@@ -19,17 +19,36 @@ from django.contrib.auth import update_session_auth_hash
 import chardet
 from .utils import parse_fecha
 
+from django.db.models import Q
+
 @login_required
 def user_dashboard(request):
-    empleados = Employee.objects.select_related('user').order_by('-created_at')
-    permisos = Permission.objects.all() 
+    q = (request.GET.get('q') or '').strip()
+
+    empleados_qs = (
+        Employee.objects
+        .select_related('user')
+        .filter(user__isnull=False)        # <--- clave
+        .order_by('-created_at')
+    )
+
+    if q:
+        empleados_qs = empleados_qs.filter(
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(user__username__icontains=q)
+        )
+
+    paginator   = Paginator(empleados_qs, 10)  # 10 por página
+    page_number = request.GET.get('page', 1)
+    page_obj    = paginator.get_page(page_number)
 
     return render(request, 'users/user_dashboard.html', {
-        'empleados': empleados,
-        'permissions': permisos,
+        'empleados': page_obj.object_list,
+        'permissions': Permission.objects.all(),
+        'page_obj': page_obj,
+        'q': q,
     })
-
-
 
 @user_passes_test(lambda u: u.is_superuser)
 @require_POST

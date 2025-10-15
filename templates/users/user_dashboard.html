@@ -48,7 +48,6 @@
       </thead>
       <tbody>
         {% for emp in empleados %}
-          {% if emp.user %}
           <tr id="row-{{ emp.user.id }}">
             <td class="user-info">
               <div class="details">
@@ -56,15 +55,12 @@
                 <div class="email text-muted small">{{ emp.email|default:"sin email" }}</div>
               </div>
             </td>
-
             <td>{{ emp.user.username }}</td>
-
             <td>
               <span class="badge status-badge {% if emp.user.is_active %}bg-success{% else %}bg-secondary{% endif %}">
                 {% if emp.user.is_active %}Activo{% else %}Inactivo{% endif %}
               </span>
             </td>
-
             <td>
               <div class="btn-group">
                 <button
@@ -83,7 +79,6 @@
               </div>
             </td>
           </tr>
-          {% endif %}
         {% empty %}
           <tr><td colspan="4" class="text-center">No hay empleados registrados.</td></tr>
         {% endfor %}
