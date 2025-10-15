@@ -32,24 +32,27 @@ def recognition_dashboard(request):
     else:
         return redirect('recognition_dashboard_user')
 
-# esta vista es para el administrador
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def recognition_dashboard_admin(request):
-    # Query + orden
-    qs = RecognitionCategory.objects.order_by('order', 'title')
+    q = (request.GET.get("q") or "").strip()
 
-    # Paginación (opcional – 20 por página)
-    paginator = Paginator(qs, 20)
+    qs = RecognitionCategory.objects.all().order_by('order', 'title')
+    if q:
+        qs = qs.filter(title__icontains=q)  # filtra por título
+
+    paginator   = Paginator(qs, 20)
     page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj    = paginator.get_page(page_number)
 
     context = {
-        "categories": page_obj.object_list,          # lo que tu tabla usa
-        "page_obj": page_obj,                        # para controles de paginación
+        "categories": page_obj.object_list,
+        "page_obj": page_obj,
         "is_paginated": page_obj.has_other_pages(),
+        "q": q,  # <-- pásalo al template para repoblar el input y los links
     }
     return render(request, "recognitions/admin/recognition_dashboard_admin.html", context)
+
 
 # esta vista es para el usuario
 User = get_user_model()
@@ -233,7 +236,6 @@ def category_delete_post(request, pk):
     obj = get_object_or_404(RecognitionCategory, pk=pk)
     try:
         obj.delete()
-        messages.success(request, "Categoría eliminada.")
     except ProtectedError:
         messages.error(
             request,
@@ -254,7 +256,7 @@ def category_toggle_active(request, pk):
         if obj.is_active:
             obj.is_active = False
             obj.save(update_fields=["is_active"])
-            messages.success(request, "Categoría desactivada.")
+            
         else:
             # Ya estaba desactivada: no la actives por error
             messages.info(request, "La categoría ya estaba desactivada.")
@@ -262,10 +264,7 @@ def category_toggle_active(request, pk):
         # Toggle normal (botón “Activar/Desactivar” del menú)
         obj.is_active = not obj.is_active
         obj.save(update_fields=["is_active"])
-        messages.success(
-            request,
-            "Categoría activada." if obj.is_active else "Categoría desactivada."
-        )
+
 
     return redirect("recognition_dashboard")
 

@@ -431,3 +431,44 @@ document.addEventListener('click', async (e) => {
     if (url) fetchLikes(url);
   });
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const qInput = document.getElementById('recognitions-search');       // 👈 id único
+  const table  = document.getElementById('admin-recognition-table');
+  if (!qInput || !table) return;
+
+  // Evita submit al presionar Enter
+  qInput.closest('form')?.addEventListener('submit', e => e.preventDefault());
+
+  let t = null;
+  qInput.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(filterTable, 120);
+  });
+
+  function filterTable() {
+    const term = (qInput.value || '').trim().toLowerCase();
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    let visible = 0;
+
+    rows.forEach(tr => {
+      // primera columna = título
+      const title = (tr.querySelector('td:first-child')?.textContent || '').toLowerCase();
+      const show = !term || title.includes(term);
+      tr.classList.toggle('d-none', !show);
+      if (show) visible++;
+    });
+
+    // fila “sin resultados”
+    let emptyRow = table.querySelector('tbody .js-empty-row');
+    if (!emptyRow) {
+      emptyRow = document.createElement('tr');
+      emptyRow.className = 'js-empty-row d-none';
+      emptyRow.innerHTML = `<td colspan="3" class="text-center text-muted">Sin resultados.</td>`;
+      table.querySelector('tbody').appendChild(emptyRow);
+    }
+    emptyRow.classList.toggle('d-none', visible !== 0);
+  }
+
+  filterTable(); // por si entras con ?q
+});

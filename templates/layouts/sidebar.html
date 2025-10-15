@@ -72,13 +72,16 @@
                         <i class="fa-solid fa-chart-line"></i> <span class="align-middle">Evaluación de desempeño</span>
                     </a>
                 </li>
-                
+                {% endif %} 
+    
+                {% if user.is_authenticated and user.id == 64 or user.is_superuser  %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'objective_dashboard' %}">
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>
                     </a>
                 </li>
-
+                {% endif %}
+                {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i><span class="align-middle">Archivo</span>
@@ -91,9 +94,6 @@
                         <i class="fa-solid fa-user-plus"></i></i><span class="align-middle">Onboarding</span>
                     </a>
                 </li>
-                {% endif %} 
-
-                {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i><span class="align-middle">Mis documentos</span>
@@ -105,9 +105,7 @@
                         <i class="fa-solid fa-briefcase"></i><span class="align-middle">Vacantes</span>
                     </a>
                 </li>
-                {% endif %} 
-    
-                {% if user.is_authenticated and user.id == 64 or user.is_superuser  %}
+
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'policies_dashboard_view' %}">
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
