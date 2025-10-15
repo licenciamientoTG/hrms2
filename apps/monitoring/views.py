@@ -6,13 +6,11 @@ from django.db.models import OuterRef, Subquery, Case, When, IntegerField
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Value
 
-from apps.monitoring.models import SessionEvent
-from apps.monitoring.models import UserDailyUse   # <-- NEW
+from apps.monitoring.models import SessionEvent, UserDailyUse
 from django.conf import settings
 from django.contrib.sessions.models import Session
-
 
 IDLE_SECONDS = getattr(settings, "IDLE_TIMEOUT_SECONDS", 1800)
 
@@ -28,8 +26,26 @@ def humanize_delta(delta):
 @user_passes_test(lambda u: u.is_superuser)
 def monitoring_view(request):
     now = timezone.now()
+    idle_threshold = now - timedelta(seconds=IDLE_SECONDS)
 
-    # ---- Subqueries para último evento (global) ----
+    # ---- SESSIONS ACTIVAS (middleware last_activity_ts) ----
+    # Construimos: user_id -> última actividad y set de user_ids activos
+    last_activity_map = {}
+    active_ids = set()
+    for s in Session.objects.filter(expire_date__gt=now):
+        data = s.get_decoded()
+        uid = data.get("_auth_user_id")
+        ts  = data.get("last_activity_ts")
+        if not uid or not ts:
+            continue
+        uid = int(uid)
+        last_act = datetime.fromtimestamp(float(ts), dt_timezone.utc)
+        prev = last_activity_map.get(uid)
+        last_activity_map[uid] = max(prev, last_act) if prev else last_act
+        if last_act >= idle_threshold:
+            active_ids.add(uid)
+
+    # ---- Subqueries para último evento (por si no hay session ts) ----
     last_ts_sq = (
         SessionEvent.objects
         .filter(user_id=OuterRef("id"))
@@ -42,39 +58,26 @@ def monitoring_view(request):
         .order_by("-ts")
         .values("event")[:1]
     )
-
-    # Última localización basada en ÚLTIMO LOGIN
     last_login_city_sq = (
-        SessionEvent.objects
-        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
-        .order_by("-ts")
-        .values("city")[:1]
+        SessionEvent.objects.filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts").values("city")[:1]
     )
     last_login_region_sq = (
-        SessionEvent.objects
-        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
-        .order_by("-ts")
-        .values("region")[:1]
+        SessionEvent.objects.filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts").values("region")[:1]
     )
     last_login_country_sq = (
-        SessionEvent.objects
-        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
-        .order_by("-ts")
-        .values("country")[:1]
+        SessionEvent.objects.filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts").values("country")[:1]
     )
     last_login_ip_sq = (
-        SessionEvent.objects
-        .filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
-        .order_by("-ts")
-        .values("ip")[:1]
+        SessionEvent.objects.filter(user_id=OuterRef("id"), event=SessionEvent.LOGIN)
+        .order_by("-ts").values("ip")[:1]
     )
 
-    # Filtro de búsqueda opcional
+    # ---- Filtro de búsqueda ----
     q = (request.GET.get("q") or "").strip()
-    users_qs = (
-        User.objects.only("id", "username", "first_name", "last_name", "last_login")
-        .filter(is_active=True)
-    )
+    users_qs = User.objects.only("id", "username", "first_name", "last_name", "last_login").filter(is_active=True)
     if q:
         for term in q.split():
             users_qs = users_qs.filter(
@@ -83,6 +86,8 @@ def monitoring_view(request):
                 Q(last_name__icontains=term)
             )
 
+    # ---- Annotate y ORDEN ----
+    # is_open = (id en sesiones activas) OR (último evento fue LOGIN y reciente)
     users_qs = (
         users_qs
         .annotate(
@@ -93,8 +98,10 @@ def monitoring_view(request):
             last_country=Subquery(last_login_country_sq),
             last_ip=Subquery(last_login_ip_sq),
             is_open=Case(
-                When(last_event=SessionEvent.LOGIN, then=1),
-                default=0,
+                When(Q(id__in=list(active_ids)) |
+                     (Q(last_event=SessionEvent.LOGIN) & Q(last_ts__gte=idle_threshold)),
+                     then=Value(1)),
+                default=Value(0),
                 output_field=IntegerField(),
             ),
             last_activity=Coalesce("last_ts", "last_login"),
@@ -109,10 +116,9 @@ def monitoring_view(request):
     page_obj = paginator.get_page(page_number)
     user_ids = list(page_obj.object_list.values_list("id", flat=True))
 
-    # --- USO ÚLTIMOS 7 DÍAS con UserDailyUse (hora local) ---  <-- NEW
+    # --- USO ÚLTIMOS 7 DÍAS ---
     today = timezone.localdate()
     start = today - timedelta(days=6)
-
     uses = (
         UserDailyUse.objects
         .filter(user_id__in=user_ids, date__range=(start, today))
@@ -122,25 +128,7 @@ def monitoring_view(request):
     for uid, d in uses:
         usage_map[uid].add(d)
 
-    now = timezone.now()
-
-    # user_id -> última actividad (datetime aware, UTC) tomando lo que guarda el middleware
-    last_activity_map = {}
-    for s in Session.objects.filter(expire_date__gt=now):
-        data = s.get_decoded()
-        uid = data.get("_auth_user_id")
-        ts  = data.get("last_activity_ts")  # ← clave que escribe tu IdleTimeoutMiddleware
-        if not uid or not ts:
-            continue
-        uid = int(uid)
-        if uid not in user_ids:   # opcional: solo usuarios de la página actual
-            continue
-        last_act = datetime.fromtimestamp(float(ts), dt_timezone.utc)
-        prev = last_activity_map.get(uid)
-        last_activity_map[uid] = max(prev, last_act) if prev else last_act
-
-
-    # --- Construcción de filas ---
+    # --- Filas ---
     rows = []
     dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 
@@ -148,22 +136,12 @@ def monitoring_view(request):
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
         username = u.username
 
-        # Preferimos la última actividad REAL guardada por el middleware en la sesión
-        last_act = last_activity_map.get(u.id)  # ← viene del bloque que arma last_activity_map
+        # "Hace..." preferimos sesión; fallback eventos/login
+        ref_dt = last_activity_map.get(u.id) or u.last_activity
+        last_seen_human = humanize_delta(now - ref_dt) if ref_dt else "—"
+        session_open = bool(u.is_open)
 
-        if last_act:
-            last_seen_human = humanize_delta(now - last_act)
-            dentro_de_idle = (now - last_act) <= timedelta(seconds=IDLE_SECONDS)
-            session_open = dentro_de_idle
-        else:
-            # Fallback si no hay 'last_activity_ts' en sesión: último evento o último login
-            ref_dt = u.last_ts or u.last_login
-            last_seen_human = humanize_delta(now - ref_dt) if ref_dt else "—"
-            session_open = False
-
-
-
-        # Ubicación breve
+        # Ubicación
         if u.last_city:
             last_place = u.last_city
         elif u.last_region:
@@ -171,24 +149,16 @@ def monitoring_view(request):
         elif u.last_country:
             last_place = u.last_country
         elif getattr(u, "last_ip", None):
-            if str(u.last_ip).startswith(("10.", "192.168.", "172.")):
-                last_place = f"Red interna ({u.last_ip})"
-            else:
-                last_place = str(u.last_ip)
+            last_place = f"Red interna ({u.last_ip})" if str(u.last_ip).startswith(("10.", "192.168.", "172.")) else str(u.last_ip)
         else:
             last_place = "—"
 
         used_dates = usage_map.get(u.id, set())
         week_cells = []
-        for offset in range(6, -1, -1):  # 6..0  => hace 6 días ... hoy
+        for offset in range(6, -1, -1):
             d = today - timedelta(days=offset)
             used = d in used_dates
-            if offset == 0:
-                base = "Hoy"
-            elif offset == 1:
-                base = "Ayer"
-            else:
-                base = f"Hace {offset} días"
+            base = "Hoy" if offset == 0 else ("Ayer" if offset == 1 else f"Hace {offset} días")
             label = f"{base} • {dias[d.weekday()]} {d.strftime('%d/%m')}"
             week_cells.append({"used": used, "label": label})
 

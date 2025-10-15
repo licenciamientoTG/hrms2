@@ -106,8 +106,8 @@
                     </a>
                 </li>
                 {% endif %} 
-
-                {% if user.is_authenticated and user.id == 64  %}
+    
+                {% if user.is_authenticated and user.id == 64 or user.is_superuser  %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'policies_dashboard_view' %}">
                         <i class="fa-solid fa-landmark"></i><span class="align-middle">Políticas internas</span>
