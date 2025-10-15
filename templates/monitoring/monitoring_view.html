@@ -16,10 +16,12 @@
   <!-- Buscador (mismo estilo que Políticas) -->
   <form class="mb-3" method="get">
     <div class="d-flex gap-2">
-      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="🔍 Buscar por nombre o usuario">
-      {% if q %}
-        <a class="btn btn-outline-secondary" href="?">Limpiar</a>
-      {% endif %}
+      <input id="monitoring-search"
+            type="text"
+            name="q"
+            value="{{ q }}"
+            class="form-control"
+            placeholder="🔍 Buscar por nombre o usuario">
     </div>
   </form>
 
