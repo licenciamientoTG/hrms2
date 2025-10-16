@@ -43,3 +43,24 @@
 .form-actions {
     margin-left: auto;
 }
+.card {
+  padding: 1.25rem;  /* Aplica un padding uniforme en todas las tarjetas */
+  margin-bottom: 1rem;  /* Asegura que las tarjetas no estén demasiado pegadas */
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed; /* Esto ajusta las columnas para que se distribuyan mejor */
+}
+
+.card-body {
+  padding: 1.25rem; /* Controla el padding dentro del card */
+}
+
+.d-flex, .gap-2 {
+  gap: 0.5rem; /* Para los espacios entre los filtros y los botones */
+}
+
+.container {
+  max-width: 100%;
+}
