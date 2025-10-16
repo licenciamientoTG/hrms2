@@ -1,113 +1,155 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
+
 {% block styles %}
 <link rel="stylesheet" href="{% static 'css/survey.css' %}">
 {% endblock %}
 
-{% block page_title %}Panel de Encuestas{% endblock %}
+{% block page_title %}Encuestas{% endblock %}
 
 {% block content %}
-<div class="container py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Encuestas</h2>
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h2 class="mb-0">Encuestas</h2>
-    
-    <div class="d-flex gap-2">
-      <a href="{% url 'survey_summary_pdf' %}" target="_blank" class="btn btn-outline-secondary">
-        <i class="fa-solid fa-chart-line me-1"></i> Resumen
-      </a>
+  <div class="d-flex align-items-center gap-2">
+    <a href="{% url 'survey_summary_pdf' %}" target="_blank"
+       class="btn btn-outline-secondary btn-lg px-4">
+      <i class="fa-solid fa-chart-line me-2"></i> Resumen
+    </a>
 
-      <a href="{% url 'survey_new' %}" class="btn btn-primary">
-        Nueva encuesta
-      </a>
-    </div>
+    <a href="{% url 'survey_new' %}" class="btn btn-primary btn-lg px-4">
+      Nueva encuesta
+    </a>
   </div>
+</div>
 
+
+
+<div class="card p-3">
+  <!-- Buscador como en recognitions -->
   <form class="mb-3" method="get" role="search">
-    <div class="input-group">
-      <input id="qlive" name="q" value="{{ q }}" class="form-control rounded-pill" placeholder="Buscar por título">
+    <div class="d-flex gap-2">
+      <input
+        id="survey-search"
+        type="text"
+        name="q"
+        value="{{ q }}"
+        class="form-control"
+        placeholder="🔍 Buscar por título">
     </div>
   </form>
 
-  <div class="table-responsive">
-    <table class="table align-middle">
-      <thead class="text-muted small">
-        <tr>
-          <th class="w-600">Título</th>
-          <th>Estado</th>
-          <th><a class="text-decoration-none" href="?{% if q %}q={{ q }}&{% endif %}sort=created_at">Creado en</a></th>
-          <th>Creador</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
+  <!-- Tabla con el mismo estilo -->
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>Título</th>
+        <th>Estado</th>
+        <th>
+          <a class="text-decoration-none"
+             href="?{% if q %}q={{ q }}&{% endif %}sort=created_at">
+            Creado en
+          </a>
+        </th>
+        <th>Creador</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
       {% for s in page_obj.object_list %}
-        <tr class="survey-row" data-href="{% url 'survey_detail_admin' s.id %}">
-          <td>
-            <div class="fw-semibold col-title">{{ s.title }}</div>
-            <div class="d-flex align-items-center gap-2 mt-1">
-              <div class="progress flex-grow-1" aria-label="Avance">
-                <div class="progress-bar" role="progressbar"
-                     style="width: {{ s.progress|floatformat:0 }}%;"></div>
-              </div>
-              <span class="small text-muted">{{ s.progress|floatformat:0 }}%</span>
+      <tr>
+        <td>
+          <div class="fw-semibold">{{ s.title }}</div>
+
+          <!-- Info secundaria (progreso / total respuestas) -->
+          <div class="d-flex align-items-center gap-2 mt-1">
+            <div class="progress flex-grow-1" aria-label="Avance">
+              <div class="progress-bar" role="progressbar"
+                   style="width: {{ s.progress|floatformat:0 }}%;"></div>
             </div>
-            <div class="small text-muted">Total de respuestas: {{ s.responses_count }}/{{ s.expected_total }}</div>
-          </td>
+            <span class="small text-muted">{{ s.progress|floatformat:0 }}%</span>
+          </div>
+          <div class="small text-muted">
+            Respuestas: {{ s.responses_count }}/{{ s.expected_total }}
+          </div>
+        </td>
 
-          <td>
-            {% if s.status == 'active' %}
-              <span class="badge rounded-pill bg-success-subtle text-success">Activo</span>
-            {% elif s.status == 'draft' %}
-              <span class="badge rounded-pill bg-secondary-subtle text-secondary">Inactivo</span>
-            {% else %}
-              <span class="badge rounded-pill bg-dark-subtle text-dark">Archivado</span>
-            {% endif %}
-          </td>
+        <td>
+          {% if s.status == 'active' %}
+            <span class="badge bg-success">Activo</span>
+          {% elif s.status == 'draft' %}
+            <span class="badge bg-secondary">Inactivo</span>
+          {% else %}
+            <span class="badge bg-dark">Archivado</span>
+          {% endif %}
+        </td>
 
-          <td>{{ s.created_at|date:"d/m/Y" }}</td>
-          <td>{{ s.creator.get_full_name|default:s.creator.username }}</td>
+        <td class="text-nowrap">{{ s.created_at|date:"d/m/Y" }}</td>
+        <td>{{ s.creator.get_full_name|default:s.creator.username }}</td>
 
-          <td class="text-end">
-            <div class="d-inline-block position-relative ">
-              <button class="btn btn-light border kebab"
-                      data-bs-toggle="dropdown" aria-expanded="false">⋮</button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'survey_edit' s.id %}">Editar</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="#"
-                      data-action="delete" data-url="{% url 'survey_delete' s.id %}">Eliminar</a></li>
-              </ul>
-            </div>
-          </td>
-
-        </tr>
+        <td>
+          <div class="dropdown">
+            <a class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">⋮</a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <a class="dropdown-item" href="{% url 'survey_detail_admin' s.id %}">
+                  Ver
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{% url 'survey_edit' s.id %}">
+                  Editar
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item text-danger"
+                   href="#"
+                   data-action="delete"
+                   data-url="{% url 'survey_delete' s.id %}">
+                  Eliminar
+                </a>
+              </li>
+            </ul>
+          </div>
+        </td>
+      </tr>
       {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-4">No hay encuestas aún.</td></tr>
+      <tr><td colspan="5" class="text-center">No hay encuestas aún.</td></tr>
       {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    </tbody>
+  </table>
 
   {% if is_paginated %}
-    <nav class="mt-3">
-      <ul class="pagination justify-content-end">
-        {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a></li>
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">Anterior</span></li>
-        {% endif %}
-        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
-        {% if page_obj.has_next %}
-          <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a></li>
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
-        {% endif %}
-      </ul>
-    </nav>
+  <nav aria-label="Paginación" class="mt-3">
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}">
+             « Anterior
+          </a>
+        </li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+      </li>
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}">
+             Siguiente »
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
   {% endif %}
 </div>
 {% endblock %}
+
 {% block scripts %}
-  <script src="{% static 'js/survey.js' %}"></script>
+<script src="{% static 'js/survey.js' %}"></script>
 {% endblock %}
