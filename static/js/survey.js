@@ -1858,3 +1858,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (href) window.location.href = href;
   });
 })();
+
+// Tabs + búsqueda para el layout tipo "constancias" en Encuestas
+(function () {
+  const tabDisp  = document.getElementById('tab-disponibles');
+  const tabComp  = document.getElementById('tab-completados');
+  const contDisp = document.getElementById('contenedor-disponibles');
+  const contComp = document.getElementById('contenedor-completados');
+  const searchInput = document.getElementById('formSearch');
+
+  // Si no existen estos elementos, no estamos en esa vista => salir
+  if (!tabDisp || !tabComp || !contDisp || !contComp) return;
+
+  function activate(tab) {
+    document.querySelectorAll('.tab-container .tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  }
+
+  tabDisp.addEventListener('click', () => {
+    activate(tabDisp);
+    contDisp.style.display = '';
+    contComp.style.display = 'none';
+  });
+
+  tabComp.addEventListener('click', () => {
+    activate(tabComp);
+    contDisp.style.display = 'none';
+    contComp.style.display = '';
+  });
+
+  function filterList(selector) {
+    const q = (searchInput.value || '').toLowerCase().trim();
+    document.querySelectorAll(`${selector} .form-item`).forEach(it => {
+      const title = (it.getAttribute('data-title') || '').toLowerCase();
+      it.style.display = title.includes(q) ? '' : 'none';
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      if (tabDisp.classList.contains('active')) filterList('#list-disponibles');
+      else filterList('#list-completados');
+    });
+  }
+})();

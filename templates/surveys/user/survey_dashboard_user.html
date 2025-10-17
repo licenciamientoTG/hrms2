@@ -1,68 +1,75 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
+
+{% block page_title %}Encuestas{% endblock %}
+
 {% block styles %}
-<link rel="stylesheet" href="{% static 'css/survey.css' %}">
+<link rel="stylesheet" href="{% static 'css/forms.css' %}">
 {% endblock %}
-{% block page_title %}Panel de Encuestas{% endblock %}
 
 {% block content %}
-<h1>Encuestas</h1>
-<div class="surveys-page">
+<div class="container mt-4">
+  <h1>Encuestas</h1>
 
-  <div class="surveys-search">
-    <input id="surveySearchInput" type="text" placeholder="Buscar encuestas" autocomplete="off">
+  <!-- Barra de búsqueda -->
+  <input type="text" id="formSearch" class="form-control search-bar" placeholder="Buscar encuesta...">
+
+  <!-- Tabs -->
+  <div class="tab-container mb-3">
+    <div class="tab active" id="tab-disponibles">Disponibles</div>
+    <div class="tab" id="tab-completados">Completadas</div>
   </div>
 
-  <div class="surveys-tabs" role="tablist" aria-label="Estados de encuestas">
-    <button class="tab active" role="tab" aria-selected="true" data-target="available">
-      Disponibles ({{ available|length }})
-    </button>
-    <button class="tab" role="tab" aria-selected="false" data-target="completed">
-      Completadas ({{ completed|length }})
-    </button>
-  </div>
-
-  <div class="surveys-lists">
-    <ul id="list-available" class="survey-list" data-list="available">
+  <!-- ========= DISPONIBLES ========= -->
+  <div id="contenedor-disponibles">
+    <div class="form-list" id="list-disponibles">
       {% if available %}
         {% for s in available %}
-        <li class="survey-item" data-status="available" data-title="{{ s.title|lower }}" data-survey-id="{{ s.id }}">
-          <a class="row-link" href="{{ s.take_url }}" aria-label="Abrir {{ s.title }}"></a>
-          <div class="left">
-            <span class="doc-icon" aria-hidden="true"></span>
-            <span class="title">{{ s.title }}</span>
+        <div class="form-item mb-3" data-title="{{ s.title|lower }}">
+          <i class="form-icon bi bi-clipboard-check"></i>
+          <div class="form-name">
+            {{ s.title }}
+            {% if s.description %}
+              <p class="muted-70">{{ s.description }}</p>
+            {% endif %}
           </div>
-        </li>
+          <div class="form-actions">
+            <a href="{{ s.take_url }}" class="btn btn-outline-primary">Responder</a>
+          </div>
+        </div>
         {% endfor %}
       {% else %}
-        <li class="survey-item" data-empty="available">
-          <div class="left">
-            <span class="title" style="font-weight:500;color:#6b7280;">No tienes encuestas disponibles.</span>
-          </div>
-        </li>
+        <div class="form-item mb-3">
+          <i class="form-icon bi bi-inbox"></i>
+          <div class="form-name">No tienes encuestas disponibles.</div>
+        </div>
       {% endif %}
-    </ul>
+    </div>
+  </div>
 
-    <ul id="list-completed" class="survey-list is-hidden" data-list="completed">
+  <!-- ========= COMPLETADAS ========= -->
+  <div id="contenedor-completados" style="display:none;">
+    <div class="form-list" id="list-completados">
       {% if completed %}
         {% for s in completed %}
-        <li class="survey-item" data-status="completed" data-title="{{ s.title|lower }}" data-survey-id="{{ s.id }}">
-          <a class="row-link" href="{{ s.take_url }}" aria-label="Ver respuestas de {{ s.title }}"></a>
-          <div class="left">
-            <span class="doc-icon completed" aria-hidden="true"></span>
-            <span class="title">{{ s.title }}</span>
-            <span class="completed-badge">Completada</span>
+        <div class="form-item mb-3" data-title="{{ s.title|lower }}">
+          <i class="form-icon bi bi-clipboard-check-fill"></i>
+          <div class="form-name">
+            {{ s.title }}
+            <span class="badge bg-success ms-2">Completada</span>
           </div>
-        </li>
+          <div class="form-actions">
+            <a href="{{ s.take_url }}" class="btn btn-outline-primary">Ver</a>
+          </div>
+        </div>
         {% endfor %}
       {% else %}
-        <li class="survey-item" data-empty="completed">
-          <div class="left">
-            <span class="title" style="font-weight:500;color:#6b7280;">Aún no has completado encuestas.</span>
-          </div>
-        </li>
+        <div class="form-item mb-3">
+          <i class="form-icon bi bi-check2-circle"></i>
+          <div class="form-name">Aún no has completado encuestas.</div>
+        </div>
       {% endif %}
-    </ul>
+    </div>
   </div>
 </div>
 {% endblock %}
