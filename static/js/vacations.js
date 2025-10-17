@@ -36,3 +36,31 @@ document.getElementById('btn-limpiar')?.addEventListener('click', () => {
     document.getElementById('filtro-tipo').value = '';
     // Aquí llamarías a la recarga o filtrado vía JS/servidor
 });
+
+// Tabs simples (igual patrón que constancias)
+const tabDisponibles = document.getElementById('tab-disponibles');
+const tabProceso     = document.getElementById('tab-proceso');
+const tabCompletados = document.getElementById('tab-completados');
+
+const contDisp  = document.getElementById('contenedor-disponibles');
+const contProc  = document.getElementById('contenedor-proceso');
+const contComp  = document.getElementById('contenedor-completados');
+
+function activate(tab){
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+}
+tabDisponibles.onclick = () => { activate(tabDisponibles); contDisp.style.display=''; contProc.style.display='none'; contComp.style.display='none'; };
+tabProceso.onclick     = () => { activate(tabProceso);     contDisp.style.display='none'; contProc.style.display='';    contComp.style.display='none'; };
+tabCompletados.onclick = () => { activate(tabCompletados); contDisp.style.display='none'; contProc.style.display='none'; contComp.style.display='';    };
+
+// Buscador (filtra por título dentro de los ítems disponibles)
+const search = document.getElementById('vacSearch');
+const items  = document.querySelectorAll('#list-disponibles .form-item');
+search?.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    items.forEach(it => {
+    const name = it.querySelector('.form-name')?.innerText.toLowerCase() || '';
+    it.style.display = name.includes(q) ? '' : 'none';
+    });
+});
