@@ -11,12 +11,25 @@ from django.utils import timezone
 from datetime import timedelta
 from apps.employee.models import Employee
 from apps.users.views import force_password_change
+from django.contrib.auth import get_user_model
 
 
 @login_required
 def home(request):
     if request.user.is_superuser:
-        return render(request, "authapp/home.html")
+        User = get_user_model()
+
+        # - Excluir superusuarios (y si quieres, staff)
+        
+        total_colaboradores = User.objects.filter(
+            is_active=True,
+            is_superuser=False,   # quítalo si SÍ quieres contarlos
+            # is_staff=False,     # descomenta si no quieres contar staff
+        ).count()
+
+        return render(request, "authapp/home.html", {
+            "total_colaboradores": total_colaboradores
+        })
 
     user = request.user
     today = timezone.now().date()
