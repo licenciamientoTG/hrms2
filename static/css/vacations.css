@@ -1,0 +1,41 @@
+/* Tarjeta tipo “Cursos” */
+.kpi-card{
+  background:#fff;
+  border:0;
+  border-radius:24px;              /* redondeado grande */
+  box-shadow:0 8px 24px rgba(16,24,40,.06); /* sombra suave como cursos */
+}
+
+/* Título y subtítulo */
+.kpi-title{
+  font-size:1.05rem;
+  color:#667085;                   /* gris sutil */
+  font-weight:600;
+}
+.kpi-sub{
+  margin-top:.35rem;
+  color:#98A2B3;
+  font-size:.92rem;
+}
+
+/* Valor grande y unidad pequeña con baseline */
+.kpi-value{
+  font-size:2.75rem;               /* tamaño del número */
+  line-height:1;
+  font-weight:600;
+  color:#101828;
+}
+.kpi-unit{
+  font-size:1rem;
+  color:#475467;
+}
+
+/* “Dot” con icono (igual patrón que cursos) */
+.kpi-dot{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:44px;height:44px;
+  border-radius:50%;
+  font-size:1rem;
+}

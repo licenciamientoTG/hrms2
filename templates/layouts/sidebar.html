@@ -63,7 +63,7 @@
                     </a>
                 </li>
                 <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'vacation_request' %}">
+                    <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
                         <i class="fa-solid fa-calendar-days"></i><span class="align-middle">Vacaciones y permisos</span>
                     </a>
                 </li>
@@ -72,9 +72,7 @@
                         <i class="fa-solid fa-chart-line"></i> <span class="align-middle">Evaluación de desempeño</span>
                     </a>
                 </li>
-                {% endif %} 
-    
-                {% if user.is_authenticated and user.id == 64 or user.is_superuser  %}
+
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'objective_dashboard' %}">
                         <i class="fa-solid fa-bullseye"></i><span class="align-middle">Objetivos</span>

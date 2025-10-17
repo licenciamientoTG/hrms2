@@ -1,74 +1,317 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block page_title %}Solicitud de Vacaciones{% endblock %}
-{% block title %}Solicitud de Vacaciones{% endblock %}
+{% block page_title %}Solicitudes de vacaciones{% endblock %}
+
+{# ---- Estilos específicos de esta página ---- #}
+{% block styles %}
+<style>
+  /* Permite que los hijos flex dentro de filas/contendedores se puedan encoger */
+  .min-w-0 { min-width: 0; }
+
+  /* Evitar que celdas muy largas rompan el layout */
+  #admin-vacations-table th,
+  #admin-vacations-table td {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* En móvil, que el botón principal pueda ocupar varias líneas si necesita */
+  @media (max-width: 576px) {
+    .page-header-actions .btn-primary {
+      white-space: normal;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container mt-4">
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h2 class="mb-0 me-3">Solicitudes de vacaciones</h2>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaSolicitud">
+      Solicitud manual
+    </button>
+  </div>
 
-  <!-- Tipos de solicitudes -->
-  <div class="row mb-4">
-    <div class="col">
-      <h4>Tipos de solicitudes</h4>
-    </div>
-    <div class="col text-end">
-      <a href="#" class="btn btn-primary">Solicitar</a>
+  {# --- FILTROS: acordeón en móvil, abierto en desktop --- #}
+  <div class="card p-3 mb-3">
+    {# Toggle sólo visible en móvil #}
+    <button class="btn btn-outline-secondary d-md-none w-100 mb-2"
+            type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse"
+            aria-expanded="false" aria-controls="filtrosCollapse">
+      Filtros
+    </button>
+
+    <div class="collapse d-md-block" id="filtrosCollapse">
+      <div class="row g-2">
+        <div class="col-12 col-md-5">
+          <input id="filtro-q" type="text" class="form-control" placeholder="Buscar por ID o empleado">
+        </div>
+        <div class="col-12 col-md-3">
+          <select id="filtro-estado" class="form-select">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="aprobada">Aprobadas</option>
+            <option value="rechazada">Rechazadas</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <select id="filtro-tipo" class="form-select">
+            <option value="">Todos los tipos</option>
+            <option value="vacaciones">Vacaciones</option>
+            <option value="descanso_medico">Descanso médico</option>
+            <option value="estudio">Días de estudio</option>
+            <option value="maternidad">Maternidad</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <button id="btn-limpiar" class="btn btn-outline-secondary w-100" type="button">Limpiar</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="row">
-    <div class="col-md-3 mb-3">
-      <div class="card p-3 text-center">
-        <p class="mb-1">Descanso médico</p>
-        <h2>0 Días</h2>
-        <small class="text-muted">Tiempo utilizado</small>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card p-3 text-center">
-        <p class="mb-1">Días de estudio</p>
-        <h2>18 Días</h2>
-        <small class="text-muted">Tiempo disponible</small>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card p-3 text-center">
-        <p class="mb-1">Licencia por maternidad</p>
-        <h2>0 Días</h2>
-        <small class="text-muted">Tiempo utilizado</small>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card p-3 text-center">
-        <p class="mb-1">Vacaciones</p>
-        <h2>28 Días</h2>
-        <small class="text-muted">Tiempo disponible</small>
-      </div>
-    </div>
-  </div>
-
-  <!-- Solicitudes realizadas -->
-  <div class="mt-5">
-    <h4>Solicitudes realizadas</h4>
-    <table class="table">
-      <thead>
+  {# --- TABLA: columnas esenciales en móvil; extras se muestran desde md/lg --- #}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table">
         <tr>
-          <th>Tipo de solicitud</th>
-          <th>Estado</th>
-          <th>Solicitud</th>
-          <th>Fechas</th>
+          <th class="text-nowrap">#</th>
+          <th class="text-nowrap">Empleado</th>
+          <th class="d-none d-lg-table-cell text-nowrap">Tipo</th>
+          <th class="text-nowrap">Rango</th>
+          <th class="d-none d-md-table-cell text-center text-nowrap">Días</th>
+          <th class="text-nowrap">Estado</th>
+          <th class="d-none d-lg-table-cell text-nowrap">Comprobante</th>
+          <th class="d-none d-lg-table-cell text-nowrap">Información</th>
+          <th class="text-nowrap">Acciones</th>
         </tr>
       </thead>
       <tbody>
+        {% for s in page_obj.object_list %}
         <tr>
-          <td>Vacaciones</td>
-          <td><span class="badge bg-secondary">En proceso</span></td>
-          <td>19 nov 2024</td>
-          <td>19 nov 2024 → 22 nov 2024</td>
+          <td>{{ s.id }}</td>
+          <td class="text-nowrap">{{ s.user.get_full_name|default:s.user.username }}</td>
+
+          {# Oculta en < lg #}
+          <td class="d-none d-lg-table-cell">
+            {% with t=s.tipo_solicitud %}
+              {% if t == 'descanso_medico' %}Descanso médico
+              {% elif t == 'estudio' %}Días de estudio
+              {% elif t == 'maternidad' %}Maternidad
+              {% else %}Vacaciones{% endif %}
+            {% endwith %}
+          </td>
+
+          <td class="text-nowrap">
+            {{ s.start_date|date:"d/m/Y" }} – {{ s.end_date|date:"d/m/Y" }}
+          </td>
+
+          {# Oculta en < md #}
+          <td class="d-none d-md-table-cell text-center">
+            {{ s.total_days|default:"-" }}
+          </td>
+
+          <td>
+            {% with st=s.status|default:'pendiente' %}
+              {% if st == 'aprobada' %}
+                <span class="badge bg-success">Aprobada</span>
+              {% elif st == 'rechazada' %}
+                <span class="badge bg-danger">Rechazada</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+
+          {# Oculta en < lg #}
+          <td class="d-none d-lg-table-cell">
+            {% if s.documento %}
+              <a href="{{ s.documento.url }}" target="_blank" rel="noopener">Ver PDF</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+
+          {# Oculta en < lg #}
+          <td class="d-none d-lg-table-cell">
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal" data-bs-target="#modalDetalleVac"
+                    data-id="{{ s.id }}">
+              Ver
+            </button>
+          </td>
+
+          <td>
+            <div class="btn-group">
+              <button type="button"
+                      class="btn btn-sm btn-success"
+                      data-bs-toggle="modal" data-bs-target="#modalAtender"
+                      data-id="{{ s.id }}">
+                Atender
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-primary d-lg-none"
+                      data-bs-toggle="modal" data-bs-target="#modalDetalleVac"
+                      data-id="{{ s.id }}">
+                Info
+              </button>
+            </div>
+          </td>
         </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center">Sin solicitudes</td></tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 
+  <!-- Paginación -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav aria-label="Paginación" class="mt-3">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&estado={{ estado }}&tipo={{ tipo }}">«</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">«</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      </li>
+
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&estado={{ estado }}&tipo={{ tipo }}">»</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">»</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
+
+<!-- MODAL: Detalle -->
+<div class="modal fade" id="modalDetalleVac" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Detalle de solicitud <span id="det-id"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Empleado:</strong> <span id="det-empleado"></span></p>
+            <p class="mb-1"><strong>Tipo:</strong> <span id="det-tipo"></span></p>
+            <p class="mb-1"><strong>Días:</strong> <span id="det-dias"></span></p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Inicio:</strong> <span id="det-inicio"></span></p>
+            <p class="mb-1"><strong>Fin:</strong> <span id="det-fin"></span></p>
+            <p class="mb-1"><strong>Estado:</strong> <span id="det-estado" class="badge"></span></p>
+          </div>
+          <div class="col-12">
+            <p class="mb-1"><strong>Motivo/observaciones:</strong></p>
+            <p id="det-razon" class="mb-0 text-muted"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Atender (aprobar/rechazar + PDF opcional) -->
+<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formAtender" enctype="multipart/form-data" method="post">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Atender solicitud <span id="att-id-label"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="req_id" id="att-id">
+        <div class="mb-3">
+          <label class="form-label">Comprobante/Respuesta (PDF, opcional)</label>
+          <input type="file" name="pdf_respuesta" accept="application/pdf" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Comentario (opcional)</label>
+          <textarea name="comentario" rows="3" class="form-control" placeholder="Opcional…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button name="accion" value="rechazar" class="btn btn-danger me-auto" type="submit">Rechazar</button>
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button name="accion" value="aprobar" class="btn btn-success" type="submit">Aprobar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Nueva solicitud manual -->
+<div class="modal fade" id="modalNuevaSolicitud" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <form class="modal-content" id="formNueva" method="post" enctype="multipart/form-data" action="#">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Crear solicitud manual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Empleado (número/username)</label>
+            <input type="text" name="employee_lookup" class="form-control" placeholder="Ej. 1234 o jdoe">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Tipo de solicitud</label>
+            <select name="tipo_solicitud" class="form-select" required>
+              <option value="vacaciones">Vacaciones</option>
+              <option value="descanso_medico">Descanso médico</option>
+              <option value="estudio">Días de estudio</option>
+              <option value="maternidad">Maternidad</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha inicio</label>
+            <input type="date" name="fecha_inicio" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha fin</label>
+            <input type="date" name="fecha_fin" class="form-control" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Observaciones</label>
+            <textarea name="observaciones" rows="3" class="form-control" placeholder="Opcional…"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Documento (PDF, opcional)</label>
+            <input type="file" name="documento" accept="application/pdf" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/vacations.js' %}"></script>
 {% endblock %}

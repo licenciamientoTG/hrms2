@@ -3,40 +3,25 @@ from django.contrib.auth.decorators import login_required
 from apps.employee.models import Employee
 from .models import VacationRequest
 from django.contrib import messages
+from django.contrib.auth.decorators import user_passes_test
 
-
+# esta vista te redirige a las vistas de usuario y administrador
 @login_required
-def vacation_request_view(request):
-    try:
-        empleado = Employee.objects.get(user=request.user)
-        vacation_balance = empleado.vacation_balance
-    except Employee.DoesNotExist:
-        vacation_balance = 0
+def vacation_dashboard(request):
+    if request.user.is_superuser:
+        return redirect('vacation_form_admin')
+    else:
+        return redirect('vacation_form_user')
 
-    solicitudes = VacationRequest.objects.filter(user=request.user).order_by('-created_at')
-
-    return render(request, 'vacations/user/vacation_form_user.html', {
-        'vacation_balance': vacation_balance,
-        'solicitudes': solicitudes
-    })
-
+# esta vista es para el administrador
 @login_required
-def submit_vacation_request(request):
-    if request.method == 'POST':
-        tipo = request.POST.get('tipo_solicitud')
-        inicio = request.POST.get('fecha_inicio')
-        fin = request.POST.get('fecha_fin')
-        observaciones = request.POST.get('observaciones')
-        archivo = request.FILES.get('documento')
+@user_passes_test(lambda u: u.is_superuser)
+def vacation_form_admin(request):
 
-        VacationRequest.objects.create(
-            user=request.user,
-            tipo_solicitud=tipo,
-            start_date=inicio,
-            end_date=fin,
-            reason=observaciones,
-            documento=archivo
-        )
+    return render(request, 'vacations/admin/vacation_form_admin.html')
 
-        return redirect('vacation_request')  # o redirecciona a una vista donde se muestre el modal
-    return redirect('vacation_request')
+# esta vista es para el usuario
+@login_required
+def vacation_form_user(request):
+
+    return render(request, 'vacations/user/vacation_form_user.html')

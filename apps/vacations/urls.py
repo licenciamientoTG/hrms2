@@ -1,7 +1,13 @@
+# apps/vacations/urls.py
 from django.urls import path
-from .views import vacation_request_view, submit_vacation_request
-
+from .views import vacation_dashboard, vacation_form_admin, vacation_form_user
 urlpatterns = [
-    path('', vacation_request_view, name='vacation_request'),
-    path('solicitar/', submit_vacation_request, name='submit_vacation'),
+    # Dispatcher: decide a dónde ir (admin vs usuario)
+    path('', vacation_dashboard, name='vacation_dashboard'),
+
+    # Vistas
+    path('admin/', vacation_form_admin, name='vacation_form_admin'),
+    path('mis-solicitudes/', vacation_form_user, name='vacation_form_user'),
+
+
 ]
