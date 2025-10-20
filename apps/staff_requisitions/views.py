@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -13,6 +14,7 @@ def staff_requisitions_view(request):
 
 #esta vista solo nos manda a admin_staff_requisitions.html
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def admin_staff_requisitions(request):
     return render(request, 'staff_requisitions/admin/admin_staff_requisitions.html')
 
