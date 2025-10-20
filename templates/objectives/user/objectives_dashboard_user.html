@@ -15,9 +15,6 @@
     <a href="{% url 'create_objective' %}" class="btn btn-primary">Crear objetivo</a>
   </div>
 
-  <!-- Buscador (igual que solicitudes) -->
-  <input type="search" id="objSearch" class="form-control search-bar" placeholder="Buscar por objetivos...">
-
   <!-- Tabs (mismas etiquetas y clases) -->
   <div class="tab-container mb-3">
     <div class="tab active" id="tab-mios">Mis objetivos</div>
@@ -51,16 +48,22 @@
       </div>
     </div>
 
-    <!-- Controles secundarios (alineados al estilo de "Solicitudes") -->
-    <div class="d-flex gap-2 mb-2">
-      <div class="ms-auto"></div>
-      <select class="form-select" style="max-width: 320px;">
-        <option>Nuevo ciclo de objetivos Mensual</option>
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <input id="objSearch" type="search"
+            class="form-control form-control-lg flex-grow-0 obj-search"
+            placeholder="Buscar por objetivos...">
+
+      <!-- Spacer que crea el hueco -->
+      <div class="flex-grow-1"></div>
+
+      <select class="form-select form-select-lg obj-select">
+        <option>Mensual</option>
         <option>Trimestral</option>
         <option>Semestral</option>
         <option>Anual</option>
       </select>
     </div>
+
 
     <div class="text-muted mb-2">Listado</div>
 
@@ -71,28 +74,6 @@
         <i class="form-icon bi bi-bullseye"></i>
         <div class="form-name">
           <div class="fw-semibold">Rotación</div>
-          <div class="text-muted" style="font-size:.85rem;">Inicio 22/10/2024 • Vence 01/01/2028</div>
-        </div>
-        <div class="form-actions d-flex align-items-center gap-3">
-          <div class="text-end">
-            <div class="text-muted" style="font-size:.8rem;line-height:1;">Peso</div>
-            <div class="fw-semibold">50%</div>
-          </div>
-          <span class="status-chip">En progreso</span>
-          <div class="obj-progress">
-            <div class="progress">
-              <div class="progress-bar" style="width:0%"></div>
-            </div>
-          </div>
-          <a href="#" class="btn btn-outline-primary">Abrir</a>
-        </div>
-      </div>
-
-      <!-- Item -->
-      <div class="form-item mb-3" data-search="mi objetivo 1 inicio 22/10/2024 vence 01/01/2028 en progreso 50%">
-        <i class="form-icon bi bi-bullseye"></i>
-        <div class="form-name">
-          <div class="fw-semibold">Mi objetivo 1</div>
           <div class="text-muted" style="font-size:.85rem;">Inicio 22/10/2024 • Vence 01/01/2028</div>
         </div>
         <div class="form-actions d-flex align-items-center gap-3">

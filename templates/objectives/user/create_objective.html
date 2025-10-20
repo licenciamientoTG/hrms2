@@ -50,8 +50,10 @@
             <div class="col-md-6">
               <label class="form-label">Ciclo del objetivo</label>
               <select name="cycle" class="form-select">
-                <option>Nuevo ciclo de objetivos Mensual</option>
-                <option>Trimestral</option><option>Semestral</option><option>Anual</option>
+                <option>Mensual</option>
+                <option>Semestral</option>
+                <option>Trimestral</option>
+                <option>Anual</option>
               </select>
             </div>
             <div class="col-md-6">
@@ -75,14 +77,13 @@
                 <input type="date" name="end_date" class="form-control">
                 <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
               </div>
-              <div class="hint">Debe ser posterior a la fecha de inicio y estar dentro del ciclo.</div>
             </div>
+            <div class="form-text">La fecha de fin debe ser luego de la fecha de inicio, y las fechas deben estar comprendidas en las del ciclo seleccionado.</div>
 
             <!-- Responsables (chips demo) -->
             <div class="col-12">
               <label class="form-label">Responsables</label>
               <div class="form-control p-2" id="ownersBox" style="border-width:2px; border-color:#5c6ac4;">
-                <span id="ownersChips" class="d-inline-flex flex-wrap gap-2 align-items-center"></span>
                 <input id="ownersInput" class="border-0" type="text"
                        placeholder="Escribe y presiona Enter" style="outline:none; min-width:200px;">
               </div>
