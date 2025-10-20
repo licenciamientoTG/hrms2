@@ -1,41 +1,71 @@
-// ==== BLOQUE DEL PANEL (solo si existen los nodos) ====
-(function(){
-  // Tabs
+// ==== BLOQUE DEL PANEL (busca en los 3 tabs) ====
+(function () {
+  // Tabs (igual que antes)
   const tabs = [
-    {btn: document.getElementById('tab-mios'),    box: document.getElementById('contenedor-mios')},
-    {btn: document.getElementById('tab-equipo'),  box: document.getElementById('contenedor-equipo')},
-    {btn: document.getElementById('tab-general'), box: document.getElementById('contenedor-general')}
-  ].filter(t => t.btn && t.box); // <- evita nulls
+    { btn: document.getElementById('tab-mios'),    box: document.getElementById('contenedor-mios') },
+    { btn: document.getElementById('tab-equipo'),  box: document.getElementById('contenedor-equipo') },
+    { btn: document.getElementById('tab-general'), box: document.getElementById('contenedor-general') },
+  ].filter(t => t.btn && t.box);
 
   if (tabs.length) {
-    tabs.forEach(({btn, box}) => {
+    tabs.forEach(({ btn, box }) => {
       btn.addEventListener('click', () => {
-        tabs.forEach(t => { t.btn.classList.remove('active'); t.box.style.display='none'; });
-        btn.classList.add('active'); box.style.display='';
+        tabs.forEach(t => { t.btn.classList.remove('active'); t.box.style.display = 'none'; });
+        btn.classList.add('active'); box.style.display = '';
+        apply(); // ← reaplica el filtro al cambiar de tab
       });
     });
   }
 
-  // Filtro simple
-  const q    = document.getElementById('objSearch');
-  const list = document.getElementById('list-mios');
+  // Buscador
+  const q = document.getElementById('objSearch');
+  if (!q) return;
 
-  if (q && list) {
-    const items = Array.from(list.querySelectorAll('.form-item')).filter(x => x.id !== 'obj-empty');
-    const empty = document.getElementById('obj-empty');
+  // Listas a filtrar (una por tab)
+  const lists = [
+    document.getElementById('list-mios'),
+    document.getElementById('list-equipo'),
+    document.getElementById('list-general'),
+  ].filter(Boolean);
 
-    function apply(){
-      const term = (q.value||'').trim().toLowerCase();
-      let shown = 0;
-      items.forEach(it => {
-        const hay = (it.dataset.search || it.textContent).toLowerCase().includes(term);
-        it.classList.toggle('d-none', !hay);
-        if (hay) shown++;
-      });
-      if (empty) empty.classList.toggle('d-none', shown !== 0);
+  // Crea (si falta) una fila "Sin resultados" por lista
+  function ensureEmptyRow(list) {
+    let erow = list.querySelector('.js-empty-row');
+    if (!erow) {
+      erow = document.createElement('div');
+      erow.className = 'form-item mb-3 js-empty-row d-none';
+      erow.innerHTML = `
+        <i class="form-icon bi bi-bullseye"></i>
+        <div class="form-name">Sin resultados.</div>`;
+      list.appendChild(erow);
     }
-    q.addEventListener('input', apply);
+    return erow;
   }
+
+  // Filtra una lista
+  function filterList(list, term) {
+    const emptyRow = ensureEmptyRow(list);
+    const items = Array.from(list.querySelectorAll('.form-item'))
+      .filter(el => !el.classList.contains('js-empty-row')); // no contamos el vacío
+
+    let visible = 0;
+    items.forEach(it => {
+      const hay = (it.dataset.search || it.textContent).toLowerCase().includes(term);
+      it.classList.toggle('d-none', !hay);
+      if (hay) visible++;
+    });
+    emptyRow.classList.toggle('d-none', visible !== 0);
+  }
+
+  // Aplica sobre TODAS las listas (aunque estén ocultas); así, si cambias de tab, ya está filtrado
+  function apply() {
+    const term = (q.value || '').trim().toLowerCase();
+    lists.forEach(list => filterList(list, term));
+  }
+
+  const debounce = (fn, ms = 150) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  q.addEventListener('input', debounce(apply, 150));
+  apply(); // aplica al cargar
 })();
 
 // ==== BLOQUE DEL CREATE (solo si existen los nodos) ====

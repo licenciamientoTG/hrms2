@@ -12,10 +12,22 @@
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="m-0">Objetivos</h1>
-    <a href="{% url 'create_objective' %}" class="btn btn-primary">Crear objetivo</a>
   </div>
 
-  <!-- Tabs (mismas etiquetas y clases) -->
+  <div class="d-flex align-items-center gap-2 flex-md-nowrap flex-wrap mb-3">
+    <input
+      id="objSearch"
+      type="search"
+      class="form-control search-bar flex-grow-1 flex-shrink-1"
+      style="min-width:0"
+      placeholder="Buscar por objetivos..."
+      aria-label="Buscar objetivos">
+    <a href="{% url 'create_objective' %}" class="btn btn-primary btn-lg ms-md-auto flex-shrink-0">
+      Crear objetivo
+    </a>
+  </div>
+
+  <!-- Tabs -->
   <div class="tab-container mb-3">
     <div class="tab active" id="tab-mios">Mis objetivos</div>
     <div class="tab" id="tab-equipo">Mi equipo</div>
@@ -24,7 +36,7 @@
 
   <!-- ===== MIS OBJETIVOS ===== -->
   <div id="contenedor-mios">
-    <!-- KPIs en formato "form-list / form-item" para mantener el estilo -->
+    <!-- KPIs -->
     <div class="form-list obj-kpis mb-3">
       <div class="form-item mb-3">
         <i class="form-icon bi bi-person-circle"></i>
@@ -41,67 +53,43 @@
           <small>0%</small>
         </div>
         <div class="form-actions obj-progress">
-          <div class="progress">
-            <div class="progress-bar" style="width:0%"></div>
-          </div>
+          <div class="progress"><div class="progress-bar" style="width:0%"></div></div>
         </div>
       </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-      <input id="objSearch" type="search"
-            class="form-control form-control-lg flex-grow-0 obj-search"
-            placeholder="Buscar por objetivos...">
-
-      <!-- Spacer que crea el hueco -->
-      <div class="flex-grow-1"></div>
-
-      <select class="form-select form-select-lg obj-select">
-        <option>Mensual</option>
-        <option>Trimestral</option>
-        <option>Semestral</option>
-        <option>Anual</option>
-      </select>
+    <!-- Select ciclo (a la derecha) -->
+    <div class="d-flex align-items-center mb-2">
+      <div class="ms-auto" style="min-width:220px; max-width:320px;">
+        <select class="form-select form-select-lg w-100">
+          <option>Mensual</option>
+          <option>Trimestral</option>
+          <option>Semestral</option>
+          <option>Anual</option>
+        </select>
+      </div>
     </div>
 
-
+    <!-- Listado vacío -->
     <div class="text-muted mb-2">Listado</div>
-
-    <!-- Listado (mismas clases que "Solicitudes") -->
     <div class="form-list" id="list-mios">
-      <!-- Item -->
-      <div class="form-item mb-3" data-search="rotación inicio 22/10/2024 vence 01/01/2028 en progreso 50%">
+      <div class="form-item mb-3" id="obj-empty">
         <i class="form-icon bi bi-bullseye"></i>
         <div class="form-name">
-          <div class="fw-semibold">Rotación</div>
-          <div class="text-muted" style="font-size:.85rem;">Inicio 22/10/2024 • Vence 01/01/2028</div>
+          <div class="fw-semibold">Aún no tienes objetivos</div>
+          <div class="text-muted" style="font-size:.9rem;">Cuando crees uno, aparecerá aquí.</div>
         </div>
-        <div class="form-actions d-flex align-items-center gap-3">
-          <div class="text-end">
-            <div class="text-muted" style="font-size:.8rem;line-height:1;">Peso</div>
-            <div class="fw-semibold">50%</div>
-          </div>
-          <span class="status-chip">En progreso</span>
-          <div class="obj-progress">
-            <div class="progress">
-              <div class="progress-bar" style="width:0%"></div>
-            </div>
-          </div>
-          <a href="#" class="btn btn-outline-primary">Abrir</a>
+        <div class="form-actions">
+          <a href="{% url 'create_objective' %}" class="btn btn-primary btn-sm">Crear objetivo</a>
         </div>
-      </div>
-
-      <!-- Empty -->
-      <div id="obj-empty" class="form-item mb-3 d-none">
-        <i class="form-icon bi bi-bullseye"></i>
-        <div class="form-name">Sin resultados.</div>
       </div>
     </div>
   </div>
+  <!-- ===== /MIS OBJETIVOS ===== -->
 
-  <!-- ===== MI EQUIPO (maqueta) ===== -->
+  <!-- ===== MI EQUIPO ===== -->
   <div id="contenedor-equipo" style="display:none;">
-    <div class="form-list">
+    <div class="form-list" id="list-equipo">
       <div class="form-item mb-3">
         <i class="form-icon bi bi-people"></i>
         <div class="form-name">Aquí verás los objetivos de tu equipo.</div>
@@ -109,9 +97,9 @@
     </div>
   </div>
 
-  <!-- ===== GENERAL (maqueta) ===== -->
+  <!-- ===== GENERAL ===== -->
   <div id="contenedor-general" style="display:none;">
-    <div class="form-list">
+    <div class="form-list" id="list-general">
       <div class="form-item mb-3">
         <i class="form-icon bi bi-collection"></i>
         <div class="form-name">Resumen general de objetivos.</div>

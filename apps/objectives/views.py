@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import user_passes_test
+from django.contrib import messages
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -29,7 +30,5 @@ def create_objective(request):
         if not title:
             messages.error(request, "Indica un título para el objetivo.")
         else:
-            # Aquí luego se guardará en DB
-            messages.success(request, "Objetivo guardado (demo).")
             return redirect("objective_view")
     return render(request, "objectives/user/create_objective.html")
