@@ -109,12 +109,20 @@ def monitoring_view(request):
         .order_by("-is_open", "-last_activity", "id")
     )
 
-    # --- Paginación ---
-    page_size = int(request.GET.get("page_size", 50))
+    # --- Paginación (sin límite cuando hay búsqueda) ---
+    page_size   = int(request.GET.get("page_size", 50))
     page_number = request.GET.get("page", 1)
-    paginator = Paginator(users_qs, page_size)
-    page_obj = paginator.get_page(page_number)
-    user_ids = list(page_obj.object_list.values_list("id", flat=True))
+
+    if q:
+        # Sin paginación cuando hay término de búsqueda:
+        page_obj = None
+        users_iter = users_qs  # todos los que hacen match
+        user_ids = list(users_qs.values_list("id", flat=True))
+    else:
+        paginator = Paginator(users_qs, page_size)
+        page_obj = paginator.get_page(page_number)
+        users_iter = page_obj.object_list
+        user_ids = list(users_iter.values_list("id", flat=True))
 
     # --- USO ÚLTIMOS 7 DÍAS ---
     today = timezone.localdate()
@@ -132,16 +140,14 @@ def monitoring_view(request):
     rows = []
     dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 
-    for u in page_obj.object_list:
+    for u in users_iter:
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
         username = u.username
 
-        # "Hace..." preferimos sesión; fallback eventos/login
         ref_dt = last_activity_map.get(u.id) or u.last_activity
         last_seen_human = humanize_delta(now - ref_dt) if ref_dt else "—"
         session_open = bool(u.is_open)
 
-        # Ubicación
         if u.last_city:
             last_place = u.last_city
         elif u.last_region:
@@ -149,7 +155,11 @@ def monitoring_view(request):
         elif u.last_country:
             last_place = u.last_country
         elif getattr(u, "last_ip", None):
-            last_place = f"Red interna ({u.last_ip})" if str(u.last_ip).startswith(("10.", "192.168.", "172.")) else str(u.last_ip)
+            last_place = (
+                f"Red interna ({u.last_ip})"
+                if str(u.last_ip).startswith(("10.", "192.168.", "172."))
+                else str(u.last_ip)
+            )
         else:
             last_place = "—"
 
@@ -174,7 +184,7 @@ def monitoring_view(request):
 
     return render(request, "monitoring/monitoring_view.html", {
         "rows": rows,
-        "page_obj": page_obj,
+        "page_obj": page_obj,   # será None cuando hay q
         "q": q,
         "page_size": page_size,
     })

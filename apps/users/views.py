@@ -28,7 +28,7 @@ def user_dashboard(request):
     empleados_qs = (
         Employee.objects
         .select_related('user')
-        .filter(user__isnull=False)        # <--- clave
+        .filter(user__isnull=False)
         .order_by('-created_at')
     )
 
@@ -39,16 +39,26 @@ def user_dashboard(request):
             Q(user__username__icontains=q)
         )
 
-    paginator   = Paginator(empleados_qs, 10)  # 10 por página
+    # --- Paginación (sin límite cuando hay búsqueda) ---
+    page_size   = int(request.GET.get('page_size', 10))
     page_number = request.GET.get('page', 1)
-    page_obj    = paginator.get_page(page_number)
+
+    if q:
+        page_obj = None
+        empleados_iter = empleados_qs            # todos los matches
+    else:
+        paginator   = Paginator(empleados_qs, page_size)
+        page_obj    = paginator.get_page(page_number)
+        empleados_iter = page_obj.object_list
 
     return render(request, 'users/user_dashboard.html', {
-        'empleados': page_obj.object_list,
+        'empleados': empleados_iter,            # <-- usa empleados_iter
         'permissions': Permission.objects.all(),
-        'page_obj': page_obj,
+        'page_obj': page_obj,                   # será None cuando hay q
+        'page_size': page_size,
         'q': q,
     })
+
 
 @user_passes_test(lambda u: u.is_superuser)
 @require_POST

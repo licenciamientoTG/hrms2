@@ -85,7 +85,7 @@
     </table>
   </div>
 
-  {% if page_obj %}
+  {% if page_obj and page_obj.paginator.num_pages > 1 %}
   <nav aria-label="Paginación" class="mt-3">
     <ul class="pagination mb-0">
       {% if page_obj.has_previous %}
