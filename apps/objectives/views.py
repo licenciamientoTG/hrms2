@@ -21,7 +21,10 @@ def admin_objective(request):
 #esta vista solo nos manda a user_objective.html
 @login_required
 def user_objective(request):
-    return render(request, 'objectives/user/objectives_dashboard_user.html')
+    display_name = (request.user.get_full_name() or request.user.username).strip()
+    ctx = {"user_name": display_name}
+    return render(request, "objectives/user/objectives_dashboard_user.html", ctx)
+
 
 @login_required
 def create_objective(request):
