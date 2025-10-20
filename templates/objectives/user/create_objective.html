@@ -1,0 +1,121 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Crear objetivo{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/forms.css' %}">
+<link rel="stylesheet" href="{% static 'css/objectives.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 create-obj">
+  <a href="{% url 'objective_view' %}"
+    class="btn btn-light">
+    ← Volver
+  </a>
+  <div class="mx-auto" style="max-width: 860px;">
+
+    <div class="card shadow-sm border-0 rounded-3">
+      <div class="card-header bg-light d-flex align-items-center gap-2 rounded-top-3">
+        <a href="{% url 'objective_view' %}" class="btn btn-link p-0 m-0">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        <span class="fw-semibold">Crear objetivo</span>
+      </div>
+
+      <!-- Contenido -->
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          <h2 class="h5 mb-3">¿Qué objetivo quieres lograr?</h2>
+
+          <!-- Título -->
+          <div class="mb-3">
+            <input name="title" class="form-control form-control-lg" placeholder="Título del objetivo" required>
+            <div class="form-text">Frase clara y concreta.</div>
+          </div>
+
+          <!-- Descripción opcional -->
+          <div class="mb-3">
+            <button class="btn btn-link p-0" type="button" id="btnDesc">
+              <i class="bi bi-plus-lg"></i> Agregar descripción (opcional)
+            </button>
+            <textarea id="descBox" name="description" rows="3"
+                      class="form-control mt-2 d-none" placeholder="Describe el objetivo..."></textarea>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Ciclo del objetivo</label>
+              <select name="cycle" class="form-select">
+                <option>Nuevo ciclo de objetivos Mensual</option>
+                <option>Trimestral</option><option>Semestral</option><option>Anual</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tipo de medición</label>
+              <select name="measure_type" class="form-select">
+                <option value="binary">Binario</option>
+                <option value="percent">Porcentaje</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Fecha de inicio</label>
+              <div class="input-group">
+                <input type="date" name="start_date" class="form-control">
+                <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fecha de fin</label>
+              <div class="input-group">
+                <input type="date" name="end_date" class="form-control">
+                <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+              </div>
+              <div class="hint">Debe ser posterior a la fecha de inicio y estar dentro del ciclo.</div>
+            </div>
+
+            <!-- Responsables (chips demo) -->
+            <div class="col-12">
+              <label class="form-label">Responsables</label>
+              <div class="form-control p-2" id="ownersBox" style="border-width:2px; border-color:#5c6ac4;">
+                <span id="ownersChips" class="d-inline-flex flex-wrap gap-2 align-items-center"></span>
+                <input id="ownersInput" class="border-0" type="text"
+                       placeholder="Escribe y presiona Enter" style="outline:none; min-width:200px;">
+              </div>
+              <input type="hidden" name="owners" id="ownersHidden">
+            </div>
+
+            <!-- Criticidad -->
+            <div class="col-12">
+              <label class="form-label d-block">Criticidad</label>
+              <div class="btn-group crit-group" role="group" id="critGroup">
+                <input type="radio" class="btn-check" name="criticality" id="crit-baja" value="low" checked>
+                <label class="btn btn-outline-success" for="crit-baja">Baja</label>
+                <input type="radio" class="btn-check" name="criticality" id="crit-media" value="medium">
+                <label class="btn btn-outline-secondary" for="crit-media">Media</label>
+                <input type="radio" class="btn-check" name="criticality" id="crit-alta" value="high">
+                <label class="btn btn-outline-danger" for="crit-alta">Alto</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 hint">Sólo los responsables y sus líderes podrán ver y editar los objetivos guardados.</div>
+
+          <div class="text-center my-4">
+            <button class="btn btn-primary btn-lg px-5" type="submit">Guardar</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/objectives.js' %}"></script>
+{% endblock %}

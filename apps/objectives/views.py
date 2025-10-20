@@ -21,3 +21,15 @@ def admin_objective(request):
 @login_required
 def user_objective(request):
     return render(request, 'objectives/user/objectives_dashboard_user.html')
+
+@login_required
+def create_objective(request):
+    if request.method == "POST":
+        title = (request.POST.get("title") or "").strip()
+        if not title:
+            messages.error(request, "Indica un título para el objetivo.")
+        else:
+            # Aquí luego se guardará en DB
+            messages.success(request, "Objetivo guardado (demo).")
+            return redirect("objective_view")
+    return render(request, "objectives/user/create_objective.html")
