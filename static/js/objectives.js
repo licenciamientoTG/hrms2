@@ -12,7 +12,7 @@
       btn.addEventListener('click', () => {
         tabs.forEach(t => { t.btn.classList.remove('active'); t.box.style.display = 'none'; });
         btn.classList.add('active'); box.style.display = '';
-        apply(); // ← reaplica el filtro al cambiar de tab
+        apply(); 
       });
     });
   }
