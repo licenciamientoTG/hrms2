@@ -160,6 +160,23 @@
 }
 
 
-.step-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e9ecef;color:#6c757d;font-weight:600}
-.step-dot.active{background:#0d6efd;color:#fff}
-.nav-pills .nav-link{cursor:default}
+.step-dot{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#e9ecef;
+  color:#6c757d;
+  font-weight:600
+}
+
+.step-dot.active{
+  background:#0d6efd;
+  color:#fff
+}
+
+.nav-pills .nav-link{
+  cursor:default
+}
