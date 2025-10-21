@@ -208,12 +208,19 @@
   </div>
 </div>
 
-<!-- ===== TEMPLATES IGUAL QUE ANTES ===== -->
 <template id="tpl-section">
   <div class="section-col" data-section-id="">
     <div class="section-card">
       <div class="section-head">
-        <span class="sec-title" data-bind="sec-title">Sección</span>
+        <div class="sec-title-wrap d-flex align-items-center gap-2">
+          <span class="sec-title" data-bind="sec-title" data-section-title-view>Sección</span>
+          <input type="text"
+                 class="form-control form-control-sm sec-title-input"
+                 data-section-title-edit
+                 maxlength="120"
+                 hidden
+                 aria-label="Nombre de la sección">
+        </div>
         <div class="dropdown">
           <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
           <ul class="dropdown-menu dropdown-menu-end">

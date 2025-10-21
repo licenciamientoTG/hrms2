@@ -277,6 +277,10 @@ function buildStateFromServerDOM(){
     const secTitle = frag.querySelector('[data-bind="sec-title"]');
     secTitle.textContent = sec.title || `Sección ${sec.order}`;
 
+    const secInput = frag.querySelector('[data-section-title-edit]');
+    secInput.value = sec.title || `Sección ${sec.order}`;
+    secInput.dataset.section = sec.id;
+
     // dropdown ids
     frag.querySelectorAll('[data-action="sec.rename"]').forEach(b => b.dataset.id = sec.id);
     frag.querySelectorAll('[data-action="sec.duplicate"]').forEach(b => b.dataset.id = sec.id);
@@ -406,47 +410,108 @@ function buildStateFromServerDOM(){
     rerenderSection(sec.id);
   }
 
-  async function renameSection(sectionId){
+  // ===== Rename inline de sección (sin SweetAlert) =====
+  function sanitizeTitle(s){ return (s || '').replace(/<[^>]+>/g, '').trim(); }
+
+  function startSecTitleEdit(sectionId){
+    const col   = strip.querySelector(`.section-col[data-section-id="${sectionId}"]`);
+    if (!col) return;
+    const view  = col.querySelector('[data-section-title-view]');
+    const input = col.querySelector('[data-section-title-edit]');
+    if (!view || !input) return;
+
+    input.value   = sanitizeTitle(view.textContent) || `Sección ${state.sections.find(s=>s.id===sectionId)?.order||''}`;
+    view.hidden   = true;
+    input.hidden  = false;
+    requestAnimationFrame(()=>{ input.focus(); input.select(); });
+  }
+
+  function commitSecTitleEdit(sectionId){
     const sec = state.sections.find(s => s.id === sectionId);
     if (!sec) return;
 
-    const { value, isConfirmed } = await Swal.fire({
-      title: 'Renombrar sección',
-      input: 'text',
-      inputLabel: 'Nombre de la sección',
-      inputValue: sec.title || `Sección ${sec.order}`,
-      icon: 'question',
-      width: 520,
-      backdrop: 'rgba(15,23,42,.35)',     // overlay suave
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      buttonsStyling: false,               // usamos clases Bootstrap
-      focusConfirm: false,                 // mantenemos el foco en el input
-      allowEnterKey: true,
-      customClass: {
-        popup: 'sa-modal',
-        title: 'sa-title',
-        inputLabel: 'sa-label',
-        input: 'form-control sa-input',
-        actions: 'sa-actions',
-        confirmButton: 'btn btn-primary',
-        cancelButton: 'btn btn-light ms-2'
-      },
-      didOpen: () => { Swal.getInput()?.select(); },
-      preConfirm: (val) => {
-        const v = (val || '').trim();
-        if (!v) { Swal.showValidationMessage('Escribe un nombre'); return false; }
-        if (v.length > 120) { Swal.showValidationMessage('Máximo 120 caracteres'); return false; }
-        return v;
-      }
-    });
+    const col   = strip.querySelector(`.section-col[data-section-id="${sectionId}"]`);
+    if (!col) return;
+    const view  = col.querySelector('[data-section-title-view]');
+    const input = col.querySelector('[data-section-title-edit]');
 
-    if (!isConfirmed || !value) return;
-    sec.title = value.trim();
+    let val = sanitizeTitle(input?.value);
+    if (!val) val = `Sección ${sec.order}`;
+    if (val.length > 120) val = val.slice(0,120);
+
+    sec.title = val;
     saveDraft(state);
-    rerenderSection(sec.id);
+
+    // Actualiza vista in-place (no hace falta re-render completo)
+    if (view) view.textContent = val;
+    if (input){
+      input.hidden = true;
+      view.hidden  = false;
+    }
+
+    // Menús “Después de…” usan el título => refrescarlos
+    refreshJumpMenus();
+
+    // foco amable de vuelta al título
+    if (view){
+      view.setAttribute('tabindex','-1');
+      try{ view.focus(); }catch{}
+      view.removeAttribute('tabindex');
+    }
   }
+
+  function cancelSecTitleEdit(sectionId){
+    const col   = strip.querySelector(`.section-col[data-section-id="${sectionId}"]`);
+    if (!col) return;
+    const view  = col.querySelector('[data-section-title-view]');
+    const input = col.querySelector('[data-section-title-edit]');
+    if (input){ input.hidden = true; }
+    if (view){  view.hidden  = false; }
+  }
+
+  // === Eventos delegados ===
+
+  // 1) Click en “Renombrar” del menú -> abre edición inline
+  document.addEventListener('click', (e) => {
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+
+    if (item.dataset.action === 'sec.rename'){
+      e.preventDefault();
+      return startSecTitleEdit(item.dataset.id);
+    }
+  });
+
+  // 2) Doble click sobre el título -> abre edición inline
+  document.addEventListener('dblclick', (e) => {
+    const title = e.target.closest('.sec-title[data-section-title-view]');
+    if (!title) return;
+    const col = title.closest('.section-col');
+    if (!col) return;
+    startSecTitleEdit(col.dataset.sectionId);
+  });
+
+  // 3) Enter/Escape en el input
+  document.addEventListener('keydown', (e) => {
+    const input = e.target.closest('input[data-section-title-edit]');
+    if (!input) return;
+    const sid = input.dataset.section;
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      commitSecTitleEdit(sid);
+    } else if (e.key === 'Escape'){
+      e.preventDefault();
+      cancelSecTitleEdit(sid);
+    }
+  });
+
+  // 4) Guardar al perder foco
+  document.addEventListener('blur', (e) => {
+    const input = e.target.closest('input[data-section-title-edit]');
+    if (!input) return;
+    commitSecTitleEdit(input.dataset.section);
+  }, true);
+
 
   // ---- eliminar sección ----
   async function deleteSectionById(sectionId){
@@ -520,8 +585,11 @@ function buildStateFromServerDOM(){
 
     const item = e.target.closest('.dropdown-item');
     if (!item) return;
+    if (item.dataset.action === 'sec.rename') {
+      e.preventDefault();
+      return startSecTitleEdit(item.dataset.id);
+    }
 
-    if (item.dataset.action === 'sec.rename') return renameSection(item.dataset.id);
     if (item.dataset.action === 'sec.delete') return deleteSectionById(item.dataset.id || item.closest('.section-col')?.dataset.sectionId);
     if (item.dataset.action === 'q.delete')   return deleteQuestionById(item.dataset.id || item.closest('.q-card')?.dataset.questionId);
   });
