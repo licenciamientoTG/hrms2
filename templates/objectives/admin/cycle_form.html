@@ -29,10 +29,15 @@
     <!-- STEP 1: Configuración -->
     <section class="js-step" data-step="1">
       <div class="mb-3">
-        <label class="form-label">Nombre</label>
-        <input type="text" name="name" class="form-control" placeholder="Ej. Nuevo ciclo de objetivos Mensual">
+        <label for="cycleName" class="form-label">Nombre <span class="text-danger">*</span></label>
+        <input id="cycleName"
+              type="text"
+              name="name"
+              class="form-control"
+              placeholder="Ej. Nuevo ciclo de objetivos Mensual"
+              required>
+        <div class="invalid-feedback">El nombre es obligatorio.</div>
       </div>
-
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Fecha de inicio</label>

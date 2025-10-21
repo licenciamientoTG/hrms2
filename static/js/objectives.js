@@ -176,13 +176,21 @@
     }
   }
 
-  // NEXT
   next.addEventListener('click', () => {
+    if (current === 1) {
+      const nameInput = document.querySelector('input[name="name"]');
+      if (!nameInput.value.trim()) {
+        nameInput.focus();
+        nameInput.reportValidity();  // muestra el mensaje nativo
+        return;                      // no avances
+      }
+    }
     if (current < 3) {
       if (current === 2) fillSummary();
       show(current + 1);
     }
   });
+
 
   // PREV: si estás en paso 1, deja navegar al href (volver);
   // si no, cancela navegación y muestra el paso anterior.
