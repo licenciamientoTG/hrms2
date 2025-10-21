@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required,user_passes_test
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.utils.dateparse import parse_date
+from .models import ObjectiveCycle
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -48,8 +50,68 @@ def obj_cycles_admin(request):
     return render(request, "objectives/admin/objectives_dashboard_admin.html", ctx)
 
 # --- ADMIN: formulario de creación de ciclo (solo plantilla)
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def obj_cycle_create(request):
-    return render(request, "objectives/admin/cycle_form.html")
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        start_date = parse_date(request.POST.get("start_date") or "") or None
+        end_date   = parse_date(request.POST.get("end_date") or "") or None
 
+        # Checkbox con name="limit_enabled"
+        limit_enabled = request.POST.get("limit_enabled") == "on"
+
+        # Cast de números
+        min_raw = request.POST.get("min_objectives")
+        max_raw = request.POST.get("max_objectives")
+        min_obj = int(min_raw) if min_raw not in ("", None) and min_raw.isdigit() else None
+        max_obj = int(max_raw) if max_raw not in ("", None) and max_raw.isdigit() else None
+
+        has_errors = False
+        if not name:
+            messages.error(request, "El nombre es obligatorio.")
+            has_errors = True
+
+        if start_date and end_date and end_date < start_date:
+            messages.error(request, "La fecha de fin debe ser posterior a la de inicio.")
+            has_errors = True
+
+        if limit_enabled:
+            if min_obj is None or max_obj is None:
+                messages.error(request, "Indica mínimo y máximo de objetivos.")
+                has_errors = True
+            elif min_obj > max_obj:
+                messages.error(request, "El mínimo no puede ser mayor al máximo.")
+                has_errors = True
+        else:
+            # si no hay límite, no guardes números
+            min_obj = None
+            max_obj = None
+
+        if has_errors:
+            # repinta con lo que el usuario escribió
+            formdata = {
+                "name": name,
+                "start_date": request.POST.get("start_date") or "",
+                "end_date": request.POST.get("end_date") or "",
+                "limit_enabled": limit_enabled,
+                "min_objectives": min_raw or "",
+                "max_objectives": max_raw or "",
+            }
+            return render(request, "objectives/admin/cycle_form.html", {"formdata": formdata})
+
+        # ✅ crear registro
+        ObjectiveCycle.objects.create(
+            name=name,
+            start_date=start_date,
+            end_date=end_date,
+            limit_enabled=limit_enabled,
+            min_objectives=min_obj,
+            max_objectives=max_obj,
+            created_by=request.user,
+        )
+        return redirect("obj_cycles_admin")
+
+    # GET
+    return render(request, "objectives/admin/cycle_form.html", {"formdata": {}})

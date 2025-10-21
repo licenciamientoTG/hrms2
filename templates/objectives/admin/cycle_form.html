@@ -23,51 +23,59 @@
     <div class="step-dot step-3">3</div>
   </div>
 
-  <form method="post" action="#" novalidate>
+  <form method="post" action="{% url 'obj_cycle_create' %}" novalidate>
     {% csrf_token %}
 
-    <!-- STEP 1: Configuración -->
+    {% if messages %}
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} mb-3">{{ m }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- STEP 1 -->
     <section class="js-step" data-step="1">
       <div class="mb-3">
         <label for="cycleName" class="form-label">Nombre <span class="text-danger">*</span></label>
-        <input id="cycleName"
-              type="text"
-              name="name"
-              class="form-control"
+        <input id="cycleName" type="text" name="name" class="form-control"
               placeholder="Ej. Nuevo ciclo de objetivos Mensual"
-              required>
+              value="{{ formdata.name|default:'' }}" required>
         <div class="invalid-feedback">El nombre es obligatorio.</div>
       </div>
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Fecha de inicio</label>
-          <input type="date" name="start_date" class="form-control">
+          <input type="date" name="start_date" class="form-control"
+                value="{{ formdata.start_date|default:'' }}">
         </div>
         <div class="col-md-6">
           <label class="form-label">Fecha de fin</label>
-          <input type="date" name="end_date" class="form-control">
+          <input type="date" name="end_date" class="form-control"
+                value="{{ formdata.end_date|default:'' }}">
         </div>
       </div>
     </section>
 
-    <!-- STEP 2: Características -->
+    <!-- STEP 2 -->
     <section class="js-step d-none" data-step="2">
       <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" role="switch" id="limitSwitch">
-        <label class="form-check-label" for="limitSwitch">
-          Límite de objetivos
-        </label>
+        {# 👇 AGREGA name="limit_enabled" #}
+        <input class="form-check-input" type="checkbox" role="switch"
+              id="limitSwitch" name="limit_enabled"
+              {% if formdata.limit_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="limitSwitch">Límite de objetivos</label>
         <div class="text-muted small">Defina la cantidad mínima y máxima de objetivos por colaborador.</div>
       </div>
 
-      <div id="limitBox" class="row g-3 d-none">
+      <div id="limitBox" class="row g-3 {% if not formdata.limit_enabled %}d-none{% endif %}">
         <div class="col-md-6">
           <label class="form-label">Mínimo</label>
-          <input type="number" name="min_objectives" class="form-control" min="0" placeholder="0">
+          <input type="number" name="min_objectives" class="form-control" min="0" placeholder="0"
+                value="{{ formdata.min_objectives|default:'' }}">
         </div>
         <div class="col-md-6">
           <label class="form-label">Máximo</label>
-          <input type="number" name="max_objectives" class="form-control" min="0" placeholder="0">
+          <input type="number" name="max_objectives" class="form-control" min="0" placeholder="0"
+                value="{{ formdata.max_objectives|default:'' }}">
         </div>
       </div>
     </section>
