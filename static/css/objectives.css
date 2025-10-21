@@ -109,3 +109,52 @@
     width: 100%; 
   }
 }
+
+#contenedor-mios .obj-kpis.form-list{
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+#contenedor-mios .obj-kpis{
+  display: grid;
+  grid-template-columns: 1fr;      
+  gap: 24px;                      
+}
+
+@media (min-width: 992px){
+  #contenedor-mios .obj-kpis{
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  }
+}
+
+#contenedor-mios .obj-kpis .form-item{
+  margin: 0 !important;      
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 24px rgba(2,6,23,.06);
+  border: 1px solid rgba(2,6,23,.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#contenedor-mios .obj-kpis .form-name{ 
+  flex: 1; 
+}
+
+#contenedor-mios .obj-kpis .obj-progress{ 
+  width: 100%; 
+}
+
+#contenedor-mios .obj-kpis .progress{ 
+  height: 8px; 
+  border-radius: 9999px; 
+  background: #edf1f7; 
+}
+#contenedor-mios .obj-kpis .progress-bar{ 
+  border-radius: 9999px; 
+}
