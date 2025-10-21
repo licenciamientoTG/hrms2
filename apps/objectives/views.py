@@ -1,7 +1,6 @@
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required,user_passes_test
 from django.shortcuts import redirect
-from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -35,3 +34,22 @@ def create_objective(request):
         else:
             return redirect("objective_view")
     return render(request, "objectives/user/create_objective.html")
+
+# --- ADMIN: lista de ciclos (pantalla principal de admin de objetivos)
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def obj_cycles_admin(request):
+    q = request.GET.get('q', '').strip()
+    ctx = {
+        "q": q,
+        "cycles": [],   # por ahora vacío (solo plantilla)
+        "page_obj": None,
+    }
+    return render(request, "objectives/admin/objectives_dashboard_admin.html", ctx)
+
+# --- ADMIN: formulario de creación de ciclo (solo plantilla)
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def obj_cycle_create(request):
+    return render(request, "objectives/admin/cycle_form.html")
+

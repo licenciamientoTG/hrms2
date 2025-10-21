@@ -1,0 +1,188 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Nuevo ciclo · Objetivos{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'css/objectives.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Nuevo ciclo</h2>
+</div>
+
+<div class="card p-4">
+
+  <!-- PASOS -->
+  <div class="d-flex align-items-center mb-4 gap-3">
+    <div class="step-dot step-1 active">1</div>
+    <div class="flex-grow-1 border-top"></div>
+    <div class="step-dot step-2">2  </div>
+    <div class="flex-grow-1 border-top"></div>
+    <div class="step-dot step-3">3</div>
+  </div>
+
+  <form method="post" action="#" novalidate>
+    {% csrf_token %}
+
+    <!-- STEP 1: Configuración -->
+    <section class="js-step" data-step="1">
+      <div class="mb-3">
+        <label class="form-label">Nombre</label>
+        <input type="text" name="name" class="form-control" placeholder="Ej. Nuevo ciclo de objetivos Mensual">
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Fecha de inicio</label>
+          <input type="date" name="start_date" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Fecha de fin</label>
+          <input type="date" name="end_date" class="form-control">
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Características -->
+    <section class="js-step d-none" data-step="2">
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="limitSwitch">
+        <label class="form-check-label" for="limitSwitch">
+          Límite de objetivos
+        </label>
+        <div class="text-muted small">Defina la cantidad mínima y máxima de objetivos por colaborador.</div>
+      </div>
+
+      <div id="limitBox" class="row g-3 d-none">
+        <div class="col-md-6">
+          <label class="form-label">Mínimo</label>
+          <input type="number" name="min_objectives" class="form-control" min="0" placeholder="0">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Máximo</label>
+          <input type="number" name="max_objectives" class="form-control" min="0" placeholder="0">
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: Validación -->
+    <section class="js-step d-none" data-step="3">
+      <h5 class="mb-3">Validación</h5>
+      <div class="list-group">
+        <div class="list-group-item d-flex justify-content-between">
+          <span class="text-muted">Nombre del ciclo</span>
+          <strong id="sumName">—</strong>
+        </div>
+        <div class="list-group-item d-flex justify-content-between">
+          <span class="text-muted">Fecha de inicio</span>
+          <strong id="sumStart">—</strong>
+        </div>
+        <div class="list-group-item d-flex justify-content-between">
+          <span class="text-muted">Fecha de fin</span>
+          <strong id="sumEnd">—</strong>
+        </div>
+        <div class="list-group-item d-flex justify-content-between">
+          <span class="text-muted">Cantidad de objetivos por colaborador</span>
+          <strong id="sumLimit">Ilimitados</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer botones -->
+    <div class="d-flex justify-content-between mt-4">
+      <a id="btnPrev" href="{% url 'obj_cycles_admin' %}" class="btn btn-outline-secondary">
+        Anterior
+      </a>
+
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary js-next">Continuar</button>
+        <button type="submit" class="btn btn-primary d-none js-finish">Finalizar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const steps = Array.from(document.querySelectorAll('.js-step'));
+  const tabs  = Array.from(document.querySelectorAll('.js-step-tab'));
+  const prev  = document.getElementById('btnPrev');            // <a> con href a obj_cycles_admin
+  const next  = document.querySelector('.js-next');
+  const finish= document.querySelector('.js-finish');
+  const dots  = [1,2,3].map(n => document.querySelector('.step-'+n));
+  const limitSwitch = document.getElementById('limitSwitch');
+  const limitBox = document.getElementById('limitBox');
+
+  let current = 1;
+
+  function show(step){
+    current = step;
+
+    // Mostrar/ocultar paso y activar pestañas/dots
+    steps.forEach(s => s.classList.toggle('d-none', s.dataset.step != step));
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.step == step));
+    dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
+
+    // Next/Finish
+    next.classList.toggle('d-none', step === 3);
+    finish.classList.toggle('d-none', step !== 3);
+
+    // Texto del botón prev
+    // En paso 1 dice "Volver" (y usará el href); en otros dice "Anterior"
+    prev.textContent = (step === 1) ? 'Volver' : 'Anterior';
+  }
+
+  function fillSummary(){
+    const name  = document.querySelector('input[name="name"]').value || '—';
+    const start = document.querySelector('input[name="start_date"]').value || '—';
+    const end   = document.querySelector('input[name="end_date"]').value || '—';
+    const minEl = document.querySelector('input[name="min_objectives"]');
+    const maxEl = document.querySelector('input[name="max_objectives"]');
+
+    document.getElementById('sumName').textContent  = name;
+    document.getElementById('sumStart').textContent = start;
+    document.getElementById('sumEnd').textContent   = end;
+
+    if (limitSwitch.checked){
+      const min = (minEl.value||'0'), max = (maxEl.value||'0');
+      document.getElementById('sumLimit').textContent = `${min} – ${max}`;
+    } else {
+      document.getElementById('sumLimit').textContent = 'Ilimitados';
+    }
+  }
+
+  // NEXT
+  next.addEventListener('click', () => {
+    if (current < 3) {
+      if (current === 2) fillSummary();
+      show(current + 1);
+    }
+  });
+
+  // PREV: si estás en paso 1, deja navegar al href (volver);
+  // si no, cancela navegación y muestra el paso anterior.
+  prev.addEventListener('click', (e) => {
+    if (current > 1) {
+      e.preventDefault();
+      show(current - 1);
+    }
+    // Si current === 1, no hacemos preventDefault: el <a> navega a obj_cycles_admin.
+  });
+
+  // Límite de objetivos on/off
+  limitSwitch.addEventListener('change', () => {
+    limitBox.classList.toggle('d-none', !limitSwitch.checked);
+  });
+
+  // Tabs solo visuales
+  tabs.forEach(t => t.addEventListener('click', e => e.preventDefault()));
+
+  show(1);
+})();
+</script>
+
+{% endblock %}
