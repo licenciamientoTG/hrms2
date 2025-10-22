@@ -145,14 +145,39 @@
 </div>
 
 <script>
-	function toggleWidget() {
-		var panel = document.getElementById('mi-panel-widget');
-		if (panel.style.display === 'none' || panel.style.display === '') {
-			panel.style.display = 'flex'; // ✅ Para usar flex
-		} else {
-			panel.style.display = 'none';
-		}
-	}
+(() => {
+  const btn   = document.getElementById('mi-boton-widget');
+  const panel = document.getElementById('mi-panel-widget');
+  let abierto = false;
+
+  function abrir() {
+    panel.style.display = 'flex'; 
+    abierto = true;
+    document.addEventListener('click', clickFuera);
+    document.addEventListener('keydown', escCierra);
+  }
+
+  function cerrar() {
+    panel.style.display = 'none';
+    abierto = false;
+    document.removeEventListener('click', clickFuera);
+    document.removeEventListener('keydown', escCierra);
+  }
+
+  function clickFuera(e) {
+    if (!panel.contains(e.target) && !btn.contains(e.target)) cerrar();
+  }
+
+  function escCierra(e) { if (e.key === 'Escape') cerrar(); }
+
+  function toggleWidget(e) {
+    if (e) e.stopPropagation();
+    (abierto ? cerrar : abrir)();
+  }
+
+  window.toggleWidget = toggleWidget;
+  panel.addEventListener('click', e => e.stopPropagation());
+})();
 </script>
 </body>
 

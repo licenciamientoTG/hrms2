@@ -101,15 +101,20 @@
             <!-- Criticidad -->
             <div class="col-12">
               <label class="form-label d-block">Criticidad</label>
-              <div class="btn-group crit-group" role="group" id="critGroup">
-                <input type="radio" class="btn-check" name="criticality" id="crit-baja" value="low" checked>
-                <label class="btn btn-outline-success" for="crit-baja">Baja</label>
-                <input type="radio" class="btn-check" name="criticality" id="crit-media" value="medium">
-                <label class="btn btn-outline-secondary" for="crit-media">Media</label>
-                <input type="radio" class="btn-check" name="criticality" id="crit-alta" value="high">
-                <label class="btn btn-outline-danger" for="crit-alta">Alto</label>
+
+              <div class="crit-toggle" id="critGroup">
+                <input type="radio" class="btn-check" name="criticality" id="crit-low" value="low" checked>
+                <label class="crit-option crit-low" for="crit-low">Baja</label>
+
+                <input type="radio" class="btn-check" name="criticality" id="crit-med" value="medium">
+                <label class="crit-option crit-med" for="crit-med">Media</label>
+
+                <input type="radio" class="btn-check" name="criticality" id="crit-high" value="high">
+                <label class="crit-option crit-high" for="crit-high">Alto</label>
               </div>
             </div>
+
+
           </div>
 
           <div class="mt-4 hint">Sólo los responsables y sus líderes podrán ver y editar los objetivos guardados.</div>

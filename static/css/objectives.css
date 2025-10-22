@@ -180,3 +180,48 @@
 .nav-pills .nav-link{
   cursor:default
 }
+
+/* Layout */
+.crit-toggle{
+  display:flex; 
+  gap:1rem; 
+  align-items:center; 
+  flex-wrap:wrap;
+}
+
+/* Chip neutro (no seleccionado) */
+.crit-option{
+  --active:#6b7280;               /* fallback */
+  background:#eee;                /* gris suave */
+  color:#111827;                  /* texto oscuro */
+  border:0;
+  border-radius:18px;
+  padding:.6rem 1.1rem;
+  font-weight:700;                /* como en las capturas */
+  line-height:1;
+  user-select:none;
+  cursor:pointer;
+  transition:background .15s ease, color .15s ease, filter .15s ease, box-shadow .15s;
+}
+.crit-option:hover{ 
+  background:#e6e6e6; 
+}
+
+.btn-check:focus + .crit-option{ 
+  box-shadow:0 0 0 .18rem rgba(59,130,246,.25);
+}
+
+/* Paleta sutil (pasteles) */
+.crit-low { --active:#56b9a7; }   /* verde agua suave */
+.crit-med { --active:#f4a23a; }   /* ámbar suave */
+.crit-high{ --active:#e2574c; }   /* rojo coral suave */
+
+/* Seleccionado */
+.btn-check:checked + .crit-option{
+  background:var(--active);
+  color:#fff;
+  box-shadow:0 1px 0 rgba(0,0,0,.05) inset;
+}
+.btn-check:checked + .crit-option:hover{
+  filter:brightness(.95);         /* pequeña variación al hover */
+}
