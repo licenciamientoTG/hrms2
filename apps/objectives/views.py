@@ -4,6 +4,8 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from django.utils.dateparse import parse_date
 from .models import ObjectiveCycle
+from django.db.models import Q
+from django.core.paginator import Paginator
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -17,7 +19,21 @@ def objective_view(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def admin_objective(request):
-    return render(request, 'objectives/admin/objectives_dashboard_admin.html')
+    q = (request.GET.get('q') or '').strip()
+
+    qs = ObjectiveCycle.objects.all().order_by('-created_at')
+    if q:
+        qs = qs.filter(Q(name__icontains=q))
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page') or 1)
+
+    ctx = {
+        "q": q,
+        "cycles": page_obj.object_list,
+        "page_obj": page_obj,
+    }
+    return render(request, "objectives/admin/objectives_dashboard_admin.html", ctx)
 
 #esta vista solo nos manda a user_objective.html
 @login_required
@@ -37,20 +53,7 @@ def create_objective(request):
             return redirect("objective_view")
     return render(request, "objectives/user/create_objective.html")
 
-# --- ADMIN: lista de ciclos (pantalla principal de admin de objetivos)
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def obj_cycles_admin(request):
-    q = request.GET.get('q', '').strip()
-    ctx = {
-        "q": q,
-        "cycles": [],   # por ahora vacío (solo plantilla)
-        "page_obj": None,
-    }
-    return render(request, "objectives/admin/objectives_dashboard_admin.html", ctx)
-
 # --- ADMIN: formulario de creación de ciclo (solo plantilla)
-
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def obj_cycle_create(request):
@@ -111,7 +114,7 @@ def obj_cycle_create(request):
             max_objectives=max_obj,
             created_by=request.user,
         )
-        return redirect("obj_cycles_admin")
+        return redirect("admin_objective")
 
     # GET
     return render(request, "objectives/admin/cycle_form.html", {"formdata": {}})
