@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -150,3 +151,77 @@ def cycle_delete(request, pk):
         return JsonResponse({'ok': True})
     messages.success(request, "Ciclo eliminado.")
     return redirect('admin_objective')
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def obj_cycle_edit(request, pk):
+    cycle = get_object_or_404(ObjectiveCycle, pk=pk)
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        start_date = parse_date(request.POST.get("start_date") or "") or None
+        end_date   = parse_date(request.POST.get("end_date") or "") or None
+        limit_enabled = request.POST.get("limit_enabled") == "on"
+
+        min_raw = request.POST.get("min_objectives")
+        max_raw = request.POST.get("max_objectives")
+        min_obj = int(min_raw) if min_raw not in ("", None) and str(min_raw).isdigit() else None
+        max_obj = int(max_raw) if max_raw not in ("", None) and str(max_raw).isdigit() else None
+
+        has_errors = False
+        if not name:
+            messages.error(request, "El nombre es obligatorio.")
+            has_errors = True
+        if start_date and end_date and end_date < start_date:
+            messages.error(request, "La fecha de fin debe ser posterior a la de inicio.")
+            has_errors = True
+        if limit_enabled:
+            if min_obj is None or max_obj is None:
+                messages.error(request, "Indica mínimo y máximo de objetivos.")
+                has_errors = True
+            elif min_obj > max_obj:
+                messages.error(request, "El mínimo no puede ser mayor al máximo.")
+                has_errors = True
+        else:
+            min_obj = None
+            max_obj = None
+
+        if not has_errors:
+            cycle.name = name
+            cycle.start_date = start_date
+            cycle.end_date = end_date
+            cycle.limit_enabled = limit_enabled
+            cycle.min_objectives = min_obj
+            cycle.max_objectives = max_obj
+            cycle.save()
+            return redirect("admin_objective")
+
+        # repinta con lo que envió el usuario
+        formdata = {
+            "name": name,
+            "start_date": request.POST.get("start_date") or "",
+            "end_date": request.POST.get("end_date") or "",
+            "limit_enabled": limit_enabled,
+            "min_objectives": min_raw or "",
+            "max_objectives": max_raw or "",
+        }
+        return render(request, "objectives/admin/cycle_form.html", {
+            "formdata": formdata,
+            "is_edit": True,
+            "obj": cycle,
+        })
+
+    # GET → valores iniciales del ciclo
+    formdata = {
+        "name": cycle.name,
+        "start_date": cycle.start_date.isoformat() if cycle.start_date else "",
+        "end_date": cycle.end_date.isoformat() if cycle.end_date else "",
+        "limit_enabled": cycle.limit_enabled,
+        "min_objectives": "" if cycle.min_objectives is None else cycle.min_objectives,
+        "max_objectives": "" if cycle.max_objectives is None else cycle.max_objectives,
+    }
+    return render(request, "objectives/admin/cycle_form.html", {
+        "formdata": formdata,
+        "is_edit": True,
+        "obj": cycle,
+    })

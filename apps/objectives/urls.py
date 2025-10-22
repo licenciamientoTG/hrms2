@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import objective_view, admin_objective, user_objective, create_objective, obj_cycle_create, cycle_delete
+from .views import objective_view, admin_objective, user_objective, create_objective, obj_cycle_create, cycle_delete, obj_cycle_edit
 
 urlpatterns = [
     path('', objective_view, name='objective_view'),
@@ -8,4 +8,5 @@ urlpatterns = [
     path('create_objective/', create_objective, name='create_objective'),
     path('admin/objetivos/ciclos/nuevo/', obj_cycle_create, name='obj_cycle_create'),
     path('admin_objective/cycles/<int:pk>/delete/', cycle_delete, name='cycle_delete'),
+    path('admin_objective/cycles/<int:pk>/edit/', obj_cycle_edit, name='obj_cycle_edit'),
 ]

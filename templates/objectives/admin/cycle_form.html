@@ -1,7 +1,7 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
 
-{% block page_title %}Nuevo ciclo · Objetivos{% endblock %}
+{% block page_title %}{% if is_edit %}Editar ciclo · Objetivos{% else %}Nuevo ciclo · Objetivos{% endif %}{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'css/objectives.css' %}">
@@ -9,7 +9,9 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="mb-0">Nuevo ciclo</h2>
+  <h2 class="mb-0">
+    {% if is_edit %}Editar ciclo{% else %}Nuevo ciclo{% endif %}
+  </h2>
 </div>
 
 <div class="card p-4">
@@ -23,8 +25,11 @@
     <div class="step-dot step-3">3</div>
   </div>
 
-  <form method="post" action="{% url 'obj_cycle_create' %}" novalidate>
-    {% csrf_token %}
+  {# action del form #}
+  <form method="post"
+        action="{% if is_edit %}{% url 'obj_cycle_edit' obj.id %}{% else %}{% url 'obj_cycle_create' %}{% endif %}"
+        novalidate>
+  {% csrf_token %}
 
     {% if messages %}
       {% for m in messages %}
@@ -104,13 +109,13 @@
 
     <!-- Footer botones -->
     <div class="d-flex justify-content-between mt-4">
-      <a id="btnPrev" href="{% url 'objective_view' %}" class="btn btn-outline-secondary">
-        Anterior
-      </a>
+      <a id="btnPrev" href="{% url 'admin_objective' %}" class="btn btn-outline-secondary">Anterior</a>
 
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-primary js-next">Continuar</button>
-        <button type="submit" class="btn btn-primary d-none js-finish">Finalizar</button>
+        <button type="submit" class="btn btn-primary d-none js-finish">
+          {% if is_edit %}Guardar cambios{% else %}Finalizar{% endif %}
+        </button>
       </div>
     </div>
   </form>
