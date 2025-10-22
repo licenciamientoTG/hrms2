@@ -212,3 +212,15 @@
 
   show(1);
 })();
+
+(() => {
+  const f = document.getElementById('cycleSearch');
+  if (!f) return;
+  const q = f.querySelector('input[name="q"]');
+  const submit = () => (f.requestSubmit ? f.requestSubmit() : f.submit());
+  let t;
+  q.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(submit, 400); // 300 ms tras dejar de escribir
+  });
+})();

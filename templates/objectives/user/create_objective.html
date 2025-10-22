@@ -49,9 +49,18 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Ciclo del objetivo</label>
-              <select name="cycle" class="form-select">
-
+              <select name="cycle" class="form-select" required>
+                {% if cycles %}
+                  {% for c in cycles %}
+                    <option value="{{ c.id }}">
+                      {{ c.name }}{% if c.end_date %} · cierra {{ c.end_date|date:"d/M/Y"|upper }}{% endif %}
+                    </option>
+                  {% endfor %}
+                {% else %}
+                  <option value="" selected disabled>No hay ciclos vigentes</option>
+                {% endif %}
               </select>
+              <div class="form-text">Se muestran solo los ciclos que no han vencido.</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Tipo de medición</label>

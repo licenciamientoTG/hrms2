@@ -6,6 +6,9 @@ from django.utils.dateparse import parse_date
 from .models import ObjectiveCycle
 from django.db.models import Q
 from django.core.paginator import Paginator
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -45,13 +48,23 @@ def user_objective(request):
 
 @login_required
 def create_objective(request):
+    today = timezone.localdate()  
+    cycles = ObjectiveCycle.objects.filter(
+        Q(end_date__isnull=True) | Q(end_date__gte=today)
+    ).order_by('end_date', 'name')
+
+    cycles = cycles.filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+
     if request.method == "POST":
         title = (request.POST.get("title") or "").strip()
         if not title:
             messages.error(request, "Indica un título para el objetivo.")
         else:
             return redirect("objective_view")
-    return render(request, "objectives/user/create_objective.html")
+
+    return render(request, "objectives/user/create_objective.html", {
+        "cycles": cycles
+    })
 
 # --- ADMIN: formulario de creación de ciclo (solo plantilla)
 @login_required
@@ -118,3 +131,22 @@ def obj_cycle_create(request):
 
     # GET
     return render(request, "objectives/admin/cycle_form.html", {"formdata": {}})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def cycle_delete(request, pk):
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
+    try:
+        cycle = ObjectiveCycle.objects.get(pk=pk)
+    except ObjectiveCycle.DoesNotExist:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
+        messages.error(request, "El ciclo no existe.")
+        return redirect('admin_objective')
+
+    cycle.delete()
+    if is_ajax:
+        return JsonResponse({'ok': True})
+    messages.success(request, "Ciclo eliminado.")
+    return redirect('admin_objective')
