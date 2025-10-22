@@ -128,32 +128,31 @@
   }
 })();
 
+// ==== BLOQUE DEL WIZARD (solo si existen los nodos) ====
 (function(){
   const steps = Array.from(document.querySelectorAll('.js-step'));
-  const tabs  = Array.from(document.querySelectorAll('.js-step-tab'));
-  const prev  = document.getElementById('btnPrev');            // <a> con href a obj_cycles_admin
+  const prev  = document.getElementById('btnPrev');
   const next  = document.querySelector('.js-next');
   const finish= document.querySelector('.js-finish');
-  const dots  = [1,2,3].map(n => document.querySelector('.step-'+n));
   const limitSwitch = document.getElementById('limitSwitch');
   const limitBox = document.getElementById('limitBox');
+  const tabs  = Array.from(document.querySelectorAll('.js-step-tab'));
+
+  // ⛔ Si no estamos en la página del wizard, no hagas nada
+  if (!steps.length || !prev || !next || !finish || !limitSwitch || !limitBox) return;
 
   let current = 1;
 
   function show(step){
     current = step;
-
-    // Mostrar/ocultar paso y activar pestañas/dots
     steps.forEach(s => s.classList.toggle('d-none', s.dataset.step != step));
     tabs.forEach(t => t.classList.toggle('active', t.dataset.step == step));
-    dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
-
-    // Next/Finish
+    [1,2,3].forEach((n,i) => {
+      const d = document.querySelector('.step-'+n);
+      if (d) d.classList.toggle('active', (i+1) <= step);
+    });
     next.classList.toggle('d-none', step === 3);
     finish.classList.toggle('d-none', step !== 3);
-
-    // Texto del botón prev
-    // En paso 1 dice "Volver" (y usará el href); en otros dice "Anterior"
     prev.textContent = (step === 1) ? 'Volver' : 'Anterior';
   }
 
@@ -163,27 +162,22 @@
     const end   = document.querySelector('input[name="end_date"]').value || '—';
     const minEl = document.querySelector('input[name="min_objectives"]');
     const maxEl = document.querySelector('input[name="max_objectives"]');
-
-    document.getElementById('sumName').textContent  = name;
-    document.getElementById('sumStart').textContent = start;
-    document.getElementById('sumEnd').textContent   = end;
-
+    const sum = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    sum('sumName',  name);
+    sum('sumStart', start);
+    sum('sumEnd',   end);
     if (limitSwitch.checked){
-      const min = (minEl.value||'0'), max = (maxEl.value||'0');
-      document.getElementById('sumLimit').textContent = `${min} – ${max}`;
+      const min = (minEl?.value||'0'), max = (maxEl?.value||'0');
+      sum('sumLimit', `${min} – ${max}`);
     } else {
-      document.getElementById('sumLimit').textContent = 'Ilimitados';
+      sum('sumLimit', 'Ilimitados');
     }
   }
 
   next.addEventListener('click', () => {
     if (current === 1) {
       const nameInput = document.querySelector('input[name="name"]');
-      if (!nameInput.value.trim()) {
-        nameInput.focus();
-        nameInput.reportValidity();  // muestra el mensaje nativo
-        return;                      // no avances
-      }
+      if (!nameInput.value.trim()) { nameInput.focus(); nameInput.reportValidity(); return; }
     }
     if (current < 3) {
       if (current === 2) fillSummary();
@@ -191,23 +185,14 @@
     }
   });
 
-
-  // PREV: si estás en paso 1, deja navegar al href (volver);
-  // si no, cancela navegación y muestra el paso anterior.
   prev.addEventListener('click', (e) => {
-    if (current > 1) {
-      e.preventDefault();
-      show(current - 1);
-    }
-    // Si current === 1, no hacemos preventDefault: el <a> navega a obj_cycles_admin.
+    if (current > 1) { e.preventDefault(); show(current - 1); }
   });
 
-  // Límite de objetivos on/off
   limitSwitch.addEventListener('change', () => {
     limitBox.classList.toggle('d-none', !limitSwitch.checked);
   });
 
-  // Tabs solo visuales
   tabs.forEach(t => t.addEventListener('click', e => e.preventDefault()));
 
   show(1);
