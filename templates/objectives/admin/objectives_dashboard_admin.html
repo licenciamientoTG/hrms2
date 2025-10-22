@@ -90,54 +90,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{% static 'js/objectives_admin.js' %}"></script>
-<script>
-// confirmación + delete (AJAX si input[name="ajax"] == 1)
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.js-delete-cycle');
-  if (!btn) return;
-
-  const form = btn.closest('form.delete-cycle-form');
-  const row  = btn.closest('tr');
-  const name = btn.dataset.title || 'este ciclo';
-
-  if (!confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) return;
-
-  const useAjax = form.querySelector('input[name="ajax"]')?.value === '1';
-  if (!useAjax) { form.submit(); return; }
-
-  const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-  fetch(form.action, {
-    method: 'POST',
-    credentials: 'same-origin',                      // 👈 asegura que viajen cookies/sesión
-    headers: {
-      'X-CSRFToken': csrf,
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json',
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-    },
-    body: new URLSearchParams(new FormData(form))
-  })
-  .then(async (r) => {
-    // Si hubo redirección (p.ej. a login) o status != 200 => error legible
-    if (!r.ok) {
-      const text = await r.text();
-      throw new Error(`HTTP ${r.status} ${r.statusText} - ${text.slice(0,120)}…`);
-    }
-    // intenta parsear JSON; si falla, también error
-    const data = await r.json().catch(() => { throw new Error('Respuesta no es JSON'); });
-    if (!data.ok) throw new Error(data.error || 'No se pudo eliminar');
-    // OK
-    row.remove();
-  })
-  .catch((err) => {
-    // Si te manda al login/403/CSRF verás esto:
-    console.error('Delete error:', err);
-    alert('Error al eliminar. Revisa permisos y CSRF (ver consola).');
-  });
-});
-</script>
-
-
+  <script src="{% static 'js/objectives.js' %}"></script>
 {% endblock %}
