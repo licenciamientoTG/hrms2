@@ -255,3 +255,39 @@ document.addEventListener('click', (e) => {
     alert('Error al eliminar. Revisa permisos y CSRF (ver consola).');
   });
 });
+
+(() => {
+  const combo   = document.getElementById('ownersCombo');
+  if (!combo) return;
+  const head    = document.getElementById('ownersHead');
+  const menu    = document.getElementById('ownersMenu');
+  const summary = document.getElementById('ownersSummary');
+
+  const open  = () => { menu.classList.add('open'); head.setAttribute('aria-expanded','true'); };
+  const close = () => { menu.classList.remove('open'); head.setAttribute('aria-expanded','false'); };
+
+  // Actualiza el texto de la “opción” visible como un select
+  const updateSummary = () => {
+    const checks = menu.querySelectorAll('input[type="checkbox"]:checked');
+    if (!checks.length) { summary.textContent = 'Selecciona responsables…'; return; }
+    const names = [];
+    checks.forEach(cb => names.push(cb.closest('.owners-option').querySelector('strong')?.textContent.trim() || ''));
+    summary.textContent = (names.length <= 2) ? names.join(', ') : `${names[0]}, ${names[1]} +${names.length-2} más`;
+  };
+
+  // Abrir/cerrar como un select normal
+  head.addEventListener('click', () => menu.classList.contains('open') ? close() : open());
+  document.addEventListener('click', e => { if (!combo.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // Clic en fila: alterna el checkbox (sin CTRL)
+  menu.addEventListener('click', (e) => {
+    const row = e.target.closest('.owners-option'); if (!row) return;
+    const cb  = row.querySelector('input[type="checkbox"]');
+    if (e.target !== cb) cb.checked = !cb.checked;
+    updateSummary();
+  });
+
+  // Inicializa el resumen (p.ej. si ya viene tildado el usuario actual)
+  updateSummary();
+})();

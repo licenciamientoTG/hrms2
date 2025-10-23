@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from apps.employee.models import Employee
+from .models import ObjectiveCycle
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
@@ -47,24 +49,78 @@ def user_objective(request):
     return render(request, "objectives/user/objectives_dashboard_user.html", ctx)
 
 
+def _team_candidates_for(user):
+    """
+    Devuelve empleados activos del mismo team del usuario.
+    Si el usuario no tiene registro/ team, devuelve solo él mismo (si está activo).
+    """
+    me = Employee.objects.filter(user=user, is_active=True).first()
+    if not me or not me.team:
+        return Employee.objects.filter(user=user, is_active=True).select_related('user')
+
+    return (Employee.objects
+            .filter(is_active=True, team=me.team)
+            .select_related('user')
+            .order_by('first_name', 'last_name'))
+
 @login_required
 def create_objective(request):
-    today = timezone.localdate()  
-    cycles = ObjectiveCycle.objects.filter(
-        Q(end_date__isnull=True) | Q(end_date__gte=today)
-    ).order_by('end_date', 'name')
+    # --- ciclos vigentes ---
+    today = timezone.localdate()
+    cycles = (ObjectiveCycle.objects
+              .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+              .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+              .order_by('end_date', 'name'))
 
-    cycles = cycles.filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+    # --- candidatos (mismo team + activos) ---
+    candidates = list(_team_candidates_for(request.user))
+    allowed_user_ids = {e.user_id for e in candidates}
 
     if request.method == "POST":
         title = (request.POST.get("title") or "").strip()
+
+        # Si usas <select multiple name="owners">:
+        # owners_ids = [int(x) for x in request.POST.getlist("owners") if str(x).isdigit()]
+
+        # Si sigues usando los chips con <input hidden name="owners" value="1,2,3">,
+        # cambia la línea anterior por:
+        owners_ids = [int(x) for x in (request.POST.get("owners") or "").split(',') if x.isdigit()]
+
+        # Validaciones
+        has_errors = False
         if not title:
             messages.error(request, "Indica un título para el objetivo.")
-        else:
+            has_errors = True
+
+        if not owners_ids:
+            # si no mandan responsables, nos aseguramos que al menos se asigne a sí mismo
+            me_id = request.user.id
+            if me_id in allowed_user_ids:
+                owners_ids = [me_id]
+            else:
+                messages.error(request, "No hay responsables válidos para tu equipo.")
+                has_errors = True
+
+        # Seguridad: solo IDs dentro de los candidatos del team
+        if not set(owners_ids).issubset(allowed_user_ids):
+            messages.error(request, "Sólo puedes elegir responsables activos de tu mismo equipo.")
+            has_errors = True
+
+        if not has_errors:
+            # TODO: Guarda el objetivo y relaciona owners_ids
+            # Objective.objects.create(...); m2m a usuarios owners_ids
             return redirect("objective_view")
 
+        # Con errores, re-render con lo que ya tenían
+        return render(request, "objectives/user/create_objective.html", {
+            "cycles": cycles,
+            "candidates": candidates,
+        })
+
+    # GET
     return render(request, "objectives/user/create_objective.html", {
-        "cycles": cycles
+        "cycles": cycles,
+        "candidates": candidates,
     })
 
 # --- ADMIN: formulario de creación de ciclo (solo plantilla)

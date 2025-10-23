@@ -225,3 +225,47 @@
 .btn-check:checked + .crit-option:hover{
   filter:brightness(.95);         /* pequeña variación al hover */
 }
+
+/* Contenedor tipo select */
+.owners-selectlike{ 
+  position:relative; 
+}
+
+/* Cabeza: usamos exactamente el estilo de <select class="form-select"> */
+.owners-head{ 
+  display:block; 
+  width:100%; 
+}
+
+/* Menú desplegable como el de un select */
+.owners-menu{
+  position:absolute; 
+  top:100%; 
+  left:0; 
+  right:0; 
+  z-index:1050;
+  display:none; 
+  background:#fff;
+  border:1px solid var(--bs-border-color,#dee2e6);
+  border-radius:.5rem; 
+  box-shadow:0 8px 24px rgba(0,0,0,.08);
+  max-height:320px; 
+  overflow:auto;
+}
+
+.owners-menu.open{ 
+  display:block; 
+}
+
+.owners-option{ 
+  cursor:pointer; 
+  border-bottom:1px solid #f1f3f5; 
+}
+
+.owners-option:last-child{ 
+  border-bottom:0;
+}
+
+.owners-option:hover{ 
+  background:#f8f9fa; 
+}
