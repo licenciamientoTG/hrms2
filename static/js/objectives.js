@@ -228,7 +228,7 @@ document.addEventListener('click', (e) => {
 
   fetch(form.action, {
     method: 'POST',
-    credentials: 'same-origin',                      // 👈 asegura que viajen cookies/sesión
+    credentials: 'same-origin',
     headers: {
       'X-CSRFToken': csrf,
       'X-Requested-With': 'XMLHttpRequest',
