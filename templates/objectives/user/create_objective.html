@@ -95,14 +95,14 @@
               </div>
               <input type="hidden" name="owners" value="{{ request.user.id }}">
             {% else %}
-              <label class="form-label">Responsables</label>
+              <label class="form-label">Responsable</label>
 
               <!-- “Select” múltiple con aspecto de form-select -->
               <div class="owners-selectlike" id="ownersCombo">
                 <!-- Cabecera con estilo de select -->
                 <button type="button" class="form-select text-start owners-head" id="ownersHead"
                         aria-haspopup="listbox" aria-expanded="false">
-                  <span id="ownersSummary">Selecciona responsables…</span>
+                  <span id="ownersSummary">Selecciona responsable…</span>
                 </button>
 
                 <!-- Menú desplegable -->
@@ -112,7 +112,7 @@
                       <span class="me-3 text-truncate">
                         <strong>{{ e.first_name }} {{ e.last_name }}</strong>
                       </span>
-                      <input class="form-check-input" type="checkbox" name="owners"
+                      <input class="form-check-input" type="radio" name="owners"
                             value="{{ e.user_id }}" {% if e.user_id == request.user.id %}checked{% endif %}>
                     </label>
                   {% endfor %}

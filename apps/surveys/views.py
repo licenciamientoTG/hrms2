@@ -422,6 +422,7 @@ class SurveyImportView(View):
         if request.headers.get('x-requested-with') != 'XMLHttpRequest':
             return HttpResponseBadRequest("AJAX only")
 
+        # --- payload ---
         try:
             payload = json.loads(request.body or '{}')
         except json.JSONDecodeError:
@@ -432,22 +433,74 @@ class SurveyImportView(View):
         settings = payload.get('settings') or {}
         audience = payload.get('audience') or {}
 
+        # helper: intención de activación desde settings o builder
+        wants_active = settings.get('is_active')
+        if wants_active is None:
+            wants_active = settings.get('active')
+        if wants_active is None:
+            wants_active = builder.get('active')   # 👈 soporta builder.active
+
         if survey_id is None:
-            # Crear
+            # ===== Crear =====
             survey = Survey.objects.create(title=title, creator=request.user)
-        else:
-            # Actualizar
-            survey = get_object_or_404(Survey, pk=survey_id)
-            if title:
+
+            # Aplica estado activo si vino en el payload
+            if wants_active is not None and bool(wants_active) != survey.is_active:
+                survey.is_active = bool(wants_active)
+                survey.save(update_fields=['is_active'])
+
+            # Guardar resto normalmente
+            persist_builder_state(survey, builder)
+            persist_settings(survey, settings)
+            persist_audience(survey, audience)
+
+            if survey.is_active:
+                send_survey_notifications(survey)
+
+            return JsonResponse({'ok': True, 'id': survey.id})
+
+        # ===== Actualizar =====
+        survey = get_object_or_404(Survey, pk=survey_id)
+        has_responses = getattr(survey, 'responses').exists()  # ajusta si tu related se llama distinto
+
+        if has_responses:
+            # 🔒 Con respuestas: solo permitir toggle de activo y/o cambio de título.
+            did_change = False
+
+            if wants_active is not None and bool(wants_active) != survey.is_active:
+                survey.is_active = bool(wants_active)
+                survey.save(update_fields=['is_active'])
+                did_change = True
+
+                # si se reactivó, puedes notificar (opcional)
+                if survey.is_active:
+                    send_survey_notifications(survey)
+
+            if title and title != survey.title:
                 survey.title = title
                 survey.save(update_fields=['title'])
+                did_change = True
 
-        # Guardar todo
+            if did_change:
+                return JsonResponse({'ok': True, 'id': survey.id, 'note': 'toggled_or_title'})
+
+            # cualquier otro cambio de builder/audiencia/settings se bloquea
+            return JsonResponse({'ok': False, 'error': 'locked'}, status=409)
+
+        # ✅ Sin respuestas: se permite todo
+        if title and title != survey.title:
+            survey.title = title
+            survey.save(update_fields=['title'])
+
+        # Aplica activo si vino explícito
+        if wants_active is not None and bool(wants_active) != survey.is_active:
+            survey.is_active = bool(wants_active)
+            survey.save(update_fields=['is_active'])
+
         persist_builder_state(survey, builder)
         persist_settings(survey, settings)
         persist_audience(survey, audience)
 
-        # Si la encuesta quedó activa, mandar notificaciones a la audiencia
         if survey.is_active:
             send_survey_notifications(survey)
 

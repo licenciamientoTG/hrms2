@@ -268,8 +268,8 @@ document.addEventListener('click', (e) => {
 
   // Actualiza el texto de la “opción” visible como un select
   const updateSummary = () => {
-    const checks = menu.querySelectorAll('input[type="checkbox"]:checked');
-    if (!checks.length) { summary.textContent = 'Selecciona responsables…'; return; }
+    const checks = menu.querySelectorAll('input[type="radio"]:checked');
+    if (!checks.length) { summary.textContent = 'Selecciona responsable…'; return; }
     const names = [];
     checks.forEach(cb => names.push(cb.closest('.owners-option').querySelector('strong')?.textContent.trim() || ''));
     summary.textContent = (names.length <= 2) ? names.join(', ') : `${names[0]}, ${names[1]} +${names.length-2} más`;
@@ -280,10 +280,10 @@ document.addEventListener('click', (e) => {
   document.addEventListener('click', e => { if (!combo.contains(e.target)) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 
-  // Clic en fila: alterna el checkbox (sin CTRL)
+  // Clic en fila: alterna el radio (sin CTRL)
   menu.addEventListener('click', (e) => {
     const row = e.target.closest('.owners-option'); if (!row) return;
-    const cb  = row.querySelector('input[type="checkbox"]');
+    const cb  = row.querySelector('input[type="radio"]');
     if (e.target !== cb) cb.checked = !cb.checked;
     updateSummary();
   });

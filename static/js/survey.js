@@ -1616,10 +1616,26 @@ function blockSurveyAutosaveWrites() {
       body: JSON.stringify(payload)
     });
 
+    // ✅ si backend bloquea por respuestas, esperamos 409
+    if (resp.status === 409) {
+      const err = new Error('locked');
+      err.code = 'locked';
+      throw err;
+    }
+
     const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.ok) throw new Error('Error al guardar');
+
+    if (!resp.ok || data.ok === false) {
+      // también soporta backend que mande { ok:false, error:'locked' }
+      const err = new Error(data.error || 'save_error');
+      err.code = data.error || 'save_error';
+      throw err;
+    }
+
+    // backend debe responder { ok:true, id: ... }
     return String(data.id);
   }
+
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1631,15 +1647,21 @@ function blockSurveyAutosaveWrites() {
       window.__SURVEY_NAVIGATING__ = 'publish';
       blockSurveyAutosaveWrites();
 
-      // limpia "new" y también el id real devuelto por el backend
       clearAllSurveyKeys('new');
       clearAllSurveyKeys(newId);
 
       const backUrl = form.dataset.dashboardUrl || '/surveys/admin/';
       location.replace(backUrl);
     } catch (err) {
-      console.error(err);
-      alert('Error al guardar');
+      if ((err && err.code) === 'locked') {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Esta encuesta ya tiene respuestas. No se pueden aplicar cambios de estructura. Solo puedes desactivarla.",
+        });
+      } else {
+        alert('Error al guardar');
+      }
     } finally {
       btn?.removeAttribute('disabled');
     }
