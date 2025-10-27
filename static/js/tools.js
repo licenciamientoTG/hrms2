@@ -248,7 +248,7 @@ function renderDesglose() {
       </table>
     </div>
     <p class="text-muted small mb-0">
-      La información que se muestra queda sujeta a revisión y aprobación.
+      La información que se muestra queda sujeta a revisión.    
     </p>
   `;
 }
