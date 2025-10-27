@@ -1429,33 +1429,37 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
         .order_by('-submitted_at')
     )
 
+    # === Mapear user_id -> departamento ===
+    user_ids = list({r.user_id for r in responses})
+    emp_by_user = {
+        e.user_id: (e.department.name if e.department else "")
+        for e in Employee.objects.select_related('department').filter(
+            user_id__in=user_ids, is_active=True
+        )
+    }
+
     # Prepara valores visuales por respuesta
     for r in responses:
+        r.department_name = emp_by_user.get(r.user_id, "")  # "" si no tiene
         by_q = {}
         for a in r.answers.all():
             disp = "-"
             qtype = (a.q_type or "").lower()
-
             snap = a.snapshot or {}
-            opts = snap.get("options") or []  # lista de labels en el momento
+            opts = snap.get("options") or []
             sel_labels = snap.get("selected_labels")
 
             if qtype in {"single", "assessment", "frecuency", "frequency"}:
-                # única / escalas
                 if sel_labels:
                     disp = ", ".join(sel_labels)
                 elif a.value_choice is not None:
                     idx = a.value_choice
-                    if 0 <= idx < len(opts):
-                        disp = str(opts[idx])
-                    else:
-                        disp = str(idx)
+                    disp = str(opts[idx]) if 0 <= idx < len(opts) else str(idx)
 
             elif qtype == "multiple":
                 if sel_labels:
                     disp = ", ".join(sel_labels)
                 elif a.value_multi:
-                    # mapear índices a labels cuando se pueda
                     lbls = []
                     for i in (a.value_multi or []):
                         if isinstance(i, int) and 0 <= i < len(opts):
@@ -1465,7 +1469,6 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
                     disp = ", ".join(lbls) if lbls else "-"
 
             elif qtype == "rating":
-                # calificación 1..5 guardada en value_int
                 disp = str(a.value_int) if a.value_int is not None else "-"
 
             elif qtype == "text":
@@ -1477,7 +1480,6 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
             elif qtype == "decimal":
                 disp = f"{a.value_decimal}" if a.value_decimal is not None else "-"
 
-            # guarda para el template
             a.display = disp
             by_q[a.question_id] = a
 
@@ -1487,6 +1489,7 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
         'survey': survey,
         'questions': questions,
         'responses': responses,
+
     })
 
 

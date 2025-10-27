@@ -12,6 +12,7 @@
     <table class="table table-bordered table-sm align-middle">
       <thead>
         <tr>
+          <th>Departamento</th>
           <th>Usuario</th>
           {% for q in questions %}
             <th>{{ forloop.counter }}. {{ q.title }}</th>
@@ -21,29 +22,45 @@
       </thead>
       <tbody>
         {% for resp in responses %}
-        <tr>
+          <tr>
+            {# ---- Departamento ---- #}
             <td>
-            {% if survey.is_anonymous %}
+              {% if survey.is_anonymous %}
                 -
-            {% else %}
-                {{ resp.user.get_full_name|default:resp.user.username }}
-            {% endif %}
+              {% else %}
+                {{ resp.department_name|default:"-" }}
+              {% endif %}
             </td>
 
-            {% for answer in resp.cells %}
+
+            {# ---- Usuario ---- #}
             <td>
-                {% if answer %}
-                {{ answer.display }}
-                {% else %}
+              {% if survey.is_anonymous %}
                 -
-                {% endif %}
+              {% else %}
+                {{ resp.user.get_full_name|default:resp.user.username }}
+              {% endif %}
             </td>
+
+            {# ---- Respuestas ---- #}
+            {% for answer in resp.cells %}
+              <td>
+                {% if answer %}
+                  {{ answer.display }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
             {% endfor %}
 
-          <td>{{ resp.submitted_at|date:"d/m/Y H:i" }}</td>
-        </tr>
+            {# ---- Fecha ---- #}
+            <td>{{ resp.submitted_at|date:"d/m/Y H:i" }}</td>
+          </tr>
         {% empty %}
-          <tr><td colspan="{{ questions|length|add:2 }}">No hay respuestas aún.</td></tr>
+          {# 3 columnas fijas: Departamento, Usuario, Fecha → questions|length + 3 #}
+          <tr>
+            <td colspan="{{ questions|length|add:3 }}">No hay respuestas aún.</td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
