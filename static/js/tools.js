@@ -199,7 +199,7 @@ function renderDesglose() {
   const rows = [];
 
   // Fechas por semana (primera = semana actual: lun-dom)
-  const week0Start = startOfThisWeek();
+  const week0Start = addDays(startOfThisWeek(), 7);
 
   for (let i = 0; i < weeks; i++) {
     const pagoCents = baseCents + (leftover > 0 ? 1 : 0);
@@ -211,7 +211,7 @@ function renderDesglose() {
     const saldo = Math.max(saldoCents / 100, 0);
 
     const start = addDays(week0Start, i * 7);
-    const end   = addDays(start, 6);
+    const end   = addDays(start, 4);
 
     rows.push(`
       <tr>
