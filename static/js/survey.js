@@ -460,51 +460,44 @@ function buildStateFromServerDOM(){
     }
   }
 
-  function cancelSecTitleEdit(sectionId){
-    const col   = strip.querySelector(`.section-col[data-section-id="${sectionId}"]`);
-    if (!col) return;
-    const view  = col.querySelector('[data-section-title-view]');
-    const input = col.querySelector('[data-section-title-edit]');
-    if (input){ input.hidden = true; }
-    if (view){  view.hidden  = false; }
-  }
+  // 1) Clic (mousedown) en el título -> editar al instante
+  document.addEventListener('mousedown', (e) => {
+    // solo botón izquierdo / tap
+    if (e.button !== 0) return;
 
-  // === Eventos delegados ===
-
-  // 1) Click en “Renombrar” del menú -> abre edición inline
-  document.addEventListener('click', (e) => {
-    const item = e.target.closest('.dropdown-item');
-    if (!item) return;
-
-    if (item.dataset.action === 'sec.rename'){
-      e.preventDefault();
-      return startSecTitleEdit(item.dataset.id);
-    }
-  });
-
-  // 2) Doble click sobre el título -> abre edición inline
-  document.addEventListener('dblclick', (e) => {
     const title = e.target.closest('.sec-title[data-section-title-view]');
     if (!title) return;
+
+    // Evita conflicto si el click viene del menú de puntos
+    if (e.target.closest('.dropdown, .dropdown-menu')) return;
+
+    e.preventDefault(); // evita selección de texto antes de cambiar a input
+
     const col = title.closest('.section-col');
     if (!col) return;
     startSecTitleEdit(col.dataset.sectionId);
   });
 
-  // 3) Enter/Escape en el input
+  // 2) Teclado en el título (Enter o F2) -> editar
   document.addEventListener('keydown', (e) => {
-    const input = e.target.closest('input[data-section-title-edit]');
-    if (!input) return;
-    const sid = input.dataset.section;
-    if (e.key === 'Enter'){
+    const title = e.target.closest('.sec-title[data-section-title-view]');
+    if (!title) return;
+    if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault();
-      commitSecTitleEdit(sid);
-    } else if (e.key === 'Escape'){
-      e.preventDefault();
-      cancelSecTitleEdit(sid);
+      const col = title.closest('.section-col');
+      if (!col) return;
+      startSecTitleEdit(col.dataset.sectionId);
     }
   });
 
+  // 3) Guardar al perder foco del input
+  document.addEventListener('blur', (e) => {
+    const input = e.target.closest('input[data-section-title-edit]');
+    if (!input) return;
+    commitSecTitleEdit(input.dataset.section);
+  }, true);
+
+  
   // 4) Guardar al perder foco
   document.addEventListener('blur', (e) => {
     const input = e.target.closest('input[data-section-title-edit]');

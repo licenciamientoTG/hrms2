@@ -213,7 +213,15 @@
     <div class="section-card">
       <div class="section-head">
         <div class="sec-title-wrap d-flex align-items-center gap-2">
-          <span class="sec-title" data-bind="sec-title" data-section-title-view>Sección</span>
+          <!-- Vista -->
+          <span class="sec-title"
+                data-bind="sec-title"
+                data-section-title-view
+                tabindex="0"
+                title="Haz clic o presiona Enter/F2 para renombrar">
+            Sección
+          </span>
+          <!-- Edición -->
           <input type="text"
                  class="form-control form-control-sm sec-title-input"
                  data-section-title-edit
@@ -221,12 +229,18 @@
                  hidden
                  aria-label="Nombre de la sección">
         </div>
+
         <div class="dropdown">
-          <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
+          <button class="btn btn-outline-secondary btn-sm"
+                  data-bs-toggle="dropdown" data-bs-display="static">⋮</button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><button class="dropdown-item" data-action="sec.rename" data-id="">Renombrar</button></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item text-danger" data-action="sec.delete" data-id="">Eliminar</button></li>
+            <!-- Sin “Renombrar” -->
+            <li>
+              <button class="dropdown-item text-danger"
+                      data-action="sec.delete" data-id="">
+                Eliminar
+              </button>
+            </li>
           </ul>
         </div>
       </div>
@@ -242,17 +256,19 @@
           <span data-bind="sec-after-label">Después de la sección</span>
           <div class="dropdown">
             <button class="btn btn-light btn-sm dropdown-toggle"
-                    type="button"
-                    data-section-jump
-                    data-section=""
-                    data-bs-toggle="dropdown">Ir a la siguiente sección</button>
-            <ul class="dropdown-menu dropdown-menu-end" data-jump-menu data-section=""></ul>
+                    type="button" data-section-jump data-section=""
+                    data-bs-toggle="dropdown">
+              Ir a la siguiente sección
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end"
+                data-jump-menu data-section=""></ul>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 
 <template id="tpl-question">
   <div class="q-card" data-question-id="" data-type="" data-required="">
