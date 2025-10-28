@@ -7,13 +7,17 @@
 
 {% block content %}
 <div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex align-items-center mb-4">
     <h2 class="mb-0">Solicitudes de constancias</h2>
-      <button type="button" class="btn btn-primary w-auto" data-bs-toggle="modal" data-bs-target="#modalCarta">
+    <div class="ms-auto d-flex gap-2">
+      <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPlantillas">
+        Plantilla de constancias
+      </button>
+      <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCarta">
         Carta de recomendación
       </button>
+    </div>
   </div>
-
 
 <!-- Filtros -->
 <div class="card p-3">
@@ -214,6 +218,114 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Editor rápido con vista previa en vivo -->
+<div class="modal fade" id="modalPlantillas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar / Imprimir constancia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- ✅ GET + target=iframe: no hace falta CSRF -->
+      <form id="formPlantillas"
+            class="modal-body"
+            method="get"
+            action="{% url 'constancia_preview' %}"
+            target="plantillaPreview">
+
+        <div class="row g-3">
+          <div class="col-lg-5">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" name="tipo">
+                  <option value="laboral" selected>Constancia laboral</option>
+                  <option value="especial">Constancia especial</option>
+                </select>
+              </div>
+
+              <div class="col-4">
+                <label class="form-label">Número de empleado</label>
+                <input class="form-control" name="numero" placeholder="00000">
+              </div>
+              <div class="col-8">
+                <label class="form-label">Nombre completo</label>
+                <input class="form-control" name="nombre" placeholder="Nombre del empleado">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Empresa</label>
+                <input class="form-control" name="empresa" placeholder="(EMPRESA)">
+              </div>
+
+
+              <div class="col-6">
+                <label class="form-label">Departamento</label>
+                <input class="form-control" name="departamento" placeholder="(DEPARTAMENTO)">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Equipo</label>
+                <input class="form-control" name="equipo" placeholder="(EQUIPO)">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Puesto</label>
+                <input class="form-control" name="puesto" placeholder="(PUESTO)">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Fecha de inicio (antigüedad)</label>
+                <input class="form-control" name="antiguedad" placeholder="(FECHA DE INICIO)">
+              </div>
+
+              <div class="col-4">
+                <label class="form-label">NSS</label>
+                <input class="form-control" name="nss" placeholder="(NSS)">
+              </div>
+              <div class="col-4">
+                <label class="form-label">CURP</label>
+                <input class="form-control" name="curp" placeholder="(CURP)">
+              </div>
+              <div class="col-4">
+                <label class="form-label">RFC</label>
+                <input class="form-control" name="rfc" placeholder="(RFC)">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Sueldo</label>
+                <input class="form-control" name="sueldo" placeholder="(SUELDO)">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Fecha (opcional)</label>
+                <input class="form-control" name="fecha_hoy" placeholder="dd/mm/aaaa">
+              </div>
+              <div class="col-12">
+                <div class="form-text">
+                  La vista previa se actualiza sola. “Imprimir” abre el PDF en una pestaña nueva.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista previa a la derecha -->
+          <div class="col-lg-7">
+            <div class="ratio ratio-4x3 border rounded">
+              <iframe id="plantillaPreview"
+              name="plantillaPreview" 
+              title="Vista previa constancia"
+              style="width:100%; height:100%; border:0;"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" id="btnImprimirConstancia" class="btn btn-primary">Visualizar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -365,5 +477,28 @@ document.getElementById('btn-rechazar')?.addEventListener('click', async (ev) =>
     alert('No se pudo rechazar la solicitud.');
   }
 });
+
+(function(){
+  const modal  = document.getElementById('modalPlantillas');
+  const form   = document.getElementById('formPlantillas');
+  const iframe = document.getElementById('plantillaPreview');
+  if(!modal || !form || !iframe) return;
+
+  const debounce = (fn, ms=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); } };
+  const refresh  = () => form.requestSubmit ? form.requestSubmit() : form.submit();
+
+  // Cargar al abrir
+  modal.addEventListener('shown.bs.modal', refresh);
+
+  // Auto-actualizar la vista previa al escribir / cambiar
+  form.addEventListener('input',  debounce(refresh, 300));
+  form.addEventListener('change', debounce(refresh, 300));
+
+  // Imprimir = abrir la misma URL en otra pestaña
+  document.getElementById('btnImprimirConstancia')?.addEventListener('click', () => {
+    const qs = new URLSearchParams(new FormData(form)).toString();
+    window.open(form.action + '?' + qs, '_blank');
+  });
+})();
 </script>
 {% endblock %}

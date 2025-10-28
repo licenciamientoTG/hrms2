@@ -314,3 +314,140 @@ document.getElementById('btn-rechazar')?.addEventListener('click', async (ev) =>
     alert('No se pudo rechazar la solicitud.');
   }
 });
+
+// --- Forzar solo "Constancia especial" en el modal de plantillas ---
+(function () {
+  const modal  = document.getElementById('modalPlantillas');
+  const form   = document.getElementById('formPlantillas');
+  if (!modal || !form) return;
+
+  const selTipo = form.querySelector('select[name="tipo"]');
+  if (!selTipo) return;
+
+  // 1) Deja únicamente la opción "especial"
+  Array.from(selTipo.options).forEach(opt => {
+    if (opt.value !== 'especial') opt.remove();
+  });
+
+  // 2) Asegura el valor, deshabilita y oculta el control
+  selTipo.value = 'especial';
+  selTipo.setAttribute('disabled', 'disabled');
+  // si prefieres ocultarlo del todo:
+  selTipo.closest('.col-12')?.classList.add('d-none');
+
+  // 3) Dispara una recarga de la vista previa si ya estaba abierto
+  const iframe = document.getElementById('plantillaPreview');
+  const refresh = () => {
+    const url = new URL(form.action, window.location.origin);
+    const fd  = new FormData(form);
+    // aunque esté deshabilitado, garantizamos tipo=especial
+    url.searchParams.set('tipo', 'especial');
+    for (const [k, v] of fd.entries()) {
+      if (k === 'tipo') continue; // ya lo pusimos arriba
+      const val = (v || '').toString().trim();
+      if (val) url.searchParams.set(k, val);
+    }
+    if (iframe) iframe.src = url.toString();
+  };
+
+  // Recarga al abrir el modal (por si el control cambió)
+  modal.addEventListener('shown.bs.modal', refresh);
+
+  // Por si tuvieras lógica previa que lea 'tipo', fuerza también en submit del form
+  form.addEventListener('submit', (e) => {
+    // asegúrate de que en la query vaya tipo=especial
+    const hidden = form.querySelector('input[name="tipo_hidden_especial"]') || document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'tipo';
+    hidden.value = 'especial';
+    hidden.setAttribute('data-injected', '1');
+    if (!hidden.parentNode) form.appendChild(hidden);
+  });
+})();
+
+// --- Autorelleno por número de empleado en el modal de constancias ---
+(function () {
+  const modal  = document.getElementById('modalPlantillas');
+  const form   = document.getElementById('formPlantillas');
+  const iframe = document.getElementById('plantillaPreview');
+  if (!modal || !form || !iframe) return;
+
+  // helper debounce
+  const debounce = (fn, ms=300)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+  // refresca el PDF del iframe con los valores actuales del form
+  const refreshPreview = () => {
+    const url = new URL(form.action, window.location.origin);
+    const fd  = new FormData(form);
+    // garantizamos tipo=especial si lo estás forzando
+    url.searchParams.set('tipo', 'especial');
+    for (const [k, v] of fd.entries()) {
+      if (k === 'tipo') continue;
+      const val = (v || '').toString().trim();
+      if (val) url.searchParams.set(k, val);
+    }
+    iframe.src = url.toString();
+  };
+
+  // setea un campo del form si viene en la respuesta
+  const setIfPresent = (name, value) => {
+    const el = form.querySelector(`[name="${name}"]`);
+    if (!el) return;
+    el.value = (value || '').toString();
+  };
+
+  const fetchAndFill = async (num) => {
+    if (!num) return;
+
+    try {
+      const r = await fetch(`/forms_requests/api/empleado-datos/?num=${encodeURIComponent(num)}`, {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await r.json();
+
+      if (!data?.ok || !data?.exists) {
+        // Si no existe, no tocamos lo que haya escrito el usuario
+        return;
+      }
+
+      // Campos del form que vamos a llenar desde la BD
+      setIfPresent('numero', data.numero);
+      setIfPresent('nombre', data.nombre);
+      setIfPresent('empresa', data.empresa);
+      setIfPresent('departamento', data.departamento);
+      setIfPresent('equipo', data.equipo);
+      setIfPresent('puesto', data.puesto);
+      setIfPresent('antiguedad', data.antiguedad);
+      setIfPresent('nss', data.nss);
+      setIfPresent('curp', data.curp);
+      setIfPresent('rfc', data.rfc);
+      setIfPresent('sueldo', data.sueldo);
+
+      // Actualiza la vista previa con los nuevos valores
+      refreshPreview();
+    } catch (e) {
+      console.error('Error consultando empleado-datos:', e);
+    }
+  };
+
+  // Cuando se escribe/cambia el número, buscamos y rellenamos
+  const inputNumero = form.querySelector('input[name="numero"]');
+  if (!inputNumero) return;
+
+  const onNumeroChange = debounce(() => {
+    const num = (inputNumero.value || '').trim();
+    if (/^\d+$/.test(num)) {
+      fetchAndFill(num);
+    }
+  }, 350);
+
+  inputNumero.addEventListener('input', onNumeroChange);
+  inputNumero.addEventListener('change', onNumeroChange);
+
+  // Si el modal se abre con un número ya presente, intenta rellenar
+  modal.addEventListener('shown.bs.modal', () => {
+    const num = (inputNumero.value || '').trim();
+    if (/^\d+$/.test(num)) fetchAndFill(num); else refreshPreview();
+  });
+})();

@@ -29,6 +29,7 @@ from django.contrib.contenttypes.models import ContentType
 from itertools import islice
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
+from django.views.decorators.http import require_GET
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -278,8 +279,16 @@ def generar_carta_recomendacion(request):
     puesto = employee.job_position.title if employee.job_position else "(PUESTO)"
     departamento = employee.department.name if employee.department else "(DEPARTAMENTO)"
     antiguedad = employee.seniority_raw or "(FECHA DE INICIO)"
-    fecha_termino = (employee.termination_date.strftime("%d/%m/%Y") if employee.termination_date else "(FECHA DE TERMINO)")
 
+    # ---- Lógica para fecha de término / empleado activo ----
+    term = employee.termination_date
+    if isinstance(term, datetime):
+        term = term.date()
+
+    SENTINELAS_SIN_TERMINO = {date(1900, 1, 1)}  # agrega otros si tu base los usa
+    es_activo = (term is None) or (term in SENTINELAS_SIN_TERMINO)
+
+    fecha_termino = "(Empleado activo)" if es_activo else term.strftime("%d/%m/%Y")
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
     # Verifica que exista la plantilla
@@ -304,11 +313,17 @@ def generar_carta_recomendacion(request):
         alignment=4,  # justify
     )
 
+    # Frase distinta si es activo
+    if es_activo:
+        frase_termino = "y continúa laborando."
+    else:
+        frase_termino = f"y concluyó el <b>{fecha_termino}</b>."
+
     texto = (
         f"<b>A quien corresponda:</b><br/><br/>"
         f"Por medio de la presente, hacemos constar que <b>{nombre}</b> laboró en <b>{empresa}</b> "
         f"en el puesto de <b>{puesto}</b>, dentro del departamento de <b>{departamento}</b>. "
-        f"Inició labores el <b>{antiguedad}</b> y concluyó el <b>{fecha_termino}</b>."
+        f"Inició labores el <b>{antiguedad}</b> {frase_termino}"
         f"<br/><br/>"
         f"Extendemos la presente carta a solicitud del interesado, para los fines que considere convenientes."
     )
@@ -611,3 +626,133 @@ def rechazar_guarderia(request, pk: int):
         pass
 
     return JsonResponse({"ok": True})
+    
+@xframe_options_exempt
+@user_passes_test(lambda u: u.is_staff or u.is_superuser)
+@login_required
+def constancia_preview(request):
+    employee = (Employee.objects
+                .filter(user=request.user)
+                .select_related("department","job_position")
+                .first())
+
+    def val(key, default):
+        v = (request.POST.get(key) or request.GET.get(key) or "").strip()
+        return v if v else default
+
+    nombre       = val("nombre", request.user.get_full_name() or "(NOMBRE)")
+    empresa      = val("empresa", (getattr(employee, "company", None) or "(EMPRESA)"))
+    departamento = val("departamento", (
+        getattr(getattr(employee, "department", None), "name", None) or "(DEPARTAMENTO)"
+    ))
+    sueldo       = val("sueldo", "(SUELDO)")
+    equipo       = val("equipo", (getattr(employee, "team", None) or "(EQUIPO)"))
+    nss          = val("nss", (getattr(employee, "imss", None) or "(NSS)"))
+    curp         = val("curp", (getattr(employee, "curp", None) or "(CURP)"))
+    rfc          = val("rfc", (getattr(employee, "rfc", None) or "(RFC)"))
+    antiguedad   = val("antiguedad", (getattr(employee, "seniority_raw", None) or "(FECHA DE INICIO)"))
+    puesto       = val("puesto", (
+        getattr(getattr(employee, "job_position", None), "title", None) or "(PUESTO)"
+    ))
+    fecha_hoy    = val("fecha_hoy", date.today().strftime("%d/%m/%Y"))
+    tipo = (val("tipo", "especial") or "especial").lower()
+    if tipo != "especial":
+        tipo = "especial"
+
+    base_name = "Constancia_especial.pdf"
+    # ... (resto igual)
+
+    template_path = os.path.join(settings.BASE_DIR, "static", "template", "img", "constancias", base_name)
+
+    base_pdf = PdfReader(template_path)
+    base_page = base_pdf.pages[0]
+    PAGE_W = float(base_page.mediabox.width)
+    PAGE_H = float(base_page.mediabox.height)
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(PAGE_W, PAGE_H))
+
+    styles = getSampleStyleSheet()
+    style = ParagraphStyle(name="Justificado", parent=styles["Normal"], fontName="Helvetica", fontSize=13, leading=18, alignment=4)
+
+    texto = (
+        f"<b>A quien corresponda:</b><br/><br/>"
+        f"La empresa <b>{empresa}</b> hace de su conocimiento que el C. <b>{nombre}</b> "
+        f"labora en esta empresa desde el <b>{antiguedad}</b>, desempeñando el puesto de <b>{puesto}</b> "
+        f"en el departamento <b>{departamento}</b> y equipo <b>{equipo}</b>.<br/><br/>"
+        f"NSS: <b>{nss}</b><br/>CURP: <b>{curp}</b><br/>RFC: <b>{rfc}</b><br/>Sueldo: <b>{sueldo}</b><br/><br/>"
+        
+        f"Se extiende la presente a petición del interesado, para los fines que él juzgue conveniente."
+    )
+    Frame(70, 230, 480, 300, showBoundary=0).addFromList([Paragraph(texto, style)], c)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(440, 658, fecha_hoy)
+
+    sello_path = os.path.join(settings.BASE_DIR, "static", "template", "img", "constancias", "SelloRFC.png")
+    if os.path.exists(sello_path):
+        sello = ImageReader(sello_path)
+        img_w_px, img_h_px = sello.getSize()
+        STAMP_W = 38 * mm
+        scale   = STAMP_W / float(img_w_px)
+        STAMP_H = img_h_px * scale
+        SIGN_X, SIGN_Y = PAGE_W * 0.66, PAGE_H * 0.13
+        OFFSET_X, OFFSET_Y = -12 * mm, 5 * mm
+        STAMP_X, STAMP_Y = SIGN_X + OFFSET_X, SIGN_Y + OFFSET_Y
+        ANGLE = -12
+        c.saveState(); c.translate(STAMP_X, STAMP_Y); c.rotate(ANGLE)
+        c.drawImage(sello, 0, 0, width=STAMP_W, height=STAMP_H, preserveAspectRatio=True, mask="auto")
+        c.restoreState()
+
+    c.save(); buf.seek(0)
+
+    overlay_pdf = PdfReader(buf)
+    writer = PdfWriter()
+    base_page.merge_page(overlay_pdf.pages[0])
+    writer.add_page(base_page)
+
+    out = BytesIO(); writer.write(out); out.seek(0)
+    resp = HttpResponse(out, content_type="application/pdf")
+    resp["Content-Disposition"] = 'inline; filename="constancia_preview.pdf"'
+    return resp
+
+@require_GET
+@user_passes_test(lambda u: u.is_staff or u.is_superuser)  # mismo scope que el modal
+@login_required
+def empleado_datos_por_numero(request):
+    num = (request.GET.get('num') or '').strip()
+    if not num:
+        return JsonResponse({"ok": False, "error": "Falta num"}, status=400)
+
+    qs = Employee._base_manager.select_related("user", "department", "job_position")
+    try:
+        e = qs.get(employee_number=num)
+    except Employee.DoesNotExist:
+        return JsonResponse({"ok": True, "exists": False})
+
+    user_obj = getattr(e, "user", None)
+    nombre = (
+        f"{(e.first_name or '').strip()} {(e.last_name or '').strip()}".strip()
+        or (user_obj.get_full_name() if user_obj and hasattr(user_obj, "get_full_name") else "")
+        or (getattr(user_obj, "username", "") or "")
+        or (e.email or f"Empleado {e.employee_number}")
+    )
+
+    # Si tu modelo tiene otro campo de sueldo, cámbialo aquí:
+    sueldo = getattr(e, "salary", None) or getattr(e, "monthly_salary", None) or ""
+
+    data = {
+        "ok": True,
+        "exists": True,
+        "numero": e.employee_number,
+        "nombre": nombre,
+        "empresa": e.company or "",
+        "departamento": (e.department.name if e.department else ""),
+        "equipo": e.team or "",
+        "puesto": (e.job_position.title if e.job_position else ""),
+        "antiguedad": e.seniority_raw or "",
+        "nss": e.imss or "",
+        "curp": e.curp or "",
+        "rfc": e.rfc or "",
+        "sueldo": sueldo,
+    }
+    return JsonResponse(data)

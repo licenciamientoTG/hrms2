@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import request_form_view, generar_carta_recomendacion 
+from .views import request_form_view, generar_carta_recomendacion, constancia_preview
 from . import views
 
 
@@ -15,5 +15,6 @@ urlpatterns = [
     path('carta-recomendacion/', generar_carta_recomendacion, name='carta_recomendacion'),
     path('api/validar-empleado-numero/', views.validar_empleado_numero, name='validar_empleado_numero'),
     path('guarderia/<int:pk>/rechazar/', views.rechazar_guarderia, name='rechazar_guarderia'),
-
+    path("constancias/preview/", views.constancia_preview, name="constancia_preview"),
+    path('api/empleado-datos/', views.empleado_datos_por_numero, name='empleado_datos_por_numero'),
 ]
