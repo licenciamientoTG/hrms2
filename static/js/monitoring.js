@@ -26,6 +26,14 @@ if (window.bootstrap) {
     window.location.assign(url); // ← pide al servidor los resultados filtrados
   }
 
-  input.addEventListener('input', debounce(go, 1000));
-  input.addEventListener('keydown', e => { if (e.key === 'Escape'){ input.value=''; go(); }});
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { 
+      e.preventDefault();
+      go();
+    }
+    if (e.key === 'Escape') {
+      input.value = '';
+      go();
+    }
+  });
 })();

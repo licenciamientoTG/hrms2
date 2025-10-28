@@ -18,9 +18,21 @@
     window.location.assign(url);
   }
 
-  input.addEventListener('input', debounce(go, 1000));
-  input.form && input.form.addEventListener('submit', (e)=>{ e.preventDefault(); go(); });
-  input.addEventListener('keydown', e => { if (e.key === 'Escape'){ input.value=''; go(); }});
+  // Evita submit tradicional y usa nuestro go()
+  if (input.form) {
+    input.form.addEventListener('submit', (e) => { e.preventDefault(); go(); });
+  }
+
+  // Sólo dispara con Enter; Esc borra y busca vacío
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      go();
+    } else if (e.key === 'Escape') {
+      input.value = '';
+      go();
+    }
+  });
 })();
 
 // --- Activar/Desactivar usuario (delegación restaurada)
