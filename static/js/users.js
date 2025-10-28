@@ -2,7 +2,7 @@
   const input = document.getElementById('users-search');
   if (!input) return;
 
-  const debounce = (fn, ms=350) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+  const debounce = (fn, ms=1000) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
   function go(){
     const url  = new URL(window.location.href);
@@ -18,7 +18,7 @@
     window.location.assign(url);
   }
 
-  input.addEventListener('input', debounce(go, 350));
+  input.addEventListener('input', debounce(go, 1000));
   input.form && input.form.addEventListener('submit', (e)=>{ e.preventDefault(); go(); });
   input.addEventListener('keydown', e => { if (e.key === 'Escape'){ input.value=''; go(); }});
 })();
