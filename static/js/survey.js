@@ -728,6 +728,7 @@ function buildStateFromServerDOM(){
       btn.classList.toggle('active', btn.dataset.type === type);
     });
     toggleOptionsByType(type);
+    renderTypeDemo(type);
   }
   function readActiveType() {
     const active = typeList?.querySelector('.list-group-item.active');
@@ -853,6 +854,7 @@ function buildStateFromServerDOM(){
     typeList.querySelectorAll('.list-group-item').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     toggleOptionsByType(newType);
+    renderTypeDemo(newType);
 
     // Actualiza chip en la tarjeta
     if (CURRENT_QID) {
@@ -1985,3 +1987,71 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 })();
+
+// === Vista previa del tipo de respuesta (demo estática) ===
+function demoHTMLForType(type) {
+  // pequeños helpers visuales
+  const star = '★';
+  const circle = '○';
+
+  const demos = {
+    rating: `
+      <div class="mb-2">Calificación de 1 a 5:</div>
+      <div class="h5 mb-1" aria-hidden="true">${star.repeat(5)}</div>
+      <div class="text-muted">Ejemplo: el usuario selecciona cuántas estrellas asignar.</div>
+    `,
+    assessment: `
+      <div class="mb-2">Evaluación (opción única):</div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Totalmente de acuerdo</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">De acuerdo</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Ni de acuerdo ni en desacuerdo</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">En desacuerdo</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Totalmente en desacuerdo</label></div>
+      <div class="text-muted mt-2">Ejemplo: el usuario marca la evaluación que corresponde.</div>
+    `,
+    frecuency: `
+      <div class="mb-2">Frecuencia (opción única):</div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Siempre</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Casi siempre</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Algunas veces</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Casi nunca</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" disabled>
+        <label class="form-check-label">Nunca</label></div>
+      <div class="text-muted mt-2">Ejemplo: el usuario marca la frecuencia que corresponde.</div>
+    `,
+    text: `
+      <div class="mb-2">Texto libre:</div>
+      <input class="form-control" placeholder="Escribe tu respuesta..." disabled>
+      <div class="text-muted mt-2">Ejemplo: el usuario escribe una respuesta abierta.</div>
+    `,
+    integer: `
+      <div class="mb-2">Número entero:</div>
+      <div class="input-group">
+        <span class="input-group-text" aria-hidden="true">#</span>
+        <input class="form-control" inputmode="numeric" pattern="[0-9]*" placeholder="0" disabled>
+      </div>
+      <div class="text-muted mt-2">Ejemplo: el usuario ingresa un número sin decimales.</div>
+    `,
+    none: `
+      <div class="mb-2">Sin respuesta:</div>
+      <div class="text-muted">No se solicita respuesta para esta pregunta.</div>
+    `
+  };
+
+  return demos[type] || `<div class="text-muted">Selecciona otro tipo de respuesta para ver un ejemplo.</div>`;
+}
+
+function renderTypeDemo(type) {
+  const box = document.getElementById('qeDemo');
+  if (!box) return;
+  box.innerHTML = demoHTMLForType(type);
+}

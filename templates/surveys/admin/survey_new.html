@@ -285,7 +285,7 @@
   </div>
 </template>
 
-<!-- Modal igual que antes... -->
+<!-- Modal -->
 <div class="modal fade" id="qEditor" tabindex="-1" data-bs-backdrop="true" data-bs-focus="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
@@ -296,6 +296,7 @@
 
       <div class="modal-body">
         <div class="row">
+          <!-- IZQUIERDA -->
           <div class="col-lg-8">
             <div class="mb-3">
               <label class="form-label">Descripción</label>
@@ -309,13 +310,21 @@
               <div id="qeOptionsList"></div>
               <button id="qeAddOption" type="button" class="btn btn-outline-primary btn-sm mt-2">Nueva opción</button>
             </div>
+
+            <!-- 👇 Vista previa: justo debajo de “Nueva opción” -->
+            <div id="qeDemoWrap" class="mt-3">
+              <div class="fw-semibold mb-2">Vista previa</div>
+              <div id="qeDemo" class="p-3 border rounded small text-muted">
+                Selecciona un tipo de respuesta para ver un ejemplo.
+              </div>
+            </div>
           </div>
 
+          <!-- DERECHA -->
           <div class="col-lg-4">
             <div class="fw-semibold mb-2">Tipo de respuesta</div>
             <div class="list-group" id="qeTypeList">
               <button type="button" class="list-group-item list-group-item-action" data-type="text">Texto</button>
-              {% comment %} <button type="button" class="list-group-item list-group-item-action" data-type="decimal">Número decimal</button> {% endcomment %}
               <button type="button" class="list-group-item list-group-item-action" data-type="integer">Número entero</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="single">Opciones (selección única)</button>
               <button type="button" class="list-group-item list-group-item-action" data-type="multiple">Opciones (selección múltiple)</button>
@@ -335,8 +344,8 @@
             <label class="form-check-label" for="qeRequired">Obligatoria</label>
           </div>
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="qeBranch" disabled style="display: none;">
-            <label class="form-check-label" for="qeBranch" style="display: none;">Ir a la sección según la respuesta</label>
+            <input class="form-check-input" type="checkbox" id="qeBranch" disabled style="display:none;">
+            <label class="form-check-label" for="qeBranch" style="display:none;">Ir a la sección según la respuesta</label>
           </div>
         </div>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
