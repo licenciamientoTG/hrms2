@@ -30,6 +30,7 @@
     <table class="table table-hover align-middle" id="admin-monitoring-table">
       <thead>
         <tr>
+          <th>Departamento</th>
           <th>Nombre</th>
           <th>Usuario</th>
           <th>Último lugar de acceso</th>
@@ -41,6 +42,7 @@
       <tbody>
         {% for row in rows %}
         <tr>
+          <td>{{ row.department }}</td>
           <td>{{ row.nombre }}</td>
           <td>{{ row.username }}</td>
           <td>{{ row.locations }}</td>

@@ -7,6 +7,7 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django.utils import timezone
 from django.db.models import Q, Value
+from django.core.exceptions import FieldError
 
 from apps.monitoring.models import SessionEvent, UserDailyUse
 from django.conf import settings
@@ -75,16 +76,43 @@ def monitoring_view(request):
         .order_by("-ts").values("ip")[:1]
     )
 
+    RELATION = None
+    base_qs = User.objects.only("id", "username", "first_name", "last_name", "last_login").filter(is_active=True)
+    try:
+        users_qs = base_qs.select_related("employee__department")
+        RELATION = "employee"
+    except FieldError:
+        try:
+            users_qs = base_qs.select_related("user_profile__department")
+            RELATION = "user_profile"
+        except FieldError:
+            users_qs = base_qs 
+
     # ---- Filtro de búsqueda ----
     q = (request.GET.get("q") or "").strip()
-    users_qs = User.objects.only("id", "username", "first_name", "last_name", "last_login").filter(is_active=True)
     if q:
         for term in q.split():
-            users_qs = users_qs.filter(
+            term_filter = (
                 Q(username__icontains=term) |
                 Q(first_name__icontains=term) |
                 Q(last_name__icontains=term)
             )
+            # si sabemos la relación, añadimos el nombre y abreviatura del departamento
+            if RELATION:
+                term_filter |= Q(**{f"{RELATION}__department__name__icontains": term})
+                term_filter |= Q(**{f"{RELATION}__department__abbreviated__icontains": term})
+            else:
+                # Fallback: intenta ambos sin romper si uno no existe
+                try:
+                    term_filter |= Q(**{"employee__department__name__icontains": term}) | Q(**{"employee__department__abbreviated__icontains": term})
+                except FieldError:
+                    pass
+                try:
+                    term_filter |= Q(**{"user_profile__department__name__icontains": term}) | Q(**{"user_profile__department__abbreviated__icontains": term})
+                except FieldError:
+                    pass
+
+            users_qs = users_qs.filter(term_filter)
 
     # ---- Annotate y ORDEN ----
     # is_open = (id en sesiones activas) OR (último evento fue LOGIN y reciente)
@@ -112,11 +140,9 @@ def monitoring_view(request):
     # --- Paginación (sin límite cuando hay búsqueda) ---
     page_size   = int(request.GET.get("page_size", 50))
     page_number = request.GET.get("page", 1)
-
     if q:
-        # Sin paginación cuando hay término de búsqueda:
         page_obj = None
-        users_iter = users_qs  # todos los que hacen match
+        users_iter = users_qs
         user_ids = list(users_qs.values_list("id", flat=True))
     else:
         paginator = Paginator(users_qs, page_size)
@@ -140,9 +166,26 @@ def monitoring_view(request):
     rows = []
     dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 
+    # Helper para obtener el nombre del departamento aunque cambie el nombre de la relación
+    def get_dept_name(u):
+        if RELATION == "employee":
+            return getattr(getattr(u, "employee", None), "department", None).name if getattr(getattr(u, "employee", None), "department", None) else "—"
+        if RELATION == "user_profile":
+            return getattr(getattr(u, "user_profile", None), "department", None).name if getattr(getattr(u, "user_profile", None), "department", None) else "—"
+        # Fallback: intenta ambos por si no pudimos usar select_related
+        emp_dept = getattr(getattr(u, "employee", None), "department", None)
+        if emp_dept and getattr(emp_dept, "name", None):
+            return emp_dept.name
+        up_dept = getattr(getattr(u, "user_profile", None), "department", None)
+        if up_dept and getattr(up_dept, "name", None):
+            return up_dept.name
+        return "—"
+
     for u in users_iter:
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
         username = u.username
+
+        dept_name = get_dept_name(u)
 
         ref_dt = last_activity_map.get(u.id) or u.last_activity
         last_seen_human = humanize_delta(now - ref_dt) if ref_dt else "—"
@@ -155,11 +198,7 @@ def monitoring_view(request):
         elif u.last_country:
             last_place = u.last_country
         elif getattr(u, "last_ip", None):
-            last_place = (
-                f"Red interna ({u.last_ip})"
-                if str(u.last_ip).startswith(("10.", "192.168.", "172."))
-                else str(u.last_ip)
-            )
+            last_place = f"Red interna ({u.last_ip})" if str(u.last_ip).startswith(("10.", "192.168.", "172.")) else str(u.last_ip)
         else:
             last_place = "—"
 
@@ -173,6 +212,7 @@ def monitoring_view(request):
             week_cells.append({"used": used, "label": label})
 
         rows.append({
+            "department": dept_name,           # 👈 ya se llena
             "nombre": nombre,
             "username": username,
             "locations": last_place,
@@ -184,7 +224,7 @@ def monitoring_view(request):
 
     return render(request, "monitoring/monitoring_view.html", {
         "rows": rows,
-        "page_obj": page_obj,   # será None cuando hay q
+        "page_obj": page_obj,
         "q": q,
         "page_size": page_size,
     })
