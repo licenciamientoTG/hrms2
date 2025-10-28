@@ -317,7 +317,6 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-          <button type="button" id="btnImprimirConstancia" class="btn btn-primary">Visualizar</button>
         </div>
       </form>
     </div>
@@ -491,11 +490,6 @@ document.getElementById('btn-rechazar')?.addEventListener('click', async (ev) =>
   form.addEventListener('input',  debounce(refresh, 300));
   form.addEventListener('change', debounce(refresh, 300));
 
-  // Imprimir = abrir la misma URL en otra pestaña
-  document.getElementById('btnImprimirConstancia')?.addEventListener('click', () => {
-    const qs = new URLSearchParams(new FormData(form)).toString();
-    window.open(form.action + '?' + qs, '_blank');
-  });
 })();
 </script>
 {% endblock %}
