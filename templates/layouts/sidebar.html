@@ -51,12 +51,15 @@
                         </a>
                     </li>
                 {% endif %} 
-                {% if user.is_superuser %}
+                {% if user.is_authenticated and user.id == 64 or user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i><span class="align-middle">Cursos</span>
                     </a>
                 </li>
+                {% endif %}
+                
+                {% if user.is_superuser %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
