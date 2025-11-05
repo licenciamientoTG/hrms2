@@ -124,14 +124,14 @@ WSGI_APPLICATION = 'hrms.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'mssql',
-        'NAME': 'hrms',
-        'USER': 'cguser',
-        'PASSWORD': 'sahei1712',
-        'HOST': '192.168.0.6',
-        'PORT': '1433',  # Por defecto SQL Server usa el puerto 1433
+        'ENGINE': os.getenv("DB_ENGINE", "mssql"),
+        'NAME': os.getenv("DB_NAME", "hrms"),
+        'USER': os.getenv("DB_USER", "cguser"),
+        'PASSWORD': os.getenv("DB_PASSWORD", ""),
+        'HOST': os.getenv("DB_HOST", "localhost"),
+        'PORT': os.getenv("DB_PORT", "1433"),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
+            'driver': os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server"),
         },
     },
 }
