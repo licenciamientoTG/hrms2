@@ -12,6 +12,11 @@ HRMS-main/vhrms/include/
 HRMS-main/vhrms/pyvenv.cfg
 /venv/
 /.venv/
+.env
+*.env
+.env.*
+**/.env
+**/*.env
 
 # VS Code settings
 .vscode/
