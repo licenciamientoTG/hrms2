@@ -29,8 +29,9 @@ class News(models.Model):
     ]
     audience = models.CharField(max_length=10, choices=AUDIENCE_CHOICES, default='all')
 
-    publish_at = models.DateTimeField(null=True, blank=True)  
-    published_at = models.DateTimeField(auto_now_add=True)
+    publish_at   = models.DateTimeField(null=True, blank=True)   # cuándo debe publicarse
+    published_at = models.DateTimeField(null=True, blank=True)   # cuándo SE publicó
+    emailed_at   = models.DateTimeField(null=True, blank=True)
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     likes = models.ManyToManyField(User, through='NewsLike', related_name='liked_news', blank=True)
 

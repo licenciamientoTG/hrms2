@@ -16,6 +16,8 @@ from django.utils.timesince import timesince
 from django.db.models import Value, CharField, F
 from django.db.models.functions import Coalesce
 from django.views.decorators.http import require_GET
+from .services import publish_news_if_due
+
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -45,7 +47,6 @@ def admin_news_view(request):
 @login_required
 def user_news_view(request):
     q = (request.GET.get('q') or '').strip()
-    now = timezone.now()
 
     my_like = Exists(
         NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
@@ -54,7 +55,7 @@ def user_news_view(request):
     qs = (News.objects
           .select_related('author')
           .prefetch_related('tags')
-          .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now)))
+          .filter(published_at__isnull=False))  # <-- ya publicada
 
     if q:
         qs = qs.filter(
@@ -69,7 +70,7 @@ def user_news_view(request):
                 my_liked=my_like,
                 comment_count=Count('comments', distinct=True),
             )
-            .order_by('-published_at'))
+            .order_by('-published_at'))  # <-- orden por fecha real de publicación
 
     return render(request, 'news/user/news_view_user.html', {'news': news, 'q': q})
 
@@ -121,8 +122,11 @@ def news_detail_admin(request, pk):
         tag_ids = request.POST.getlist('tags')  # lista de strings
         news.tags.set(tag_ids)
 
-        # Redirigir para evitar re-envío al refrescar
+        # PUBLICAR + ENVIAR si ya toca
+        publish_news_if_due(news)
+
         return redirect('news_detail_admin', pk=news.pk)
+
 
     # GET (o tras redirect): siempre calcula comments y renderiza
     comments = (
@@ -145,8 +149,6 @@ def news_detail_admin(request, pk):
 # esta vista es para que el usuario vea los detalles de la noticia
 @login_required
 def news_detail_user(request, pk):
-    now = timezone.now()
-
     my_like = Exists(
         NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
     )
@@ -157,14 +159,15 @@ def news_detail_user(request, pk):
           .select_related('author')
           .prefetch_related(Prefetch('comments', queryset=comments_qs))
           .annotate(
-              like_count=Count('like_set', distinct=True),     # cambia 'like_set' si tu related_name es otro
-              comment_count=Count('comments', distinct=True),  # idem: usa el related_name real
+              like_count=Count('like_set', distinct=True),
+              comment_count=Count('comments', distinct=True),
               my_liked=my_like,
           ))
 
     n = get_object_or_404(qs, pk=pk)
 
-    if not request.user.is_superuser and n.publish_at and n.publish_at > now:
+    # Si no está publicada, no la muestres al usuario final
+    if not request.user.is_superuser and not n.published_at:
         return redirect('user_news')
 
     return render(request, 'news/user/news_detail_user.html', {'n': n})
@@ -227,10 +230,15 @@ def create_news(request):
             author=request.user
         )
 
+        # ...
         if tag_ids:
             news.tags.set(tag_ids)
 
+        # PUBLICAR + ENVIAR si ya toca
+        publish_news_if_due(news)
+
         return redirect('admin_news')
+
 
     tags = NewsTag.objects.all().order_by('name')
     return render(request, 'news/admin/create_news.html', {'available_tags': tags})
