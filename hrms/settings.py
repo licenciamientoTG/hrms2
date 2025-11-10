@@ -196,3 +196,31 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 TEST_NEWS_EMAIL = os.getenv("TEST_NEWS_EMAIL", "").strip()
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "")
+
+# === Destinatarios para noticias por canal ===
+CORPO_NEWS_EMAIL = os.getenv("CORPO_NEWS_EMAIL", "").strip()
+ESTACIONES_NEWS_EMAIL = os.getenv("ESTACIONES_NEWS_EMAIL", "").strip()
+ESTACIONES_JUAREZ_EMAIL = os.getenv("ESTACIONES_JUAREZ_EMAIL", "").strip()
+
+NEWS_EMAILS = {
+    "corpo": CORPO_NEWS_EMAIL,
+    "estaciones": ESTACIONES_NEWS_EMAIL,
+    "juarez": ESTACIONES_JUAREZ_EMAIL,
+}
+
+def RESOLVE_NEWS_EMAIL(channel: str) -> list[str]:
+    target = TEST_NEWS_EMAIL or NEWS_EMAILS.get(channel, "")
+    return [e.strip() for e in target.split(",") if e.strip()]
+
+def RESOLVE_NEWS_EMAILS(channels: list[str]) -> list[str]:
+    """Une correos de varios canales, respeta TEST_NEWS_EMAIL y deduplica."""
+    if TEST_NEWS_EMAIL:
+        return [e.strip() for e in TEST_NEWS_EMAIL.split(",") if e.strip()]
+    seen, out = set(), []
+    for ch in channels or []:
+        for e in (NEWS_EMAILS.get(ch, "") or "").split(","):
+            e = e.strip()
+            if e and e.lower() not in seen:
+                seen.add(e.lower())
+                out.append(e)
+    return out

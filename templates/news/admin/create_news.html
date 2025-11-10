@@ -37,14 +37,35 @@
     <!-- Notificaciones -->
     <div class="mb-4">
       <label class="form-label">Notificar audiencia</label>
+
       <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="notify_email" checked>
-        <label class="form-check-label">Email</label>
+        <input class="form-check-input" type="checkbox" name="notify_email" id="notify_email" checked>
+        <label class="form-check-label" for="notify_email">Email</label>
       </div>
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="notify_push" checked>
-        <label class="form-check-label">Notificación Push</label>
+
+      <div class="mt-2">
+        <label class="form-label d-block">Enviar a</label>
+
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="email_channels" id="ch_corpo" value="corpo" checked>
+          <label class="form-check-label" for="ch_corpo">Corporativo</label>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="email_channels" id="ch_estaciones" value="estaciones">
+          <label class="form-check-label" for="ch_estaciones">Estaciones</label>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="email_channels" id="ch_juarez" value="juarez">
+          <label class="form-check-label" for="ch_juarez">Estaciones Juárez</label>
+        </div>
       </div>
+    </div>
+
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="notify_push" checked>
+      <label class="form-check-label">Notificación Push</label>
     </div>
 
     <!-- Programar publicación -->

@@ -5,33 +5,66 @@ from django.template import TemplateDoesNotExist, TemplateSyntaxError
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import strip_tags
+from django.utils.text import Truncator
+from html import unescape
 
-def get_news_recipients(news):
-    test = getattr(settings, "TEST_NEWS_EMAIL", "").strip()
-    return [test] if test else []
+def _unescape_recursive(s: str, rounds: int = 3) -> str:
+    """Aplica html.unescape varias veces por si vienen entidades doble/tri-escapadas."""
+    for _ in range(rounds):
+        new = unescape(s or "")
+        if new == s:
+            break
+        s = new
+    return s
 
-def send_news_email(news):
-    to = get_news_recipients(news)
-    if not to:
-        return 0
+def _build_teaser(html, limit=240):
+    raw = strip_tags(html or "")
+    raw = _unescape_recursive(raw).replace("\xa0", " ")  # &nbsp; → espacio normal
+    return Truncator(raw.strip()).chars(limit)
 
-    base = settings.SITE_BASE_URL.rstrip('/')
+def get_news_recipients(news, email_channels=None) -> list[str]:
+    """
+    Devuelve la lista final de destinatarios.
+    - Si TEST_NEWS_EMAIL está definido, se usa solo ese (QA/prevención de spam).
+    - Si vienen canales desde la vista, se usan esos.
+    - Si no se pasan, usa un default razonable (p. ej. ["corpo"]).
+    - Dedup se hace en RESOLVE_NEWS_EMAILS.
+    """
+    test = (getattr(settings, "TEST_NEWS_EMAIL", "") or "").strip()
+    if test:
+        return [e.strip() for e in test.split(",") if e.strip()]
+
+    channels = email_channels or ["corpo"]
+    # Este helper lo definimos en settings.py
+    return settings.RESOLVE_NEWS_EMAILS(channels)
+
+def send_news_email(news, *, email_channels=None) -> bool:
+    """
+    Envía el correo de 'noticia publicada' a los destinatarios resueltos.
+    NO marca emailed_at aquí (lo hace services.publish_news_if_due al confirmar el envío).
+    Devuelve True si se intentó enviar a >=1 destinatario.
+    """
+    to_addrs = get_news_recipients(news, email_channels=email_channels)
+    if not to_addrs:
+        return False
+
+    base = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
     news_url = f"{base}{reverse('news_detail_user', args=[news.id])}"
 
-    # Portada si existe; si no, logo
+    # Portada si existe; si no, logo de fallback
     cover_url = ""
     try:
         if getattr(news, "cover_image") and getattr(news.cover_image, "url", ""):
-            cover_url = f"{base}{news.cover_image.url}"  # /media/... -> http(s)://.../media/...
+            cover_url = f"{base}{news.cover_image.url}"
     except Exception:
         cover_url = ""
-
     if not cover_url:
         cover_url = f"{base}/static/template/img/logos/LOGOTIPO.png"
 
     subject = f"Nueva noticia: {news.title}"
-    ctx = {"news": news, "news_url": news_url, "cover_url": cover_url}
-
+    teaser = _build_teaser(news.content, limit=240)
+    ctx = {"news": news, "news_url": news_url, "cover_url": cover_url, "teaser": teaser}
     try:
         html_body = render_to_string("news/emails/news_published.html", ctx)
         text_body = render_to_string("news/emails/news_published.txt", ctx)
@@ -44,10 +77,14 @@ def send_news_email(news):
         )
 
     msg = EmailMultiAlternatives(
-        subject, text_body, getattr(settings, "DEFAULT_FROM_EMAIL", None), to
+        subject,
+        text_body,
+        getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to_addrs,
     )
     msg.attach_alternative(html_body, "text/html")
-    sent = msg.send(fail_silently=False)
+    # Si falla, lanzará excepción; la captura la hace services.py
+    msg.send(fail_silently=False)
 
-    type(news).objects.filter(pk=news.pk, emailed_at__isnull=True).update(emailed_at=timezone.now())
-    return sent
+    # 👇 Ya no actualizamos emailed_at aquí
+    return True

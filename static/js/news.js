@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const hasEditor = !!document.querySelector('textarea[name="content"]');
   if (hasEditor && window.tinymce) {
     tinymce.init({
+      entity_encoding: 'raw' ,
       selector: 'textarea[name="content"]',
       height: 420,
       menubar: false,
@@ -426,3 +427,11 @@ document.addEventListener('submit', async (e) => {
     }
   });
 })();
+
+
+// Desactivar/activar el grupo cuando desmarquen "Email"
+const chkEmail = document.getElementById('notify_email');
+const channelChecks = document.querySelectorAll('input[name="email_channels"]');
+function toggleChannels(){ channelChecks.forEach(c => c.disabled = !chkEmail.checked); }
+chkEmail.addEventListener('change', toggleChannels);
+toggleChannels();

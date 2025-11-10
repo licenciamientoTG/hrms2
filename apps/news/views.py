@@ -3,7 +3,6 @@ from .models import News, NewsTag, NewsLike, NewsComment
 from django.contrib.auth.decorators import login_required, user_passes_test
 from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
-from .models import News, NewsTag
 from django.db.models import Q, Count, Exists, OuterRef, Prefetch
 from django.utils import timezone
 from django.contrib import messages
@@ -17,7 +16,8 @@ from django.db.models import Value, CharField, F
 from django.db.models.functions import Coalesce
 from django.views.decorators.http import require_GET
 from .services import publish_news_if_due
-
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -200,13 +200,16 @@ def news_delete(request, pk):
 def create_news(request):
     if request.method == 'POST':
         title        = request.POST.get('title', '').strip()
-        content      = request.POST.get('content', '')          # ← HTML del editor
-        cover_image  = request.FILES.get('cover_image')         # imagen de portada
-        attachment   = request.FILES.get('attachments')         # UN archivo (FileField)
+        content      = request.POST.get('content', '')
+        cover_image  = request.FILES.get('cover_image')
+        attachment   = request.FILES.get('attachments')
         audience     = request.POST.get('audience', 'all')
         notify_email = bool(request.POST.get('notify_email'))
         notify_push  = bool(request.POST.get('notify_push'))
-        tag_ids      = request.POST.getlist('tags')             # múltiples
+        tag_ids      = request.POST.getlist('tags')
+
+        # ✅ ahora múltiple
+        email_channels = request.POST.getlist('email_channels') if notify_email else []
 
         # Parsear datetime-local → aware
         publish_at = None
@@ -216,7 +219,7 @@ def create_news(request):
                 naive = datetime.strptime(raw, "%Y-%m-%dT%H:%M")
                 publish_at = make_aware(naive, get_current_timezone())
             except Exception:
-                publish_at = None  # o maneja el error como prefieras
+                publish_at = None
 
         news = News.objects.create(
             title=title,
@@ -230,15 +233,13 @@ def create_news(request):
             author=request.user
         )
 
-        # ...
         if tag_ids:
             news.tags.set(tag_ids)
 
-        # PUBLICAR + ENVIAR si ya toca
-        publish_news_if_due(news)
+        # ⬇️ respeta canales elegidos
+        publish_news_if_due(news, email_channels=email_channels)
 
         return redirect('admin_news')
-
 
     tags = NewsTag.objects.all().order_by('name')
     return render(request, 'news/admin/create_news.html', {'available_tags': tags})
