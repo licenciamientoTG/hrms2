@@ -194,3 +194,5 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
 # settings.py
 TEST_NEWS_EMAIL = os.getenv("TEST_NEWS_EMAIL", "").strip()
+
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", "")

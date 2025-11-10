@@ -1,0 +1,6 @@
+Nueva noticia publicada en HRMS
+
+Título: {{ news.title }}
+{% if news.published_at %}Publicada: {{ news.published_at|date:"d/m/Y H:i" }}{% endif %}
+
+Ver noticia completa: {{ news_url }}
