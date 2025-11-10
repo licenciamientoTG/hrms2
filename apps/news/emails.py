@@ -24,13 +24,6 @@ def _build_teaser(html, limit=240):
     return Truncator(raw.strip()).chars(limit)
 
 def get_news_recipients(news, email_channels=None) -> list[str]:
-    """
-    Devuelve la lista final de destinatarios.
-    - Si TEST_NEWS_EMAIL está definido, se usa solo ese (QA/prevención de spam).
-    - Si vienen canales desde la vista, se usan esos.
-    - Si no se pasan, usa un default razonable (p. ej. ["corpo"]).
-    - Dedup se hace en RESOLVE_NEWS_EMAILS.
-    """
     test = (getattr(settings, "TEST_NEWS_EMAIL", "") or "").strip()
     if test:
         return [e.strip() for e in test.split(",") if e.strip()]
@@ -40,11 +33,6 @@ def get_news_recipients(news, email_channels=None) -> list[str]:
     return settings.RESOLVE_NEWS_EMAILS(channels)
 
 def send_news_email(news, *, email_channels=None) -> bool:
-    """
-    Envía el correo de 'noticia publicada' a los destinatarios resueltos.
-    NO marca emailed_at aquí (lo hace services.publish_news_if_due al confirmar el envío).
-    Devuelve True si se intentó enviar a >=1 destinatario.
-    """
     to_addrs = get_news_recipients(news, email_channels=email_channels)
     if not to_addrs:
         return False
