@@ -1,0 +1,177 @@
+{% load static %}
+{% for rec in feed %}
+  <div class="card shadow-sm mb-4 overflow-hidden post-card">
+
+    {# Cabecera #}
+    <div class="card-body d-flex align-items-center gap-3 pb-2 pt-3">
+      <div class="post-avatar" style="background:#b8d37c;color:#fff;">
+        {{ rec.author.first_name|default:rec.author.username|slice:":1" }}{{ rec.author.last_name|slice:":1" }}
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ rec.author.get_full_name|default:rec.author.username }}</div>
+        <div class="text-muted small">{{ rec.created_at|timesince }} atrás</div>
+      </div>
+      {% if rec.category.show_points and rec.category.points %}
+        <span class="badge rounded-pill bg-light text-dark border">+{{ rec.category.points }} puntos</span>
+      {% endif %}
+    </div>
+
+    {# Hero / cover de categoría #}
+    {% with cat=rec.category %}
+      <div class="rec-hero position-relative">
+        {% if cat.cover_image %}
+          <img src="{{ cat.cover_image.url }}" alt="" class="rec-hero-img">
+        {% else %}
+          <div class="rec-hero-fill" style="background: {{ cat.color_hex|default:'#f3f4f6' }};"></div>
+        {% endif %}
+        {% if cat.confetti_enabled %}
+          <div class="rec-confetti-overlay"
+               style="background-image:url('{% static "template/img/wallpaper/confetti.png" %}');"></div>
+        {% endif %}
+      </div>
+    {% endwith %}
+
+    <div class="card-body pt-3 post-center">
+
+      {# Avatares destinatarios #}
+      {% with recs=rec.recipients.all %}
+        {% if recs %}
+          <div class="recipients-row d-flex align-items-center mb-2">
+            {% for r in recs|slice:":4" %}
+              <div class="recipient-avatar" title="{{ r.get_full_name|default:r.username }}">
+                {{ r.first_name|default:r.username|slice:":1" }}{{ r.last_name|slice:":1" }}
+              </div>
+            {% endfor %}
+            {% if recs|length > 4 %}
+              <div class="recipient-avatar bg-light text-dark">+{{ recs|length|add:"-4" }}</div>
+            {% endif %}
+          </div>
+
+          <div class="fw-semibold">
+            {% for r in recs|slice:":3" %}
+              {{ r.get_full_name|default:r.username }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+            {% if recs|length > 3 %}
+              y <button class="btn-link-sm link-primary" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#rec-{{ rec.id }}-all">
+                {{ recs|length|add:"-3" }} más
+              </button>
+            {% endif %}
+          </div>
+          {% if recs|length > 3 %}
+            <div id="rec-{{ rec.id }}-all" class="collapse mt-1">
+              <div class="small text-muted">
+                {% for r in recs %}
+                  {{ r.get_full_name|default:r.username }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endif %}
+      {% endwith %}
+
+      {# Chip de categoría #}
+      {% if rec.category %}
+        <span class="badge rounded-pill badge-cat d-inline-block mt-2"
+              style="background: {{ rec.category.color_hex }};">
+          {{ rec.category.title }}
+        </span>
+      {% endif %}
+
+      {# Mensaje #}
+      {% if rec.message %}
+        <p class="mt-3 mb-0" style="font-size:1.05rem; line-height:1.55;">
+          {{ rec.message }}
+        </p>
+      {% endif %}
+
+      {# Carrusel de imágenes #}
+      {% with imgs=rec.media.all %}
+        {% if imgs %}
+          <div id="rec-{{ rec.id }}-carousel" class="carousel slide mt-2" data-bs-ride="carousel">
+            {% if imgs|length > 1 %}
+              <div class="carousel-indicators">
+                {% for m in imgs %}
+                  <button type="button"
+                          data-bs-target="#rec-{{ rec.id }}-carousel"
+                          data-bs-slide-to="{{ forloop.counter0 }}"
+                          {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                          aria-label="Slide {{ forloop.counter }}"></button>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <div class="carousel-inner rounded overflow-hidden">
+              {% for m in imgs %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                  <img src="{{ m.file.url }}" class="d-block w-100"
+                       alt="Imagen del reconocimiento"
+                       style="max-height:420px; object-fit:cover;">
+                </div>
+              {% endfor %}
+            </div>
+
+            {% if imgs|length > 1 %}
+              <button class="carousel-control-prev" type="button"
+                      data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Anterior</span>
+              </button>
+              <button class="carousel-control-next" type="button"
+                      data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Siguiente</span>
+              </button>
+            {% endif %}
+          </div>
+        {% elif rec.image %}
+          <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
+        {% endif %}
+      {% endwith %}
+
+      <div class="d-flex align-items-center gap-3 mt-3 pt-2 border-top">
+        <button type="button"
+                class="btn btn-sm rounded-3 btn-like {% if rec.my_liked %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                data-url="{% url 'recognition_like_toggle' rec.id %}"
+                aria-pressed="{{ rec.my_liked|yesno:'true,false' }}">
+          👍 <span class="like-count">{{ rec.like_count }}</span>
+        </button>
+
+        <a class="btn btn-sm btn-outline-primary btn-view-likes"
+           data-url="{% url 'recognition_likes_list' rec.id %}"
+           data-bs-toggle="offcanvas" data-bs-target="#likesOffcanvas">
+          Ver likes
+        </a>
+      </div>
+
+    </div>
+
+    {# Comentarios #}
+    <div class="border-top px-3 py-2 d-flex align-items-center justify-content-between text-muted small">
+      <a class="text-decoration-none" data-bs-toggle="collapse" href="#rec-{{ rec.id }}-comments">💬 Comentar</a>
+      <span><span id="ccount-{{ rec.id }}">{{ rec.comments.count }}</span> comentarios</span>
+    </div>
+
+    <div id="rec-{{ rec.id }}-comments" class="collapse">
+      <div id="comments-{{ rec.id }}" class="px-3 pt-2">
+        {% for c in rec.comments.all %}
+          {% include 'recognitions/user/_comment.html' with c=c %}
+        {% empty %}
+          <div class="text-muted small px-2 mb-2">Sé el primero en comentar.</div>
+        {% endfor %}
+      </div>
+
+      <form method="post"
+            action="{% url 'recognition_comment_create' rec.id %}"
+            class="js-comment-form px-3 pb-3"
+            data-rec-id="{{ rec.id }}">
+        {% csrf_token %}
+        <div class="input-group">
+          <input name="body" class="form-control" placeholder="Escribe un comentario…" maxlength="500">
+          <button class="btn btn-primary" type="submit">Enviar</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+{% endfor %}

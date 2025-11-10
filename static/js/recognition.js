@@ -472,3 +472,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
   filterTable(); // por si entras con ?q
 });
+
+(function(){
+  const chkEmail = document.getElementById('notify_email');
+  const chs = document.querySelectorAll('input[name="email_channels"]');
+  function toggle(){ chs.forEach(c=> c.disabled = !chkEmail.checked); }
+  chkEmail && chkEmail.addEventListener('change', toggle);
+  toggle();
+})();
+
+(function() {
+  let loading = false;
+  const feed = document.getElementById('feed');
+  const sentinel = document.getElementById('sentinel');
+  if (!sentinel || !feed) return;
+
+  // Lee de data-attributes (inyectados por Django)
+  let nextPage = (function(){
+    const v = sentinel.dataset.nextPage;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  function buildNextUrl(page) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    return url.pathname + url.search;
+  }
+
+  function loadMore() {
+    if (loading || nextPage === null) return;
+    loading = true;
+
+    $.ajax({
+      url: buildNextUrl(nextPage),
+      dataType: 'json',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      success: function(resp) {
+        if (resp && resp.html) {
+          $('#feed').append(resp.html);
+        }
+        if (resp && resp.has_next) {
+          nextPage = resp.next_page;
+        } else {
+          $('#sentinel').replaceWith('<div id="end-feed" class="text-center text-muted py-3">No hay más resultados</div>');
+          io.disconnect();
+          nextPage = null;
+        }
+      },
+      complete: function() { loading = false; }
+    });
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => { if (entry.isIntersecting) loadMore(); });
+  }, { rootMargin: '600px 0px' });
+
+  io.observe(sentinel);
+})();

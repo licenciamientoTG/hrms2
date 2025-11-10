@@ -1,0 +1,5 @@
+{% if rec.category %}{{ rec.category.title }}{% else %}Reconocimiento{% endif %}
+
+{{ teaser }}
+
+Ver reconocimiento: {{ rec_url }}

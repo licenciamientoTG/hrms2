@@ -21,8 +21,8 @@ from django.utils.timesince import timesince
 from .models import RecognitionLike
 from django.contrib import messages
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
-
-
+from .emails import send_recognition_email
+from django.db import transaction
 
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
@@ -64,12 +64,13 @@ MAX_MB = 10               # MB
 def _is_image_ok(f):
     return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
 
+PAGE_SIZE = 12  # bloque por “scroll”; ajusta 10–20
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
-    # ⬇️ Bloquea creación si no tiene permiso
+    # ==== POST: tu lógica original, intacta ====
     if request.method == "POST" and not request.user.has_perm('recognitions.add_recognition'):
-        # Si viene por AJAX, responde 403 JSON; si no, redirige con mensaje
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
         messages.error(request, "No tienes permiso para enviar reconocimientos.")
@@ -79,8 +80,11 @@ def recognition_dashboard_user(request):
         recipients_ids = request.POST.getlist('recipients')
         category_id    = request.POST.get('category')
         message        = (request.POST.get('message') or '').strip()
-        files          = request.FILES.getlist('media')   # <-- CLAVE
+        files          = request.FILES.getlist('media')
+        notify_email   = bool(request.POST.get('notify_email'))
+        email_channels = request.POST.getlist('email_channels') if notify_email else []
 
+        # Validaciones
         errors = []
         if not recipients_ids:
             errors.append(_("Debes seleccionar al menos un destinatario."))
@@ -93,9 +97,8 @@ def recognition_dashboard_user(request):
         else:
             category = get_object_or_404(RecognitionCategory, pk=category_id, is_active=True)
 
-        # Validación de imágenes
         if files:
-            files = files[:MAX_IMAGES_PER_POST]  # límite opcional
+            files = files[:MAX_IMAGES_PER_POST]
             bad = [f.name for f in files if not _is_image_ok(f)]
             if bad:
                 errors.append(_("Hay imágenes no válidas o mayores a %(n)s MB: %(lst)s") %
@@ -104,27 +107,39 @@ def recognition_dashboard_user(request):
         if errors:
             for e in errors:
                 messages.error(request, e)
-        else:
-            # Crear reconocimiento
+            return redirect('recognition_dashboard_user')
+
+        # Guardar todo
+        with transaction.atomic():
             rec = Recognition.objects.create(
                 author=request.user,
                 category=category,
                 message=message,
             )
-
-            # Destinatarios
             users = User.objects.filter(id__in=recipients_ids, is_active=True)
             rec.recipients.add(*users)
-
-            # Guardar TODAS las imágenes
             for f in files:
                 RecognitionMedia.objects.create(recognition=rec, file=f)
 
+        # Email
+        if notify_email:
+            try:
+                sent = send_recognition_email(rec, email_channels=email_channels)
+                if sent:
+                    messages.success(request, _("¡Reconocimiento publicado y correo enviado!"))
+                else:
+                    messages.warning(request, _("Reconocimiento publicado, pero no hubo destinatarios de correo."))
+            except Exception as e:
+                messages.error(request, _("Reconocimiento publicado, pero falló el envío de correo: %s") % e)
+        else:
             messages.success(request, _("¡Reconocimiento publicado!"))
-            return redirect('recognition_dashboard_user')
 
-    # FEED (más recientes primero) + prefetch de media
-    feed = (
+        return redirect('recognition_dashboard_user')
+
+    # ==== GET: ahora con paginación + AJAX para scroll infinito ====
+    page = int(request.GET.get('page', 1))
+
+    base_qs = (
         Recognition.objects
         .select_related('author', 'category')
         .annotate(
@@ -135,22 +150,40 @@ def recognition_dashboard_user(request):
         )
         .prefetch_related(
             'recipients', 'media',
-            Prefetch('comments', queryset=RecognitionComment.objects.select_related('author').order_by('created_at'))
+            Prefetch(
+                'comments',
+                queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
+            )
         )
         .order_by('-created_at')
     )
 
+    paginator = Paginator(base_qs, PAGE_SIZE)
+    page_obj  = paginator.get_page(page)
+
     ctx = {
-        # Estos dos solo se usan por el modal; el template puede ocultarlos con {% if perms.recognitions.add_recognition %}
         "people": User.objects.filter(is_active=True)
                               .exclude(id=request.user.id)
                               .order_by('first_name', 'last_name', 'username'),
         "categories": RecognitionCategory.objects.filter(is_active=True)
                                                 .order_by('order', 'title'),
-        "feed": feed,
+        "feed": page_obj.object_list,
+        "has_next": page_obj.has_next(),
+        "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
     }
-    return render(request, 'recognitions/user/recognition_dashboard_user.html', ctx)
 
+    # Si es petición AJAX (IntersectionObserver), devolver JSON con HTML parcial
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        html = render_to_string('recognitions/user/_cards.html', ctx, request=request)
+        return JsonResponse({
+            "html": html,
+            "has_next": ctx["has_next"],
+            "next_page": ctx["next_page"],
+        })
+
+    # Primera carga normal
+    return render(request, 'recognitions/user/recognition_dashboard_user.html', ctx)
+    
 class AdminOnlyMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.is_superuser or self.request.user.is_staff
