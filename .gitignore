@@ -32,3 +32,5 @@ HRMS-main/vhrms/pyvenv.cfg
 # Salida de collectstatic (STATIC_ROOT)
 # -> se genera en deploy o con manage.py collectstatic
 /staticfiles/
+
+/logs/

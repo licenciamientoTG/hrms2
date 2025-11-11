@@ -83,24 +83,23 @@ def news_detail_admin(request, pk):
     if request.method == 'POST':
         # Texto / booleans
         news.title        = (request.POST.get('title') or '').strip()
-        news.content      = request.POST.get('content') or ''  # HTML desde TinyMCE
+        news.content      = request.POST.get('content') or ''  # HTML TinyMCE
         news.audience     = request.POST.get('audience', 'all')
         news.notify_email = bool(request.POST.get('notify_email'))
         news.notify_push  = bool(request.POST.get('notify_push'))
 
-        # Programar publicación (input type="datetime-local" => YYYY-MM-DDTHH:MM)
+        # Programar publicación
         raw_dt = request.POST.get('publish_at')
         if raw_dt:
             try:
                 naive = datetime.strptime(raw_dt, "%Y-%m-%dT%H:%M")
                 news.publish_at = make_aware(naive, get_current_timezone())
             except Exception:
-                # si falla el parseo, mejor limpiarlo que dejar un valor inválido
                 news.publish_at = None
         else:
             news.publish_at = None
 
-        # Portada
+        # Portada / adjunto (igual que tienes) ...
         if request.POST.get('clear_cover') == 'on':
             if news.cover_image:
                 news.cover_image.delete(save=False)
@@ -108,7 +107,6 @@ def news_detail_admin(request, pk):
         elif 'cover_image' in request.FILES:
             news.cover_image = request.FILES['cover_image']
 
-        # Adjunto (si tu modelo tiene un FileField llamado attachments)
         if request.POST.get('clear_attachment') == 'on':
             if news.attachments:
                 news.attachments.delete(save=False)
@@ -116,34 +114,30 @@ def news_detail_admin(request, pk):
         elif 'attachments' in request.FILES:
             news.attachments = request.FILES['attachments']
 
+        # ⬇️ NUEVO: guardar los canales elegidos en el modelo
+        email_channels = request.POST.getlist('email_channels') if news.notify_email else []
+        news.email_channels = email_channels or None
+
+        # Guarda todo junto
         news.save()
 
         # Tags (ManyToMany)
-        tag_ids = request.POST.getlist('tags')  # lista de strings
+        tag_ids = request.POST.getlist('tags')
         news.tags.set(tag_ids)
 
-        # PUBLICAR + ENVIAR si ya toca
+        # Publicar + enviar (el service leerá n.email_channels)
         publish_news_if_due(news)
 
         return redirect('news_detail_admin', pk=news.pk)
 
-
-    # GET (o tras redirect): siempre calcula comments y renderiza
-    comments = (
-        NewsComment.objects
-        .filter(news=news)
-        .select_related('user')
-        .order_by('-created_at')
-    )
-
-    # Normaliza el texto para el template
+    # GET ...
+    comments = (NewsComment.objects.filter(news=news)
+                .select_related('user').order_by('-created_at'))
     for c in comments:
         c.display_text = (c.body or '').strip()
 
     return render(request, 'news/admin/news_details_admin.html', {
-        'news': news,
-        'tags': tags,
-        'comments': comments,
+        'news': news, 'tags': tags, 'comments': comments,
     })
 
 # esta vista es para que el usuario vea los detalles de la noticia
@@ -230,14 +224,15 @@ def create_news(request):
             notify_email=notify_email,
             notify_push=notify_push,
             audience=audience,
-            author=request.user
+            author=request.user,
+            email_channels=email_channels or None,
         )
 
         if tag_ids:
             news.tags.set(tag_ids)
 
         # ⬇️ respeta canales elegidos
-        publish_news_if_due(news, email_channels=email_channels)
+        publish_news_if_due(news)
 
         return redirect('admin_news')
 

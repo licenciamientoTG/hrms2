@@ -50,14 +50,35 @@ class Recognition(models.Model):
 
     recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
 
-    # 👍 NUEVO: M2M con through para controlar likes
     likes = models.ManyToManyField(
         User, through='RecognitionLike',
         related_name='recognitions_liked', blank=True
     )
 
+    # === NUEVO: programación / publicación / notificaciones ===
+    publish_at   = models.DateTimeField(null=True, blank=True, help_text="Cuándo debe publicarse (hora local).")
+    published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    notify_email = models.BooleanField(default=True)
+    notify_push  = models.BooleanField(default=True)
+    emailed_at   = models.DateTimeField(null=True, blank=True)
+    email_channels = models.JSONField(null=True, blank=True)  # p.ej. ["corpo","juarez"]
+
+    STATUS_CHOICES = (
+        ("draft", "Borrador"),
+        ("scheduled", "Programado"),
+        ("published", "Publicado"),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft", db_index=True)
+
+    class Meta:
+        ordering = ("-published_at", "-created_at")
+
     def __str__(self):
         return f'{self.author} → {self.category} ({self.created_at:%Y-%m-%d})'
+
+    @property
+    def is_published(self) -> bool:
+        return bool(self.published_at)
 
 class RecognitionLike(models.Model):
     recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE, related_name='likes_rel')

@@ -23,6 +23,9 @@ from django.contrib import messages
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
 from .emails import send_recognition_email
 from django.db import transaction
+from datetime import datetime
+from django.utils.timezone import make_aware, get_current_timezone
+from .services import publish_recognition_if_due
 
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
@@ -58,18 +61,26 @@ def recognition_dashboard_admin(request):
 User = get_user_model()
 
 MAX_RECIPIENTS = 30
-MAX_IMAGES_PER_POST = 10  # puedes ajustarlo
-MAX_MB = 10               # MB
+MAX_IMAGES_PER_POST = 10
+MAX_MB = 10
+PAGE_SIZE = 12
 
 def _is_image_ok(f):
     return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
 
-PAGE_SIZE = 12  # bloque por “scroll”; ajusta 10–20
+def _parse_datetime_local(raw):
+    if not raw:
+        return None
+    try:
+        naive = datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+        return make_aware(naive, get_current_timezone())
+    except Exception:
+        return None
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
-    # ==== POST: tu lógica original, intacta ====
+    # --- POST: crear / programar reconocimiento ---
     if request.method == "POST" and not request.user.has_perm('recognitions.add_recognition'):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
@@ -83,6 +94,7 @@ def recognition_dashboard_user(request):
         files          = request.FILES.getlist('media')
         notify_email   = bool(request.POST.get('notify_email'))
         email_channels = request.POST.getlist('email_channels') if notify_email else []
+        publish_at     = _parse_datetime_local(request.POST.get('publish_at'))  # 👈 nuevo
 
         # Validaciones
         errors = []
@@ -109,39 +121,44 @@ def recognition_dashboard_user(request):
                 messages.error(request, e)
             return redirect('recognition_dashboard_user')
 
-        # Guardar todo
+        # Guardar todo (atómico)
         with transaction.atomic():
             rec = Recognition.objects.create(
                 author=request.user,
                 category=category,
                 message=message,
+                publish_at=publish_at,
+                notify_email=notify_email,
+                notify_push=True,                 # si más tarde lo expones en el form, cámbialo aquí
+                email_channels=email_channels or None,
+                status="scheduled" if publish_at else "draft",
             )
             users = User.objects.filter(id__in=recipients_ids, is_active=True)
             rec.recipients.add(*users)
             for f in files:
                 RecognitionMedia.objects.create(recognition=rec, file=f)
 
-        # Email
-        if notify_email:
-            try:
-                sent = send_recognition_email(rec, email_channels=email_channels)
-                if sent:
-                    messages.success(request, _("¡Reconocimiento publicado y correo enviado!"))
-                else:
-                    messages.warning(request, _("Reconocimiento publicado, pero no hubo destinatarios de correo."))
-            except Exception as e:
-                messages.error(request, _("Reconocimiento publicado, pero falló el envío de correo: %s") % e)
+        # Publicar si ya toca (el servicio también envía el correo una sola vez)
+        published_now = publish_recognition_if_due(rec)
+
+        if published_now:
+            messages.success(
+                request,
+                _("¡Reconocimiento publicado!") if not notify_email
+                else _("¡Reconocimiento publicado y correo enviado!")
+            )
         else:
-            messages.success(request, _("¡Reconocimiento publicado!"))
+            messages.success(request, _("Reconocimiento programado para publicarse en su fecha."))
 
         return redirect('recognition_dashboard_user')
 
-    # ==== GET: ahora con paginación + AJAX para scroll infinito ====
+    # --- GET: feed con scroll infinito (solo publicados) ---
     page = int(request.GET.get('page', 1))
 
     base_qs = (
         Recognition.objects
         .select_related('author', 'category')
+        .filter(published_at__isnull=False)            # 👈 solo publicados
         .annotate(
             like_count=Count('likes_rel', distinct=True),
             my_liked=Exists(
@@ -155,7 +172,7 @@ def recognition_dashboard_user(request):
                 queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
             )
         )
-        .order_by('-created_at')
+        .order_by('-published_at')                     # 👈 orden por fecha de publicación real
     )
 
     paginator = Paginator(base_qs, PAGE_SIZE)
@@ -172,16 +189,10 @@ def recognition_dashboard_user(request):
         "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
     }
 
-    # Si es petición AJAX (IntersectionObserver), devolver JSON con HTML parcial
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html = render_to_string('recognitions/user/_cards.html', ctx, request=request)
-        return JsonResponse({
-            "html": html,
-            "has_next": ctx["has_next"],
-            "next_page": ctx["next_page"],
-        })
+        return JsonResponse({"html": html, "has_next": ctx["has_next"], "next_page": ctx["next_page"]})
 
-    # Primera carga normal
     return render(request, 'recognitions/user/recognition_dashboard_user.html', ctx)
     
 class AdminOnlyMixin(UserPassesTestMixin):
