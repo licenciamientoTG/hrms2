@@ -9,7 +9,7 @@
       </div>
       <div class="flex-grow-1">
         <div class="fw-semibold">{{ rec.author.get_full_name|default:rec.author.username }}</div>
-        <div class="text-muted small">{{ rec.created_at|timesince }} atrás</div>
+        <div class="text-muted small">{{ rec.published_at|timesince }} atrás</div>
       </div>
       {% if rec.category.show_points and rec.category.points %}
         <span class="badge rounded-pill bg-light text-dark border">+{{ rec.category.points }} puntos</span>

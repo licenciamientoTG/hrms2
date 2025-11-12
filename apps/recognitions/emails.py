@@ -22,7 +22,7 @@ def _build_teaser(text: str, limit=240) -> str:
     return Truncator(raw.strip()).chars(limit)
 
 def _resolve_recipients(email_channels=None) -> list[str]:
-    # Reutiliza tus settings y tu TEST_NEWS_EMAIL (override de QA)
+    # Respeta override de QA
     test = (getattr(settings, "TEST_NEWS_EMAIL", "") or "").strip()
     if test:
         return [e.strip() for e in test.split(",") if e.strip()]
@@ -35,23 +35,33 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
         return False
 
     base = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
+
+    # URL destino
     try:
         rec_url = f"{base}{reverse('recognition_detail', args=[recognition.id])}"
     except Exception:
         rec_url = f"{base}{reverse('recognition_dashboard_user')}"
 
-    # portada: cover de la categoría si existe; si no, logo
-    cover_url = ""
+    # Categoría (se usa en asunto y posible fallback de portada)
     cat = getattr(recognition, "category", None)
+
+    # Portada: 1) primera imagen subida  2) cover de categoría  3) logo
+    cover_url = ""
     try:
-        if cat and getattr(cat, "cover_image", None) and getattr(cat.cover_image, "url", ""):
-            cover_url = f"{base}{cat.cover_image.url}"
+        media_rel = getattr(recognition, "media", None)  # related_name de RecognitionMedia
+        first_media = media_rel.order_by("id").first() if media_rel is not None else None
+        if first_media and getattr(first_media, "file", None) and getattr(first_media.file, "url", ""):
+            cover_url = f"{base}{first_media.file.url}"
     except Exception:
         cover_url = ""
+
+    if not cover_url and cat and getattr(cat, "cover_image", None) and getattr(cat.cover_image, "url", ""):
+        cover_url = f"{base}{cat.cover_image.url}"
+
     if not cover_url:
         cover_url = f"{base}/static/template/img/logos/LOGOTIPO.png"
 
-    subject = f"🎉 Nuevo reconocimiento: {cat.title if cat else 'Reconocimiento'}"
+    subject = f"Nuevo Comunicado: {cat.title if cat else 'Comunicado'}"
     teaser  = _build_teaser(recognition.message, limit=240)
 
     ctx = {
@@ -67,7 +77,8 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
     except (TemplateDoesNotExist, TemplateSyntaxError):
         text_body = f"Nuevo reconocimiento\n\n{teaser}\n\nVer: {rec_url}\n"
         html_body = (
-            f"<img src='{cover_url}' alt='' style='max-width:100%;height:auto;'/>"
+            f"<img src='{cover_url}' alt='' width='600' "
+            f"style='display:block;width:100%;max-width=600px;height:auto;border:0;'/>"
             f"<h2 style='font-family:Arial,sans-serif'>Nuevo reconocimiento</h2>"
             f"<p>{teaser}</p>"
             f"<p><a href='{rec_url}'>Ver reconocimiento</a></p>"
