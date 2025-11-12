@@ -4,7 +4,7 @@ from apps.recognitions.models import Recognition
 from apps.recognitions.services import publish_recognition_if_due
 
 class Command(BaseCommand):
-    help = "Publica reconocimientos cuyo publish_at ya venció"
+    help = "Publica comunicado cuyo publish_at ya venció"
 
     def handle(self, *args, **kwargs):
         qs = Recognition.objects.filter(published_at__isnull=True, publish_at__lte=timezone.now())

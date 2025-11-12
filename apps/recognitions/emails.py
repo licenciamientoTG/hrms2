@@ -75,13 +75,13 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
         html_body = render_to_string("recognitions/emails/recognition_created.html", ctx)
         text_body = render_to_string("recognitions/emails/recognition_created.txt", ctx)
     except (TemplateDoesNotExist, TemplateSyntaxError):
-        text_body = f"Nuevo reconocimiento\n\n{teaser}\n\nVer: {rec_url}\n"
+        text_body = f"Nuevo comunicado\n\n{teaser}\n\nVer: {rec_url}\n"
         html_body = (
             f"<img src='{cover_url}' alt='' width='600' "
             f"style='display:block;width:100%;max-width=600px;height:auto;border:0;'/>"
-            f"<h2 style='font-family:Arial,sans-serif'>Nuevo reconocimiento</h2>"
+            f"<h2 style='font-family:Arial,sans-serif'>Nuevo comunicado</h2>"
             f"<p>{teaser}</p>"
-            f"<p><a href='{rec_url}'>Ver reconocimiento</a></p>"
+            f"<p><a href='{rec_url}'>Ver comunicado</a></p>"
         )
 
     msg = EmailMultiAlternatives(

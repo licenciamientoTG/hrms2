@@ -1,5 +1,5 @@
-{% if rec.category %}{{ rec.category.title }}{% else %}Reconocimiento{% endif %}
+{% if rec.category %}{{ rec.category.title }}{% else %}Comunicado{% endif %}
 
 {{ teaser }}
 
-Ver reconocimiento: {{ rec_url }}
+Ver comunicado: {{ rec_url }}

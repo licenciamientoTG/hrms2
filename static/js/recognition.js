@@ -58,7 +58,7 @@
   });
   applyColor(); applyPoints(); toggleConfetti();
 
-  // ===== USUARIO: modal reconocimiento =====
+  // ===== USUARIO: modal comunicado =====
   const modalEl   = $('#newRecognitionModal');
   const openInput = $('#openNewRec');
   if (modalEl && window.bootstrap?.Modal) {
@@ -190,7 +190,7 @@
           title: 'No se puede eliminar',
           html: `
             <div class="text-start">
-              <p><strong>${catName}</strong> ya que fue utilizada como reconocimiento.</p>
+              <p><strong>${catName}</strong> ya que fue utilizada como comunicado.</p>
               <p>Puedes <strong>desactivarla</strong> para impedir su uso futuro.</p>
             </div>`,
           showCancelButton: true,

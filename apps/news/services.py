@@ -17,7 +17,7 @@ def publish_news_if_due(news):
             just_published = True
 
         if getattr(n, "notify_email", False) and getattr(n, "emailed_at", None) is None:
-            channels = n.email_channels or ["corpo"]   # 👈 igual que Reconocimientos
+            channels = n.email_channels or ["corpo"]
             if send_news_email(n, email_channels=channels):
                 n.emailed_at = timezone.now()
                 n.save(update_fields=["emailed_at"])

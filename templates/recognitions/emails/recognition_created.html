@@ -6,14 +6,14 @@
         <tr><td><img src="{{ cover_url }}" alt="" width="600" style="width:100%;display:block;border-top-left-radius:8px;border-top-right-radius:8px;"></td></tr>
         <tr><td style="padding:20px 24px;">
           <h1 style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;color:#0f3b68;text-align:center;">
-            {% if rec.category %}{{ rec.category.title }}{% else %}Reconocimiento{% endif %}
+            {% if rec.category %}{{ rec.category.title }}{% else %}Comunicado{% endif %}
           </h1>
           <div style="margin:10px auto 16px auto;max-width:560px;color:#374151;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;">
             {{ teaser|safe }}
           </div>
           <table role="presentation" align="center"><tr><td bgcolor="#1663d8" style="border-radius:6px;">
             <a href="{{ rec_url }}" style="display:inline-block;padding:12px 20px;font-family:Arial,Helvetica,sans-serif;color:#fff;text-decoration:none;font-weight:600;">
-              Ver reconocimiento →
+              Ver comunicado →
             </a>
           </td></tr></table>
         </td></tr>

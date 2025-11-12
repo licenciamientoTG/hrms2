@@ -80,11 +80,11 @@ def _parse_datetime_local(raw):
 @login_required
 @require_http_methods(["GET", "POST"])
 def recognition_dashboard_user(request):
-    # --- POST: crear / programar reconocimiento ---
+    # --- POST: crear / programar comunicado ---
     if request.method == "POST" and not request.user.has_perm('recognitions.add_recognition'):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
-        messages.error(request, "No tienes permiso para enviar reconocimientos.")
+        messages.error(request, "No tienes permiso para enviar comunicado.")
         return redirect('recognition_dashboard_user')
 
     if request.method == "POST":
@@ -144,11 +144,11 @@ def recognition_dashboard_user(request):
         if published_now:
             messages.success(
                 request,
-                _("¡Reconocimiento publicado!") if not notify_email
-                else _("¡Reconocimiento publicado y correo enviado!")
+                _("¡Comunicado publicado!") if not notify_email
+                else _("¡Comunicado publicado y correo enviado!")
             )
         else:
-            messages.success(request, _("Reconocimiento programado para publicarse en su fecha."))
+            messages.success(request, _("Comunicado programado para publicarse en su fecha."))
 
         return redirect('recognition_dashboard_user')
 
