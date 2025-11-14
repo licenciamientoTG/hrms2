@@ -30,7 +30,12 @@ SECRET_KEY = 'django-insecure-)xa@r^^@7z#&_6qrg*5e8e_@yq4pixyw3ow4vhvl-ylrb4h-*7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    "hrms.totalgasonline.net",
+    "10.200.1.222",
+    "192.168.0.109",
+    "localhost",
+]
 
 
 # Application definition
