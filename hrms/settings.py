@@ -35,11 +35,8 @@ ALLOWED_HOSTS = [
     "10.200.1.222",
     "192.168.0.109",
     "localhost",
-<<<<<<< HEAD
+
 ]
-=======
-] 
->>>>>>> origin/main
 
 
 # Application definition
