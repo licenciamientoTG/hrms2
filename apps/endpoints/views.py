@@ -141,15 +141,6 @@ def _create_user_for_employee(employee):
         return None, f"Error: {str(e)}"
 
 def _handle_duplicate_employees(employee_number, incoming_is_active):
-    """
-    Maneja empleados duplicados priorizando siempre el activo.
-    
-    Estrategia:
-    1. Si viene ACTIVO: usar ese, desactivar todos los demás inactivos
-    2. Si viene INACTIVO: solo usar si NO HAY ningún activo
-    
-    Returns: (employee_to_use, action_taken)
-    """
     all_employees = Employee.objects.filter(employee_number=employee_number).order_by('-is_active', '-id')
     
     if not all_employees.exists():
@@ -158,27 +149,27 @@ def _handle_duplicate_employees(employee_number, incoming_is_active):
     active_employee = all_employees.filter(is_active=True).first()
     
     if incoming_is_active:
-        # Viene ACTIVO: priorizar este registro
         if active_employee:
-            print(f"🔄 Empleado {employee_number}: Viene ACTIVO, ya hay uno ACTIVO -> actualizar el activo")
-            # Desactivar otros empleados con el mismo número (por si hay múltiples activos)
+            # Ya hay un activo: usarlo y desactivar al resto
             other_employees = all_employees.exclude(id=active_employee.id)
             if other_employees.exists():
                 other_employees.update(is_active=False)
-                print(f"🚫 Desactivados {other_employees.count()} empleados duplicados para #{employee_number}")
             return active_employee, "use_existing_active"
         else:
-            print(f"✅ Empleado {employee_number}: Viene ACTIVO, no hay activos -> usar el primero disponible")
-            # Usar el primer empleado (probablemente inactivo) y activarlo
+            # No hay activos: activar el primero disponible
             return all_employees.first(), "activate_existing"
     else:
         # Viene INACTIVO
         if active_employee:
-            print(f"⚠️ Empleado {employee_number}: Viene INACTIVO pero hay uno ACTIVO -> mantener el activo, ignorar este")
-            return active_employee, "keep_active_ignore_inactive"
+            # Antes: keep_active_ignore_inactive
+            # Ahora: actualizar al activo (lo vamos a desactivar)
+            print(f"🔻 Empleado {employee_number}: Viene INACTIVO y hay uno ACTIVO -> se va a desactivar actualizado")
+            return active_employee, "deactivate_existing"
         else:
-            print(f"🔄 Empleado {employee_number}: Viene INACTIVO, no hay activos -> usar el primero disponible")
+            # No hay activos: usar el primero inactivo
             return all_employees.first(), "use_existing_inactive"
+
+
 def _apply_seniority(employee, seniority_raw, overwrite=True):
     """Guarda seniority_raw siempre que venga algo.
     Si overwrite=True, sobreescribe aunque ya exista."""
@@ -202,10 +193,6 @@ def recibir_datos1(request):
         # ------- Parseo de entrada -------
         nombre_completo = _safe_str(data.get('Nombre'))
         company_name = _safe_str(data.get('Empresa'))
-
-        # Normalización empresa
-        if company_name.lower() == 'diaz gas1':
-            company_name = 'DIAZ GAS'
 
         # Nombre: 'Apellidos, Nombres' -> last_name, first_name
         if ',' in nombre_completo:
@@ -275,8 +262,8 @@ def recibir_datos1(request):
         with transaction.atomic():
             existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
 
+            # 1) No existe -> crear
             if action == "no_existing":
-                # No existe, crear nuevo
                 empleado = Employee.objects.create(**incoming_defaults)
                 _apply_seniority(empleado, seniority_raw, overwrite=True)
                 
@@ -307,26 +294,42 @@ def recibir_datos1(request):
                 
                 return JsonResponse(response_data)
 
-            elif action == "keep_active_ignore_inactive":
-                # Hay un empleado activo, ignorar el inactivo que viene
-                print(f"[Ignorado] {existing.employee_number} -> Manteniendo empleado activo, ignorando inactivo")
-                
-                # Verificar si el activo necesita usuario
+            # 2) Cualquier otro caso -> actualizar empleado existente
+            #    (use_existing_active, activate_existing, use_existing_inactive, deactivate_existing)
+            existing = Employee.objects.select_for_update().get(id=existing.id)
+            
+            fields_to_check = list(incoming_defaults.keys())
+            changes, changed_fields = _diff_instance(existing, incoming_defaults, fields_to_check)
+
+            if not changed_fields:
+                # Solo seniority_raw podría cambiar
+                if _apply_seniority(existing, seniority_raw, overwrite=True):
+                    return JsonResponse({
+                        'success': True,
+                        'status': 'updated',
+                        'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
+                        'changes': [{'field': 'seniority_raw', 'old': None, 'new': seniority_raw}],
+                    })
+
+                # Sin cambios, pero verificar usuario
                 user_result = None
                 user_message = ""
                 if existing.is_active and not existing.user:
                     user, user_msg = _create_user_for_employee(existing)
                     user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
                     user_message = user_msg
+                    print(f"[Sin cambios - Usuario creado] {existing.employee_number} ({existing.first_name} {existing.last_name})")
                     if user_result:
                         print(f"  {user_result}")
+                else:
+                    print(f"[Sin cambios] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+                    print("RAW:", request.body.decode("utf-8", errors="replace"))
+                    print("Antigüedad:", data.get("Antigüedad"))
 
-                _apply_seniority(existing, seniority_raw, overwrite=True)
-                
                 response_data = {
                     'success': True,
-                    'status': 'ignored_inactive',
-                    'mensaje': f'Empleado activo mantenido (inactivo ignorado): {existing.first_name} {existing.last_name}',
+                    'status': 'no_change',
+                    'mensaje': f'Empleado sin cambios: {existing.first_name} {existing.last_name}',
                     'changes': []
                 }
                 if user_message:
@@ -334,92 +337,48 @@ def recibir_datos1(request):
                 
                 return JsonResponse(response_data)
 
-            else:
-                # Actualizar empleado existente (use_existing_active, activate_existing, use_existing_inactive)
-                existing = Employee.objects.select_for_update().get(id=existing.id)
-                
-                # Comparar diferencias
-                fields_to_check = list(incoming_defaults.keys())
-                changes, changed_fields = _diff_instance(existing, incoming_defaults, fields_to_check)
+            # Aplicar cambios de verdad
+            for f in changed_fields:
+                setattr(existing, f, incoming_defaults[f])
+            existing.save(update_fields=changed_fields)
 
-                if not changed_fields:
-                    if _apply_seniority(existing, seniority_raw, overwrite=True):
-                        return JsonResponse({
-                            'success': True,
-                            'status': 'updated',
-                            'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
-                            'changes': [{'field': 'seniority_raw', 'old': None, 'new': seniority_raw}],
-                        })
+            if _apply_seniority(existing, seniority_raw, overwrite=True) and 'seniority_raw' not in changed_fields:
+                changes.append({'field': 'seniority_raw', 'old': None, 'new': seniority_raw})
 
-                    # Sin cambios, pero verificar usuario
-                    user_result = None
-                    user_message = ""
-                    if existing.is_active and not existing.user:
-                        user, user_msg = _create_user_for_employee(existing)
-                        user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
-                        user_message = user_msg
-                        print(f"[Sin cambios - Usuario creado] {existing.employee_number} ({existing.first_name} {existing.last_name})")
+            # Manejar usuario después de actualizar
+            user_result = None
+            user_message = ""
+            if existing.is_active and not existing.user:
+                user, user_msg = _create_user_for_employee(existing)
+                user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
+                user_message = user_msg
+            elif not existing.is_active and existing.user:
+                # Empleado desactivado, eliminar usuario
+                user = existing.user
+                username = user.username
+                existing.user = None
+                existing.save(update_fields=['user'])
+                user.delete()
+                user_result = f"Usuario eliminado: {username}"
+                user_message = f"Usuario eliminado: {username}"
+                print(f"❌ Usuario {username} eliminado porque el empleado fue desactivado")
 
-                        if user_result:
-                            print(f"  {user_result}")
-                    else:
-                        print(f"[Sin cambios] {existing.employee_number} ({existing.first_name} {existing.last_name})")
-                        print("RAW:", request.body.decode("utf-8", errors="replace"))
-                        print("Antigüedad:", data.get("Antigüedad"))
-                    
-                    response_data = {
-                        'success': True,
-                        'status': 'no_change',
-                        'mensaje': f'Empleado sin cambios: {existing.first_name} {existing.last_name}',
-                        'changes': []
-                    }
-                    if user_message:
-                        response_data['user_info'] = user_message
-                    
-                    return JsonResponse(response_data)
+            print(f"[Empleado actualizado] {existing.employee_number} -> {existing.first_name} {existing.last_name}")
+            if user_result:
+                print(f"  {user_result}")
+            for ch in changes:
+                print(f"  - {ch['field']}: {ch['old']} -> {ch['new']}")
 
-                # Aplicar cambios
-                for f in changed_fields:
-                    setattr(existing, f, incoming_defaults[f])
-                existing.save(update_fields=changed_fields)
+            response_data = {
+                'success': True,
+                'status': 'updated',
+                'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
+                'changes': changes
+            }
+            if user_message:
+                response_data['user_info'] = user_message
 
-                if _apply_seniority(existing, seniority_raw, overwrite=True) and 'seniority_raw' not in changed_fields:
-                    changes.append({'field': 'seniority_raw', 'old': None, 'new': seniority_raw})
-
-                # Manejar usuario después de actualizar
-                user_result = None
-                user_message = ""
-                if existing.is_active and not existing.user:
-                    user, user_msg = _create_user_for_employee(existing)
-                    user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
-                    user_message = user_msg
-                elif not existing.is_active and existing.user:
-                    # Empleado desactivado, eliminar usuario
-                    user = existing.user
-                    username = user.username
-                    existing.user = None
-                    existing.save(update_fields=['user'])
-                    user.delete()
-                    user_result = f"Usuario eliminado: {username}"
-                    user_message = f"Usuario eliminado: {username}"
-                    print(f"❌ Usuario {username} eliminado porque el empleado fue desactivado")
-
-                print(f"[Empleado actualizado] {existing.employee_number} -> {existing.first_name} {existing.last_name}")
-                if user_result:
-                    print(f"  {user_result}")
-                for ch in changes:
-                    print(f"  - {ch['field']}: {ch['old']} -> {ch['new']}")
-
-                response_data = {
-                    'success': True,
-                    'status': 'updated',
-                    'mensaje': f'Empleado actualizado: {existing.first_name} {existing.last_name}',
-                    'changes': changes
-                }
-                if user_message:
-                    response_data['user_info'] = user_message
-
-                return JsonResponse(response_data)
+            return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
