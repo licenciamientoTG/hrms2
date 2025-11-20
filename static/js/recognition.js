@@ -83,9 +83,8 @@
   const recipientsSelect = $('#recipientsSelect');
   const publishBtn       = $('#publishBtn');
   function updatePublishState(){
-    const haveRecipients = !!recipientsSelect && recipientsSelect.selectedOptions.length > 0;
     const haveCategory   = !!categorySelect && !!categorySelect.value;
-    if (publishBtn) publishBtn.disabled = !(haveRecipients && haveCategory);
+    if (publishBtn) publishBtn.disabled = !( haveCategory);
   }
   recipientsSelect && recipientsSelect.addEventListener('change', () => {
     const selected = Array.from(recipientsSelect.selectedOptions);
