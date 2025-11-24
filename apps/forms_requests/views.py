@@ -118,6 +118,8 @@ def generar_constancia_laboral(request):
     Antiguedad = employee.seniority_raw or "(FECHA DE INICIO)"
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
+    company_name = str(employee.company).strip()
+    company_name = company_name.replace("Ñ", "N").replace("ñ", "n")
 
     # --- PDF base para conocer tamaño ---
     template_path = os.path.join(
@@ -156,35 +158,49 @@ def generar_constancia_laboral(request):
     c.setFont("Helvetica-Bold", 13)
     c.drawCentredString(440, 644, fecha_hoy)
 
-    # --- Sello digital (junto a la firma) ---
-    sello_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
-    )
+    sello_path = None
+
+    # 1) Intentar usar un sello específico según el nombre de la empresa
+    if employee and employee.company:
+        filename = f"Sellos Razones sociales {company_name}.jpg"
+        sello_path_especifico = os.path.join(
+            settings.BASE_DIR,
+            "static", "template", "img", "constancias",
+            filename
+        )
+
+        if os.path.exists(sello_path_especifico):
+            sello_path = sello_path_especifico
+
+    # 2) Si no existe uno específico, usar el sello genérico
+    if not sello_path:
+        sello_path = os.path.join(
+            settings.BASE_DIR,
+            "static", "template", "img", "constancias",
+            "SelloRFC.png"
+        )
+
+    # --- Dibuja el sello (junto a la firma) ---
     if os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
 
-        # tamaño del sello
-        STAMP_W = 38 * mm               # ancho del sello (ajústalo si lo ves grande/pequeño)
+        STAMP_W = 38 * mm
         scale   = STAMP_W / float(img_w_px)
         STAMP_H = img_h_px * scale
 
-        # ====== POSICIÓN CERCA DE LA FIRMA ======
-        # Ancla aproximada al área de la firma en tu plantilla (ajústalo una vez)
-        SIGN_X = PAGE_W * 0.66          # más pequeño = más a la izquierda
-        SIGN_Y = PAGE_H * 0.18         # más grande = más arriba
+        SIGN_X = PAGE_W * 0.66
+        SIGN_Y = PAGE_H * 0.18
 
-        # Desplazamientos finos desde el ancla para “pegarlo” al lado de la firma
-        OFFSET_X = -10 * mm             # negativo = más a la izquierda del ancla
-        OFFSET_Y = +6  * mm             # positivo = más arriba del ancla
+        OFFSET_X = -10 * mm
+        OFFSET_Y = +6  * mm
 
         STAMP_X = SIGN_X + OFFSET_X
         STAMP_Y = SIGN_Y + OFFSET_Y
-        # ========================================
 
-        ANGLE = -12  # negativo = lado derecho ligeramente más abajo
+        ANGLE = -12
         c.saveState()
-        c.translate(STAMP_X, STAMP_Y)   # rota alrededor de la esquina inf-izq del sello
+        c.translate(STAMP_X, STAMP_Y)
         c.rotate(ANGLE)
         c.drawImage(
             sello, 0, 0,
@@ -194,7 +210,7 @@ def generar_constancia_laboral(request):
         c.restoreState()
     else:
         c.setFont("Helvetica", 8)
-        c.drawString(40, 40, "Sello no encontrado: SelloRFC.png")
+        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
 
     # Cerrar overlay y reposicionar buffer
     c.save()
@@ -374,6 +390,10 @@ def generar_constancia_especial(request):
     puesto = employee.job_position.title if employee and employee.job_position else "(PUESTO)"
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
+    company_name_raw = str(employee.company).strip() if employee and employee.company else ""
+    company_name_file = company_name_raw.replace("Ñ", "N").replace("ñ", "n")
+
+
     # --- PDF base (plantilla) -> para obtener tamaño de página ---
     template_path = os.path.join(
         settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_especial.pdf'
@@ -415,34 +435,45 @@ def generar_constancia_especial(request):
     c.setFont("Helvetica-Bold", 13)
     c.drawCentredString(440, 658, fecha_hoy)
 
+   # === SELLO: primero intentamos sello por empresa, si no, genérico ===
+    sello_path = None
+
+    if company_name_raw:
+        filename = f"Sellos Razones sociales {company_name_file}.jpg"
+        sello_path_especifico = os.path.join(
+            settings.BASE_DIR,
+            "static", "template", "img", "constancias",
+            filename
+        )
+        if os.path.exists(sello_path_especifico):
+            sello_path = sello_path_especifico
+
+    if not sello_path:
+        sello_path = os.path.join(
+            settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
+        )
+
     # --- Sello digital (rotado y al lado de la firma) ---
-    sello_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
-    )
     if os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
 
-        # Tamaño del sello
-        STAMP_W = 38 * mm          # ajusta el ancho si lo quieres más grande/pequeño
+        STAMP_W = 38 * mm
         scale   = STAMP_W / float(img_w_px)
         STAMP_H = img_h_px * scale
 
-        # === Ancla aproximada a la zona de la firma (ajústala una sola vez) ===
-        # Usa proporciones del tamaño de la página para que sea independiente de px
-        SIGN_X = PAGE_W * 0.66      # menor -> más a la izquierda
-        SIGN_Y = PAGE_H * 0.13      # mayor -> más arriba
+        SIGN_X = PAGE_W * 0.66
+        SIGN_Y = PAGE_H * 0.13
 
-        # Ajustes finos respecto al ancla para “pegarlo” al lado de la firma
-        OFFSET_X = -12 * mm         # negativo -> más a la izquierda
-        OFFSET_Y = +5  * mm         # positivo -> más arriba
+        OFFSET_X = -12 * mm
+        OFFSET_Y = +5  * mm
 
         STAMP_X = SIGN_X + OFFSET_X
         STAMP_Y = SIGN_Y + OFFSET_Y
 
-        ANGLE = -12                 # giro horario: lado derecho queda un poco más abajo
+        ANGLE = -12
         c.saveState()
-        c.translate(STAMP_X, STAMP_Y)   # el origen pasa a la esquina inferior izquierda del sello
+        c.translate(STAMP_X, STAMP_Y)
         c.rotate(ANGLE)
         c.drawImage(
             sello, 0, 0,
@@ -452,7 +483,7 @@ def generar_constancia_especial(request):
         c.restoreState()
     else:
         c.setFont("Helvetica", 8)
-        c.drawString(40, 40, "Sello no encontrado: SelloRFC.png")
+        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
 
     # --- Cerrar overlay ---
     c.save()
@@ -716,7 +747,7 @@ def constancia_preview(request):
     return resp
 
 @require_GET
-@user_passes_test(lambda u: u.is_staff or u.is_superuser)  # mismo scope que el modal
+@user_passes_test(lambda u: u.is_staff or u.is_superuser)
 @login_required
 def empleado_datos_por_numero(request):
     num = (request.GET.get('num') or '').strip()
