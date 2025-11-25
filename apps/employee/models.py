@@ -210,6 +210,48 @@ class Employee(models.Model):
         help_text=_("Fecha de antigüedad")
     )
 
+    saving_fund = models.DecimalField(  # FondoAhorro
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Fondo de ahorro"
+    )
+    daily_salary = models.DecimalField(  # Salario Diario
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Salario diario integrado o normal"
+    )
+    responsible = models.CharField(  # Responsable
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Nombre del responsable / jefe inmediato"
+    )
+    separation_gratuity = models.DecimalField(  # Grat. Separación
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Gratificación por separación"
+    )
+    indemnification = models.DecimalField(  # Indemnización
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Monto de indemnización"
+    )
+    seniority_bonus = models.DecimalField(  # Prima de Antig.
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prima de antigüedad"
+    )
+
     class Meta:
         verbose_name = _("Empleado")
         verbose_name_plural = _("Empleados")

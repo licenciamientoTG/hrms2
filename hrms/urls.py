@@ -8,11 +8,19 @@ from django.contrib.auth import views as auth_views
 
 from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
 from apps.employee.models import Employee
 from apps.users.views import force_password_change
 from django.contrib.auth import get_user_model
 
+
+def third_monday_of_november(year: int) -> date:
+    nov1 = date(year, 11, 1)
+    # weekday(): lunes = 0 ... domingo = 6
+    offset = (0 - nov1.weekday()) % 7  # 0 = lunes
+    first_monday = nov1 + timedelta(days=offset)
+    third_monday = first_monday + timedelta(weeks=2)  # 3er lunes
+    return third_monday
 
 @login_required
 def home(request):
@@ -37,8 +45,25 @@ def home(request):
     try:
         empleado = Employee.objects.get(user=user)
         vacation_balance = empleado.vacation_balance
+        saving_fund = empleado.saving_fund or 0 
     except Employee.DoesNotExist:
         vacation_balance = 0
+        saving_fund = 0
+
+    current_year_target = third_monday_of_november(today.year)
+
+    if today >= current_year_target:
+        last_saving_date = current_year_target
+        next_saving_date = third_monday_of_november(today.year + 1)
+    else:
+        last_saving_date = third_monday_of_november(today.year - 1)
+        next_saving_date = current_year_target
+
+    total_days = (next_saving_date - last_saving_date).days or 1
+    elapsed_days = max((today - last_saving_date).days, 0)
+
+    saving_progress_percent = int(elapsed_days * 100 / total_days)
+    saving_progress_percent = max(0, min(saving_progress_percent, 100))
 
     # Cursos directos
     enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
@@ -72,6 +97,10 @@ def home(request):
     return render(request, "authapp/home_user.html", {
         'in_progress_courses_count': in_progress_courses_count,
         'vacation_balance': vacation_balance,
+        'saving_fund': saving_fund,  
+        'saving_progress_percent': saving_progress_percent,
+        'next_saving_date': next_saving_date,
+        'last_saving_date': last_saving_date,
     })
 
 

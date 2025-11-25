@@ -20,13 +20,14 @@
         <div class="card-body p-4">
           <!-- Monto disponible -->
           <div class="mb-3">
-            <label class="form-label">¿Con cuánto dinero cuenta en su fondo de ahorro?</label>
+            <label class="form-label">Saldo con el que cuenta en su fondo de ahorro</label>
             <div class="input-group">
               <span class="input-group-text">$</span>
-              <input id="fondo_ahorro" type="number" class="form-control"
-                     placeholder="Escribe el monto..." aria-label="monto disponible"
-                     inputmode="numeric" pattern="\d*" min="0" max="200000" step="100"
-                     onwheel="this.blur()">
+                <input id="fondo_ahorro" type="number" class="form-control"
+                      value="{{ fondo_ahorro|default:0 }}"
+                      aria-label="monto disponible"
+                      inputmode="numeric" pattern="\d*" min="0" max="200000" step="100"
+                      onwheel="this.blur()" readonly>
             </div>
             <div class="form-text">
               El monto máximo de préstamo es de:
