@@ -2,156 +2,74 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
 
-from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
-from django.utils import timezone
-from datetime import timedelta, date
-from apps.employee.models import Employee
 from apps.users.views import force_password_change
-from django.contrib.auth import get_user_model
-
-
-def third_monday_of_november(year: int) -> date:
-    nov1 = date(year, 11, 1)
-    # weekday(): lunes = 0 ... domingo = 6
-    offset = (0 - nov1.weekday()) % 7  # 0 = lunes
-    first_monday = nov1 + timedelta(days=offset)
-    third_monday = first_monday + timedelta(weeks=2)  # 3er lunes
-    return third_monday
-
-@login_required
-def home(request):
-    if request.user.is_superuser:
-        User = get_user_model()
-
-        # - Excluir superusuarios (y si quieres, staff)
-        
-        total_colaboradores = User.objects.filter(
-            is_active=True,
-            is_superuser=False,   # quítalo si SÍ quieres contarlos
-            # is_staff=False,     # descomenta si no quieres contar staff
-        ).count()
-
-        return render(request, "authapp/home.html", {
-            "total_colaboradores": total_colaboradores
-        })
-
-    user = request.user
-    today = timezone.now().date()
-
-    try:
-        empleado = Employee.objects.get(user=user)
-        vacation_balance = empleado.vacation_balance
-        saving_fund = empleado.saving_fund or 0 
-    except Employee.DoesNotExist:
-        vacation_balance = 0
-        saving_fund = 0
-
-    current_year_target = third_monday_of_november(today.year)
-
-    if today >= current_year_target:
-        last_saving_date = current_year_target
-        next_saving_date = third_monday_of_november(today.year + 1)
-    else:
-        last_saving_date = third_monday_of_november(today.year - 1)
-        next_saving_date = current_year_target
-
-    total_days = (next_saving_date - last_saving_date).days or 1
-    elapsed_days = max((today - last_saving_date).days, 0)
-
-    saving_progress_percent = int(elapsed_days * 100 / total_days)
-    saving_progress_percent = max(0, min(saving_progress_percent, 100))
-
-    # Cursos directos
-    enrolled_courses = EnrolledCourse.objects.filter(user=user).select_related('course', 'course__config')
-    assigned_courses = [e.course for e in enrolled_courses]
-
-    # Cursos públicos
-    public_courses = CourseHeader.objects.filter(config__audience="all_users")
-
-    # Cursos asignados tipo all_users
-    assigned_by_type = CourseAssignment.objects.filter(
-        assignment_type="all_users"
-    ).values_list("course_id", flat=True)
-    type_based_courses = CourseHeader.objects.filter(id__in=assigned_by_type)
-
-    # Combinar todos
-    all_courses = list(set(assigned_courses) | set(public_courses) | set(type_based_courses))
-
-    # Calcular fecha límite
-    for course in all_courses:
-        if hasattr(course, 'config') and course.config and course.config.deadline is not None:
-            deadline_date = course.created_at + timedelta(days=course.config.deadline)
-            course.deadline_date = deadline_date.date()
-        else:
-            course.deadline_date = None
-
-    # Contar solo cursos activos
-    in_progress_courses_count = sum(
-        1 for c in all_courses if c.deadline_date is None or c.deadline_date > today
-    )
-
-    return render(request, "authapp/home_user.html", {
-        'in_progress_courses_count': in_progress_courses_count,
-        'vacation_balance': vacation_balance,
-        'saving_fund': saving_fund,  
-        'saving_progress_percent': saving_progress_percent,
-        'next_saving_date': next_saving_date,
-        'last_saving_date': last_saving_date,
-    })
+from authapp.views import home   # 👈 importas la vista home desde authapp
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+
+    # Login / Logout
+    path("", auth_views.LoginView.as_view(
+        template_name="authapp/login.html"
+    ), name="login"),
+    path("auth/login/", auth_views.LoginView.as_view(
+        template_name="authapp/login.html"
+    ), name="login"),
+    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+
+    # Home
     path("home/", home, name="home"),
+
+    # Apps
     path("auth/", include("authapp.urls")),
-    path('departments/', include('departments.urls')),
-    path('news/', include('apps.news.urls')),
-    path('forms_requests/', include('apps.forms_requests.urls')),
-    path('vacations/', include('apps.vacations.urls')),
-    path('performance/', include('apps.performance.urls')),
-    path('org_chart/', include('apps.org_chart.urls')),
-    path('courses/', include('apps.courses.urls')),
-    path('users/', include('apps.users.urls')),
-    path('recognitions/', include('apps.recognitions.urls')),
-    path('objectives/', include('apps.objectives.urls')),
-    path('archive/', include('apps.archive.urls')),
-    path('onboarding/', include('apps.onboarding.urls')),
-    path('surveys/', include('apps.surveys.urls')),
-    path('documents/', include('apps.documents.urls')),
-    path('job_offers/', include('apps.job_offers.urls')), 
-    path('policies/', include('apps.policies.urls')),
-    path('career_plan/', include('apps.career_plan.urls')),
-    path("auth/login/", auth_views.LoginView.as_view(template_name="authapp/login.html"), name="login"),
-    path('change-password/', force_password_change, name='force_password_change'),
+    path("departments/", include("departments.urls")),
+    path("news/", include("apps.news.urls")),
+    path("forms_requests/", include("apps.forms_requests.urls")),
+    path("vacations/", include("apps.vacations.urls")),
+    path("performance/", include("apps.performance.urls")),
+    path("org_chart/", include("apps.org_chart.urls")),
+    path("courses/", include("apps.courses.urls")),
+    path("users/", include("apps.users.urls")),
+    path("recognitions/", include("apps.recognitions.urls")),
+    path("objectives/", include("apps.objectives.urls")),
+    path("archive/", include("apps.archive.urls")),
+    path("onboarding/", include("apps.onboarding.urls")),
+    path("surveys/", include("apps.surveys.urls")),
+    path("documents/", include("apps.documents.urls")),
+    path("job_offers/", include("apps.job_offers.urls")),
+    path("policies/", include("apps.policies.urls")),
+    path("career_plan/", include("apps.career_plan.urls")),
     path("tools/", include("apps.tools.urls")),
 
+    # Password change forzado
+    path("change-password/", force_password_change, name="force_password_change"),
 
+    # Reset de contraseña (flujo estándar Django)
+    path("password_reset/",
+         auth_views.PasswordResetView.as_view(),
+         name="password_reset"),
+    path("password_reset_done/",
+         auth_views.PasswordResetDoneView.as_view(),
+         name="password_reset_done"),
+    path("reset/<uidb64>/<token>/",
+         auth_views.PasswordResetConfirmView.as_view(),
+         name="password_reset_confirm"),
+    path("reset/done/",
+         auth_views.PasswordResetCompleteView.as_view(),
+         name="password_reset_complete"),
 
-    # Paso 1: Vista para ingresar el email
-    path('password_reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
-
-    # Paso 2: Confirmación de envío de email
-    path('password_reset_done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
-
-    # Paso 3: Link en el email -> Formulario de nueva contraseña
-    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
-
-    # Paso 4: Confirmación de cambio de contraseña
-    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
-    path('vacations/', include('apps.vacations.urls')),
-
-    path('endpoints/', include('apps.endpoints.urls')),
-    path('requisiciones/', include('apps.staff_requisitions.urls')),
-    path('notifications/', include('apps.notifications.urls')),
+    # Otros módulos
+    path("endpoints/", include("apps.endpoints.urls")),
+    path("requisiciones/", include("apps.staff_requisitions.urls")),
+    path("notifications/", include("apps.notifications.urls")),
     path("monitoring/", include("apps.monitoring.urls")),
-
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT
+    )
