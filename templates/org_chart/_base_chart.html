@@ -1,40 +1,5 @@
-<!-- org_chart/_base_chart.html -->
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>{{ title|default:"Organigrama" }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.balkan.app/orgchart.js"></script>
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #tree { width: 100%; height: 100vh; }
-  </style>
-</head>
-<body>
-  <div id="tree"></div>
-
-  <script>
-    // Si quieres filtrar por depto: agrega ?department_id=XX desde el template
-    const dataURL = `{% url 'org_chart_data_1' %}` + (window.departmentFilter || "");
-
-    fetch(dataURL, { credentials: 'same-origin' })
-      .then(r => r.json())
-      .then(({ nodes }) => {
-        new OrgChart(document.getElementById("tree"), {
-          template: "olivia",
-          nodeBinding: {
-            field_0: "name",
-            field_1: "title",
-            img_0: "img"
-          },
-          nodes,
-          mouseScrool: OrgChart.action.zoom,
-          scaleInitial: OrgChart.match.boundary,
-          enableSearch: true,
-          toolbar: { zoom: true, fit: true, expandAll: true, fullScreen: true, export: { png: true, pdf: true, svg: true, csv: true } }
-        });
-      });
-  </script>
-</body>
-</html>
+{# templates/org_chart/_base_chart.html #}
+<div
+  class="chart-container"
+  style="height: 1200px; background-color: #fffeff;"
+></div>

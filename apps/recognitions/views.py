@@ -98,8 +98,6 @@ def recognition_dashboard_user(request):
 
         # Validaciones
         errors = []
-        if not recipients_ids:
-            errors.append(_("Debes seleccionar al menos un destinatario."))
         if len(recipients_ids) > MAX_RECIPIENTS:
             errors.append(_("Máximo %(n)s colaboradores.") % {'n': MAX_RECIPIENTS})
 

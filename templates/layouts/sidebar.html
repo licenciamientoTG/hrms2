@@ -59,7 +59,7 @@
                 </li>
                 {% endif %}
                 
-                {% if user.is_superuser %}
+                {% if user.is_superuser or user.first_name == "Jose Bernardo" %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>

@@ -30,6 +30,7 @@ from itertools import islice
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
 from django.views.decorators.http import require_GET
+from django.contrib.auth import get_user_model
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -525,21 +526,22 @@ def guardar_constancia_guarderia(request):
                 "success": False,
                 "error": "Ya tienes una solicitud en proceso. Espera la respuesta antes de enviar otra."
             }, status=400)
-            
+
         # días → "Lunes,Martes,..."
         dias = request.POST.getlist("dias_laborales")
         dias_str = ",".join(dias)
 
         # parseo de fecha/hora del POST
-        nacimiento_str = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
-        hora_entrada_str = request.POST.get("hora_entrada")    # 'HH:MM'
-        hora_salida_str  = request.POST.get("hora_salida")     # 'HH:MM'
+        nacimiento_str   = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
+        hora_entrada_str = request.POST.get("hora_entrada")      # 'HH:MM'
+        hora_salida_str  = request.POST.get("hora_salida")       # 'HH:MM'
 
-        nacimiento = datetime.strptime(nacimiento_str, "%Y-%m-%d").date()
+        nacimiento   = datetime.strptime(nacimiento_str, "%Y-%m-%d").date()
         hora_entrada = datetime.strptime(hora_entrada_str, "%H:%M").time()
         hora_salida  = datetime.strptime(hora_salida_str, "%H:%M").time()
 
-        ConstanciaGuarderia.objects.create(
+        # Crear la solicitud
+        solicitud = ConstanciaGuarderia.objects.create(
             empleado=request.user,
             dias_laborales=dias_str,
             hora_entrada=hora_entrada,
@@ -549,9 +551,34 @@ def guardar_constancia_guarderia(request):
             nombre_menor=request.POST.get("nombre_menor"),
             nacimiento_menor=nacimiento,
         )
+
+        # 🔔 Notificar a los administradores
+        try:
+            User = get_user_model()
+            admins = User.objects.filter(is_superuser=True, is_active=True)
+
+            url = request.build_absolute_uri(reverse('admin_forms'))
+            titulo = "Nueva solicitud de constancia de guardería"
+            cuerpo = (
+                f"{request.user.get_full_name() or request.user.username} "
+                f"envió una nueva solicitud de guardería."
+            )
+
+            for admin in admins:
+                notify(
+                    admin,
+                    titulo,
+                    cuerpo,
+                    url,
+                    dedupe_key=f"guarderia-{solicitud.pk}-creada-{admin.pk}",
+                )
+        except Exception:
+            # No rompemos la creación si falla la notificación
+            pass
+
         return JsonResponse(
             {"success": True, "message": "Solicitud enviada correctamente."}
-        ) 
+        )
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 

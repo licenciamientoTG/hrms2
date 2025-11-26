@@ -1,18 +1,100 @@
+{# templates/org_chart/admin/org_chart_admin.html #}
 {% extends 'layouts/base.html' %}
 {% load static %}
+
 {% block styles %}
 <link rel="stylesheet" href="{% static 'css/org_chart.css' %}">
+<link
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+  rel="stylesheet"
+/>
 {% endblock %}
+
 {% block page_title %}Organigrama{% endblock %}
 {% block title %}Organigrama{% endblock %}
 
 {% block content %}
-Aquí va a ir el organigrama. para el administrador
-{# admin #}
-{% include "org_chart/_base_chart.html" with title="Organigrama — Admin" %}
-<script src="https://cdn.balkan.app/orgchart.js"></script>
-<div id="tree" style="height: calc(100vh - 12px)"></div>
+  {% include "org_chart/_base_chart.html" %}
 {% endblock %}
+
 {% block scripts %}
-  <script src="{% static 'js/org_chart.js' %}"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-org-chart@2.6.0"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const dataURL = "{% url 'org_chart_data_1' %}";
+
+      d3.json(dataURL).then(function (response) {
+        const nodes = response.nodes || response;
+
+        const data = nodes.map(n => ({
+          id: n.id,
+          parentId: n.pid || null,
+          name: n.name,
+          positionName: n.title,
+          area: n.title,
+          imageUrl: n.img || "https://via.placeholder.com/60",
+        }));
+
+        var chart = new d3.OrgChart()
+          .container(".chart-container")
+          .data(data)
+          .nodeHeight(d => 70)
+          .nodeWidth(d => {
+            if (d.depth === 0) return 250;
+            if (d.depth === 1) return 220;
+            return 140;
+          })
+          .childrenMargin(d => 50)
+          .compactMarginBetween(d => 35)
+          .compactMarginPair(d => 30)
+          .neightbourMargin((a, b) => 20)
+          .buttonContent(({ node, state }) => {
+            const directSubs = (node.children || []).length;
+            const icon = node.children && node.children.length
+              ? `<i class="fas fa-chevron-up"></i>`
+              : `<i class="fas fa-chevron-down"></i>`;
+            return `
+              <div style="border-radius:3px;padding:3px;font-size:10px;margin:auto auto;background-color:lightgray">
+                <span style="font-size:9px">${icon}</span>
+                ${directSubs}
+              </div>`;
+          })
+          .nodeContent(function (d, i, arr, state) {
+            const colors = ["#278B8D", "#404040", "#0C5C73", "#33C6CB"];
+            const color = colors[d.depth % colors.length];
+            const fullName = d.data.name || "";
+            const nameToShow =
+              d.depth < 2
+                ? fullName
+                : fullName.trim().split(/\s+/g)[0];
+            const secondary =
+              d.depth < 2 ? d.data.positionName : d.data.area;
+
+            return `
+              <div style="background-color:${color}; position:absolute;margin-top:-1px; margin-left:-1px;width:${d.width}px;height:${d.height}px;border-radius:50px">
+                <img src="${d.data.imageUrl}" style="position:absolute;margin-top:5px;margin-left:5px;border-radius:100px;width:60px;height:60px;" />
+                <div style="position:absolute;top:-15px;width:${d.width}px;text-align:center;color:#fafafa;">
+                  <div style="margin:0 auto;background-color:${color};display:inline-block;padding:8px;padding-bottom:0px;border-radius:5px">
+                    ${d.data.id}
+                  </div>
+                </div>
+
+                <div style="color:#fafafa;font-size:${d.depth < 2 ? 16 : 12}px;font-weight:bold;margin-left:70px;margin-top:15px">
+                  ${nameToShow}
+                </div>
+                <div style="color:#fafafa;margin-left:70px;margin-top:5px">
+                  ${secondary || ""}
+                </div>
+              </div>
+            `;
+          })
+          .render();
+      }).catch(function (err) {
+        console.error("Error cargando organigrama (admin):", err);
+      });
+    });
+  </script>
 {% endblock %}
