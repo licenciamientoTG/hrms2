@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required, permission_required, 
 from django.http import JsonResponse
 from django.db.models import Q
 from django.db import models
+from django.views.decorators.http import require_POST
+from django.db.models import Prefetch
 
 
 # esta vista te redirige a las vistas de usuario y administrador
@@ -45,66 +47,110 @@ def _find_emp(emp_no=None, name_like=None):
     return None
 
 # vista de organigrama
-
 @login_required
 def org_chart_data_1(request):
     """
-    Organigrama a partir de la BD:
-    - Cada Employee es un nodo
-    - responsible = jefe inmediato (padre en el árbol)
+    Organigrama basado en JobPosition.reports_to:
+
+    - Cada JobPosition es un nodo.
+    - Si tiene empleado activo, se muestra el nombre del empleado.
+    - Si no, se marca como VACANTE.
     """
 
-    # Detectar tipo de campo 'responsible'
-    field = Employee._meta.get_field("responsible")
-    is_fk_responsible = (
-        isinstance(field, models.ForeignKey)
-        and field.remote_field
-        and field.remote_field.model is Employee
-    )
-
-    # Base queryset
-    qs = (
+    # Empleados activos (ajusta el filtro si necesitas algo más)
+    active_employees_qs = (
         Employee.objects
-        .select_related("job_position", "department", "user")
-        .filter(is_active=True, user__isnull=False, user__is_active=True)
+        .filter(is_active=True)
+        .select_related("department", "user", "job_position")
     )
 
-    # Solo hacemos select_related('responsible') si realmente es FK
-    if is_fk_responsible:
-        qs = qs.select_related("responsible")
+    # Todas las posiciones, con sus empleados activos prefetchados
+    job_positions = (
+        JobPosition.objects
+        .all()
+        .prefetch_related(
+            Prefetch(
+                "employee_set",
+                queryset=active_employees_qs,
+                to_attr="current_employees",
+            )
+        )
+    )
 
     nodes = []
 
-    for emp in qs:
-        full_name = f"{emp.first_name} {emp.last_name}".strip() or emp.employee_number
+    for position in job_positions:
+        # Empleado asociado (si hay varios, tomamos el primero)
+        employees = getattr(position, "current_employees", [])
+        employee = employees[0] if employees else None
 
-        # jefe inmediato (boss) según el tipo de campo
-        boss = None
-        if is_fk_responsible:
-            boss = getattr(emp, "responsible", None)
+        # --- Datos de presentación ---
+        if employee:
+            full_name = f"{employee.first_name} {employee.last_name}".strip()
+            name_display = full_name or "Sin nombre"
+            is_vacant = False
+
+            # Foto segura
+            if getattr(employee, "photo", None) and employee.photo.name:
+                photo_url = employee.photo.url
+            else:
+                photo_url = "/static/default_photo.png"
         else:
-            # asumimos que 'responsible' guarda algún identificador (ej. employee_number)
-            resp_val = getattr(emp, "responsible", None)
-            if resp_val:
-                boss = Employee.objects.filter(employee_number=str(resp_val)).first()
+            name_display = "VACANTE"
+            is_vacant = True
+            photo_url = "/static/vacant_icon.png"
 
-        # foto (si la usas)
-        img = ""
-        if getattr(emp, "photo", None):
-            try:
-                img = emp.photo.url
-            except ValueError:
-                img = ""
+        title_display = getattr(position, "title", "") or ""
+
+        # Departamento (si existe el FK)
+        department_obj = getattr(position, "department", None)
+        department_name = getattr(department_obj, "name", "") if department_obj else ""
+
+        # Company (si el modelo tiene ese campo)
+        company_val = getattr(position, "company", None)
+        company_str = str(company_val) if company_val else ""
+
+        # --- Jerarquía: padre = reports_to ---
+        reports_to = getattr(position, "reports_to", None)
+        parent_id = reports_to.pk if reports_to else None
 
         nodes.append({
-            "id": emp.id,                               # identificador único del nodo
-            "pid": boss.id if boss else None,           # padre = responsable
-            "name": full_name,                          # nombre
-            "title": emp.job_position.title if emp.job_position else "",
-            "email": emp.email or (emp.user.email if emp.user else ""),
-            "department": emp.department.name if emp.department else "",
-            "company": str(emp.company) if getattr(emp, "company", None) else "",
-            "img": img,
+            "id": position.pk,                          # ID del puesto
+            "pid": parent_id,                           # ID del puesto padre
+            "name": name_display,                       # nombre o “VACANTE”
+            "title": title_display,                     # título del puesto
+            "department": department_name,              # depto
+            "company": company_str,                     # empresa (si aplica)
+            "img": photo_url,                           # foto/icono
+            "is_vacant": is_vacant,                     # bandera de vacante
+            "employee_id": employee.pk if employee else None,
         })
 
     return JsonResponse({"nodes": nodes})
+
+@require_POST
+def api_move_position(request):
+    # Asegúrate de validar que el usuario es administrador
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+
+    # Lógica para mover la posición (JobPosition)
+    try:
+        moved_id = request.POST.get('moved_position_id')
+        new_parent_id = request.POST.get('new_parent_id') # Puede ser None para el nodo raíz
+
+        moved_position = JobPosition.objects.get(pk=moved_id)
+        
+        if new_parent_id:
+            new_parent = JobPosition.objects.get(pk=new_parent_id)
+            moved_position.reports_to = new_parent
+        else:
+            moved_position.reports_to = None # Es la nueva raíz del organigrama
+
+        moved_position.save()
+        return JsonResponse({'status': 'success', 'message': 'Posición movida exitosamente'})
+
+    except JobPosition.DoesNotExist:
+        return JsonResponse({'error': 'Posición no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
