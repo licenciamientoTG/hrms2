@@ -1,4 +1,3 @@
-{# templates/org_chart/user/org_chart_user.html #}
 {% extends 'layouts/base.html' %}
 {% load static %}
 
@@ -8,6 +7,41 @@
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
   rel="stylesheet"
 />
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/css/jquery.orgchart.min.css">
+<style>
+  #chart-container {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: auto;
+      margin-top: 10px;
+  }
+
+  .orgchart .node {
+      border-radius: 10px;
+      padding: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.15);
+  }
+
+  .orgchart .title {
+      background-color: transparent !important;
+      font-weight: 600;
+      font-size: 14px;
+  }
+
+  .orgchart .content {
+      font-size: 12px;
+      line-height: 1.3;
+  }
+
+  .avatar {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 4px;
+  }
+</style>
 {% endblock %}
 
 {% block page_title %}Organigrama{% endblock %}
@@ -18,106 +52,51 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3-org-chart@2.6.0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/js/jquery.orgchart.min.js"></script>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      d3.json("{% url 'org_chart_data_1' %}").then(function (response) {
-        const nodes = response.nodes || response;
+<script>
+  $(function () {
+    $.getJSON("{% url 'org_chart_data_1' %}", function (datasource) {
 
-        let data = nodes.map(n => ({
-          id: n.id,
-          parentId: n.pid || null,                 // jefe (responsible)
-          name: n.name,
-          positionName: n.title,
-          area: n.department || n.company || "",
-          imageUrl: n.img || "https://via.placeholder.com/60",
-        }));
+      $('#chart-container').orgchart({
+        data: datasource,
+        nodeId: 'id',
+        nodeTitle: 'name',
+        nodeContent: 'title',
+        pan: true,
+        zoom: true,
+        draggable: false,   // <-- usuario NO puede mover
+        createNode: function ($node, data) {
+          const $title = $node.children('.title');
+          const $content = $node.children('.content');
 
-        // ----- FIX: d3-org-chart solo acepta UNA raíz -----
-        const roots = data.filter(d => d.parentId === null);
-        if (roots.length > 1) {
-          const artificialRootId = "ORG_ROOT";
+          let html = '';
 
-          // Nodo raíz artificial
-          data.push({
-            id: artificialRootId,
-            parentId: null,
-            name: "Organigrama",
-            positionName: "",
-            area: "",
-            imageUrl: "https://via.placeholder.com/60",
-          });
+          if (data.photo) {
+            html += '<img class="avatar" src="' + data.photo + '">';
+          }
 
-          // Todos los que antes eran raíces ahora cuelgan de ORG_ROOT
-          roots.forEach(r => {
-            r.parentId = artificialRootId;
-          });
+          html += '<div><strong>' + (data.name || '') + '</strong></div>';
+
+          if (data.title) {
+            html += '<div>' + data.title + '</div>';
+          }
+          if (data.department) {
+            html += '<div>' + data.department + '</div>';
+          }
+          if (data.company) {
+            html += '<div>' + data.company + '</div>';
+          }
+
+          $title.text('');
+          $content.html(html);
         }
-        // -----------------------------------------------
-
-        var chart = new d3.OrgChart()
-          .container(".chart-container")
-          .data(data)
-          .nodeHeight(d => 70)
-          .nodeWidth(d => {
-            if (d.depth === 0) return 250;
-            if (d.depth === 1) return 220;
-            return 140;
-          })
-          .childrenMargin(d => 50)
-          .compactMarginBetween(d => 35)
-          .compactMarginPair(d => 30)
-          .neightbourMargin((a, b) => 20)
-          .buttonContent(({ node, state }) => {
-            const directSubs = (node.children || []).length;
-            const icon = node.children && node.children.length
-              ? `<i class="fas fa-chevron-up"></i>`
-              : `<i class="fas fa-chevron-down"></i>`;
-
-            return `
-              <div style="border-radius:3px;padding:3px;font-size:10px;margin:auto auto;background-color:lightgray">
-                <span style="font-size:9px">${icon}</span>
-                ${directSubs}
-              </div>`;
-          })
-          .nodeContent(function (d, i, arr, state) {
-            const colors = ["#278B8D", "#404040", "#0C5C73", "#33C6CB"];
-            const color = colors[d.depth % colors.length];
-
-            const fullName = d.data.name || "";
-            const nameToShow =
-              d.depth < 2
-                ? fullName
-                : fullName.trim().split(/\s+/g)[0];
-
-            const secondary =
-              d.depth < 2 ? d.data.positionName : d.data.area;
-
-            return `
-              <div style="background-color:${color}; position:absolute;margin-top:-1px; margin-left:-1px;width:${d.width}px;height:${d.height}px;border-radius:50px">
-                <img src="${d.data.imageUrl}" style="position:absolute;margin-top:5px;margin-left:5px;border-radius:100px;width:60px;height:60px;" />
-                <div style="position:absolute;top:-15px;width:${d.width}px;text-align:center;color:#fafafa;">
-                  <div style="margin:0 auto;background-color:${color};display:inline-block;padding:8px;padding-bottom:0px;border-radius:5px">
-                    ${d.data.id}
-                  </div>
-                </div>
-
-                <div style="color:#fafafa;font-size:${d.depth < 2 ? 16 : 12}px;font-weight:bold;margin-left:70px;margin-top:15px">
-                  ${nameToShow}
-                </div>
-                <div style="color:#fafafa;margin-left:70px;margin-top:5px">
-                  ${secondary || ""}
-                </div>
-              </div>
-            `;
-          })
-          .render();
-      }).catch(function (err) {
-        console.error("Error cargando organigrama:", err);
       });
+
+    }).fail(function (err) {
+      console.error("Error cargando organigrama (usuario):", err);
     });
-  </script>
+  });
+</script>
 {% endblock %}

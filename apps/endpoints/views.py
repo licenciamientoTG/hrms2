@@ -278,6 +278,10 @@ def recibir_datos1(request):
         with transaction.atomic():
             existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
 
+            if existing and existing.is_active and not incoming_is_active:
+                # Ignoramos el "inactivo" del archivo
+                incoming_defaults["is_active"] = True
+
             # 1) No existe -> crear
             if action == "no_existing":
                 empleado = Employee.objects.create(**incoming_defaults)

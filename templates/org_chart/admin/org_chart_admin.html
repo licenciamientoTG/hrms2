@@ -1,146 +1,89 @@
-{# templates/org_chart/admin/org_chart_admin.html #}
 {% extends 'layouts/base.html' %}
 {% load static %}
 
 {% block styles %}
 <link rel="stylesheet" href="{% static 'css/org_chart.css' %}">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/css/jquery.orgchart.min.css">
 {% endblock %}
+
 
 {% block page_title %}Organigrama{% endblock %}
 {% block title %}Organigrama{% endblock %}
 
 {% block content %}
-    {% include "org_chart/_base_chart.html" %}
+<div class="orgchart-search"
+     style="margin-bottom: 10px; display:flex; align-items:center; justify-content:space-between;">
+
+  <!-- LADO IZQUIERDO: buscador -->
+  <div>
+    <input id="orgchart-search-input"
+           type="text"
+           placeholder="Buscar colaborador..."
+           style="max-width: 300px; padding: 6px 8px; border-radius: 4px; border: 1px solid #ccc;">
+
+    <button id="orgchart-search-btn"
+            type="button"
+            style="padding: 6px 12px; margin-left: 4px; border-radius: 4px; border: 1px solid #007bff; background:#007bff; color:white;">
+      Buscar
+    </button>
+
+    <small id="orgchart-search-result" style="margin-left:10px; color:#888;"></small>
+  </div>
+
+  <!-- LADO DERECHO: botón Editar -->
+  <button
+      style="padding: 6px 12px; margin-left: 4px; border-radius: 4px; border: 1px solid #007bff; background:#007bff; color:white;">
+    Editar
+  </button>
+</div>
+
+
+  {% include "org_chart/_base_chart.html" %}
+
+  <!-- 🔹 Panel lateral para la tarjeta de presentación -->
+  <div id="profile-panel" class="profile-panel">
+    <div class="profile-panel-header">
+      <button id="profile-close" class="profile-close">&times;</button>
+      <div id="profile-name" class="profile-name">Nombre</div>
+      <div class="profile-avatar-wrapper">
+        <img id="profile-photo" src="" alt="Foto" class="profile-avatar">
+      </div>
+    </div>
+    <div class="profile-panel-body">
+      <div class="profile-item">
+        <div class="profile-label">Puesto</div>
+        <div id="profile-title" class="profile-value"></div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-label">Departamento</div>
+        <div id="profile-dept" class="profile-value"></div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-label">Equipo</div>
+        <div id="profile-team" class="profile-value"></div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-label">Jefe directo</div>
+        <div id="profile-responsible" class="profile-value"></div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
+
 {% block scripts %}
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-org-chart@2.6.0"></script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const dataURL = "{% url 'org_chart_data_1' %}";
 
-    d3.json(dataURL).then(function (response) {
-        const nodes = response.nodes || response;
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/js/jquery.orgchart.min.js"></script>
 
-        // Adaptamos lo que devuelve la vista
-        let data = nodes.map(n => ({
-            id: n.id,
-            parentId: n.pid || null,
-            name: n.name,
-            positionName: n.title,
-            area: n.department || n.company || "",
-            imageUrl: n.img || "https://via.placeholder.com/60",
-            is_vacant: n.is_vacant || false,
-            employee_id: n.employee_id || null
-        }));
+  <script>
+    window.ORGCHART_DATA_URL = "{% url 'org_chart_data_1' %}";
+    window.ORGCHART_MOVE_URL = "{% url 'api_move_position' %}";
+    window.ORGCHART_CSRF = "{{ csrf_token }}";
+  </script>
 
-        // --- Importante: d3-org-chart 2.x sólo acepta UN root ---
-        const roots = data.filter(d => d.parentId === null);
-        if (roots.length > 1) {
-            const artificialRootId = "ORG_ROOT";
-
-            data.push({
-                id: artificialRootId,
-                parentId: null,
-                name: "Organigrama",
-                positionName: "",
-                area: "",
-                imageUrl: "https://via.placeholder.com/60",
-                is_vacant: false,
-                employee_id: null
-            });
-
-            roots.forEach(r => {
-                r.parentId = artificialRootId;
-            });
-        }
-        // --------------------------------------------------------
-
-        const chart = new d3.OrgChart()
-            .container(".chart-container")
-            .data(data)
-            .nodeHeight(d => 70)
-            .nodeWidth(d => {
-                if (d.depth === 0) return 250;
-                if (d.depth === 1) return 220;
-                return 140;
-            })
-            .childrenMargin(d => 50)
-            .compactMarginBetween(d => 35)
-            .compactMarginPair(d => 30)
-            .neightbourMargin((a, b) => 20)
-            .svgWidth(window.innerWidth)
-            .nodeContent(function (d) {
-                const isVacant = d.data.is_vacant;
-                const colors = ["#278B8D", "#404040", "#0C5C73", "#33C6CB"];
-                const color = isVacant ? "#FF9800" : colors[d.depth % colors.length];
-
-                const nameToShow = isVacant ? "VACANTE" : (d.data.name || "");
-                const secondary = isVacant
-                    ? d.data.positionName
-                    : (d.data.positionName + (d.data.area ? " | " + d.data.area : ""));
-
-                return `
-                    <div style="
-                        background-color:${color};
-                        position:absolute;
-                        margin-top:-1px;
-                        margin-left:-1px;
-                        width:${d.width}px;
-                        height:${d.height}px;
-                        border-radius:50px;
-                    ">
-                        <img src="${d.data.imageUrl}"
-                            style="
-                                position:absolute;
-                                margin-top:5px;
-                                margin-left:5px;
-                                border-radius:100px;
-                                width:60px;
-                                height:60px;
-                            ">
-                        <div style="
-                            color:#fafafa;
-                            font-size:${d.depth < 2 ? 16 : 12}px;
-                            font-weight:bold;
-                            margin-left:70px;
-                            margin-top:15px;
-                        ">
-                            ${nameToShow}
-                        </div>
-                        <div style="
-                            color:#fafafa;
-                            margin-left:70px;
-                            margin-top:5px;
-                            font-size:10px;
-                        ">
-                            ${secondary || ""}
-                        </div>
-                    </div>
-                `;
-            })
-            .buttonContent(({ node }) => {
-                const count = (node.children || []).length;
-                return `
-                    <div style="
-                        border-radius:3px;
-                        padding:3px;
-                        font-size:10px;
-                        background-color:lightgray;
-                    ">
-                        ${count}
-                    </div>
-                `;
-            })
-            .render();
-
-    }).catch(function (err) {
-        console.error("Error cargando organigrama (admin):", err);
-    });
-});
-</script>
+<script src="{% static 'js/org_chart.js' %}"></script>
 {% endblock %}
