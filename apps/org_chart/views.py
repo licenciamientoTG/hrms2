@@ -32,13 +32,7 @@ def org_chart_user(request):
 
 @login_required
 def org_chart_data_1(request):
-    """
-    Organigrama basado en Employee.responsible (texto):
-    - Cada empleado es un nodo.
-    - parent = empleado cuyo nombre coincide con 'responsible'.
-    - 'Vacante', vacío o None = sin jefe (raíz).
-    """
-
+    from collections import defaultdict
     employees = (
         Employee.objects
         .filter(is_active=True)
@@ -48,27 +42,43 @@ def org_chart_data_1(request):
     if not employees.exists():
         return JsonResponse({"error": "No hay empleados activos"}, status=404)
 
-    # Mapa nombre_normalizado -> Employee.id
-    def normalize_name(emp: Employee) -> str:
-        name = ""
-        if emp.first_name or emp.last_name:
-            name = f"{emp.first_name or ''} {emp.last_name or ''}"
-        elif emp.user:
-            name = emp.user.get_full_name() or emp.user.username
-        return " ".join(name.split()).strip().lower()
+    # --- helpers de nombres ---------------------------------
+    def normalize_text(s: str) -> str:
+        return " ".join((s or "").split()).strip().lower()
 
+    def get_first_last(emp: Employee):
+        first = (getattr(emp, "first_name", "") or "").strip()
+        last = (getattr(emp, "last_name", "") or "").strip()
+        if (not first and not last) and emp.user:
+            full = emp.user.get_full_name() or emp.user.username
+            parts = full.split()
+            if len(parts) >= 2:
+                first = " ".join(parts[:-1])
+                last = parts[-1]
+            else:
+                first = full
+        return first, last
+
+    # --- mapa de nombres -> id (en varios formatos) ----------
     name_to_id = {}
     for emp in employees:
-        key = normalize_name(emp)
-        if key:  # evitar vacío
-            # si hay duplicados se quedará con el último, pero al menos tendremos algo
-            name_to_id[key] = emp.id
+        first, last = get_first_last(emp)
+        if not (first or last):
+            continue
+
+        key_fl = normalize_text(f"{first} {last}")            # Diana Cristina Cano Valle
+        key_lf_comma = normalize_text(f"{last}, {first}")     # Cano Valle, Diana Cristina
+        key_lf = normalize_text(f"{last} {first}")            # Cano Valle Diana Cristina
+
+        for k in (key_fl, key_lf_comma, key_lf):
+            if k:
+                name_to_id[k] = emp.id
 
     nodes = {}
     for emp in employees:
-        full_name = normalize_name(emp).title()  # para mostrar bonito
+        first, last = get_first_last(emp)
+        full_name = " ".join([first, last]).strip() or "(Sin nombre)"
 
-        # Foto
         if getattr(emp, "photo", None) and emp.photo.name:
             photo_url = emp.photo.url
         else:
@@ -77,35 +87,45 @@ def org_chart_data_1(request):
         job_title = emp.job_position.title if getattr(emp, "job_position", None) else ""
         department = emp.department.name if getattr(emp, "department", None) else ""
 
-        # --- calcular parent_id a partir de 'responsible' texto ---
-        resp_raw = (emp.responsible or "").strip() if hasattr(emp, "responsible") else ""
+        resp_raw = (getattr(emp, "responsible", "") or "").strip()
         parent_id = None
 
         if resp_raw and resp_raw.lower() not in ("vacante", "vacant", "sin jefe", "-"):
-            key = " ".join(resp_raw.split()).strip().lower()
-            parent_id = name_to_id.get(key)  # puede ser None si no se encuentra
+            key = normalize_text(resp_raw)
+            if "," in resp_raw and key not in name_to_id:
+                last_part, first_part = resp_raw.split(",", 1)
+                flipped = f"{first_part.strip()} {last_part.strip()}"
+                key = normalize_text(flipped)
+
+            found_id = name_to_id.get(key)
+
+            # 🔴 si el responsable soy yo mismo, lo tomamos como "sin jefe"
+            if found_id and found_id != emp.id:
+                parent_id = found_id
+            else:
+                parent_id = None
 
         nodes[emp.id] = {
             "id": emp.id,
-            "name": full_name or "(Sin nombre)",
+            "name": full_name,
             "title": job_title,
             "department": department,
             "photo": photo_url,
             "is_vacant": False,
             "parent_id": parent_id,
             "team": getattr(emp, "team", "") or "",
-            "responsible": getattr(emp, "responsible", "") or "",
+            "responsible": resp_raw or "",
         }
 
-    # --- Construir árbol ---
+    # --- construir árbol -------------------------------------
     children_by_parent = defaultdict(list)
-
     for node in nodes.values():
         pid = node["parent_id"]
-        if pid and pid in nodes:
+        # 🔴 por seguridad: si el padre es el mismo, lo anulamos
+        if pid and pid in nodes and pid != node["id"]:
             children_by_parent[pid].append(node)
         else:
-            node["parent_id"] = None  # lo tratamos como raíz
+            node["parent_id"] = None
 
     roots = [n for n in nodes.values() if n["parent_id"] is None]
 
@@ -117,7 +137,6 @@ def org_chart_data_1(request):
     if len(roots) == 1:
         tree = attach_children(roots[0])
     else:
-        # raíz artificial para tener un solo root
         tree = {
             "id": "ORG_ROOT",
             "name": "Organigrama",
@@ -129,7 +148,6 @@ def org_chart_data_1(request):
         }
 
     return JsonResponse(tree, safe=False)
-
 
 # ==== API para actualizar el jefe al hacer drag & drop ====
 
@@ -150,9 +168,25 @@ def api_move_position(request):
         # Si el padre no es numérico (ej. ORG_ROOT), lo tratamos como sin jefe
         if new_parent_id and str(new_parent_id).isdigit():
             boss = Employee.objects.get(pk=int(new_parent_id))
-            boss_name = f"{boss.first_name or ''} {boss.last_name or ''}".strip()
-            if not boss_name and boss.user:
+
+            first = (boss.first_name or "").strip()
+            last = (boss.last_name or "").strip()
+
+            if (not first and not last) and boss.user:
+                full = boss.user.get_full_name() or boss.user.username
+                parts = full.split()
+                if len(parts) >= 2:
+                    first = " ".join(parts[:-1])
+                    last = parts[-1]
+                else:
+                    first = full
+
+            # Guardamos como "Apellido, Nombre" para ser consistente
+            if first or last:
+                boss_name = f"{last}, {first}".strip().strip(",")
+            else:
                 boss_name = boss.user.get_full_name() or boss.user.username
+
             moved_employee.responsible = boss_name
         else:
             moved_employee.responsible = "Vacante"
