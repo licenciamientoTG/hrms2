@@ -228,6 +228,16 @@ def recibir_datos1(request):
 
         seniority_raw = _safe_str(data.get('Antiguedad'))
 
+        email = _safe_str(data.get('Correo'))
+
+        fondo_ahorro = _as_decimal(data.get('FondoAhorro'), '0')
+        salario_diario = _as_decimal(data.get('SalarioDiario'), '0')
+        responsable = _safe_str(data.get('Responsable'))
+
+        grat_separacion = _as_decimal(data.get('Grat.Separacion'), '0')
+        indemnizacion = _as_decimal(data.get('Indemnizacion'), '0')
+        prima_antig = _as_decimal(data.get('PrimaDeAntig.'), '0')
+
         # Defaults listos para guardar
         incoming_defaults = {
             "employee_number": employee_number,
@@ -249,18 +259,28 @@ def recibir_datos1(request):
             "phone_number": telefono,
             "address": _safe_str(data.get('Direccion')),
 
-            # Campos por defecto si no vienen del archivo:
-            "email": "sin email",
-            "birth_date": date(1991, 1, 1),
-            "education_level": "sin dato",
-            "notes": "Sin observaciones",
-            "company": company_name,
             "seniority_raw": seniority_raw,
+            "company": company_name,
+            "education_level": _safe_str(data.get("Estudios", "sin dato")),
+            "email": email if email else "sin email",
+            # Campos por defecto si no vienen del archivo:
+            "birth_date": date(1991, 1, 1),
+            "notes": "Sin observaciones",
+            "saving_fund": fondo_ahorro,             # FondoAhorro
+            "daily_salary": salario_diario,          # Salario Diario
+            "responsible": responsable,              # Responsable
+            "separation_gratuity": grat_separacion,  # Grat. Separación
+            "indemnification": indemnizacion,        # Indemnización
+            "seniority_bonus": prima_antig, 
         }
 
         # ------- Manejar duplicados con prioridad -------
         with transaction.atomic():
             existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
+
+            if existing and existing.is_active and not incoming_is_active:
+                # Ignoramos el "inactivo" del archivo
+                incoming_defaults["is_active"] = True
 
             # 1) No existe -> crear
             if action == "no_existing":

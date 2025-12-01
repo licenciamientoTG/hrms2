@@ -59,7 +59,7 @@
                 </li>
                 {% endif %}
                 
-                {% if user.is_superuser %}
+                {% if user.is_superuser or user.first_name == "Jose Bernardo" %}
                 <li class="sidebar-item ">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i><span class="align-middle">Organigrama</span>
@@ -130,7 +130,7 @@
                 </li>
             {% endif %} 
 
-            {% if user.is_authenticated and user.id == 64 or user.id == 79 or user.id == 899%}
+            {% if perms.forms_requests.puede_solicitar_personal %}
             <li class="sidebar-item">  <!-- <== sin 'active' -->
             <a class="sidebar-link d-flex justify-content-between align-items-center"
                 data-bs-toggle="collapse" data-bs-target="#menu-tools" href="#menu-tools"

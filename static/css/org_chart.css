@@ -1,0 +1,162 @@
+#chart-container {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: auto;
+    margin-top: 10px;
+}
+
+/* Quitar cuadriculado rojo de fondo */
+.orgchart {
+    background-image: none !important;
+    background-color: #f8f9fa;
+}
+
+/* Caja de cada tarjeta */
+.orgchart .node {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.15);
+    background-color: #b9d4ff;
+    padding: 0;              /* quitamos padding extra */
+    min-width: 220px;        /* que no se encoja demasiado */
+}
+
+/* Título (nombre) */
+.orgchart .title {
+    background-color: transparent !important;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333 !important;
+    padding: 6px 8px 2px 8px;
+}
+
+/* Contenido (foto + puesto + depto...) */
+.orgchart .node .content {
+    font-size: 12px;
+    line-height: 1.3;
+    color: #333 !important;
+
+    height: auto !important;      /* ya NO altura fija gigantesca   */
+    border: none !important;      /* quitamos el rectángulo rojo    */
+
+    padding: 4px 8px 8px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Texto dentro del contenido */
+.orgchart .node .content div {
+    color: #555;
+}
+
+/* Imagen / logo */
+.avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 4px;
+}
+
+/* Nodo resaltado por el buscador */
+.orgchart .node.orgchart-highlight {
+    box-shadow: 0 0 0 3px #007bff;
+    border-color: #007bff;
+}
+
+/* Panel lateral de tarjeta de presentación */
+.profile-panel {
+    position: fixed;
+    top: 70px; /* ajusta según tu header */
+    right: -380px; /* oculto por defecto */
+    width: 340px;
+    height: calc(100% - 80px);
+    background: #ffffff;
+    box-shadow: -2px 0 8px rgba(0,0,0,.18);
+    border-radius: 16px 0 0 16px;
+    overflow: hidden;  
+    z-index: 999;
+    transition: right .25s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-panel.open {
+    right: 0;
+}
+
+.profile-panel-header {
+    background: #007bff;
+    color: #fff;
+    padding: 18px 16px 50px 16px;
+    text-align: center;
+    position: relative;
+    border-radius: 16px 0 0 16 px;
+}
+
+.profile-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.profile-avatar-wrapper {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid #ffffff;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+
+.profile-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.profile-panel-body {
+    padding: 56px 16px 16px 16px; /* deja espacio para avatar */
+    overflow-y: auto;
+}
+
+.profile-item {
+    margin-bottom: 10px;
+}
+
+.profile-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 2px;
+}
+
+.profile-value {
+    font-size: 13px;
+    color: #333;
+    word-break: break-word;
+}
+
+.profile-value a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.profile-value a:hover {
+    text-decoration: underline;
+}

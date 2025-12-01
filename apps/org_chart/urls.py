@@ -7,5 +7,6 @@ urlpatterns = [
     path('admin/', views.org_chart_admin, name='org_chart_admin'),
     path('user/', views.org_chart_user, name='org_chart_user'),
     path("data/org_chart_1/", views.org_chart_data_1, name="org_chart_data_1"),
+    path('api/move_position/', views.api_move_position, name='api_move_position'),
 
 ]

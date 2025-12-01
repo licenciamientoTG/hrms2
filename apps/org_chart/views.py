@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
 from apps.employee.models import Employee, JobPosition, Department
-from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
-from django.db.models import Q
+from django.views.decorators.http import require_POST
+from collections import defaultdict
 
 
 # esta vista te redirige a las vistas de usuario y administrador
@@ -13,94 +14,188 @@ def org_chart_view(request):
     else:
         return redirect('org_chart_user')
 
-# esta vista es para el administrador
+
+# vista admin
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def org_chart_admin(request):
-
     return render(request, 'org_chart/admin/org_chart_admin.html')
 
-# esta vista es para el usuario
+
+# vista usuario
 @login_required
 def org_chart_user(request):
-
     return render(request, 'org_chart/user/org_chart_user.html')
 
-MAX_NODES = 190  # margen por el límite de 200 en OrgChartJS
 
+# ==== NUEVO: datos para jquery OrgChart (estructura en árbol) ====
 
-def _find_emp(emp_no=None, name_like=None):
-    qs = (Employee.objects
-          .select_related("user", "job_position", "department")
-          .filter(is_active=True, user__isnull=False, user__is_active=True))
-    if emp_no:
-        emp = qs.filter(employee_number=str(emp_no)).first()
-        if emp:
-            return emp
-    if name_like:
-        return (qs.filter(Q(first_name__icontains=name_like) | Q(last_name__icontains=name_like))
-                  .order_by("last_name", "first_name")
-                  .first())
-    return None
-
-# vista de organigrama
 @login_required
 def org_chart_data_1(request):
-    # Organigrama #1 exactamente como la imagen
+    from collections import defaultdict
+    employees = (
+        Employee.objects
+        .filter(is_active=True)
+        .select_related("user", "job_position", "department")
+    )
 
-    people = {
-        "ROOT":      {"emp_no": None, "name_like": "Enrique López", "title": "Dirección General"},
-        # Staff (al costado del root, en este orden)
-        "EDITH":     {"emp_no": None, "name_like": "Edith Gallegos",    "title": "Asistente Dirección",                  "assistant": True, "order": 1},
-        "DAVID":     {"emp_no": None, "name_like": "David Castro",      "title": "Supervisor Proyectos Comerciales",     "assistant": True, "order": 2},
-        "ANTONIO":   {"emp_no": None, "name_like": "Antonio Meléndez",  "title": "Supervisor Proyectos Comerciales",     "assistant": True, "order": 3},
-        "GUADALUPE": {"emp_no": None, "name_like": "Guadalupe Ordóñez", "title": "Psicóloga",                            "assistant": True, "order": 99},
-        # Fila inferior izquierda → derecha
-        "MARIBEL":   {"emp_no": None, "name_like": "Maribel García",    "title": "Dirección Administración y Finanzas",  "order": 10},
-        "HECTOR":    {"emp_no": None, "name_like": "Héctor Larrinaga",  "title": "Director Comercial y Operaciones",     "order": 20},
-        "DIANA":     {"emp_no": None, "name_like": "Diana Cano",        "title": "Gerente Capital Humano",               "order": 30},
-        "ALFREDO":   {"emp_no": None, "name_like": "Alfredo Escalera",  "title": "Gerente Proyectos",                    "order": 40},
-        "JOEL":      {"emp_no": None, "name_like": "Joel Valenciano",   "title": "Jefe Jurídico",                        "order": 50},
-        "HEBER":     {"emp_no": None, "name_like": "Heber Alarcón",     "title": "Gerente Auditoría",                    "order": 60},
-        "TERESA":    {"emp_no": None, "name_like": "Teresa Cervantes",  "title": "Jefe Administración y Finanzas",       "order": 70},
-    }
+    if not employees.exists():
+        return JsonResponse({"error": "No hay empleados activos"}, status=404)
 
-    def node_from(key, pid):
-        cfg = people[key]
-        emp = _find_emp(emp_no=cfg.get("emp_no"), name_like=cfg.get("name_like"))
-        name  = "—"
-        title = cfg.get("title", "")
-        email = ""
-        if emp:
-            name = f"{emp.first_name} {emp.last_name}".strip() or emp.employee_number
-            if not title:
-                title = getattr(getattr(emp, "job_position", None), "title", "") or ""
-            email = emp.email or ""
-        node = {
-            "id": f"N_{key}",
-            "pid": pid,
-            "name": name,
-            "title": title,
-            "type": "employee",
-            "img": "",
-            "email": email,
-            "order": cfg.get("order", 0),
+    # --- helpers de nombres ---------------------------------
+    def normalize_text(s: str) -> str:
+        return " ".join((s or "").split()).strip().lower()
+
+    def get_first_last(emp: Employee):
+        first = (getattr(emp, "first_name", "") or "").strip()
+        last = (getattr(emp, "last_name", "") or "").strip()
+        if (not first and not last) and emp.user:
+            full = emp.user.get_full_name() or emp.user.username
+            parts = full.split()
+            if len(parts) >= 2:
+                first = " ".join(parts[:-1])
+                last = parts[-1]
+            else:
+                first = full
+        return first, last
+
+    # --- mapa de nombres -> id (en varios formatos) ----------
+    name_to_id = {}
+    for emp in employees:
+        first, last = get_first_last(emp)
+        if not (first or last):
+            continue
+
+        key_fl = normalize_text(f"{first} {last}")            # Diana Cristina Cano Valle
+        key_lf_comma = normalize_text(f"{last}, {first}")     # Cano Valle, Diana Cristina
+        key_lf = normalize_text(f"{last} {first}")            # Cano Valle Diana Cristina
+
+        for k in (key_fl, key_lf_comma, key_lf):
+            if k:
+                name_to_id[k] = emp.id
+
+    nodes = {}
+    for emp in employees:
+        first, last = get_first_last(emp)
+        full_name = " ".join([first, last]).strip() or "(Sin nombre)"
+
+        if getattr(emp, "photo", None) and emp.photo.name:
+            photo_url = emp.photo.url
+        else:
+            photo_url = "/static/template/img/logos/logo_sencillo.png"
+
+        job_title = emp.job_position.title if getattr(emp, "job_position", None) else ""
+        department = emp.department.name if getattr(emp, "department", None) else ""
+
+        resp_raw = (getattr(emp, "responsible", "") or "").strip()
+        parent_id = None
+
+        if resp_raw and resp_raw.lower() not in ("vacante", "vacant", "sin jefe", "-"):
+            key = normalize_text(resp_raw)
+            if "," in resp_raw and key not in name_to_id:
+                last_part, first_part = resp_raw.split(",", 1)
+                flipped = f"{first_part.strip()} {last_part.strip()}"
+                key = normalize_text(flipped)
+
+            found_id = name_to_id.get(key)
+
+            # 🔴 si el responsable soy yo mismo, lo tomamos como "sin jefe"
+            if found_id and found_id != emp.id:
+                parent_id = found_id
+            else:
+                parent_id = None
+
+        nodes[emp.id] = {
+            "id": emp.id,
+            "name": full_name,
+            "title": job_title,
+            "department": department,
+            "photo": photo_url,
+            "is_vacant": False,
+            "parent_id": parent_id,
+            "team": getattr(emp, "team", "") or "",
+            "responsible": resp_raw or "",
         }
-        if cfg.get("assistant"):
-            node["assistant"] = True
+
+    # --- construir árbol -------------------------------------
+    children_by_parent = defaultdict(list)
+    for node in nodes.values():
+        pid = node["parent_id"]
+        # 🔴 por seguridad: si el padre es el mismo, lo anulamos
+        if pid and pid in nodes and pid != node["id"]:
+            children_by_parent[pid].append(node)
+        else:
+            node["parent_id"] = None
+
+    roots = [n for n in nodes.values() if n["parent_id"] is None]
+
+    def attach_children(node):
+        hijos = children_by_parent.get(node["id"], [])
+        node["children"] = [attach_children(h) for h in hijos]
         return node
 
-    nodes = []
-    nodes.append(node_from("ROOT", None))
-    for key in ["EDITH", "DAVID", "ANTONIO", "GUADALUPE",
-                "MARIBEL", "HECTOR", "DIANA", "ALFREDO", "JOEL", "HEBER", "TERESA"]:
-        nodes.append(node_from(key, "N_ROOT"))
+    if len(roots) == 1:
+        tree = attach_children(roots[0])
+    else:
+        tree = {
+            "id": "ORG_ROOT",
+            "name": "Organigrama",
+            "title": "",
+            "department": "",
+            "photo": "/static/template/img/logos/logo_sencillo.png",
+            "is_vacant": False,
+            "children": [attach_children(r) for r in roots],
+        }
 
-    # Ordenamos: primero assistants (por order), luego hijos normales (por order)
-    root_id = "N_ROOT"
-    assistants = sorted([n for n in nodes if n.get("assistant") and n["pid"] == root_id], key=lambda x: x["order"])
-    children   = sorted([n for n in nodes if not n.get("assistant") and n["pid"] == root_id], key=lambda x: x["order"])
-    others     = [n for n in nodes if n["id"] not in {root_id, *[a["id"] for a in assistants], *[c["id"] for c in children]}]
-    ordered    = [nodes[0], *assistants, *children, *others]
+    return JsonResponse(tree, safe=False)
 
-    return JsonResponse({"nodes": ordered})
+# ==== API para actualizar el jefe al hacer drag & drop ====
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def api_move_position(request):
+    try:
+        moved_id = request.POST.get('moved_position_id')
+        new_parent_id = request.POST.get('new_parent_id')  # puede ser '' o None
+
+        # Validar que sea un ID numérico
+        if not moved_id or not str(moved_id).isdigit():
+            return JsonResponse({'error': 'ID de empleado no enviado'}, status=400)
+
+        moved_employee = Employee.objects.get(pk=int(moved_id))
+
+        # Si el padre no es numérico (ej. ORG_ROOT), lo tratamos como sin jefe
+        if new_parent_id and str(new_parent_id).isdigit():
+            boss = Employee.objects.get(pk=int(new_parent_id))
+
+            first = (boss.first_name or "").strip()
+            last = (boss.last_name or "").strip()
+
+            if (not first and not last) and boss.user:
+                full = boss.user.get_full_name() or boss.user.username
+                parts = full.split()
+                if len(parts) >= 2:
+                    first = " ".join(parts[:-1])
+                    last = parts[-1]
+                else:
+                    first = full
+
+            # Guardamos como "Apellido, Nombre" para ser consistente
+            if first or last:
+                boss_name = f"{last}, {first}".strip().strip(",")
+            else:
+                boss_name = boss.user.get_full_name() or boss.user.username
+
+            moved_employee.responsible = boss_name
+        else:
+            moved_employee.responsible = "Vacante"
+
+        moved_employee.save(update_fields=['responsible'])
+
+        return JsonResponse({'status': 'success', 'message': 'Jefe actualizado correctamente'})
+
+    except Employee.DoesNotExist:
+        return JsonResponse({'error': 'Empleado no encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -30,6 +30,45 @@ from itertools import islice
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
 from django.views.decorators.http import require_GET
+from django.contrib.auth import get_user_model
+
+def es_empresa_aqua(company) -> bool:
+    """
+    True si la razón social es AQUA CAR CLUB.
+    """
+    if not company:
+        return False
+    nombre = str(company).upper()
+    return "AQUA CAR CLUB" in nombre
+
+def get_sello_path(company) -> str:
+    """
+    Devuelve la ruta del sello correspondiente a la company.
+    Si no existe uno específico, regresa el sello genérico.
+    """
+    company_name_raw = str(company).strip() if company else ""
+    company_name_file = company_name_raw.replace("Ñ", "N").replace("ñ", "n")
+
+    sello_path = None
+
+    if company_name_raw:
+        filename = f"Sellos Razones sociales {company_name_file}.jpg"
+        sello_path_especifico = os.path.join(
+            settings.BASE_DIR,
+            "static", "template", "img", "constancias",
+            filename
+        )
+        if os.path.exists(sello_path_especifico):
+            sello_path = sello_path_especifico
+
+    if not sello_path:
+        sello_path = os.path.join(
+            settings.BASE_DIR,
+            "static", "template", "img", "constancias",
+            "SelloRFC.png"
+        )
+
+    return sello_path
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -122,9 +161,15 @@ def generar_constancia_laboral(request):
     company_name = company_name.replace("Ñ", "N").replace("ñ", "n")
 
     # --- PDF base para conocer tamaño ---
+    if es_empresa_aqua(employee.company if employee else None):
+        base_name = 'Constancia_laboral_AQUA.pdf'
+    else:
+        base_name = 'Constancia_laboral.pdf'
+
     template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_laboral.pdf'
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', base_name
     )
+
     base_pdf = PdfReader(template_path)
     base_page = base_pdf.pages[0]
     PAGE_W = float(base_page.mediabox.width)
@@ -158,27 +203,8 @@ def generar_constancia_laboral(request):
     c.setFont("Helvetica-Bold", 13)
     c.drawCentredString(440, 644, fecha_hoy)
 
-    sello_path = None
+    sello_path = get_sello_path(employee.company if employee else None)
 
-    # 1) Intentar usar un sello específico según el nombre de la empresa
-    if employee and employee.company:
-        filename = f"Sellos Razones sociales {company_name}.jpg"
-        sello_path_especifico = os.path.join(
-            settings.BASE_DIR,
-            "static", "template", "img", "constancias",
-            filename
-        )
-
-        if os.path.exists(sello_path_especifico):
-            sello_path = sello_path_especifico
-
-    # 2) Si no existe uno específico, usar el sello genérico
-    if not sello_path:
-        sello_path = os.path.join(
-            settings.BASE_DIR,
-            "static", "template", "img", "constancias",
-            "SelloRFC.png"
-        )
 
     # --- Dibuja el sello (junto a la firma) ---
     if os.path.exists(sello_path):
@@ -308,8 +334,13 @@ def generar_carta_recomendacion(request):
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
     # Verifica que exista la plantilla
+    if es_empresa_aqua(employee.company):
+        base_name = 'Carta_recomendacion_AQUA.pdf'
+    else:
+        base_name = 'Carta_recomendacion.pdf'
+
     template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Carta_recomendacion.pdf'
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', base_name
     )
     if not os.path.exists(template_path):
         raise Http404("Plantilla de carta no encontrada")
@@ -395,8 +426,13 @@ def generar_constancia_especial(request):
 
 
     # --- PDF base (plantilla) -> para obtener tamaño de página ---
+    if es_empresa_aqua(employee.company if employee else None):
+        base_name = 'Constancia_especial_AQUA.pdf'
+    else:
+        base_name = 'Constancia_especial.pdf'
+
     template_path = os.path.join(
-        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'Constancia_especial.pdf'
+        settings.BASE_DIR, 'static', 'template', 'img', 'constancias', base_name
     )
     base_pdf = PdfReader(template_path)
     base_page = base_pdf.pages[0]
@@ -436,22 +472,8 @@ def generar_constancia_especial(request):
     c.drawCentredString(440, 658, fecha_hoy)
 
    # === SELLO: primero intentamos sello por empresa, si no, genérico ===
-    sello_path = None
+    sello_path = get_sello_path(employee.company if employee else None)
 
-    if company_name_raw:
-        filename = f"Sellos Razones sociales {company_name_file}.jpg"
-        sello_path_especifico = os.path.join(
-            settings.BASE_DIR,
-            "static", "template", "img", "constancias",
-            filename
-        )
-        if os.path.exists(sello_path_especifico):
-            sello_path = sello_path_especifico
-
-    if not sello_path:
-        sello_path = os.path.join(
-            settings.BASE_DIR, 'static', 'template', 'img', 'constancias', 'SelloRFC.png'
-        )
 
     # --- Sello digital (rotado y al lado de la firma) ---
     if os.path.exists(sello_path):
@@ -525,21 +547,22 @@ def guardar_constancia_guarderia(request):
                 "success": False,
                 "error": "Ya tienes una solicitud en proceso. Espera la respuesta antes de enviar otra."
             }, status=400)
-            
+
         # días → "Lunes,Martes,..."
         dias = request.POST.getlist("dias_laborales")
         dias_str = ",".join(dias)
 
         # parseo de fecha/hora del POST
-        nacimiento_str = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
-        hora_entrada_str = request.POST.get("hora_entrada")    # 'HH:MM'
-        hora_salida_str  = request.POST.get("hora_salida")     # 'HH:MM'
+        nacimiento_str   = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
+        hora_entrada_str = request.POST.get("hora_entrada")      # 'HH:MM'
+        hora_salida_str  = request.POST.get("hora_salida")       # 'HH:MM'
 
-        nacimiento = datetime.strptime(nacimiento_str, "%Y-%m-%d").date()
+        nacimiento   = datetime.strptime(nacimiento_str, "%Y-%m-%d").date()
         hora_entrada = datetime.strptime(hora_entrada_str, "%H:%M").time()
         hora_salida  = datetime.strptime(hora_salida_str, "%H:%M").time()
 
-        ConstanciaGuarderia.objects.create(
+        # Crear la solicitud
+        solicitud = ConstanciaGuarderia.objects.create(
             empleado=request.user,
             dias_laborales=dias_str,
             hora_entrada=hora_entrada,
@@ -549,9 +572,34 @@ def guardar_constancia_guarderia(request):
             nombre_menor=request.POST.get("nombre_menor"),
             nacimiento_menor=nacimiento,
         )
+
+        # 🔔 Notificar a los administradores
+        try:
+            User = get_user_model()
+            admins = User.objects.filter(is_superuser=True, is_active=True)
+
+            url = request.build_absolute_uri(reverse('admin_forms'))
+            titulo = "Nueva solicitud de constancia de guardería"
+            cuerpo = (
+                f"{request.user.get_full_name() or request.user.username} "
+                f"envió una nueva solicitud de guardería."
+            )
+
+            for admin in admins:
+                notify(
+                    admin,
+                    titulo,
+                    cuerpo,
+                    url,
+                    dedupe_key=f"guarderia-{solicitud.pk}-creada-{admin.pk}",
+                )
+        except Exception:
+            # No rompemos la creación si falla la notificación
+            pass
+
         return JsonResponse(
             {"success": True, "message": "Solicitud enviada correctamente."}
-        ) 
+        )
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 
@@ -691,9 +739,12 @@ def constancia_preview(request):
         tipo = "especial"
 
     base_name = "Constancia_especial.pdf"
-    # ... (resto igual)
+    if es_empresa_aqua(empresa):
+        base_name = "Constancia_especial_AQUA.pdf"
 
-    template_path = os.path.join(settings.BASE_DIR, "static", "template", "img", "constancias", base_name)
+    template_path = os.path.join(
+        settings.BASE_DIR, "static", "template", "img", "constancias", base_name
+    )
 
     base_pdf = PdfReader(template_path)
     base_page = base_pdf.pages[0]
@@ -719,7 +770,8 @@ def constancia_preview(request):
     c.setFont("Helvetica-Bold", 13)
     c.drawCentredString(440, 658, fecha_hoy)
 
-    sello_path = os.path.join(settings.BASE_DIR, "static", "template", "img", "constancias", "SelloRFC.png")
+    sello_path = get_sello_path(empresa)
+
     if os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
@@ -733,6 +785,10 @@ def constancia_preview(request):
         c.saveState(); c.translate(STAMP_X, STAMP_Y); c.rotate(ANGLE)
         c.drawImage(sello, 0, 0, width=STAMP_W, height=STAMP_H, preserveAspectRatio=True, mask="auto")
         c.restoreState()
+    else:
+        c.setFont("Helvetica", 8)
+        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
+
 
     c.save(); buf.seek(0)
 
