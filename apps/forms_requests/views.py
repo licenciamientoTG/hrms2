@@ -41,6 +41,7 @@ def es_empresa_aqua(company) -> bool:
     nombre = str(company).upper()
     return "AQUA CAR CLUB" in nombre
 
+
 def get_sello_path(company) -> str:
     """
     Devuelve la ruta del sello correspondiente a la company.
