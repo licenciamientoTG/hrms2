@@ -42,11 +42,16 @@ def es_empresa_aqua(company) -> bool:
     return "AQUA CAR CLUB" in nombre
 
 
-def get_sello_path(company) -> str:
+def get_sello_path(company):
     """
     Devuelve la ruta del sello correspondiente a la company.
-    Si no existe uno específico, regresa el sello genérico.
+    - Si es AQUA CAR CLUB -> sin sello (None).
+    - Si no hay sello específico, usa el genérico.
     """
+    # AQUA CAR CLUB: NO sello
+    if es_empresa_aqua(company):
+        return None
+
     company_name_raw = str(company).strip() if company else ""
     company_name_file = company_name_raw.replace("Ñ", "N").replace("ñ", "n")
 
@@ -70,6 +75,7 @@ def get_sello_path(company) -> str:
         )
 
     return sello_path
+
 
 
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
@@ -208,7 +214,7 @@ def generar_constancia_laboral(request):
 
 
     # --- Dibuja el sello (junto a la firma) ---
-    if os.path.exists(sello_path):
+    if sello_path and os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
 
@@ -235,9 +241,6 @@ def generar_constancia_laboral(request):
             preserveAspectRatio=True, mask='auto'
         )
         c.restoreState()
-    else:
-        c.setFont("Helvetica", 8)
-        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
 
     # Cerrar overlay y reposicionar buffer
     c.save()
@@ -477,7 +480,7 @@ def generar_constancia_especial(request):
 
 
     # --- Sello digital (rotado y al lado de la firma) ---
-    if os.path.exists(sello_path):
+    if sello_path and os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
 
@@ -504,9 +507,6 @@ def generar_constancia_especial(request):
             preserveAspectRatio=True, mask='auto'
         )
         c.restoreState()
-    else:
-        c.setFont("Helvetica", 8)
-        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
 
     # --- Cerrar overlay ---
     c.save()
@@ -773,7 +773,7 @@ def constancia_preview(request):
 
     sello_path = get_sello_path(empresa)
 
-    if os.path.exists(sello_path):
+    if sello_path and os.path.exists(sello_path):
         sello = ImageReader(sello_path)
         img_w_px, img_h_px = sello.getSize()
         STAMP_W = 38 * mm
@@ -786,10 +786,6 @@ def constancia_preview(request):
         c.saveState(); c.translate(STAMP_X, STAMP_Y); c.rotate(ANGLE)
         c.drawImage(sello, 0, 0, width=STAMP_W, height=STAMP_H, preserveAspectRatio=True, mask="auto")
         c.restoreState()
-    else:
-        c.setFont("Helvetica", 8)
-        c.drawString(40, 40, f"Sello no encontrado: {sello_path}")
-
 
     c.save(); buf.seek(0)
 
