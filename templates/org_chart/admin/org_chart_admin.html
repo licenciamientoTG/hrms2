@@ -31,16 +31,26 @@
 
     <small id="orgchart-search-result" style="margin-left:10px; color:#888;"></small>
   </div>
-
-  <!-- LADO DERECHO: botón Editar -->
-  <button
-      style="padding: 6px 12px; margin-left: 4px; border-radius: 4px; border: 1px solid #007bff; background:#007bff; color:white;">
-    Editar
-  </button>
 </div>
 
 
   {% include "org_chart/_base_chart.html" %}
+
+  <!-- Controles flotantes de zoom / vista -->
+  <div class="orgchart-controls">
+    <button id="oc-zoom-in"  class="oc-btn" title="Acercar">
+      <i class="fas fa-plus"></i>
+    </button>
+    <button id="oc-zoom-out" class="oc-btn" title="Alejar">
+      <i class="fas fa-minus"></i>
+    </button>
+    <button id="oc-fit" class="oc-btn" title="Ajustar a pantalla">
+      <i class="fas fa-expand"></i>
+    </button>
+    <button id="oc-center-me" type="button" class="oc-btn">
+      <i class="fas fa-user"></i>
+    </button>
+  </div>
 
   <!-- 🔹 Panel lateral para la tarjeta de presentación -->
   <div id="profile-panel" class="profile-panel">
@@ -83,6 +93,9 @@
     window.ORGCHART_DATA_URL = "{% url 'org_chart_data_1' %}";
     window.ORGCHART_MOVE_URL = "{% url 'api_move_position' %}";
     window.ORGCHART_CSRF = "{{ csrf_token }}";
+
+    window.ORGCHART_ME_EMPLOYEE_NUMBER =
+      "{{ request.user.employee.employee_number|default_if_none:'' }}";
   </script>
 
 <script src="{% static 'js/org_chart.js' %}"></script>

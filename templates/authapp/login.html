@@ -5,6 +5,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="{% static 'template/img/logos/logo_sencillo.png' %}">
 <link rel="icon" type="image/png" sizes="16x16" href="{% static 'template/img/logos/logo_sencillo.png' %}">
 
+    {# ==== PWA ==== #}
+    <link rel="manifest" href="{% static 'pwa/manifest.json' %}">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="{% static 'pwa/icons/icon-192.png' %}">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>

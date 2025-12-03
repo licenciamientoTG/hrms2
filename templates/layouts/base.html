@@ -2,66 +2,7 @@
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-<link rel="icon" type="image/png" sizes="32x32" href="{% static 'template/img/logos/logo_sencillo.png' %}">
-<link rel="icon" type="image/png" sizes="16x16" href="{% static 'template/img/logos/logo_sencillo.png' %}">
-
-
-<link rel="stylesheet" href="{% static 'css/navbar.css' %}">
-<style>
-  /* Botón flotante */
-  #mi-boton-widget {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    background: #ff0800;
-    color: white;
-    font-size: 12px;
-    text-align: center;
-    line-height: 60px;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    transition: background 0.3s;
-    z-index: 9999;
-  }
-  #mi-boton-widget:hover {
-    background: #1b1b1b;
-  }
-
-  /* Panel de contenido */
-  #mi-panel-widget {
-    position: fixed;
-    bottom: 90px;
-    right: 20px;
-    width: auto;
-    height: auto;
-    padding: 50px;
-    background: white;
-    border: 1px solid #ddd;
-    box-shadow: 0 0 15px rgba(0,0,0,0.3);
-    border-radius: 8px;
-    display: none;
-    z-index: 9998;
-    overflow: hidden;
-    font-size: 12px;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    text-align: center;
-  }
-</style>
-
-	<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.css">
-	<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-	<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-
-
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -69,31 +10,86 @@
 	<meta name="author" content="AdminKit">
 	<meta name="keywords" content="adminkit, bootstrap, bootstrap 5, admin, dashboard, template, responsive, css, sass, html, theme, front-end, ui kit, web">
 
-	<link rel="preconnect" href="https://fonts.gstatic.com">
-	<link rel="shortcut icon" href="img/icons/icon-48x48.png" />
-
-	<link rel="canonical" href="https://demo-basic.adminkit.io/" />
-
-	<!-- Tipografia -->
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-
-	<body style="font-family: 'Encode Sans Condensed', sans-serif; font-weight: 500; /* Medium */">
-
 	<title>HRMS - {% block page_title %}{% endblock %}</title>
 
+	{# Favicons #}
+	<link rel="icon" type="image/png" sizes="32x32" href="{% static 'template/img/logos/logo_sencillo.png' %}">
+	<link rel="icon" type="image/png" sizes="16x16" href="{% static 'template/img/logos/logo_sencillo.png' %}">
+	<link rel="shortcut icon" href="{% static 'template/img/logos/logo_sencillo.png' %}" />
 
-	<link href="{% static "template/css/app.css" %}" rel="stylesheet">
+	{# ==== PWA ==== #}
+	<link rel="manifest" href="{% static 'pwa/manifest.json' %}">
+	<meta name="theme-color" content="#0d6efd">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<link rel="apple-touch-icon" href="{% static 'pwa/icons/icon-192.png' %}">
+
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+	<link rel="canonical" href="https://demo-basic.adminkit.io/" />
+
+	<!-- Tipografía -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-	<link href="{% static "template/css/app.css" %}" rel="stylesheet">
+
+	<!-- CSS -->
+	<link rel="stylesheet" href="{% static 'css/navbar.css' %}">
+	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.css">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link href="{% static 'template/css/app.css' %}" rel="stylesheet">
 	{% block styles %}{% endblock %}
+
+	<style>
+	  /* Botón flotante */
+	  #mi-boton-widget {
+	    position: fixed;
+	    bottom: 20px;
+	    right: 20px;
+	    width: 60px;
+	    height: 60px;
+	    background: #ff0800;
+	    color: white;
+	    font-size: 12px;
+	    text-align: center;
+	    line-height: 60px;
+	    border-radius: 50%;
+	    cursor: pointer;
+	    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+	    transition: background 0.3s;
+	    z-index: 9999;
+	  }
+	  #mi-boton-widget:hover {
+	    background: #1b1b1b;
+	  }
+
+	  /* Panel de contenido */
+	  #mi-panel-widget {
+	    position: fixed;
+	    bottom: 90px;
+	    right: 20px;
+	    width: auto;
+	    height: auto;
+	    padding: 50px;
+	    background: white;
+	    border: 1px solid #ddd;
+	    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+	    border-radius: 8px;
+	    display: none;
+	    z-index: 9998;
+	    overflow: hidden;
+	    font-size: 12px;
+	    justify-content: center;
+	    align-items: center;
+	    flex-direction: column;
+	    text-align: center;
+	  }
+	</style>
 </head>
 
-<body>
+<body style="font-family: 'Encode Sans Condensed', sans-serif; font-weight: 500;">
 	<div class="wrapper">
 		{% include 'layouts/sidebar.html' %}
-
 
 		<div class="main">
 			{% include 'layouts/navbar.html' %}
@@ -105,7 +101,7 @@
 					<div class="messages">
 						{% for message in messages %}
 						<div class="alert alert-{{ message.tags }}">
-							{{ message | safe}}
+							{{ message|safe }}
 						</div>
 						{% endfor %}
 					</div>
@@ -114,75 +110,87 @@
 					<h1 class="h3 mb-3"><strong>{% block title %}{% endblock %}</strong></h1>
 
 					{% block content %}{% endblock %}
-
 				</div>
 			</main>
 
 			{% include 'layouts/footer.html' %}
-			
 		</div>
 	</div>
 
-	<script src="{% static "template/js/app.js" %}"></script>
-	<script src="https://cdn.datatables.net/2.2.2/js/dataTables.min.js"></script>
-
-	<!-- Incluir SweetAlert2 desde CDN -->
+	<!-- JS: librerías primero -->
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+	<!-- JS propios -->
+	<script src="{% static 'template/js/app.js' %}"></script>
+	<script src="https://cdn.datatables.net/2.2.2/js/dataTables.min.js"></script>
 	<script src="{% static 'js/navbar.js' %}"></script>
 
-    {% block scripts %}
-    {% endblock %}
+	{% block scripts %}{% endblock %}
 
+<<<<<<< HEAD
 <!-- Botón flotante 
 <div id="mi-boton-widget" onclick="toggleWidget()">
   BUG
 </div> -->
+=======
+    <!-- REGISTRO DEL SERVICE WORKER DEL PWA -->
+    <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register("{% static 'pwa/service-worker.js' %}")
+          .then(function (registration) {
+            console.log('ServiceWorker registrado con scope:', registration.scope);
+          })
+          .catch(function (error) {
+            console.log('Error al registrar el ServiceWorker:', error);
+          });
+      });
+    }
+    </script>
+>>>>>>> staging
 
-<!-- Panel de contenido oculto -->
-{% comment %} <div id="mi-panel-widget">
-  Este botón estará solo disponible en la versión de pruebas del HRMS, para hacer capturas de errores o bugs. <br><br>
-  Versión V0.1 por Aplicaciones y Software <br> TotalGas
-  <br><br>
-  <a href="https://totalgas-developments.atlassian.net/jira/software/form/c10b6246-6526-4783-8987-32a816174804?atlOrigin=eyJpIjoiNmI2MzEwNDE0NzdiNDcxOWEyYWFmYzg5YjdmYzhmMjEiLCJwIjoiaiJ9"  target="_blank">
-    <button>CAPTURAR ERROR</button>
-  </a>
-</div> {% endcomment %}
+    <!-- Script del widget -->
+    <script>
+    (() => {
+      const btn   = document.getElementById('mi-boton-widget');
+      const panel = document.getElementById('mi-panel-widget');
+      let abierto = false;
 
-<script>
-(() => {
-  const btn   = document.getElementById('mi-boton-widget');
-  const panel = document.getElementById('mi-panel-widget');
-  let abierto = false;
+      function abrir() {
+        panel.style.display = 'flex';
+        abierto = true;
+        document.addEventListener('click', clickFuera);
+        document.addEventListener('keydown', escCierra);
+      }
 
-  function abrir() {
-    panel.style.display = 'flex'; 
-    abierto = true;
-    document.addEventListener('click', clickFuera);
-    document.addEventListener('keydown', escCierra);
-  }
+      function cerrar() {
+        panel.style.display = 'none';
+        abierto = false;
+        document.removeEventListener('click', clickFuera);
+        document.removeEventListener('keydown', escCierra);
+      }
 
-  function cerrar() {
-    panel.style.display = 'none';
-    abierto = false;
-    document.removeEventListener('click', clickFuera);
-    document.removeEventListener('keydown', escCierra);
-  }
+      function clickFuera(e) {
+        if (!panel.contains(e.target) && !btn.contains(e.target)) cerrar();
+      }
 
-  function clickFuera(e) {
-    if (!panel.contains(e.target) && !btn.contains(e.target)) cerrar();
-  }
+      function escCierra(e) {
+        if (e.key === 'Escape') cerrar();
+      }
 
-  function escCierra(e) { if (e.key === 'Escape') cerrar(); }
+      function toggleWidget(e) {
+        if (e) e.stopPropagation();
+        (abierto ? cerrar : abrir)();
+      }
 
-  function toggleWidget(e) {
-    if (e) e.stopPropagation();
-    (abierto ? cerrar : abrir)();
-  }
-
-  window.toggleWidget = toggleWidget;
-  panel.addEventListener('click', e => e.stopPropagation());
-})();
-</script>
+      window.toggleWidget = toggleWidget;
+      if (panel) {
+        panel.addEventListener('click', e => e.stopPropagation());
+      }
+    })();
+    </script>
 </body>
-
 </html>
