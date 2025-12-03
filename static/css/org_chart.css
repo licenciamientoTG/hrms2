@@ -3,6 +3,8 @@
     border-radius: 8px;
     overflow: auto;
     margin-top: 10px;
+    height: calc(100vh - 220px); 
+    max-height: calc(100vh - 220px);
 }
 
 /* Quitar cuadriculado rojo de fondo */
@@ -159,4 +161,69 @@
 
 .profile-value a:hover {
     text-decoration: underline;
+}
+
+/* Asegura que el nodo sea contenedor relativo */
+.orgchart .node {
+  position: relative;
+}
+
+/* Badge de subordinados directos */
+.direct-reports-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  background: #e8f0ff;
+  color: #0d6efd;
+  border-radius: 999px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.direct-reports-badge i {
+  font-size: 12px;
+}
+
+/* Controles flotantes a la derecha */
+.orgchart-controls {
+  position: fixed;          /* si prefieres que se mueva con la página; 
+                               cámbialo a absolute si quieres relativo al chart */
+  right: 24px;
+  top: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 50;
+}
+
+.orgchart-controls .oc-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .15s ease, background .15s;
+}
+
+.orgchart-controls .oc-btn i {
+  font-size: 18px;
+  color: #333;
+}
+
+.orgchart-controls .oc-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.16);
+}
+
+.orgchart-controls .oc-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
 }

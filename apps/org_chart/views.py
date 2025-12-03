@@ -115,6 +115,7 @@ def org_chart_data_1(request):
             "parent_id": parent_id,
             "team": getattr(emp, "team", "") or "",
             "responsible": resp_raw or "",
+            "employee_number": emp.employee_number or "",
         }
 
     # --- construir árbol -------------------------------------
