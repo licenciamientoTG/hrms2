@@ -79,11 +79,11 @@ def monitoring_view(request):
     RELATION = None
     base_qs = User.objects.only("id", "username", "first_name", "last_name", "last_login").filter(is_active=True)
     try:
-        users_qs = base_qs.select_related("employee__department")
+        users_qs = base_qs.select_related("employee__department", "employee__job_position")
         RELATION = "employee"
     except FieldError:
         try:
-            users_qs = base_qs.select_related("user_profile__department")
+            users_qs = base_qs.select_related("user_profile__department", "user_profile__job_position")
             RELATION = "user_profile"
         except FieldError:
             users_qs = base_qs 
@@ -180,6 +180,22 @@ def monitoring_view(request):
         if up_dept and getattr(up_dept, "name", None):
             return up_dept.name
         return "—"
+    
+    def get_position_name(u):
+        if RELATION == "employee":
+            pos = getattr(getattr(u, "employee", None), "job_position", None)
+            return getattr(pos, "title", "—") if pos else "—"
+        if RELATION == "user_profile":
+            pos = getattr(getattr(u, "user_profile", None), "job_position", None)
+            return getattr(pos, "title", "—") if pos else "—"
+        # Fallback
+        emp_pos = getattr(getattr(u, "employee", None), "job_position", None)
+        if emp_pos and getattr(emp_pos, "title", None):
+            return emp_pos.name
+        up_pos = getattr(getattr(u, "user_profile", None), "job_position", None)
+        if up_pos and getattr(up_pos, "title", None):
+            return up_pos.name
+        return "—"
 
     for u in users_iter:
         nombre = f"{u.first_name} {u.last_name}".strip() or "(sin nombre)"
@@ -212,7 +228,8 @@ def monitoring_view(request):
             week_cells.append({"used": used, "label": label})
 
         rows.append({
-            "department": dept_name,           # 👈 ya se llena
+            "department": dept_name,
+            "position":get_position_name (u),
             "nombre": nombre,
             "username": username,
             "locations": last_place,

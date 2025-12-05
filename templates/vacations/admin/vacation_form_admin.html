@@ -38,32 +38,45 @@
 
     <!-- Filtros -->
     <div class="collapse d-md-block" id="filtrosCollapse">
-      <div class="row g-2 mb-3">
+      <form method="get" class="row g-2 mb-3" id="form-filtros">
         <div class="col-12 col-md-5">
-          <input id="filtro-q" type="text" class="form-control" placeholder="Buscar por ID o empleado">
+          <input
+            id="filtro-q"
+            name="q"
+            type="text"
+            class="form-control"
+            placeholder="Buscar por ID o empleado"
+            value="{{ q }}"
+          >
         </div>
+
         <div class="col-12 col-md-3">
-          <select id="filtro-estado" class="form-select">
-            <option value="">Todos los estados</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="aprobada">Aprobadas</option>
-            <option value="rechazada">Rechazadas</option>
+          <select id="filtro-estado" name="estado" class="form-select">
+            <option value="" {% if not estado %}selected{% endif %}>Todos los estados</option>
+            <option value="pending"  {% if estado == 'pending'  %}selected{% endif %}>Pendientes</option>
+            <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Aprobadas</option>
+            <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
           </select>
         </div>
+
         <div class="col-12 col-md-2">
-          <select id="filtro-tipo" class="form-select">
-            <option value="">Todos los tipos</option>
-            <option value="vacaciones">Vacaciones</option>
-            <option value="descanso_medico">Descanso médico</option>
-            <option value="estudio">Días de estudio</option>
-            <option value="maternidad">Maternidad</option>
+          <select id="filtro-tipo" name="tipo" class="form-select">
+            <option value="" {% if not tipo %}selected{% endif %}>Todos los tipos</option>
+            <option value="Vacaciones"             {% if tipo == 'Vacaciones'             %}selected{% endif %}>Vacaciones</option>
+            <option value="Descanso médico"        {% if tipo == 'Descanso médico'        %}selected{% endif %}>Descanso médico</option>
+            <option value="Días de estudio"        {% if tipo == 'Días de estudio'        %}selected{% endif %}>Días de estudio</option>
+            <option value="Licencia por maternidad" {% if tipo == 'Licencia por maternidad' %}selected{% endif %}>Licencia por maternidad</option>
           </select>
         </div>
+
         <div class="col-12 col-md-2">
-          <button id="btn-limpiar" class="btn btn-outline-secondary w-100" type="button">Limpiar</button>
+          <a href="{% url 'vacation_form_admin' %}" class="btn btn-outline-secondary w-100" id="btn-limpiar">
+            Limpiar
+          </a>
         </div>
-      </div>
+      </form>
     </div>
+
 
     <!-- Separador opcional -->
     <!-- <hr class="my-2"> -->
@@ -86,68 +99,100 @@
         </thead>
         <tbody>
           {% for s in page_obj.object_list %}
-          <tr>
+          <tr
+            data-id="{{ s.id }}"
+            data-empleado="{{ s.user.get_full_name|default:s.user.username }}"
+            data-tipo="{{ s.tipo_solicitud }}"
+            data-dias="{{ s.total_days|default:'' }}"
+            data-inicio="{{ s.start_date|date:'d/m/Y' }}"
+            data-fin="{{ s.end_date|date:'d/m/Y' }}"
+            data-estado="{{ s.status }}"
+            data-razon="{{ s.reason|default:''|escapejs }}"
+          >
             <td>{{ s.id }}</td>
-            <td class="text-nowrap">{{ s.user.get_full_name|default:s.user.username }}</td>
 
+            <td class="text-nowrap">
+              {{ s.user.get_full_name|default:s.user.username }}
+            </td>
+
+            <!-- Tipo (ya viene bonito por los choices) -->
             <td class="d-none d-lg-table-cell">
-              {% with t=s.tipo_solicitud %}
-                {% if t == 'descanso_medico' %}Descanso médico
-                {% elif t == 'estudio' %}Días de estudio
-                {% elif t == 'maternidad' %}Maternidad
-                {% else %}Vacaciones{% endif %}
-              {% endwith %}
+              {{ s.tipo_solicitud }}
             </td>
 
-            <td class="text-nowrap">{{ s.start_date|date:"d/m/Y" }} – {{ s.end_date|date:"d/m/Y" }}</td>
+            <!-- Rango -->
+            <td class="text-nowrap">
+              {{ s.start_date|date:"d/m/Y" }} – {{ s.end_date|date:"d/m/Y" }}
+            </td>
 
-            <td class="d-none d-md-table-cell text-center">{{ s.total_days|default:"-" }}</td>
+            <!-- Días -->
+            <td class="d-none d-md-table-cell text-center">
+              {{ s.total_days|default:"-" }}
+            </td>
 
+            <!-- Estado -->
             <td>
-              {% with st=s.status|default:'pendiente' %}
-                {% if st == 'aprobada' %}
-                  <span class="badge bg-success">Aprobada</span>
-                {% elif st == 'rechazada' %}
-                  <span class="badge bg-danger">Rechazada</span>
-                {% else %}
-                  <span class="badge bg-warning text-dark">Pendiente</span>
-                {% endif %}
+              {% with st=s.status|default:"pending" %}
+                <span class="badge
+                  {% if st == 'approved' %} bg-success
+                  {% elif st == 'rejected' %} bg-danger
+                  {% elif st == 'pending' %} bg-warning text-dark
+                  {% else %} bg-secondary {% endif %}">
+                  {% if st == 'approved' %}
+                    Aprobada
+                  {% elif st == 'rejected' %}
+                    Rechazada
+                  {% elif st == 'pending' %}
+                    Pendiente
+                  {% else %}
+                    {{ st }}
+                  {% endif %}
+                </span>
               {% endwith %}
             </td>
 
+            <!-- Comprobante -->
             <td class="d-none d-lg-table-cell">
               {% if s.documento %}
                 <a href="{{ s.documento.url }}" target="_blank" rel="noopener">Ver PDF</a>
               {% else %}—{% endif %}
             </td>
 
+            <!-- Info (abre modal detalle) -->
             <td class="d-none d-lg-table-cell">
-              <button type="button" class="btn btn-sm btn-outline-primary"
-                      data-bs-toggle="modal" data-bs-target="#modalDetalleVac"
-                      data-id="{{ s.id }}">
+              <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle"
+                      data-bs-toggle="modal" data-bs-target="#modalDetalleVac">
                 Ver
               </button>
             </td>
 
+            <!-- Acciones (Atender) -->
             <td>
               <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-success"
-                        data-bs-toggle="modal" data-bs-target="#modalAtender"
-                        data-id="{{ s.id }}">
-                  Atender
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary d-lg-none"
-                        data-bs-toggle="modal" data-bs-target="#modalDetalleVac"
-                        data-id="{{ s.id }}">
+                {% if s.status == 'pending' %}
+                  <button type="button" class="btn btn-sm btn-success btn-atender"
+                          data-bs-toggle="modal" data-bs-target="#modalAtender">
+                    Atender
+                  </button>
+                {% else %}
+                  <button type="button" class="btn btn-sm btn-secondary" disabled>
+                    Atendida
+                  </button>
+                {% endif %}
+
+                <button type="button" class="btn btn-sm btn-outline-primary d-lg-none btn-ver-detalle"
+                        data-bs-toggle="modal" data-bs-target="#modalDetalleVac">
                   Info
                 </button>
               </div>
             </td>
+
           </tr>
           {% empty %}
           <tr><td colspan="9" class="text-center">Sin solicitudes</td></tr>
           {% endfor %}
         </tbody>
+
       </table>
     </div>
   </div>  {# ← cierra la card que envuelve filtros + tabla #}

@@ -136,11 +136,7 @@
       window.addEventListener('load', function () {
         navigator.serviceWorker.register("{% static 'pwa/service-worker.js' %}")
           .then(function (registration) {
-            console.log('ServiceWorker registrado con scope:', registration.scope);
           })
-          .catch(function (error) {
-            console.log('Error al registrar el ServiceWorker:', error);
-          });
       });
     }
     </script>

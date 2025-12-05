@@ -30,6 +30,13 @@ class VacationRequest(models.Model):
 
     def __str__(self):
         return f"{self.tipo_solicitud} - {self.user.username} ({self.status})"
+
+    @property
+    def total_days(self):
+        if self.start_date and self.end_date:
+            return (self.end_date - self.start_date).days + 1
+        return None
+
         
     class Meta:
         permissions = [
