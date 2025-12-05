@@ -11,18 +11,24 @@
 {% block content %}
 <div class="container mt-4">
   <h1>Solicitudes de vacaciones</h1>
+  {% comment %} asdadadada {% endcomment %}
 
-  <!-- Buscador (opcional, mismo estilo que constancias) -->
+  {% comment %} Buscador (opcional, mismo estilo que constancias) {% endcomment %}
   <input type="text" id="vacSearch" class="form-control search-bar" placeholder="Buscar formulario...">
+  <div class="alert alert-info">
+    Días de vacaciones disponibles: {{  saldo_total|floatformat:"-2" }}
+  </div>
 
-  <!-- Tabs -->
+
+
+  {% comment %} Tabs {% endcomment %}
   <div class="tab-container mb-3">
     <div class="tab active" id="tab-disponibles">Disponibles</div>
     <div class="tab" id="tab-proceso">En proceso</div>
     <div class="tab" id="tab-completados">Completados</div>
   </div>
 
-  <!-- ========= DISPONIBLES ========= -->
+  {% comment %} DISPONIBLES {% endcomment %}
   <div id="contenedor-disponibles">
     <div class="form-list" id="list-disponibles">
       <!-- Vacaciones -->
@@ -37,7 +43,7 @@
         </div>
       </div>
 
-      <!-- Días de estudio -->
+      {% comment %} Días de estudio
       <div class="form-item mb-3">
         <i class="form-icon bi bi-mortarboard-fill"></i>
         <div class="form-name">
@@ -71,7 +77,7 @@
         <div class="form-actions">
           <a class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalMaternidad">Solicitar</a>
         </div>
-      </div>
+      </div> {% endcomment %}
     </div>
   </div>
 
@@ -113,7 +119,6 @@
       </div>
     {% endif %}
   </div>
-
   <!-- ========= COMPLETADOS ========= -->
   <div id="contenedor-completados" style="display:none;">
     {% if finished_requests %}
@@ -131,31 +136,48 @@
           <tbody>
             {% for r in finished_requests %}
             <tr>
+              <!-- Tipo -->
               <td class="text-start">
-                {% with t=r.tipo_solicitud %}
-                  {% if t == 'estudio' %}Días de estudio
-                  {% elif t == 'descanso_medico' %}Descanso médico
-                  {% elif t == 'maternidad' %}Maternidad
-                  {% else %}Vacaciones{% endif %}
-                {% endwith %}
+                {{ r.tipo_solicitud }}
               </td>
+
+              <!-- Rango de fechas -->
               <td class="text-start text-nowrap">
                 {{ r.start_date|date:"d/m/Y" }} — {{ r.end_date|date:"d/m/Y" }}
               </td>
-              <td class="text-center">{{ r.total_days|default:"—" }}</td>
+
+              <!-- Días -->
+              <td class="text-center">
+                {{ r.total_days|default:"—" }}
+              </td>
+
+              <!-- Estado -->
               <td class="text-start">
                 {% with st=r.status %}
                   <span class="badge
-                    {% if st == 'aprobada' %} bg-success
-                    {% elif st == 'rechazada' %} bg-danger
+                    {% if st == 'approved' %} bg-success
+                    {% elif st == 'rejected' %} bg-danger
+                    {% elif st == 'pending' %} bg-warning text-dark
                     {% else %} bg-secondary {% endif %}">
-                    {{ st|default:"—"|title }}
+                    {% if st == 'approved' %}
+                      Aprobada
+                    {% elif st == 'rejected' %}
+                      Rechazada
+                    {% elif st == 'pending' %}
+                      Pendiente
+                    {% else %}
+                      {{ st }}
+                    {% endif %}
                   </span>
                 {% endwith %}
               </td>
+
+              <!-- Comprobante -->
               <td class="text-center">
                 {% if r.documento %}
-                  <a class="btn btn-link btn-sm p-0" href="{{ r.documento.url }}" target="_blank" rel="noopener">Ver</a>
+                  <a class="btn btn-link btn-sm p-0" href="{{ r.documento.url }}" target="_blank" rel="noopener">
+                    Ver
+                  </a>
                 {% else %}
                   <span class="text-muted">—</span>
                 {% endif %}
@@ -174,32 +196,44 @@
       </div>
     {% endif %}
   </div>
-</div>
 
-{# ===== MODALES (idénticos en estilo a constancias) ===== #}
+</div>
 
 <!-- Modal Vacaciones -->
 <div class="modal fade" id="modalVacacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'vacation_form_user' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
-      <input type="hidden" name="tipo_solicitud" value="vacaciones">
+      <input type="hidden" name="tipo_solicitud" value="Vacaciones">
       <div class="modal-header">
         <h5 class="modal-title">Solicitar vacaciones</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+
       <div class="modal-body">
+        <div>
+          Días disponibles: {{ saldo_total|floatformat:"-2" }}
+        </div>
+        <br>
         <div class="row g-2">
+          {% now "Y-m-d" as hoy %}
+
           <div class="col-6">
             <label class="form-label">Fecha inicio</label>
-            <input type="date" class="form-control" name="fecha_inicio" required>
+            <input
+              type="date"
+              class="form-control"
+              name="fecha_inicio"
+              required
+              min="{{ hoy }}"
+            >
           </div>
           <div class="col-6">
             <label class="form-label">Fecha fin</label>
-            <input type="date" class="form-control" name="fecha_fin" required>
+            <input type="date" class="form-control" name="fecha_fin" required min="{{ hoy}}">
           </div>
           <div class="col-12">
-            <label class="form-label">Observaciones</label>
+            <label class="form-label">Motivo/observaciones</label>
             <textarea class="form-control" name="observaciones" rows="3" placeholder="Opcional…"></textarea>
           </div>
           <div class="col-12">
@@ -219,9 +253,9 @@
 <!-- Reutilizamos el mismo modal para otros tipos cambiando el hidden -->
 <div class="modal fade" id="modalEstudio" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'vacation_form_user' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
-      <input type="hidden" name="tipo_solicitud" value="estudio">
+      <input type="hidden" name="tipo_solicitud" value="Días de estudio">
       <div class="modal-header">
         <h5 class="modal-title">Solicitar días de estudio</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -244,9 +278,9 @@
 
 <div class="modal fade" id="modalMedico" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'vacation_form_user' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
-      <input type="hidden" name="tipo_solicitud" value="descanso_medico">
+      <input type="hidden" name="tipo_solicitud" value="Descanso médico">
       <div class="modal-header">
         <h5 class="modal-title">Solicitar descanso médico</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -269,9 +303,9 @@
 
 <div class="modal fade" id="modalMaternidad" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" action="#" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'vacation_form_user' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
-      <input type="hidden" name="tipo_solicitud" value="maternidad">
+      <input type="hidden" name="tipo_solicitud" value="Licencia por maternidad">
       <div class="modal-header">
         <h5 class="modal-title">Solicitar maternidad</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -294,5 +328,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{% static 'js/vacation.js' %}"></script>
+  <script src="{% static 'js/vacations.js' %}"></script>
 {% endblock %}
