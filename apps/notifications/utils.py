@@ -5,7 +5,7 @@ from django.db.models import Q
 
 log = logging.getLogger(__name__)
 
-def notify(user, title, body="", url="", dedupe_key=None):
+def notify(user, title, body="", url="", module="", dedupe_key=None):
     Notification = apps.get_model("notifications", "Notification")
     try:
         if dedupe_key:
@@ -23,6 +23,7 @@ def notify(user, title, body="", url="", dedupe_key=None):
             title=title,
             body=body,
             url=url,
+            module=module or "",
         )
     except Exception as e:
         log.exception("Error creando notificación: %s", e)

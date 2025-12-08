@@ -592,6 +592,7 @@ def guardar_constancia_guarderia(request):
                     titulo,
                     cuerpo,
                     url,
+                    module="constancias",  
                     dedupe_key=f"guarderia-{solicitud.pk}-creada-{admin.pk}",
                 )
         except Exception:
