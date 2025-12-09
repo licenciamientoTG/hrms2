@@ -60,11 +60,21 @@ class ConstanciaGuarderia(models.Model):
         'rechazada' si la última decisión fue rechazada,
         o 'en progreso' si aún no hay decisión final.
         """
-        from .models import SolicitudAutorizacion  # import aquí para evitar ciclos
+        # OPTIMIZACIÓN: Si la vista ya nos dio el dato, lo usamos.
+        if hasattr(self, 'ultimo_estado_db'):
+            st = self.ultimo_estado_db
+            if st == 'rechazado':
+                return 'rechazada'
+            if st == 'aprobado':
+                return 'completada'
+            return 'en progreso'
+
+        # --- Lógica original (fallback por si se llama desde otro lado) ---
+        from .models import SolicitudAutorizacion
         ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
         qs = (SolicitudAutorizacion.objects
-              .filter(content_type=ct, object_id=self.id)
-              .order_by('-fecha_revision', '-id'))
+            .filter(content_type=ct, object_id=self.id)
+            .order_by('-fecha_revision', '-id'))
 
         if qs.exists():
             last = qs.first()

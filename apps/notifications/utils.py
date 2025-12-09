@@ -106,6 +106,6 @@ def send_survey_notifications(survey) -> int:
     for uid in to_create:
         user = apps.get_model("auth", "User").objects.filter(id=uid).first()
         if user:
-            if notify(user, title, body=body, url=url, dedupe_key=True):
+            if notify(user, title, body=body, url=url, module="encuestas", dedupe_key=True):
                 created += 1
     return created

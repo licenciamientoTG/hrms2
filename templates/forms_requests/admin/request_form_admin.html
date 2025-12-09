@@ -22,107 +22,113 @@
 <!-- Filtros -->
 <div class="card p-3">
   <div class="row g-2 mb-3">
-    <div class="col-md-5">
-      <input id="filtro-q" type="text" class="form-control" placeholder="Buscar por ID o empleado">
-    </div>
-    <div class="col-md-3">
-      <select id="filtro-estado" class="form-select">
-        <option value="">Todos los estados</option>
-        <option value="pendiente">Pendientes</option>
-        <option value="completada">Completadas</option>
-        <option value="rechazada">Rechazadas</option>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <button id="btn-limpiar" class="btn btn-outline-secondary w-100" type="button">Limpiar</button>
-    </div>
+      <div class="col-md-5">
+        <input id="filtro-q" type="text" class="form-control" placeholder="Buscar por ID o empleado">
+      </div>
+
+      <div class="col-md-3">
+        <select id="filtro-estado" class="form-select">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="completada">Completadas</option>
+          <option value="rechazada">Rechazadas</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <button id="btn-limpiar" class="btn btn-outline-secondary w-100" type="button">Limpiar</button>
+      </div>
+
+      <div class="col-md-2">
+        <a href="{% url 'admin_forms' %}" id="btn-todas" class="btn btn-outline-primary w-100">Todas las solicitudes</a>
+      </div>
   </div>
-  <table class="table table-sm table-hover align-middle">
-    <thead class="table">
-      <tr>
-        <th>#</th>
-        <th>Solicitante</th>
-        <th>Fecha</th>
-        <th>Estado</th>
-        <th>PDF</th>
-        <th>Información</th>
-        <th>Tipo</th>
-      </tr>
-    </thead>
-    <tbody id="tabla-solicitudes">
-      {% for s in page_obj.object_list %}
-        <tr
-          data-id="{{ s.id }}"
-          data-empleado="{{ s.empleado.get_full_name|default:s.empleado.username }}"
-          data-estado="{% if s.estado == 'en progreso' %}pendiente{% else %}{{ s.estado }}{% endif %}"
-          data-estado-label="{% if s.estado == 'en progreso' %}En proceso{% else %}{{ s.estado|title }}{% endif %}"
-        >
-          <td>{{ s.id }}</td>
-          <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
-          <td class="text-nowrap">{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
-          <td>
-            {% with st=s.estado %}
-              {% if st == 'completada' %}
-                <span class="badge bg-success">Completada</span>
-              {% elif st == 'rechazada' %}
-                <span class="badge bg-danger">Rechazada</span>
-              {% else %}
-                <span class="badge bg-warning text-dark">Pendiente</span>
-              {% endif %}
-            {% endwith %}
-          </td>
-          <td>
-            {% if s.estado == "rechazada" %}
-              -
-            {% elif s.pdf_respuesta and s.pdf_respuesta.name %}
-              <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
-            {% else %}
-              <button type="button"
-                      class="btn btn-sm btn-success btn-responder"
-                      data-id="{{ s.id }}"
-                      data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
-                Responder
-              </button>
-            {% endif %}
-          </td>
-          <td>
-            <button type="button"
-                    class="btn btn-sm btn-outline-primary btn-ver-solicitud"
-                    data-url="{% url 'guarderia_detalle' s.id %}">
-              Ver
-            </button>
-          </td>
-          <td>
-            <span class="badge bg-info text-dark">Guardería</span>
-          </td>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+      <thead class="table">
+        <tr>
+          <th>#</th>
+          <th>Solicitante</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>PDF</th>
+          <th>Información</th>
+          <th>Tipo</th>
         </tr>
-      {% empty %}
-        <tr><td colspan="7">Sin registros</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody id="tabla-solicitudes">
+        {% for s in page_obj.object_list %}
+          <tr
+            data-id="{{ s.id }}"
+            data-empleado="{{ s.empleado.get_full_name|default:s.empleado.username }}"
+            data-estado="{% if s.estado == 'en progreso' %}pendiente{% else %}{{ s.estado }}{% endif %}"
+            data-estado-label="{% if s.estado == 'en progreso' %}En proceso{% else %}{{ s.estado|title }}{% endif %}"
+          >
+            <td>{{ s.id }}</td>
+            <td>{{ s.empleado.get_full_name|default:s.empleado.username }}</td>
+            <td class="text-nowrap">{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+            <td>
+              {% with st=s.estado %}
+                {% if st == 'completada' %}
+                  <span class="badge bg-success">Completada</span>
+                {% elif st == 'rechazada' %}
+                  <span class="badge bg-danger">Rechazada</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">Pendiente</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              {% if s.estado == "rechazada" %}
+                -
+              {% elif s.pdf_respuesta and s.pdf_respuesta.name %}
+                <a href="{{ s.pdf_respuesta.url }}" target="_blank" rel="noopener">Ver PDF</a>
+              {% else %}
+                <button type="button"
+                        class="btn btn-sm btn-success btn-responder"
+                        data-id="{{ s.id }}"
+                        data-user="{{ s.empleado.get_full_name|default:s.empleado.username|escape }}">
+                  Responder
+                </button>
+              {% endif %}
+            </td>
+            <td>
+              <button type="button"
+                      class="btn btn-sm btn-outline-primary btn-ver-solicitud"
+                      data-url="{% url 'guarderia_detalle' s.id %}">
+                Ver
+              </button>
+            </td>
+            <td>
+              <span class="badge bg-info text-dark">Guardería</span>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7">Sin registros</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
   <!-- Paginación -->
-  {% if page_obj.paginator.num_pages > 1 %}
-  <nav aria-label="Paginación">
-    <ul class="pagination justify-content-center">
+  {% if page_obj and page_obj.paginator.num_pages > 1 %}
+  <nav aria-label="Paginación" class="mt-3">
+    <ul class="pagination mb-0">
       {% if page_obj.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&estado={{ estado }}">«</a>
-        </li>
-      {% else %}
-        <li class="page-item disabled"><span class="page-link">«</span></li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&estado={{ estado }}">« Anterior</a>
+      </li>
       {% endif %}
-
-      <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
-
+      
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      </li>
+      
       {% if page_obj.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&estado={{ estado }}">»</a>
-        </li>
-      {% else %}
-        <li class="page-item disabled"><span class="page-link">»</span></li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&estado={{ estado }}">Siguiente »</a>
+      </li>
       {% endif %}
     </ul>
   </nav>

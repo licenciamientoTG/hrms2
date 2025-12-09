@@ -143,20 +143,6 @@
                     </a>
                 </li>
 
-                <li class="sidebar-item ">
-                    <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
-                        <i class="fa-solid fa-calendar-days"></i>
-                        <span class="align-middle">
-                            Vacaciones y permisos
-                            {% with notif_module_counts.vacaciones as c %}
-                                {% if c %}
-                                    <span class="badge bg-danger ms-1">{{ c }}</span>
-                                {% endif %}
-                            {% endwith %}
-                        </span>
-                    </a>
-                </li>
-
                 {% endif %}
                 {% if user.is_authenticated and user.id == 64 or user.is_superuser %}
                 <li class="sidebar-item ">
@@ -317,3 +303,7 @@
             {% comment %} {% endif %} {% endcomment %}
         </div>
     </nav>
+
+{% block scripts %}
+  <script src="{% static 'js/sidebar.js' %}"></script>
+{% endblock %}

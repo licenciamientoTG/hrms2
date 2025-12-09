@@ -101,6 +101,7 @@ def monitoring_view(request):
             if RELATION:
                 term_filter |= Q(**{f"{RELATION}__department__name__icontains": term})
                 term_filter |= Q(**{f"{RELATION}__department__abbreviated__icontains": term})
+                term_filter |= Q(**{f"{RELATION}__job_position__title__icontains": term})
             else:
                 # Fallback: intenta ambos sin romper si uno no existe
                 try:
@@ -108,7 +109,15 @@ def monitoring_view(request):
                 except FieldError:
                     pass
                 try:
+                    term_filter |= Q(**{"employee__job_position__title__icontains": term})
+                except FieldError:
+                    pass
+                try:
                     term_filter |= Q(**{"user_profile__department__name__icontains": term}) | Q(**{"user_profile__department__abbreviated__icontains": term})
+                except FieldError:
+                    pass
+                try:
+                    term_filter |= Q(**{"user_profile__job_position__title__icontains": term})
                 except FieldError:
                     pass
 

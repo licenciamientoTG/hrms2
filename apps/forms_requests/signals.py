@@ -4,10 +4,12 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.urls import reverse, NoReverseMatch
 from django.contrib.contenttypes.models import ContentType
+import logging
 
 from .models import SolicitudAutorizacion, ConstanciaGuarderia
 from apps.notifications.utils import notify
 
+log = logging.getLogger(__name__)
 
 def _url_usuario_default():
     # Ajusta si tu named URL es otra
@@ -65,6 +67,7 @@ def _notificar_decision_final(solicitud):
         title=titulo,
         body=cuerpo,
         url=url,
+        module="constancias",
         dedupe_key=dedupe,
     )
 
