@@ -179,6 +179,7 @@ function renderDesglose() {
   const $monto   = document.getElementById('monto');
   const $semanas = document.getElementById('semanas');
   const $panel   = document.getElementById('detalle-contenido');
+  const $btnEnviar = document.getElementById('btn-enviar-solicitud');
 
   if (!$monto || !$semanas || !$panel) return;
 
@@ -187,6 +188,7 @@ function renderDesglose() {
 
   if ($monto.disabled || total <= 0 || weeks <= 0) {
     $panel.innerHTML = `<p class="text-muted mb-0">Indica un monto y semanas para ver el desglose.</p>`;
+    if ($btnEnviar) $btnEnviar.style.display = 'none';
     return;
   }
 
@@ -248,9 +250,15 @@ function renderDesglose() {
       </table>
     </div>
     <p class="text-muted small mb-0">
-      La información que se muestra queda sujeta a revisión.    
+      La información que se muestra queda sujeta a revisión. </br>
+      Recuerda que no podrás solicitar prestamos desde el {{fecha }} hasta el {{fecha}}
     </p>
   `;
+
+  // ✅ MOSTRAR EL BOTÓN
+  if ($btnEnviar) {
+      $btnEnviar.style.display = 'inline-block';
+  }
 }
 
 // --- Actualizar desglose cuando cambian datos ---
@@ -266,4 +274,108 @@ document.getElementById('btn-detalles')?.addEventListener('click', function () {
   this.textContent = opened ? 'Ocultar detalles' : 'Ver detalles';
   this.setAttribute('aria-expanded', opened ? 'true' : 'false');
   if (opened) renderDesglose();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Función para obtener el CSRF Token (necesario para POST en Django)
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Lógica para enviar la solicitud
+    const btnEnviar = document.getElementById('btn-enviar-solicitud');
+    
+    if (btnEnviar) {
+        // Usamos clonación para asegurar que no haya listeners duplicados si se recarga el script
+        const nuevoBtn = btnEnviar.cloneNode(true);
+        btnEnviar.parentNode.replaceChild(nuevoBtn, btnEnviar);
+        
+        nuevoBtn.addEventListener('click', function() {
+            // 1. Obtener valores
+            const inputMonto = document.getElementById('monto');
+            const selectSemanas = document.getElementById('semanas');
+            
+            if (!inputMonto || !selectSemanas) return;
+
+            // Limpiar valores (quitar símbolos no numéricos)
+            const rawMonto = inputMonto.value.replace(/[^0-9.]/g, '');
+            const monto = parseFloat(rawMonto);
+            const semanas = parseInt(selectSemanas.value);
+
+            // 2. Validaciones básicas
+            if (isNaN(monto) || monto <= 0) {
+                Swal.fire('Error', 'Por favor ingresa un monto válido.', 'error');
+                return;
+            }
+            if (isNaN(semanas) || semanas <= 0) {
+                Swal.fire('Error', 'Selecciona un plazo de semanas válido.', 'error');
+                return;
+            }
+
+            // 3. Confirmación visual con SweetAlert2
+            Swal.fire({
+                title: '¿Confirmar solicitud?',
+                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // 4. Enviar datos al servidor
+                    nuevoBtn.disabled = true;
+                    nuevoBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+                    fetch('/tools/api/create-loan/', {  // Asegúrate de que esta URL coincida con urls.py
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            amount: monto,
+                            weeks: semanas
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.ok) {
+                            Swal.fire(
+                                '¡Solicitud Enviada!',
+                                'Tu solicitud ha sido registrada correctamente.',
+                                'success'
+                            ).then(() => {
+                                // Recargar página o limpiar
+                                window.location.reload(); 
+                            });
+                        } else {
+                            Swal.fire('Error', data.error || 'Ocurrió un error al procesar la solicitud.', 'error');
+                            nuevoBtn.disabled = false;
+                            nuevoBtn.innerHTML = 'Enviar solicitud';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'Error de conexión con el servidor.', 'error');
+                        nuevoBtn.disabled = false;
+                        nuevoBtn.innerHTML = 'Enviar solicitud';
+                    });
+                }
+            });
+        });
+    }
 });

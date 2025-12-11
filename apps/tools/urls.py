@@ -7,4 +7,6 @@ urlpatterns = [
     # Rutas específicas (NECESARIAS para que el redirect funcione)
     path('user/', views.calculator_user, name='calculator_user'),
     path('admin/', views.calculator_admin, name='calculator_admin'),
+    path('api/create-loan/', views.create_loan_request, name='create_loan_request'),
+    path('admin/export-excel/', views.export_loans_excel, name='export_loans_excel'),
 ]
