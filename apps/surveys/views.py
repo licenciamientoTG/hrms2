@@ -35,6 +35,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from datetime import datetime
+from django.utils.text import slugify
 
 try:
     from openpyxl import Workbook
@@ -1240,20 +1241,23 @@ def survey_detail_admin(request, pk: int):
 @user_passes_test(lambda u: u.is_superuser)
 def survey_export_xlsx(request, pk: int):
 
+# 1. Recuperar datos de la encuesta
     survey = get_object_or_404(
         Survey.objects.prefetch_related(
             Prefetch('sections__questions__options',
-                     queryset=SurveyOption.objects.order_by('order','id'))
+                     queryset=SurveyOption.objects.order_by('order', 'id'))
         ), pk=pk
     )
 
-    # métricas (idénticas a tu CSV)
+    # 2. Calcular Métricas
     responses_qs = SurveyResponse.objects.filter(survey=survey, status='submitted')
     responses_count = responses_qs.count()
+
     try:
         aud = survey.audience
     except SurveyAudience.DoesNotExist:
         aud = None
+
     if not aud or aud.mode == SurveyAudience.MODE_ALL:
         expected = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True).count()
     elif aud.mode == 'segmented':
@@ -1266,147 +1270,278 @@ def survey_export_xlsx(request, pk: int):
         expected = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True).filter(cond).distinct().count() if cond else 0
     else:
         expected = aud.users.filter(is_active=True).count()
-    progress = (responses_count/expected*100) if expected else 0
+    
+    progress = (responses_count / expected * 100) if expected else 0
 
-    # respuestas por pregunta
+    # 3. Preparar datos para el análisis
     resp_ids = list(responses_qs.values_list('id', flat=True))
     ans_by_q = defaultdict(list)
     if resp_ids:
-        for a in SurveyAnswer.objects.filter(response_id__in=resp_ids).iterator():
+        answers_iter = SurveyAnswer.objects.filter(response_id__in=resp_ids).iterator()
+        for a in answers_iter:
             ans_by_q[a.question_id].append(a)
 
-    # ----- XLSX en memoria -----
+    # 4. Iniciar Excel
     output = io.BytesIO()
     wb = xlsxwriter.Workbook(output, {'in_memory': True})
-    fmt_title = wb.add_format({'bold': True})
-    fmt_percent = wb.add_format({'num_format': '0%'})
-    fmt_wrap    = wb.add_format({'text_wrap': True}) 
 
-    # Resumen
-    ws = wb.add_worksheet('Resumen')
-    ws.write(0,0,'Título', fmt_title);              ws.write(0,1, survey.title)
-    ws.write(1,0,'Respuestas recibidas', fmt_title);ws.write(1,1, responses_count)
-    ws.write(2,0,'Audiencia esperada', fmt_title);  ws.write(2,1, expected)
-    ws.write(3,0,'Avance', fmt_title);             ws.write_number(3,1, progress/100, fmt_percent)
+    # --- Estilos ---
+    fmt_header_main = wb.add_format({
+        'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter',
+        'bg_color': '#4472C4', 'font_color': 'white', 'border': 1
+    })
+    fmt_header_table = wb.add_format({
+        'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'align': 'center'
+    })
+    fmt_q_title = wb.add_format({
+        'bold': True, 'font_size': 11, 'bg_color': '#E2EFDA', 'border': 1, 'text_wrap': True
+    })
+    fmt_label   = wb.add_format({'bold': True})
+    fmt_percent = wb.add_format({'num_format': '0.0%', 'align': 'left'})
+    fmt_wrap    = wb.add_format({'text_wrap': True, 'valign': 'top', 'border': 1})
+    fmt_border  = wb.add_format({'border': 1})
+    fmt_center  = wb.add_format({'align': 'center', 'border': 1})
 
-    # Una hoja por sección (opcional) o todo en “Resumen”
-    row = 6
-    for sec in survey.sections.all().order_by('order','id'):
-        ws.write(row, 0, sec.title or f'Sección {sec.order}', fmt_title); row += 1
+    # ==========================================
+    # HOJA 1: RESUMEN GENERAL
+    # ==========================================
+    ws_summary = wb.add_worksheet('Resumen General')
+    ws_summary.set_column(0, 0, 25)
+    ws_summary.set_column(1, 1, 40)
+    ws_summary.hide_gridlines(2)
 
-        for q in sec.questions.all().order_by('order','id'):
-            ws.write(row, 0, f"{q.order}. {q.title}")
-            ws.write(row+1, 0, f"Tipo: {q.qtype}")
-            row += 3
+    ws_summary.merge_range('A1:B1', 'REPORTE DE RESULTADOS', fmt_header_main)
+    ws_summary.set_row(0, 30)
+
+    ws_summary.write(3, 0, 'Encuesta:', fmt_label)
+    ws_summary.write(3, 1, survey.title)
+    ws_summary.write(4, 0, 'Respuestas recibidas:', fmt_label)
+    ws_summary.write(4, 1, responses_count)
+    ws_summary.write(5, 0, 'Audiencia esperada:', fmt_label)
+    ws_summary.write(5, 1, expected)
+    ws_summary.write(6, 0, 'Porcentaje de avance:', fmt_label)
+    ws_summary.write(6, 1, progress / 100, fmt_percent)
+
+    # ==========================================
+    # HOJA 2: ANÁLISIS POR PREGUNTA
+    # ==========================================
+    ws = wb.add_worksheet('Análisis Gráfico')
+    ws.set_column(0, 0, 50)
+    ws.set_column(1, 1, 15)
+    
+    row = 1
+    
+    for sec in survey.sections.all().order_by('order', 'id'):
+        sec_title = (sec.title or f'Sección {sec.order}').upper()
+        ws.merge_range(row, 0, row, 5, sec_title, fmt_header_main)
+        row += 2
+
+        for q in sec.questions.all().order_by('order', 'id'):
+            q_text = f"{q.order}. {q.title}"
+            ws.merge_range(row, 0, row, 1, q_text, fmt_q_title)
+            row += 1
 
             rows = ans_by_q.get(q.id, [])
-            opts = [o.label for o in q.options.all().order_by('order','id')]
-
-            # Conteos según tipo
+            opts = [o.label for o in q.options.all().order_by('order', 'id')]
+            
             labels, data = [], []
-            if q.qtype in ('single','assessment','frecuency'):
-                if not opts and q.qtype=='assessment':
-                    opts = ["Totalmente de acuerdo","De acuerdo","Ni de acuerdo ni en desacuerdo","En desacuerdo","Totalmente en desacuerdo"]
-                if not opts and q.qtype=='frecuency':
-                    opts = ["Siempre","Casi siempre","Algunas veces","Casi nunca","Nunca"]
+
+            if q.qtype in ('single', 'assessment', 'frecuency'):
+                if not opts and q.qtype == 'assessment':
+                    opts = ["Totalmente de acuerdo", "De acuerdo", "Ni de acuerdo ni en desacuerdo", "En desacuerdo", "Totalmente en desacuerdo"]
+                if not opts and q.qtype == 'frecuency':
+                    opts = ["Siempre", "Casi siempre", "Algunas veces", "Casi nunca", "Nunca"]
+                
                 c = Counter(a.value_choice for a in rows if a.value_choice is not None)
                 labels = opts
-                data   = [c.get(i,0) for i in range(len(opts))]
+                data = [c.get(i, 0) for i in range(len(opts))]
+
             elif q.qtype == 'multiple':
                 c = Counter()
                 for a in rows:
                     snap = a.snapshot or {}
                     lbls = snap.get('selected_labels')
                     if lbls:
-                        for l in lbls: c[l]+=1
+                        for l in lbls: c[l] += 1
                     else:
                         idxs = snap.get('selected_indices') or []
                         for i in idxs:
-                            if 0<=i<len(opts): c[opts[i]] += 1
-                items = sorted(c.items(), key=lambda x:(-x[1],x[0]))
-                labels = [k for k,_ in items]
-                data   = [v for _,v in items]
+                            if 0 <= i < len(opts): c[opts[i]] += 1
+                items = sorted(c.items(), key=lambda x: (-x[1], x[0]))
+                labels = [k for k, _ in items]
+                data = [v for _, v in items]
+
             elif q.qtype == 'rating':
                 c = Counter()
                 for a in rows:
-                    v = getattr(a,'value_rating', None) or getattr(a,'value_int', None)
-                    try: v=int(v or 0)
-                    except: v=0
-                    if 1<=v<=5: c[v]+=1
-                labels = [str(i) for i in range(1,6)]
-                data   = [c.get(i,0) for i in range(1,6)]
+                    v = getattr(a, 'value_rating', None) or getattr(a, 'value_int', None)
+                    try: v = int(v or 0)
+                    except: v = 0
+                    if 1 <= v <= 5: c[v] += 1
+                labels = [str(i) for i in range(1, 6)]
+                data = [c.get(i, 0) for i in range(1, 6)]
 
-            elif q.qtype == 'text':                                    # ← NUEVO BLOQUE AQUÍ
+            if q.qtype == 'text':
                 texts = [(a.value_text or "").strip() for a in rows if (a.value_text or "").strip()]
                 if texts:
-                    ws.write(row, 0, "Respuesta", fmt_title)
-                    r0 = row + 1
-                    for i, txt in enumerate(texts):
-                        ws.write(r0 + i, 0, txt, fmt_wrap)
-                        #que el ancho se ajuste al texto más largo
-                        curr_width = ws.col_sizes[0] if hasattr(ws, 'col_sizes') and ws.col_sizes.get(0) else 10
-                        new_width = min(max(len(txt) * 1.1, curr_width), 50)  # máximo 50
-                        ws.set_column(0, 0, new_width)
-                    row = r0 + len(texts) + 2
+                    ws.write(row, 0, "Respuestas recibidas", fmt_header_table)
+                    r_txt = row + 1
+                    for txt in texts:
+                        ws.write(r_txt, 0, txt, fmt_wrap)
+                        r_txt += 1
+                    row = r_txt + 1
                 else:
-                    ws.write(row, 0, "Sin datos"); row += 2
-                continue  
-
-            elif q.qtype in ('integer','decimal'):
-                # Sólo tabla de valores/veces (sin gráfico)
+                    ws.write(row, 0, "Sin respuestas de texto", fmt_border)
+                    row += 2
+            
+            elif q.qtype in ('integer', 'decimal'):
                 vals = []
                 for a in rows:
-                    v = a.value_decimal if q.qtype=='decimal' else a.value_int
+                    v = a.value_decimal if q.qtype == 'decimal' else a.value_int
                     if v is not None:
                         try: vals.append(float(v))
                         except: pass
                 if vals:
-                    vc = Counter(f"{v:.6g}" if q.qtype=='decimal' else str(int(round(v))) for v in vals)
-                    ws.write(row, 0, "Valor", fmt_title); ws.write(row, 1, "Veces", fmt_title)
-                    r0 = row+1
-                    for i,(k,v) in enumerate(sorted(vc.items(), key=lambda x:(-x[1],x[0]))):
-                        ws.write(r0+i, 0, k); ws.write(r0+i, 1, v)
-                    row = r0 + len(vc) + 2
+                    ws.write(row, 0, "Valor", fmt_header_table)
+                    ws.write(row, 1, "Frecuencia", fmt_header_table)
+                    vc = Counter(f"{v:.6g}" if q.qtype == 'decimal' else str(int(round(v))) for v in vals)
+                    sorted_items = sorted(vc.items(), key=lambda x: (-x[1], x[0]))
+                    r_num = row + 1
+                    for k, val_count in sorted_items:
+                        ws.write(r_num, 0, k, fmt_border)
+                        ws.write(r_num, 1, val_count, fmt_border)
+                        r_num += 1
+                    row = r_num + 2
                 else:
-                    ws.write(row, 0, "Sin datos"); row += 2
-                continue  # siguiente pregunta
+                    ws.write(row, 0, "Sin datos numéricos", fmt_border)
+                    row += 2
 
-            # Escribe tabla y crea gráfico de columnas
-            if labels:
-                ws.write(row, 0, "Opción/Valor", fmt_title)
-                ws.write(row, 1, "Veces", fmt_title)
-                r0 = row+1
-                for i, (lbl, val) in enumerate(zip(labels, data)):
-                    ws.write(r0+i, 0, lbl)
-                    ws.write_number(r0+i, 1, val)
-
-                chart = wb.add_chart({'type':'column'})
-                chart.add_series({
-                    'name':       q.title[:30],
-                    'categories': ['Resumen', r0, 0, r0+len(labels)-1, 0],
-                    'values':     ['Resumen', r0, 1, r0+len(labels)-1, 1],
-                })
-                chart.set_legend({'none': True})
-                chart.set_title({'name': ''})
-                chart.set_size({'width': 560, 'height': 280})
-
-                ws.insert_chart(r0, 3, chart)  # inserta a la derecha
-                row = r0 + len(labels) + 14
             else:
-                ws.write(row, 0, "Sin datos"); row += 2
+                if labels:
+                    ws.write(row, 0, "Opción", fmt_header_table)
+                    ws.write(row, 1, "Votos", fmt_header_table)
+                    r_start = row + 1
+                    for i, (lbl, val) in enumerate(zip(labels, data)):
+                        ws.write(r_start + i, 0, lbl, fmt_border)
+                        ws.write(r_start + i, 1, val, fmt_center)
+                    r_end = r_start + len(labels) - 1
 
-        row += 2
+                    chart = wb.add_chart({'type': 'column'})
+                    chart.add_series({
+                        'name':       'Frecuencia',
+                        'categories': ['Análisis Gráfico', r_start, 0, r_end, 0],
+                        'values':     ['Análisis Gráfico', r_start, 1, r_end, 1],
+                        'data_labels': {'value': True},
+                        'gap':        30,
+                    })
+                    chart.set_legend({'none': True})
+                    chart.set_title({'name': q.title[:50] + '...' if len(q.title) > 50 else q.title})
+                    chart.set_size({'width': 400, 'height': 250})
+                    chart.set_style(10)
+                    ws.insert_chart(row, 3, chart)
+                    height_needed = max(len(labels), 14) 
+                    row += height_needed + 2
+                else:
+                    ws.write(row, 0, "Sin datos para graficar", fmt_border)
+                    row += 2
+
+    # ==========================================
+    # HOJA 3: DATOS CRUDOS (CORREGIDA)
+    # ==========================================
+    ws_raw = wb.add_worksheet('Respuestas Detalladas')
+    
+    headers = ['ID Respuesta', 'Fecha', 'Usuario', 'Departamento', 'Puesto', 'Ubicación']
+    all_questions_ordered = []
+    
+    for sec in survey.sections.all().order_by('order', 'id'):
+        for q in sec.questions.all().order_by('order', 'id'):
+            headers.append(f"{q.order}. {q.title}")
+            all_questions_ordered.append(q.id)
+            
+    for col_num, header_text in enumerate(headers):
+        ws_raw.write(0, col_num, header_text, fmt_header_table)
+        ws_raw.set_column(col_num, col_num, 20)
+
+    # 1. Obtener respuestas base
+    raw_qs = SurveyResponse.objects.filter(survey=survey, status='submitted')\
+        .select_related('user')\
+        .prefetch_related('answers')
+
+    # 2. Mapear Empleados manualmente (evita error de relación inversa 'employee')
+    user_ids = list(raw_qs.values_list('user_id', flat=True))
+    employees = Employee.objects.filter(user_id__in=user_ids)\
+        .select_related('department', 'job_position', 'station')
+    
+    # Diccionario: { user_id : ObjetoEmpleado }
+    emp_map = {e.user_id: e for e in employees}
+
+    row_raw = 1
+    for resp in raw_qs:
+        ws_raw.write(row_raw, 0, resp.id)
+        
+        # ⚠️ CORRECCIÓN AQUI: Usar submitted_at o started_at, no created_at
+        date_val = resp.submitted_at or resp.started_at
+        ws_raw.write(row_raw, 1, date_val.strftime('%d/%m/%Y %H:%M') if date_val else '')
+        
+        # Recuperar empleado desde el mapa
+        emp = emp_map.get(resp.user_id)
+        
+        if emp:
+            user_name = f"{emp.first_name} {emp.last_name}"
+            dept_name = emp.department.name if emp.department else '-'
+            job_name  = emp.job_position.title if emp.job_position else '-'
+            st_name   = emp.station.name if emp.station else '-'
+        else:
+            user_name = resp.user.get_full_name() if resp.user else 'Anónimo'
+            dept_name, job_name, st_name = '-', '-', '-'
+
+        if survey.is_anonymous:
+            user_name = "Anónimo"
+
+        ws_raw.write(row_raw, 2, user_name)
+        ws_raw.write(row_raw, 3, dept_name)
+        ws_raw.write(row_raw, 4, job_name)
+        ws_raw.write(row_raw, 5, st_name)
+
+        # Mapa de respuestas
+        ans_map = {}
+        for a in resp.answers.all():
+            val_str = ""
+            if a.value_text:
+                val_str = a.value_text
+            elif a.snapshot:
+                lbls = a.snapshot.get('selected_labels')
+                if lbls:
+                    val_str = ", ".join(lbls)
+                elif a.value_choice is not None:
+                    val_str = str(a.value_choice)
+            elif a.value_int is not None:
+                val_str = str(a.value_int)
+            elif a.value_decimal is not None:
+                val_str = str(a.value_decimal)
+            elif a.value_choice is not None:
+                val_str = str(a.value_choice)
+            
+            ans_map[a.question_id] = val_str
+
+        # Escribir respuestas
+        col_offset = 6
+        for i, q_id in enumerate(all_questions_ordered):
+            answer_text = ans_map.get(q_id, "")
+            ws_raw.write(row_raw, col_offset + i, answer_text)
+
+        row_raw += 1
 
     wb.close()
     output.seek(0)
 
-    resp = HttpResponse(
+    response = HttpResponse(
         output.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    from django.utils.text import slugify
-    resp['Content-Disposition'] = f'attachment; filename="encuesta_{survey.id}_{slugify(survey.title or "reporte")}.xlsx"'
-    return resp
+    filename = f"Reporte_Encuesta_{survey.id}_{slugify(survey.title or 'SinTitulo')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
