@@ -135,14 +135,21 @@
           <label for="nombre" class="form-label">Nombre del grupo</label>
           <input type="text" class="form-control" name="nombre" id="nombre" required>
         </div>
-        <h6>Permisos</h6>
+        
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Permisos</h6>
+            <input type="search" id="searchPermissions" class="form-control form-control-sm" style="width: 200px;" placeholder="🔍 Filtrar permisos...">
+        </div>
+
         <div style="max-height:300px;overflow-y:auto;" class="border rounded p-2">
-          <div class="row">
+          <div class="row" id="permissionsList">
             {% for permiso in permissions %}
-              <div class="col-md-6">
+              <div class="col-md-6 perm-item">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" name="group_permissions" value="{{ permiso.id }}" id="perm{{ permiso.id }}">
-                  <label class="form-check-label" for="perm{{ permiso.id }}">{{ permiso.name }}</label>
+                  <label class="form-check-label" for="perm{{ permiso.id }}">
+                    {{ permiso.name }}
+                  </label>
                 </div>
               </div>
             {% endfor %}

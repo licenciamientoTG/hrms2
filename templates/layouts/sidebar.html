@@ -2,120 +2,110 @@
 {% block styles %}
 <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-{% endblock %}    
+{% endblock %} 
 
-    <nav id="sidebar" class="sidebar js-sidebar">
-        <div class="sidebar-content js-simplebar">
-            <a class="sidebar-brand" href="{% url 'home' %}">
-                <img src="{% static "template/img/logos/ISOLOGO.png" %}" class="avatar img-fluid rounded me-1" alt="Logo" style="width: 300px; height: auto; ">
-            </a>
+<nav id="sidebar" class="sidebar js-sidebar">
+    <div class="sidebar-content js-simplebar">
+        <a class="sidebar-brand" href="{% url 'home' %}">
+            <img src="{% static "template/img/logos/ISOLOGO.png" %}" class="avatar img-fluid rounded me-1" alt="Logo" style="width: 300px; height: auto; ">
+        </a>
 
-            <ul class="sidebar-nav">
-                {% if user.is_superuser %}
-                    <li class="sidebar-item ">
-                        <a class="sidebar-link" href="{% url 'monitoring_view' %}">
-                            <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
-                        </a>
-                    </li>
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'user_dashboard' %}">
-                            <i class="fa-solid fa-user"></i>
-                            <span class="align-middle">
-                                Usuarios
-                                {% with notif_module_counts.usuarios as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
-
+        <ul class="sidebar-nav">
+            {% if user.is_superuser%}
+                <li class="sidebar-item {% if 'monitoring' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'monitoring_view' %}">
+                        <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
+                    </a>
+                </li>
+                <li class="sidebar-item {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'user_dashboard' %}">
+                        <i class="fa-solid fa-user"></i>
+                        <span class="align-middle">
+                            Usuarios
+                            {% with notif_module_counts.usuarios as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
                 {% endif %}
 
-                {% if perms.forms_requests.puede_solicitar_personal %}
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'news_view' %}">
-                            <i class="fa-solid fa-newspaper"></i>
-                            <span class="align-middle">
-                                Noticias
-                                {% with notif_module_counts.noticias as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
+                {% if user.is_superuser or user.first_name == "Jose Bernardo"%}
+                <li class="sidebar-item {% if 'news' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'news_view' %}">
+                        <i class="fa-solid fa-newspaper"></i>
+                        <span class="align-middle">
+                            Noticias
+                            {% with notif_module_counts.noticias as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
 
+                <li class="sidebar-item {% if 'recognition' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
+                        <i class="fa-solid fa-award"></i>
+                        <span class="align-middle">
+                            Comunicados
+                            {% with notif_module_counts.comunicados as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
+            {% endif %}
 
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
-                            <i class="fa-solid fa-award"></i>
-                            <span class="align-middle">
-                                Comunicados
-                                {% with notif_module_counts.comunicados as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
+            <li class="sidebar-item {% if 'request' in request.resolver_match.url_name or 'forms' in request.resolver_match.url_name or 'constancia' in request.resolver_match.url_name or 'guarderia' in request.resolver_match.url_name or 'carta' in request.resolver_match.url_name %}active{% endif %}">
+                <a class="sidebar-link" href="{% url 'request_form' %}">
+                    <i class="fa-brands fa-wpforms"></i>
+                    <span class="align-middle">
+                        Solicitud de constancias
+                        {% with notif_module_counts.constancias as c %}
+                            {% if c %}
+                                <span class="badge bg-danger ms-1">{{ c }}</span>
+                            {% endif %}
+                        {% endwith %}
+                    </span>
+                </a>
+            </li>
 
-                {% endif %}
+            {% if user.is_superuser or user.first_name == "Jose Bernardo"%}
+                <li class="sidebar-item {% if 'survey' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
+                        <i class="fa-solid fa-square-poll-vertical"></i>
+                        <span class="align-middle">
+                            Encuestas
+                            {% with notif_module_counts.encuestas as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
 
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'request_form' %}">
-                            <i class="fa-brands fa-wpforms"></i>
-                            <span class="align-middle">
-                                Solicitud de constancias
-                                {% with notif_module_counts.constancias as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
+                <li class="sidebar-item {% if 'course' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'course_wizard' %}">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        <span class="align-middle">
+                            Cursos
+                            {% with notif_module_counts.cursos as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
 
-
-                {% if perms.forms_requests.puede_solicitar_personal %}
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
-                            <i class="fa-solid fa-square-poll-vertical"></i>
-                            <span class="align-middle">
-                                Encuestas
-                                {# badge de notificaciones de encuestas #}
-                                {% with notif_module_counts.encuestas as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
-
-                {% endif %} 
-                {% if user.is_authenticated and user.id == 64 or user.is_superuser %}
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="{% url 'course_wizard' %}">
-                            <i class="fa-solid fa-graduation-cap"></i>
-                            <span class="align-middle">
-                                Cursos
-                                {% with notif_module_counts.cursos as c %}
-                                    {% if c %}
-                                        <span class="badge bg-danger ms-1">{{ c }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </a>
-                    </li>
-
-                {% endif %}
-                
-                {% if user.is_superuser or user.first_name == "Jose Bernardo" or user.first_name == "Jose Aldo" %}
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'org_chart' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i>
                         <span class="align-middle">
@@ -129,7 +119,7 @@
                     </a>
                 </li>
 
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'vacation' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
                         <i class="fa-solid fa-calendar-days"></i>
                         <span class="align-middle">
@@ -143,9 +133,7 @@
                     </a>
                 </li>
 
-                {% endif %}
-                {% if user.is_authenticated and user.id == 64 or user.is_superuser %}
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'objective' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'objective_view' %}">
                         <i class="fa-solid fa-bullseye"></i>
                         <span class="align-middle">
@@ -159,9 +147,7 @@
                     </a>
                 </li>
 
-                {% endif %}
-                {% if user.is_superuser %}
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'archive' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i>
                         <span class="align-middle">
@@ -175,7 +161,7 @@
                     </a>
                 </li>
 
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'onboarding' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i>
                         <span class="align-middle">
@@ -189,7 +175,7 @@
                     </a>
                 </li>
 
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'document' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i>
                         <span class="align-middle">
@@ -203,8 +189,7 @@
                     </a>
                 </li>
 
- 
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'job' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">
                         <i class="fa-solid fa-briefcase"></i>
                         <span class="align-middle">
@@ -218,8 +203,7 @@
                     </a>
                 </li>
 
-
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'policies' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'policies_dashboard_view' %}">
                         <i class="fa-solid fa-landmark"></i>
                         <span class="align-middle">
@@ -233,10 +217,7 @@
                     </a>
                 </li>
 
-                {% endif %} 
-
-                {% if user.is_superuser %}
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'career' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
                         <i class="fa-solid fa-road"></i>
                         <span class="align-middle">
@@ -250,8 +231,7 @@
                     </a>
                 </li>
 
-
-                <li class="sidebar-item ">
+                <li class="sidebar-item {% if 'staff' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'staff_requisitions_home' %}">
                         <i class="fa-solid fa-user-tie"></i>
                         <span class="align-middle">
@@ -265,45 +245,33 @@
                     </a>
                 </li>
 
-
-            {% endif %} 
-
-            {% if perms.forms_requests.puede_solicitar_personal %}
-            <li class="sidebar-item">  <!-- <== sin 'active' -->
-            <a class="sidebar-link d-flex justify-content-between align-items-center"
-                data-bs-toggle="collapse" data-bs-target="#menu-tools" href="#menu-tools"
-                role="button" aria-expanded="false" aria-controls="menu-tools">
-                <span><i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas</span>
-                <i class="fa-solid fa-chevron-down small"></i>
-            </a>
-
-            <div class="collapse submenu" id="menu-tools">
-                <ul class="list-unstyled ps-4 py-2 m-0">
-                <li>
-                    <a class="sidebar-link {% if request.path == '/tools/' %}active{% endif %}"
-                    href="{% url 'calculator_view' %}">
-                    <i class="fa-solid fa-calculator me-2"></i> Calculadora de préstamo
+                <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link d-flex justify-content-between align-items-center {% if 'calculator' not in request.resolver_match.url_name %}collapsed{% endif %}"
+                       data-bs-toggle="collapse" 
+                       data-bs-target="#menu-tools" 
+                       href="#menu-tools"
+                       role="button" 
+                       aria-expanded="{% if 'calculator' in request.resolver_match.url_name %}true{% else %}false{% endif %}" 
+                       aria-controls="menu-tools">
+                        <span><i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas</span>
+                        <i class="fa-solid fa-chevron-down small"></i>
                     </a>
-                </li>
-                </ul>
-            </div>
-            </li>
 
+                    <div class="collapse submenu {% if 'calculator' in request.resolver_match.url_name %}show{% endif %}" id="menu-tools">
+                        <ul class="list-unstyled ps-4 py-2 m-0">
+                            <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
+                                <a class="sidebar-link" href="{% url 'calculator_view' %}">
+                                    <i class="fa-solid fa-calculator me-2"></i> Calculadora de préstamo
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
             {% endif %}
 
-                {% comment %} <li class="sidebar-header">
-                    Catálogos
-                </li>
-
-                <li class="sidebar-item active">
-                    <a class="sidebar-link" href="{% url "department_list" %}">
-                    <i class="align-middle" data-feather="square"></i> <span class="align-middle">Departamentos</span>
-                    </a>
-                </li>  {% endcomment %}
-            {% comment %} {% endif %} {% endcomment %}
         </div>
     </nav>
-
+    
 {% block scripts %}
   <script src="{% static 'js/sidebar.js' %}"></script>
 {% endblock %}

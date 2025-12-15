@@ -4,174 +4,244 @@
 {% block page_title %}{{ survey.title }} — Detalle{% endblock %}
 
 {% block content %}
-<div class="container py-3">
-  <a class="btn btn-light mb-3" href="{% url 'survey_dashboard_admin' %}">← Volver</a>
-
-  <div class="d-flex align-items-center justify-content-between mb-2">
-    <h2 class="mb-0">{{ survey.title }}</h2>
-    <a class="btn btn-primary" href="{% url 'survey_responses' survey.id %}">Ver respuestas</a>
-    <a class="btn btn-primary" href="{% url 'survey_export_xlsx' survey.id %}">XLSX</a>
-
-  </div>
-  <p class="text-muted mb-3">
-    Creada el {{ survey.created_at|date:"d/m/Y" }} ·
-    por {{ survey.creator.get_full_name|default:survey.creator.username }}
-  </p>
-
-  <div class="row g-3 mb-4">
-    <div class="col-md-4">
-      <div class="card"><div class="card-body">
-        <div class="fw-semibold">Respuestas recibidas</div>
-        <div class="display-6">{{ responses_count }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4">
-      <div class="card"><div class="card-body">
-        <div class="fw-semibold">Audiencia esperada</div>
-        <div class="display-6">{{ expected }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4">
-      <div class="card"><div class="card-body">
-        <div class="fw-semibold mb-2">Avance</div>
-        <div class="progress"><div class="progress-bar" style="width: {{ progress|floatformat:0 }}%"></div></div>
-        <div class="mt-1 text-muted">{{ progress|floatformat:0 }}%</div>
-      </div></div>
-    </div>
-  </div>
-
-  {# ====== GRÁFICAS / BLOQUES POR PREGUNTA ====== #}
-  {% for q in question_stats %}
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="fw-semibold">{{ forloop.counter }}. {{ q.title }}</div>
-            <div class="text-muted small">Tipo: {{ q.type }}</div>
-          </div>
-
-          <div class="d-flex gap-2">
-            {% if q.extra.avg and q.type == "rating" %}
-              <span class="badge bg-light text-dark">Promedio: {{ q.extra.avg }}</span>
-            {% endif %}
-            {% if q.extra.accuracy_pct %}
-              <span class="badge bg-success-subtle text-success">Acierto: {{ q.extra.accuracy_pct }}%</span>
-            {% endif %}
-          </div>
+<div class="container py-4">
+  
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <a class="text-decoration-none text-muted small mb-1 d-inline-block" href="{% url 'survey_dashboard_admin' %}">
+            <i class="fa-solid fa-arrow-left me-1"></i> Volver al listado
+        </a>
+        <h2 class="mb-0 fw-bold">{{ survey.title }}</h2>
+        <div class="text-muted small mt-1">
+            <i class="fa-regular fa-calendar me-1"></i> {{ survey.created_at|date:"d/m/Y" }} 
+            <span class="mx-2">•</span> 
+            <i class="fa-regular fa-user me-1"></i> {{ survey.creator.get_full_name|default:survey.creator.username }}
         </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'survey_responses' survey.id %}">
+            <i class="fa-solid fa-list-check me-2"></i> Respuestas Individuales
+        </a>
+        <a class="btn btn-success text-white" href="{% url 'survey_export_xlsx' survey.id %}">
+            <i class="fa-solid fa-file-excel me-2"></i> Exportar Excel
+        </a>
+    </div>
+  </div>
 
-          {# --- gráfico si hay --- #}
-          {% if q.chart %}
-            <div class="mt-3">
-              <canvas id="chart-q{{ q.qid }}" height="140"></canvas>
+  <div class="row g-3 mb-5">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center">
+            <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3 text-primary">
+                <i class="fa-solid fa-users fa-2x"></i>
             </div>
-          {% endif %}
-
-          {# --- botón/ver tabla si hay value_counts --- #}
-          {% if q.extra.value_counts %}
-            <button class="btn btn-sm btn-outline-primary js-toggle-answers"
-                    type="button"
-                    data-target="#answers-{{ q.qid }}">
-              Ver respuestas
-            </button>
-            <div id="answers-{{ q.qid }}" class="collapse mt-3">
-              <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                  <thead>
-                    <tr>
-                      <th style="width:70%">Respuestas</th>
-                      <th class="text-end">Veces</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for value, times in q.extra.value_counts %}
-                      <tr>
-                        <td>{{ value }}</td>
-                        <td class="text-end">{{ times }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
+            <div>
+                <div class="text-muted small fw-bold text-uppercase">Respuestas</div>
+                <div class="fs-2 fw-bold text-dark">{{ responses_count }}</div>
             </div>
-          {% endif %}
+        </div>
       </div>
     </div>
+    
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center">
+            <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3 text-info">
+                <i class="fa-solid fa-bullseye fa-2x"></i>
+            </div>
+            <div>
+                <div class="text-muted small fw-bold text-uppercase">Esperadas</div>
+                <div class="fs-2 fw-bold text-dark">{{ expected }}</div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="text-muted small fw-bold text-uppercase">Avance Global</div>
+                <span class="badge bg-success bg-opacity-10 text-success">{{ progress|floatformat:0 }}%</span>
+            </div>
+            <div class="progress" style="height: 10px; border-radius: 10px;">
+                <div class="progress-bar bg-success" role="progressbar" 
+                     style="width: {{ progress|floatformat:0 }}%; border-radius: 10px;">
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h4 class="mb-3 fw-bold text-secondary">Análisis por Pregunta</h4>
+
+  {# ====== GRÁFICAS / BLOQUES POR PREGUNTA ====== #}
+  <div class="row g-4">
+  {% for q in question_stats %}
+    <div class="col-12"> <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white border-bottom py-3">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <div>
+                <span class="badge bg-secondary mb-1">P{{ forloop.counter }}</span>
+                <h5 class="card-title mb-0 fw-bold">{{ q.title }}</h5>
+                <small class="text-muted">Tipo: {{ q.type|title }}</small>
+              </div>
+
+              <div class="d-flex flex-column align-items-end gap-1">
+                {% if q.extra.avg and q.type == "rating" %}
+                  <span class="badge bg-warning text-dark border border-warning">
+                    <i class="fa-solid fa-star me-1"></i> Promedio: {{ q.extra.avg }}
+                  </span>
+                {% endif %}
+                {% if q.extra.accuracy_pct %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="fa-solid fa-check me-1"></i> Acierto: {{ q.extra.accuracy_pct }}%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+             {# --- Gráfico --- #}
+             {% if q.chart %}
+                <div style="position: relative; height:250px; width:100%"> <canvas id="chart-q{{ q.qid }}"></canvas>
+                </div>
+             {% endif %}
+
+             {# --- Tabla de Detalles (Value Counts) --- #}
+             {% if q.extra.value_counts %}
+                <div class="mt-3 pt-3 border-top">
+                    <button class="btn btn-sm btn-link text-decoration-none px-0 js-toggle-answers"
+                            type="button"
+                            data-target="#answers-{{ q.qid }}">
+                      <i class="fa-solid fa-chevron-down me-1"></i> <span>Ver desglose de respuestas</span>
+                    </button>
+                    
+                    <div id="answers-{{ q.qid }}" class="collapse mt-2">
+                      <div class="table-responsive rounded border">
+                        <table class="table table-sm table-striped mb-0">
+                          <thead class="bg-light">
+                            <tr>
+                              <th class="ps-3">Respuesta</th>
+                              <th class="text-end pe-3">Frecuencia</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for value, times in q.extra.value_counts %}
+                              <tr>
+                                <td class="ps-3">{{ value }}</td>
+                                <td class="text-end pe-3 fw-bold">{{ times }}</td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                </div>
+             {% endif %}
+          </div>
+        </div>
+    </div>
   {% empty %}
-    <div class="text-muted">No hay preguntas en esta encuesta.</div>
+    <div class="col-12">
+        <div class="alert alert-light text-center border py-5">
+            <i class="fa-regular fa-folder-open fa-3x text-muted mb-3"></i>
+            <p class="mb-0 text-muted">Esta encuesta aún no tiene preguntas configuradas.</p>
+        </div>
+    </div>
   {% endfor %}
+  </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {# Bootstrap Bundle ya suele incluirse en layouts/base.html, pero si no, déjalo aquí #}
+  {# <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script> #}
 
   <script>
-    // Datos serializados desde Django
     const QUESTION_STATS = {{ question_stats_json|safe }};
 
-    // Paleta simple
     function genColors(n){
       const out = [];
-      for (let i=0;i<n;i++){
-        const h = Math.round((360/n)*i);
-        out.push(`hsl(${h} 70% 55% / .85)`);
+      for (let i=0; i<n; i++){
+        // Usamos una paleta más corporativa/suave en lugar de aleatoria pura
+        const hue = Math.round((210 + (150/n)*i)) % 360; // Azules a Verdes
+        out.push(`hsl(${hue}, 70%, 60%)`);
       }
       return out;
     }
 
-    // Render
     QUESTION_STATS.forEach(q => {
       if (!q.chart) return;
       const el = document.getElementById('chart-q'+q.qid);
       if (!el) return;
 
+      // Configuración según tipo de gráfico
+      // Si es 'rating' o 'integer' quizás convenga 'bar' vertical.
+      // Si es 'single' (selección única), 'pie' o 'doughnut' se ven bien.
+      let chartType = 'bar'; 
+      if(q.type === 'single' || q.type === 'boolean') chartType = 'doughnut';
+
       const cfg = {
-        type: q.chart, // usamos 'bar' para todos los soportados
+        type: chartType, 
         data: {
           labels: q.labels,
           datasets: [{
             label: 'Respuestas',
             data: q.data,
             backgroundColor: genColors(q.labels.length),
-            borderWidth: 1
+            borderWidth: 1,
+            borderColor: '#ffffff'
           }]
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: false }, tooltip: { intersect: false } },
-          scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } }
-          }
+          maintainAspectRatio: false, // Importante para contenedores flexibles
+          plugins: { 
+            legend: { 
+                display: chartType !== 'bar', // Mostrar leyenda solo si es circular
+                position: 'right'
+            }, 
+            tooltip: { intersect: false } 
+          },
+          scales: chartType === 'bar' ? {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+          } : {} // Sin ejes para gráficos circulares
         }
       };
       new Chart(el, cfg);
     });
   </script>
-<script>
-document.addEventListener('click', function (e) {
-  const btn = e.target.closest('.js-toggle-answers');
-  if (!btn) return;
-  const sel = btn.getAttribute('data-target');
-  const el  = document.querySelector(sel);
-  if (!el) return;
 
-  const c = bootstrap.Collapse.getOrCreateInstance(el);
-  c.toggle();
-});
+  <script>
+    // Lógica para el botón "Ver respuestas"
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.js-toggle-answers');
+      if (!btn) return;
+      const sel = btn.getAttribute('data-target');
+      const el  = document.querySelector(sel);
+      if (!el) return;
 
-// Sincroniza el texto del botón con el estado real del collapse
-document.querySelectorAll('.collapse').forEach(el => {
-  el.addEventListener('shown.bs.collapse', () => {
-    const btn = document.querySelector(`.js-toggle-answers[data-target="#${el.id}"]`);
-    if (btn) btn.textContent = 'Ocultar respuestas';
-  });
-  el.addEventListener('hidden.bs.collapse', () => {
-    const btn = document.querySelector(`.js-toggle-answers[data-target="#${el.id}"]`);
-    if (btn) btn.textContent = 'Ver respuestas';
-  });
-});
-</script>
+      // Usar la API de Bootstrap para colapsar
+      const bsCollapse = new bootstrap.Collapse(el, { toggle: true });
+    });
 
+    // Cambiar texto e icono al abrir/cerrar
+    document.querySelectorAll('.collapse').forEach(el => {
+      el.addEventListener('show.bs.collapse', () => {
+        const btn = document.querySelector(`.js-toggle-answers[data-target="#${el.id}"]`);
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-chevron-up me-1"></i> Ocultar desglose';
+      });
+      el.addEventListener('hide.bs.collapse', () => {
+        const btn = document.querySelector(`.js-toggle-answers[data-target="#${el.id}"]`);
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-chevron-down me-1"></i> Ver desglose de respuestas';
+      });
+    });
+  </script>
 {% endblock %}

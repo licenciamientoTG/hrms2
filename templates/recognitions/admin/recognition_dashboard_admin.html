@@ -2,21 +2,35 @@
 {% load static %}
 {% block page_title %}Comunicados{% endblock %}
 
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Comunicados</h2>
-  <a href="{% url 'category_create' %}" class="btn btn-primary">Nueva categoría</a>
+  
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRecognitionModal">
+      <i class="fa fa-plus"></i> Nuevo Comunicado
+    </button>
+    
+    <a href="{% url 'category_create' %}" class="btn btn-primary">
+      <i class="fa fa-tags"></i> Nueva categoría
+    </a>
+  </div>
 </div>
 
 <div class="card p-3">
   <form class="mb-3" method="get">
     <div class="d-flex gap-2">
       <input id="recognitions-search"
-            type="text"
-            name="q"
-            value="{{ q }}"
-            class="form-control"
-            placeholder="🔍 Buscar por categoría de comunicado">
+             type="text"
+             name="q"
+             value="{{ q }}"
+             class="form-control"
+             placeholder="🔍 Buscar por categoría de comunicado">
     </div>
   </form>
 
@@ -97,9 +111,110 @@
   </nav>
   {% endif %}
 </div>
+
+<div class="modal fade" id="newRecognitionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-aside modal-lg">
+    <form method="post" action="" enctype="multipart/form-data" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo comunicado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">¿A quién deseas reconocer?</label>
+          <select class="selectpicker" 
+                  name="recipients" 
+                  multiple 
+                  data-live-search="true" 
+                  data-width="100%" 
+                  data-style="btn btn-light w-100 text-start"
+                  title="Selecciona colaboradores">
+            {% for p in people %}
+              <option value="{{ p.id }}">{{ p.first_name }} {{ p.last_name }}</option>
+            {% empty %}
+              <option disabled>No hay colaboradores disponibles</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Puedes reconocer hasta 30 colaboradores</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Selecciona la categoría</label>
+          <div class="input-group">
+            <span id="catColorBox" class="input-group-text p-0 flex-shrink-0" style="width: 2.5rem; border-radius: .375rem 0 0 .375rem; background:#E9ECEF;"></span>
+            <select class="form-select" name="category" id="categorySelect">
+              <option value="">Seleccionar categoría...</option>
+              {% for c in categories %}
+                <option value="{{ c.id }}" data-color="{{ c.color_hex }}">{{ c.title }}</option>
+              {% empty %}
+                <option disabled>No hay categorías activas</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Deja un mensaje personalizado</label>
+          <textarea class="form-control" name="message" rows="3" placeholder="Cuéntales por qué marcó la diferencia" maxlength="1000"></textarea>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">Notificar audiencia</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="notify_email" id="notify_email" checked>
+            <label class="form-check-label" for="notify_email">Email</label>
+          </div>
+          <div class="mt-2">
+            <label class="form-label d-block">Enviar a</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="email_channels" id="ch_corpo" value="corpo" checked>
+              <label class="form-check-label" for="ch_corpo">Corporativo</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="email_channels" id="ch_estaciones" value="estaciones">
+              <label class="form-check-label" for="ch_estaciones">Estaciones</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="email_channels" id="ch_juarez" value="juarez">
+              <label class="form-check-label" for="ch_juarez">Estaciones Juárez</label>
+            </div>
+            <label class="form-label d-block mt-2">Programar publicación</label>
+            <div class="mb-3">
+              <input type="datetime-local" name="publish_at" class="form-control">
+              <div class="form-text">Déjalo vacío para publicar de inmediato.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-1">
+          <label class="form-label">Sube imágenes (Opcional)</label>
+          <div id="dropZone" class="border rounded-3 text-center p-4" style="border-style:dashed;">
+            <div class="mb-2">Selecciona una o varias imágenes</div>
+            <div class="text-muted small">Solo imágenes. Tamaño máx. 10 MB c/u.</div>
+            <input id="mediaInput" type="file" name="media" class="d-none" accept="image/*" multiple>
+            <div class="mt-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="pickFileBtn">Subir imágenes</button>
+            </div>
+            <div id="previewArea" class="mt-3 d-flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" id="publishBtn" class="btn btn-primary" disabled>Publicar</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+  
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="{% static 'js/recognition.js' %}"></script>
 {% endblock %}

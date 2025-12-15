@@ -120,3 +120,26 @@ function toggleStatus(userId) {
   });
 }
 
+// Filtro de permisos en el modal de crear grupo
+(function(){
+    const searchInput = document.getElementById('searchPermissions');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('keyup', function(e) {
+        const term = e.target.value.toLowerCase();
+        // Seleccionamos todos los contenedores de los permisos (los col-md-6)
+        const items = document.querySelectorAll('.perm-item');
+
+        items.forEach(function(item) {
+            // Buscamos el texto dentro del label
+            const label = item.querySelector('label').textContent.toLowerCase();
+            
+            // Si el término está incluido, mostramos; si no, ocultamos
+            if (label.includes(term)) {
+                item.style.display = ''; // Restaura el display original (block/flex)
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+})();

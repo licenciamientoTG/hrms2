@@ -56,3 +56,47 @@ transform-origin: center center;  /* <-- aquí el cambio */
 #sidebar .sidebar-brand:hover img{
 transform: scale(1.05);   /* crece parejo a ambos lados */
 }
+
+/* ==========================================================================
+   ESTILOS PARA EL ELEMENTO ACTIVO DEL SIDEBAR
+   ========================================================================== */
+
+/* Cuando un 'sidebar-item' tiene la clase 'active', aplicamos estilos a su enlace hijo */
+.sidebar-item.active .sidebar-link {
+    background-color: #ffffff !important; /* Fondo blanco puro para que resalte */
+    color: #2c7be5 !important; /* Color azul vibrante para el texto y el icono */
+    font-weight: 700; /* Hacemos la fuente más gruesa */
+    
+    /* Para crear el efecto de "recuadro" */
+    border-radius: 8px; /* Bordes redondeados */
+    margin: 5px 10px; /* Margen alrededor para que se vea como una caja separada */
+    padding-left: 15px; /* Ajuste del padding para centrar visualmente */
+    
+    /* Sombra suave para darle profundidad y que parezca "flotar" */
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+    
+    transition: all 0.3s ease; /* Transición suave para el efecto */
+}
+
+/* Aseguramos que el icono dentro del enlace activo también cambie de color */
+.sidebar-item.active .sidebar-link i,
+.sidebar-item.active .sidebar-link svg {
+    color: #ffffff !important; /* Mismo azul vibrante */
+}
+
+/* Opcional: Un ligero cambio al pasar el mouse sobre el elemento ya activo */
+.sidebar-item.active .sidebar-link:hover {
+    background-color: #f8f9fa !important; /* Un blanco un poco más apagado */
+}
+
+/* Ajuste para los submenús (como Herramientas) cuando están activos */
+.sidebar-item.active .submenu .sidebar-link {
+   margin: 2px 10px 2px 20px; /* Márgenes ligeramente diferentes para sub-elementos */
+   background-color: #f0f2f5 !important; /* Un fondo un poco más gris para diferenciar del padre */
+   border-radius: 6px;
+}
+
+.sidebar-item.active .submenu .sidebar-link.active {
+    background-color: #ffffff !important; /* El sub-elemento activo final sí es blanco puro */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

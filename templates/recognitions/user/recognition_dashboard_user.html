@@ -11,7 +11,7 @@
 {% block content %}
 <div class="container py-3" style="max-width:820px;">
   <h1 class="mb-3">Comunicados</h1>
-  {% if perms.recognitions.add_recognition %}
+  {% comment %} {% if perms.recognitions.add_recognition %}
   <!-- Tarjeta: input para abrir el modal -->
   <div class="card shadow-sm mb-4">
     <div class="card-body d-flex align-items-center gap-3">
@@ -24,7 +24,7 @@
       </div>
     </div>
   </div>
-  {% endif %}
+  {% endif %} {% endcomment %}
 
   <!-- FEED: tarjetas de comunicado -->
 <div id="feed">
@@ -48,7 +48,7 @@
 <!-- MODAL: Nuevo comunicado -->
 <div class="modal fade" id="newRecognitionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-aside modal-lg">
-    <form method="post" action="{% url 'recognition_dashboard_user' %}" enctype="multipart/form-data" class="modal-content">
+    <form method="post" action="{% url 'recognition_dashboard' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Nuevo comunicado</h5>

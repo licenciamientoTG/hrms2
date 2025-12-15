@@ -1,69 +1,136 @@
 {% extends "layouts/base.html" %}
+{% load static %}
 {% block page_title %}Respuestas: {{ survey.title }}{% endblock %}
 
 {% block content %}
-<div class="container py-3">
-  <a class="btn btn-light mb-3" href="{% url 'survey_detail_admin' survey.id %}">← Volver</a>
+<div class="container-fluid py-4 px-4"> <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+      <a class="text-decoration-none text-muted small mb-1 d-inline-block" href="{% url 'survey_detail_admin' survey.id %}">
+        <i class="fa-solid fa-arrow-left me-1"></i> Volver al detalle
+      </a>
+      <div class="d-flex align-items-center gap-3">
+        <h2 class="mb-0 fw-bold">Respuestas Recibidas</h2>
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3">
+            {{ responses|length }} Total
+        </span>
+      </div>
+      <p class="text-muted mb-0 mt-1 small">Encuesta: <strong>{{ survey.title }}</strong></p>
+    </div>
 
-  <h2>Respuestas de la encuesta: {{ survey.title }}</h2>
-  <p class="text-muted">Total respuestas: {{ responses|length }}</p>
+    <div>
+        <a class="btn btn-success text-white" href="{% url 'survey_export_xlsx' survey.id %}">
+            <i class="fa-solid fa-file-excel me-2"></i> Descargar Excel
+        </a>
+    </div>
+  </div>
 
-  <div class="table-responsive">
-    <table class="table table-bordered table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Departamento</th>
-          <th>Usuario</th>
-          {% for q in questions %}
-            <th>{{ forloop.counter }}. {{ q.title }}</th>
-          {% endfor %}
-          <th>Fecha de envío</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for resp in responses %}
-          <tr>
-            {# ---- Departamento ---- #}
-            <td>
-              {% if survey.is_anonymous %}
-                -
-              {% else %}
-                {{ resp.department_name|default:"-" }}
-              {% endif %}
-            </td>
+  <div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-body p-0">
+      <div class="table-responsive" style="max-height: 75vh;"> <table class="table table-hover table-nowrap mb-0 align-middle">
+          <thead class="bg-light sticky-top" style="z-index: 10;">
+            <tr>
+              <th class="ps-4 bg-light shadow-sm-end" style="min-width: 250px; position: sticky; left: 0; z-index: 11;">
+                Usuario / Empleado
+              </th>
+              <th class="bg-light" style="min-width: 150px;">Departamento</th>
+              <th class="bg-light" style="min-width: 150px;">Fecha</th>
+              
+              {% for q in questions %}
+                <th class="bg-light text-secondary" style="min-width: 200px; max-width: 300px;">
+                    <div class="d-flex flex-column">
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary w-auto align-self-start mb-1" style="font-size: 0.7rem;">
+                            P{{ forloop.counter }}
+                        </span>
+                        <span class="text-truncate" title="{{ q.title }}" data-bs-toggle="tooltip">
+                            {{ q.title }}
+                        </span>
+                    </div>
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for resp in responses %}
+              <tr>
+                {# ---- Usuario (Columna fija a la izquierda al hacer scroll horizontal) ---- #}
+                <td class="ps-4 bg-white shadow-sm-end" style="position: sticky; left: 0; z-index: 5;">
+                  <div class="d-flex align-items-center gap-2">
+                    {% if survey.is_anonymous %}
+                        <div class="rounded-circle bg-secondary bg-opacity-10 d-flex justify-content-center align-items-center text-secondary" 
+                             style="width: 35px; height: 35px;">
+                            <i class="fa-solid fa-user-secret"></i>
+                        </div>
+                        <span class="fst-italic text-muted">Anónimo</span>
+                    {% else %}
+                        <div class="rounded-circle bg-primary bg-opacity-10 d-flex justify-content-center align-items-center text-primary fw-bold" 
+                             style="width: 35px; height: 35px; font-size: 0.85rem;">
+                            {{ resp.user.first_name|slice:":1" }}{{ resp.user.last_name|slice:":1" }}
+                        </div>
+                        <div class="d-flex flex-column" style="line-height: 1.2;">
+                            <span class="fw-semibold text-dark">{{ resp.user.get_full_name|default:resp.user.username }}</span>
+                            <span class="small text-muted">{{ resp.user.email }}</span>
+                        </div>
+                    {% endif %}
+                  </div>
+                </td>
 
+                {# ---- Departamento ---- #}
+                <td>
+                  {% if survey.is_anonymous %}
+                    <span class="text-muted">-</span>
+                  {% else %}
+                    {% if resp.department_name %}
+                        <span class="badge bg-light text-dark border fw-normal">{{ resp.department_name }}</span>
+                    {% else %}
+                        <span class="text-muted small">-</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
 
-            {# ---- Usuario ---- #}
-            <td>
-              {% if survey.is_anonymous %}
-                -
-              {% else %}
-                {{ resp.user.get_full_name|default:resp.user.username }}
-              {% endif %}
-            </td>
+                {# ---- Fecha ---- #}
+                <td class="text-muted small">
+                    {{ resp.submitted_at|date:"d M Y, H:i" }}
+                </td>
 
-            {# ---- Respuestas ---- #}
-            {% for answer in resp.cells %}
-              <td>
-                {% if answer %}
-                  {{ answer.display }}
-                {% else %}
-                  -
-                {% endif %}
-              </td>
+                {# ---- Respuestas ---- #}
+                {% for answer in resp.cells %}
+                  <td class="text-break" style="max-width: 300px;">
+                    {% if answer %}
+                        {% if answer.display|length > 50 %}
+                            <span title="{{ answer.display }}" data-bs-toggle="tooltip" class="cursor-help">
+                                {{ answer.display|truncatechars:50 }}
+                            </span>
+                        {% else %}
+                            {{ answer.display }}
+                        {% endif %}
+                    {% else %}
+                      <span class="text-muted opacity-25 small">•</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="{{ questions|length|add:3 }}" class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="fa-regular fa-folder-open fa-2x mb-3"></i>
+                        <p>No se han recibido respuestas para esta encuesta todavía.</p>
+                    </div>
+                </td>
+              </tr>
             {% endfor %}
-
-            {# ---- Fecha ---- #}
-            <td>{{ resp.submitted_at|date:"d/m/Y H:i" }}</td>
-          </tr>
-        {% empty %}
-          {# 3 columnas fijas: Departamento, Usuario, Fecha → questions|length + 3 #}
-          <tr>
-            <td colspan="{{ questions|length|add:3 }}">No hay respuestas aún.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-light text-end small text-muted">
+        Mostrando {{ responses|length }} registros
+    </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/survey.js' %}"></script>
 {% endblock %}
