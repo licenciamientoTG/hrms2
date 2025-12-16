@@ -76,7 +76,7 @@
                 </a>
             </li>
 
-            {% if user.is_superuser or user.first_name == "Jose Bernardo"%}
+            {% if user.is_superuser or user.first_name == "Jose Bernardo" or user.first_name == "PRUEBA"%}
                 <li class="sidebar-item {% if 'survey' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i>

@@ -1,238 +1,177 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
 
-{% block page_title %}Solicitudes de vacaciones{% endblock %}
-
-{% block styles %}
-<style>
-  .min-w-0 { min-width: 0; }
-
-  /* Evitar que celdas muy largas rompan el layout */
-  #vac-table th, #vac-table td {
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  @media (max-width: 576px) {
-    .page-header-actions .btn-primary { white-space: normal; }
-  }
-</style>
-{% endblock %}
+{% block page_title %}Gestión de Vacaciones{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-  <!-- Encabezado -->
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-    <h2 class="mb-0 me-3">Solicitudes de vacaciones</h2>
+    <h2 class="mb-0 me-3">
+        {% if role == 'manager' %}
+            Autorización de Vacaciones (Jefe)
+        {% else %}
+            Gestión de Vacaciones (RH)
+        {% endif %}
+    </h2>
+
+    {% if role == 'manager' %}
+    <a href="{% url 'vacation_form_user' %}" class="btn btn-outline-primary">
+        <i class="fa-solid fa-user me-2"></i> Mis Solicitudes Personales
+    </a>
+    {% endif %}
   </div>
 
-  <!-- 🔲 Card que contiene TODO: filtros + tabla -->
-  <div class="card p-3">
-
-    <!-- Toggle de filtros (solo móvil) -->
-    <button class="btn btn-outline-secondary d-md-none w-100 mb-2"
-            type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse"
-            aria-expanded="false" aria-controls="filtrosCollapse">
-      Filtros
-    </button>
-
-    <!-- Filtros -->
-    <div class="collapse d-md-block" id="filtrosCollapse">
-      <form method="get" class="row g-2 mb-3" id="form-filtros">
+<div class="card p-3">
+    <form method="get" class="row g-2 mb-3">
         <div class="col-12 col-md-5">
-          <input
-            id="filtro-q"
-            name="q"
-            type="text"
-            class="form-control"
-            placeholder="Buscar por ID o empleado"
-            value="{{ q }}"
-          >
+            <input name="q" type="text" class="form-control" placeholder="Buscar por empleado..." value="{{ q }}">
         </div>
-
+        
         <div class="col-12 col-md-3">
-          <select id="filtro-estado" name="estado" class="form-select">
-            <option value="" {% if not estado %}selected{% endif %}>Todos los estados</option>
-            <option value="pending"  {% if estado == 'pending'  %}selected{% endif %}>Pendientes</option>
-            <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Aprobadas</option>
-            <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
-          </select>
+            <select name="estado" class="form-select" onchange="this.form.submit()">
+                
+                {% if role == 'rh' %}
+                    <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Autorizadas)</option>
+                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de Jefe</option>
+                {% else %}
+                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de aprobar</option>
+                    <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>
+                {% endif %}
+                
+                <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Finalizadas</option>
+                <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
+                <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todas</option>
+            </select>
         </div>
-
+        
         <div class="col-12 col-md-2">
-          <select id="filtro-tipo" name="tipo" class="form-select">
-            <option value="" {% if not tipo %}selected{% endif %}>Todos los tipos</option>
-            <option value="Vacaciones"             {% if tipo == 'Vacaciones'             %}selected{% endif %}>Vacaciones</option>
-            <option value="Descanso médico"        {% if tipo == 'Descanso médico'        %}selected{% endif %}>Descanso médico</option>
-            <option value="Días de estudio"        {% if tipo == 'Días de estudio'        %}selected{% endif %}>Días de estudio</option>
-            <option value="Licencia por maternidad" {% if tipo == 'Licencia por maternidad' %}selected{% endif %}>Licencia por maternidad</option>
-          </select>
+            <a href="." class="btn btn-outline-secondary w-100">Limpiar</a>
         </div>
+    </form>
 
-        <div class="col-12 col-md-2">
-          <a href="{% url 'vacation_form_admin' %}" class="btn btn-outline-secondary w-100" id="btn-limpiar">
-            Limpiar
-          </a>
-        </div>
-      </form>
-    </div>
-
-
-    <!-- Separador opcional -->
-    <!-- <hr class="my-2"> -->
-
-    <!-- Tabla (dentro de la MISMA card) -->
     <div class="table-responsive">
       <table id="vac-table" class="table table-sm table-hover align-middle mb-0">
         <thead class="table">
           <tr>
-            <th class="text-nowrap">#</th>
-            <th class="text-nowrap">Empleado</th>
-            <th class="d-none d-lg-table-cell text-nowrap">Tipo</th>
-            <th class="text-nowrap">Rango</th>
-            <th class="d-none d-md-table-cell text-center text-nowrap">Días</th>
-            <th class="text-nowrap">Estado</th>
-            <th class="d-none d-lg-table-cell text-nowrap">Comprobante</th>
-            <th class="d-none d-lg-table-cell text-nowrap">Información</th>
-            <th class="text-nowrap">Acciones</th>
+            <th>#</th>
+            <th>Empleado</th>
+            <th>Tipo</th>
+            <th>Fechas</th>
+            <th>Días</th>
+            <th>Estado</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for s in page_obj.object_list %}
-          <tr
-            data-id="{{ s.id }}"
-            data-empleado="{{ s.user.get_full_name|default:s.user.username }}"
-            data-tipo="{{ s.tipo_solicitud }}"
-            data-dias="{{ s.total_days|default:'' }}"
-            data-inicio="{{ s.start_date|date:'d/m/Y' }}"
-            data-fin="{{ s.end_date|date:'d/m/Y' }}"
-            data-estado="{{ s.status }}"
-            data-razon="{{ s.reason|default:''|escapejs }}"
-          >
+          <tr data-id="{{ s.id }}" 
+              data-empleado="{{ s.user.get_full_name|default:s.user.username }}" 
+              data-tipo="{{ s.tipo_solicitud }}" 
+              data-dias="{{ s.total_days }}" 
+              data-inicio="{{ s.start_date|date:'d/m/Y' }}"
+              data-fin="{{ s.end_date|date:'d/m/Y' }}"
+              data-razon="{{ s.reason|default:''|escapejs }}"
+              data-estado="{{ s.status }}">
+            
             <td>{{ s.id }}</td>
-
-            <td class="text-nowrap">
-              {{ s.user.get_full_name|default:s.user.username }}
-            </td>
-
-            <!-- Tipo (ya viene bonito por los choices) -->
-            <td class="d-none d-lg-table-cell">
-              {{ s.tipo_solicitud }}
-            </td>
-
-            <!-- Rango -->
-            <td class="text-nowrap">
-              {{ s.start_date|date:"d/m/Y" }} – {{ s.end_date|date:"d/m/Y" }}
-            </td>
-
-            <!-- Días -->
-            <td class="d-none d-md-table-cell text-center">
-              {{ s.total_days|default:"-" }}
-            </td>
-
-            <!-- Estado -->
+            <td>{{ s.user.get_full_name|default:s.user.username }}</td>
+            <td>{{ s.tipo_solicitud }}</td>
+            <td>{{ s.start_date|date:"d/m/Y" }} - {{ s.end_date|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ s.total_days|default:"-" }}</td>
+            
             <td>
-              {% with st=s.status|default:"pending" %}
-                <span class="badge
-                  {% if st == 'approved' %} bg-success
-                  {% elif st == 'rejected' %} bg-danger
-                  {% elif st == 'pending' %} bg-warning text-dark
-                  {% else %} bg-secondary {% endif %}">
-                  {% if st == 'approved' %}
-                    Aprobada
-                  {% elif st == 'rejected' %}
-                    Rechazada
-                  {% elif st == 'pending' %}
-                    Pendiente
-                  {% else %}
-                    {{ st }}
-                  {% endif %}
+                {% with st=s.status %}
+                <span class="badge 
+                    {% if st == 'approved' %} bg-success
+                    {% elif st == 'rejected' %} bg-danger
+                    {% elif st == 'authorized' %} bg-info text-dark
+                    {% elif st == 'pending' %} bg-warning text-dark
+                    {% else %} bg-secondary {% endif %}">
+                    
+                    {% if st == 'approved' %}
+                        Finalizada 
+                        {% if s.manager_approver %}
+                            <br><small style="font-size:0.75em">(Aut: {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }})</small>
+                        {% endif %}
+                    
+                    {% elif st == 'rejected' %} 
+                        Rechazada
+
+                    {% elif st == 'authorized' %}
+                        Autorizada por 
+                        {% if s.manager_approver %}
+                            {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }}
+                        {% else %}
+                            Jefe
+                        {% endif %}
+
+                    {% elif st == 'pending' %} 
+                        Pendiente de Jefe
+                    {% endif %}
                 </span>
-              {% endwith %}
+                {% endwith %}
             </td>
 
-            <!-- Comprobante -->
-            <td class="d-none d-lg-table-cell">
-              {% if s.documento %}
-                <a href="{{ s.documento.url }}" target="_blank" rel="noopener">Ver PDF</a>
-              {% else %}—{% endif %}
-            </td>
-
-            <!-- Info (abre modal detalle) -->
-            <td class="d-none d-lg-table-cell">
-              <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle"
-                      data-bs-toggle="modal" data-bs-target="#modalDetalleVac">
-                Ver
-              </button>
-            </td>
-
-            <!-- Acciones (Atender) -->
             <td>
               <div class="btn-group">
-                {% if s.status == 'pending' %}
-                  <button type="button" class="btn btn-sm btn-success btn-atender"
-                          data-bs-toggle="modal" data-bs-target="#modalAtender">
-                    Atender
-                  </button>
-                {% else %}
-                  <button type="button" class="btn btn-sm btn-secondary" disabled>
-                    Atendida
-                  </button>
-                {% endif %}
+                {% if role == 'manager' %}
+                    {% if s.status == 'pending' %}
+                        <button type="button" class="btn btn-sm btn-primary btn-atender"
+                                data-bs-toggle="modal" data-bs-target="#modalAtender">
+                            Autorizar / Rechazar
+                        </button>
+                    {% else %}
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                                data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
+                    {% endif %}
 
+                {% elif role == 'rh' %}
+                    {% if s.status == 'authorized' %}
+                        <button type="button" class="btn btn-sm btn-success btn-atender"
+                                data-bs-toggle="modal" data-bs-target="#modalAtender">
+                            Finalizar / Subir
+                        </button>
+                    {% elif s.status == 'pending' %}
+                        <span class="badge bg-light text-muted border">Esperando Jefe</span>
+                    {% else %}
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                                data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
+                    {% endif %}
+                {% endif %}
+                
                 <button type="button" class="btn btn-sm btn-outline-primary d-lg-none btn-ver-detalle"
-                        data-bs-toggle="modal" data-bs-target="#modalDetalleVac">
-                  Info
-                </button>
+                        data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Info</button>
               </div>
             </td>
-
           </tr>
           {% empty %}
-          <tr><td colspan="9" class="text-center">Sin solicitudes</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-3">No hay solicitudes en esta categoría.</td></tr>
           {% endfor %}
         </tbody>
-
       </table>
     </div>
-  </div>  {# ← cierra la card que envuelve filtros + tabla #}
-
-  {# Paginación (fuera de la card, igual que en constancias) #}
-  {% if page_obj.paginator.num_pages > 1 %}
-  <nav aria-label="Paginación" class="mt-3">
-    <ul class="pagination justify-content-center">
-      {% if page_obj.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&estado={{ estado }}&tipo={{ tipo }}">«</a>
-        </li>
-      {% else %}
-        <li class="page-item disabled"><span class="page-link">«</span></li>
-      {% endif %}
-
-      <li class="page-item disabled">
-        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-      </li>
-
-      {% if page_obj.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&estado={{ estado }}&tipo={{ tipo }}">»</a>
-        </li>
-      {% else %}
-        <li class="page-item disabled"><span class="page-link">»</span></li>
-      {% endif %}
-    </ul>
-  </nav>
-  {% endif %}
+    
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&estado={{ estado }}&q={{ q }}">Ant</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">{{ page_obj.number }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&estado={{ estado }}&q={{ q }}">Sig</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 
-{# Modales (sin cambios) #}
-<!-- MODAL: Detalle -->
 <div class="modal fade" id="modalDetalleVac" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Detalle de solicitud <span id="det-id"></span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="row g-3">
@@ -244,51 +183,111 @@
           <div class="col-md-6">
             <p class="mb-1"><strong>Inicio:</strong> <span id="det-inicio"></span></p>
             <p class="mb-1"><strong>Fin:</strong> <span id="det-fin"></span></p>
-            <p class="mb-1"><strong>Estado:</strong> <span id="det-estado" class="badge"></span></p>
+            <p class="mb-1"><strong>Estado:</strong> <span id="det-estado" class="badge bg-secondary"></span></p>
           </div>
           <div class="col-12">
-            <p class="mb-1"><strong>Motivo/observaciones:</strong></p>
-            <p id="det-razon" class="mb-0 text-muted"></p>
+            <p class="mb-1"><strong>Motivo/Observaciones:</strong></p>
+            <div id="det-razon" class="p-2 bg-light rounded text-muted"></div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Atender -->
 <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <form class="modal-content" id="formAtender" enctype="multipart/form-data" method="post">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Atender solicitud <span id="att-id-label"></span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" name="req_id" id="att-id">
+        
+        <div class="alert alert-info py-2">
+            {% if role == 'manager' %}
+                Estás a punto de <strong>Autorizar</strong> esta solicitud para enviarla a RH.
+            {% else %}
+                Estás a punto de <strong>Finalizar</strong> esta solicitud (subirla al sistema).
+            {% endif %}
+        </div>
+
         <div class="mb-3">
-          <label class="form-label">Comprobante/Respuesta (PDF, opcional)</label>
+          <label class="form-label">Comprobante (PDF, opcional)</label>
           <input type="file" name="pdf_respuesta" accept="application/pdf" class="form-control">
         </div>
         <div class="mb-3">
           <label class="form-label">Comentario (opcional)</label>
-          <textarea name="comentario" rows="3" class="form-control" placeholder="Opcional…"></textarea>
+          <textarea name="comentario" rows="3" class="form-control" placeholder="Escribe un comentario..."></textarea>
         </div>
       </div>
       <div class="modal-footer">
         <button name="accion" value="rechazar" class="btn btn-danger me-auto" type="submit">Rechazar</button>
         <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-        <button name="accion" value="aprobar" class="btn btn-success" type="submit">Aprobar</button>
+        
+        {% if role == 'manager' %}
+            <button name="accion" value="aprobar" class="btn btn-primary" type="submit">Autorizar</button>
+        {% else %}
+            <button name="accion" value="aprobar" class="btn btn-success" type="submit">Finalizar</button>
+        {% endif %}
       </div>
     </form>
   </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/vacations.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Manejar botones "Atender"
+    const modalAtender = document.getElementById('modalAtender');
+    if (modalAtender) {
+        modalAtender.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            const tr = btn.closest('tr');
+            
+            // Llenar datos
+            const id = tr.getAttribute('data-id');
+            document.getElementById('att-id').value = id;
+            document.getElementById('att-id-label').textContent = '#' + id;
+        });
+    }
+
+    // 2. Manejar botones "Ver Detalle"
+    const modalDetalle = document.getElementById('modalDetalleVac');
+    if (modalDetalle) {
+        modalDetalle.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            const tr = btn.closest('tr');
+
+            // Extraer data attributes
+            document.getElementById('det-id').textContent = '#' + tr.getAttribute('data-id');
+            document.getElementById('det-empleado').textContent = tr.getAttribute('data-empleado');
+            document.getElementById('det-tipo').textContent = tr.getAttribute('data-tipo');
+            document.getElementById('det-dias').textContent = tr.getAttribute('data-dias');
+            document.getElementById('det-inicio').textContent = tr.getAttribute('data-inicio');
+            document.getElementById('det-fin').textContent = tr.getAttribute('data-fin');
+            document.getElementById('det-razon').textContent = tr.getAttribute('data-razon') || 'Sin comentarios.';
+            
+            // Estado
+            const st = tr.getAttribute('data-estado');
+            const badge = document.getElementById('det-estado');
+            badge.textContent = st;
+            
+            // Resetear clases y poner la correcta
+            badge.className = 'badge'; 
+            if (st === 'approved') badge.classList.add('bg-success');
+            else if (st === 'rejected') badge.classList.add('bg-danger');
+            else if (st === 'authorized') badge.classList.add('bg-info', 'text-dark');
+            else badge.classList.add('bg-warning', 'text-dark');
+        });
+    }
+});
+</script>
 {% endblock %}

@@ -3,9 +3,10 @@ from django.contrib.auth.models import User
 
 class VacationRequest(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
+        ('pending', 'Pendiente de Responsable'), 
+        ('authorized', 'Pendiente de RH'),       
+        ('approved', 'Aprobada / Finalizada'),   
+        ('rejected', 'Rechazada'),              
     ]
 
     SOLICITUD_CHOICES = [
@@ -16,16 +17,25 @@ class VacationRequest(models.Model):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    manager_approver = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='vacations_authorized'
+    )
+
     tipo_solicitud = models.CharField(
         max_length=50,
         choices=SOLICITUD_CHOICES,
-        default='Vacaciones'  # <-- este valor se aplicará a los registros existentes
+        default='Vacaciones' 
     )
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.TextField(blank=True)
     documento = models.FileField(upload_to='vacaciones/', blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
