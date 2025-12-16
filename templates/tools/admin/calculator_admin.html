@@ -1,0 +1,165 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Administración de Préstamos{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/tools.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Solicitudes de Préstamo</h2>
+            <small class="text-muted">
+                Semana {{ semana }} ({{ fecha_inicio }} - {{ fecha_fin }}) • Periodo {{ periodo }}
+            </small>
+        </div>
+        <div class="ms-auto d-flex gap-2">
+        </div>
+    </div>
+
+    <div class="card p-3">
+        
+        <form method="get" class="row g-2 mb-3 align-items-end">
+            
+            <div class="col-md-4">
+                <input type="text" 
+                    name="q" 
+                    value="{{ q }}" 
+                    class="form-control" 
+                    placeholder="Buscar...">
+            </div>
+
+            <div class="col-md-4"> 
+                <div class="input-group">
+                    <span class="input-group-text bg-white small text-muted">Del</span>
+                    <input type="datetime-local" 
+                        name="fecha_inicio" 
+                        value="{{ fecha_inicio_filtro|date:'Y-m-d\TH:i' }}" 
+                        class="form-control" 
+                        title="Fecha y hora inicio">
+                        
+                    <span class="input-group-text bg-white small text-muted">al</span>
+                    <input type="datetime-local" 
+                        name="fecha_fin" 
+                        value="{{ fecha_fin_filtro|date:'Y-m-d\TH:i' }}" 
+                        class="form-control" 
+                        title="Fecha y hora fin">
+                        
+                    <button class="btn btn-outline-primary" type="submit">
+                        <i class="fa-solid fa-filter"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <a href="{% url 'calculator_admin' %}" class="btn btn-outline-secondary w-100" title="Limpiar filtros">
+                    <i class="fa-solid fa-eraser"></i> Limpiar
+                </a>
+            </div>
+
+            <div class="col-md-2">
+                <a href="{% url 'export_loans_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success w-100">
+                    <i class="fas fa-file-excel"></i> Excel
+                </a>
+            </div>
+            
+            <button type="submit" hidden></button>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table">
+                    <tr>
+                        <th class="text-center"># Solicitud</th>
+                        <th class="text-center"># Empleado</th>
+                        <th>Nombre</th>
+                        <th>Puesto</th>
+                        <th class="text-end">Ahorro total</th>
+                        <th class="text-end">50%</th>
+                        <th class="text-end text-primary fw-bold">Préstamo</th>
+                        <th class="text-center">% Aut.</th>
+                        <th class="text-center">Fecha</th>
+                        <th class="text-center">Plazo</th>
+                        <th class="text-end">Pago Sem.</th>
+                        <th>Patrón</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in solicitudes %}
+                    <tr>
+                        <td class="text-center fw-bold">{{ forloop.counter }}</td>
+                        <td class="text-center">{{ s.employee_number|default:"--" }}</td>
+                        <td>{{ s.full_name|default:s.user.username }}</td>
+                        <td>{{ s.job_position|default:"--" }}</td>
+                        
+                        <td class="text-end text-muted">
+                            ${{ s.saving_fund_snapshot|floatformat:2 }}
+                        </td>
+                        
+                        <td class="text-end text-muted">
+                            ${{ s.fifty_percent_limit|floatformat:2 }}
+                        </td>
+                        
+                        <td class="text-end fw-bold text-primary">
+                            ${{ s.amount|floatformat:2 }}
+                        </td>
+                        
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border">
+                                {{ s.percentage_authorized|floatformat:0 }}%
+                            </span>
+                        </td>
+                        
+                        <td class="text-center">{{ s.created_at|date:"d/m/Y" }}</td>
+                        <td class="text-center">{{ s.weeks }} sem</td>
+                        
+                        <td class="text-end fw-semibold">
+                            ${{ s.payment_amount|floatformat:2 }}
+                        </td>
+                        
+                        <td>
+                            <span class="small text-muted">
+                                {{ s.company|default:"--"|truncatechars:15 }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center py-4 text-muted">
+                            No se encontraron solicitudes con estos filtros.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav aria-label="Paginación" class="mt-3">
+            <ul class="pagination mb-0 justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&fecha={{ fecha_seleccionada }}">« Anterior</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&fecha={{ fecha_seleccionada }}">Siguiente »</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

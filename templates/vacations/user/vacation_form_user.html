@@ -10,19 +10,24 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h1>Solicitudes de vacaciones</h1>
-  {% comment %} asdadadada {% endcomment %}
-
-  {% comment %} Buscador (opcional, mismo estilo que constancias) {% endcomment %}
-  <input type="text" id="vacSearch" class="form-control search-bar" placeholder="Buscar formulario...">
-  <div class="alert alert-info">
-    Días de vacaciones disponibles: {{  saldo_total|floatformat:"-2" }}
+  <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="mb-0">Solicitudes de vacaciones</h2>
+      
+      {% if is_manager %}
+      <a href="{% url 'vacation_form_manager' %}" class="btn btn-primary">
+          <i class="fa-solid fa-briefcase me-2"></i> Ir al Panel de Responsable
+      </a>
+      {% endif %}
   </div>
 
+  <input type="text" id="vacSearch" class="form-control search-bar mb-3" placeholder="Buscar formulario...">
+  
+  <div class="alert alert-info">
+    Días de vacaciones disponibles: <strong>{{ saldo_total|floatformat:"-2" }}</strong>
+  </div>
 
-
-  {% comment %} Tabs {% endcomment %}
   <div class="tab-container mb-3">
+  ...
     <div class="tab active" id="tab-disponibles">Disponibles</div>
     <div class="tab" id="tab-proceso">En proceso</div>
     <div class="tab" id="tab-completados">Completados</div>

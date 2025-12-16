@@ -26,6 +26,8 @@ from django.db import transaction
 from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
 from .services import publish_recognition_if_due
+from apps.employee.models import Employee
+
 
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
@@ -38,6 +40,65 @@ def recognition_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def recognition_dashboard_admin(request):
+    # --- 1. Lógica de Guardado (POST) ---
+    if request.method == "POST":
+        recipients_ids = request.POST.getlist('recipients')
+        category_id    = request.POST.get('category')
+        message        = (request.POST.get('message') or '').strip()
+        files          = request.FILES.getlist('media')
+        notify_email   = bool(request.POST.get('notify_email'))
+        email_channels = request.POST.getlist('email_channels') if notify_email else []
+        publish_at     = _parse_datetime_local(request.POST.get('publish_at'))
+
+        errors = []
+        if len(recipients_ids) > MAX_RECIPIENTS:
+            errors.append(_("Máximo %(n)s colaboradores.") % {'n': MAX_RECIPIENTS})
+
+        category = None
+        if not category_id:
+            errors.append(_("Selecciona una categoría."))
+        else:
+            category = get_object_or_404(RecognitionCategory, pk=category_id) # Admin ve todas, incluso inactivas si quiere, o filtra is_active=True
+
+        if files:
+            files = files[:MAX_IMAGES_PER_POST]
+            bad = [f.name for f in files if not _is_image_ok(f)]
+            if bad:
+                errors.append(_("Imágenes inválidas: %(lst)s") % {"lst": ", ".join(bad)})
+
+        if errors:
+            for e in errors: messages.error(request, e)
+        else:
+            # Guardar
+            with transaction.atomic():
+                rec = Recognition.objects.create(
+                    author=request.user,
+                    category=category,
+                    message=message,
+                    publish_at=publish_at,
+                    notify_email=notify_email,
+                    notify_push=True,
+                    email_channels=email_channels or None,
+                    status="scheduled" if publish_at else "draft",
+                )
+                employees = Employee.objects.filter(id__in=recipients_ids, is_active=True).exclude(user_id__isnull=True)
+                users = User.objects.filter(id__in=employees.values_list('user_id', flat=True), is_active=True)
+                rec.recipients.add(*users)
+
+                for f in files:
+                    RecognitionMedia.objects.create(recognition=rec, file=f)
+
+            # Publicar
+            published_now = publish_recognition_if_due(rec)
+            
+            if published_now:
+                messages.success(request, "¡Comunicado publicado exitosamente!")
+            else:
+                messages.success(request, "Comunicado programado.")
+
+        # IMPORTANTE: Redirigir a la misma vista de admin para evitar reenvíos
+        return redirect('recognition_dashboard_admin')
+
     q = (request.GET.get("q") or "").strip()
 
     qs = RecognitionCategory.objects.all().order_by('order', 'title')
@@ -47,12 +108,14 @@ def recognition_dashboard_admin(request):
     paginator   = Paginator(qs, 20)
     page_number = request.GET.get('page')
     page_obj    = paginator.get_page(page_number)
+    people = Employee.objects.filter(is_active=True)
 
     context = {
         "categories": page_obj.object_list,
         "page_obj": page_obj,
         "is_paginated": page_obj.has_other_pages(),
-        "q": q,  # <-- pásalo al template para repoblar el input y los links
+        "q": q, 
+        'people': people,
     }
     return render(request, "recognitions/admin/recognition_dashboard_admin.html", context)
 

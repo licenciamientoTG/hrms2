@@ -50,3 +50,15 @@ def api_mark_read(request, pk: int):
         n.read_at = now()
         n.save(update_fields=['read_at'])
     return JsonResponse({'ok': True})
+
+@login_required
+@require_POST
+def api_mark_module_read(request, module_name):
+    """Marca como leídas todas las notificaciones de un módulo específico para el usuario actual."""
+    updated_count = Notification.objects.filter(
+        user=request.user, 
+        module=module_name, 
+        read_at__isnull=True
+    ).update(read_at=now())
+    
+    return JsonResponse({'ok': True, 'updated': updated_count})

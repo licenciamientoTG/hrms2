@@ -31,6 +31,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
 from django.views.decorators.http import require_GET
 from django.contrib.auth import get_user_model
+from django.db.models import OuterRef, Subquery
 
 def es_empresa_aqua(company) -> bool:
     """
@@ -90,18 +91,30 @@ def request_form_view(request):
 @user_passes_test(lambda u: u.is_superuser)
 def admin_forms_view(request):
     q = (request.GET.get('q') or '').strip()
-    estado = (request.GET.get('estado') or '').strip()
+    estado_filtro = (request.GET.get('estado') or '').strip()
 
-    solicitudes = ConstanciaGuarderia.objects.select_related('empleado').order_by('-fecha_solicitud')
+    # 1. Preparamos la subconsulta para obtener el estado más reciente
+    ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
+    latest_status = SolicitudAutorizacion.objects.filter(
+        content_type=ct,
+        object_id=OuterRef('pk')
+    ).order_by('-fecha_revision', '-id').values('estado')[:1]
 
+    # 2. Agregamos 'ultimo_estado_db' al queryset principal
+    solicitudes = ConstanciaGuarderia.objects.select_related('empleado').annotate(
+        ultimo_estado_db=Subquery(latest_status)
+    ).order_by('-fecha_solicitud')
+
+    # ... (El resto de tu lógica de filtros 'q' se mantiene igual) ...
     if q:
         f = Q(empleado__first_name__icontains=q) | Q(empleado__last_name__icontains=q) | Q(nombre_menor__icontains=q)
         if q.isdigit():
             f |= Q(id=int(q))
         solicitudes = solicitudes.filter(f)
 
-    if estado == 'pendiente':
-        # pendientes = sin PDF y NO rechazadas
+    if estado_filtro == 'pendiente':
+        # ... (tu código existente) ...
+        # Asegúrate de usar las variables correctas
         ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
         rechazadas_ids = SolicitudAutorizacion.objects.filter(
             content_type=ct, estado='rechazado'
@@ -110,10 +123,10 @@ def admin_forms_view(request):
             Q(pdf_respuesta__isnull=True) | Q(pdf_respuesta='')
         ).exclude(id__in=rechazadas_ids)
 
-    elif estado == 'completada':
+    elif estado_filtro == 'completada':
         solicitudes = solicitudes.filter(~Q(pdf_respuesta__isnull=True), ~Q(pdf_respuesta=''))
 
-    elif estado == 'rechazada':
+    elif estado_filtro == 'rechazada':
         ct = ContentType.objects.get_for_model(ConstanciaGuarderia)
         rechazadas_ids = SolicitudAutorizacion.objects.filter(
             content_type=ct, estado='rechazado'
@@ -121,12 +134,12 @@ def admin_forms_view(request):
         solicitudes = solicitudes.filter(id__in=rechazadas_ids)
 
     page_obj = Paginator(solicitudes, 20).get_page(request.GET.get('page'))
+    
     return render(request, 'forms_requests/admin/request_form_admin.html', {
         'page_obj': page_obj,
         'q': q,
-        'estado': estado
+        'estado': estado_filtro
     })
-
 
 # esta vista nos dirige a la plantilla de nuestro usuario
 @login_required
@@ -579,7 +592,9 @@ def guardar_constancia_guarderia(request):
             User = get_user_model()
             admins = User.objects.filter(is_superuser=True, is_active=True)
 
-            url = request.build_absolute_uri(reverse('admin_forms'))
+            base_url = reverse('admin_forms')
+            url = request.build_absolute_uri(f"{base_url}?q={solicitud.id}")
+
             titulo = "Nueva solicitud de constancia de guardería"
             cuerpo = (
                 f"{request.user.get_full_name() or request.user.username} "
@@ -592,10 +607,12 @@ def guardar_constancia_guarderia(request):
                     titulo,
                     cuerpo,
                     url,
+                    module="constancias",  
                     dedupe_key=f"guarderia-{solicitud.pk}-creada-{admin.pk}",
                 )
-        except Exception:
+        except Exception as e:
             # No rompemos la creación si falla la notificación
+            print(f"Error enviando notificación: {e}")
             pass
 
         return JsonResponse(
@@ -700,6 +717,7 @@ def rechazar_guarderia(request, pk: int):
             "Solicitud de guardería rechazada",
             comentario or "Tu solicitud fue rechazada.",
             url,
+            module="constancias",
             dedupe_key=f"guarderia-{obj.pk}-rechazada"
         )
     except Exception:

@@ -169,3 +169,49 @@ document.addEventListener('DOMContentLoaded', () => {
     alert.style.display = 'none';
   });
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Manejar botones "Atender"
+    const modalAtender = document.getElementById('modalAtender');
+    if (modalAtender) {
+        modalAtender.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            const tr = btn.closest('tr');
+            
+            // Llenar datos
+            const id = tr.getAttribute('data-id');
+            document.getElementById('att-id').value = id;
+            document.getElementById('att-id-label').textContent = '#' + id;
+        });
+    }
+
+    // 2. Manejar botones "Ver Detalle"
+    const modalDetalle = document.getElementById('modalDetalleVac');
+    if (modalDetalle) {
+        modalDetalle.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            const tr = btn.closest('tr');
+
+            // Extraer data attributes
+            document.getElementById('det-id').textContent = '#' + tr.getAttribute('data-id');
+            document.getElementById('det-empleado').textContent = tr.getAttribute('data-empleado');
+            document.getElementById('det-tipo').textContent = tr.getAttribute('data-tipo');
+            document.getElementById('det-dias').textContent = tr.getAttribute('data-dias');
+            document.getElementById('det-inicio').textContent = tr.getAttribute('data-inicio');
+            document.getElementById('det-fin').textContent = tr.getAttribute('data-fin');
+            document.getElementById('det-razon').textContent = tr.getAttribute('data-razon') || 'Sin comentarios.';
+            
+            // Estado
+            const st = tr.getAttribute('data-estado');
+            const badge = document.getElementById('det-estado');
+            badge.textContent = st;
+            
+            // Resetear clases y poner la correcta
+            badge.className = 'badge'; 
+            if (st === 'approved') badge.classList.add('bg-success');
+            else if (st === 'rejected') badge.classList.add('bg-danger');
+            else if (st === 'authorized') badge.classList.add('bg-info', 'text-dark');
+            else badge.classList.add('bg-warning', 'text-dark');
+        });
+    }
+});

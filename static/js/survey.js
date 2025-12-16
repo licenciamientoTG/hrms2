@@ -2055,3 +2055,9 @@ function renderTypeDemo(type) {
   if (!box) return;
   box.innerHTML = demoHTMLForType(type);
 }
+
+  // Inicializar tooltips de Bootstrap para ver preguntas largas o respuestas truncadas
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+  })

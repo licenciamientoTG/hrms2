@@ -50,7 +50,6 @@
 
 .table {
   width: 100%;
-  table-layout: fixed; /* Esto ajusta las columnas para que se distribuyan mejor */
 }
 
 .card-body {
