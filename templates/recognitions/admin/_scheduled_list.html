@@ -1,0 +1,36 @@
+{% if scheduled %}
+<table class="table table-striped mb-0">
+    <thead>
+        <tr>
+            <th>Fecha Programada</th>
+            <th>Categoría</th>
+            <th>Mensaje</th>
+            <th>Acción</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in scheduled %}
+        <tr id="row-{{ s.id }}">
+            <td>{{ s.publish_at|date:"d/m/Y H:i" }}</td>
+            <td>
+                <span class="badge" style="background-color: {{ s.category.color_hex }}">
+                    {{ s.category.title }}
+                </span>
+            </td>
+            <td class="text-truncate" style="max-width: 200px;">
+                {{ s.message }}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-danger js-delete-scheduled" data-id="{{ s.id }}">
+                    <i class="fa fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info m-3">
+    No hay comunicados programados pendientes.
+</div>
+{% endif %}

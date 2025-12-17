@@ -12,6 +12,9 @@
   <h2 class="mb-0">Comunicados</h2>
   
   <div class="d-flex gap-2">
+    <button type="button" class="btn btn-warning text-white" data-bs-toggle="modal" data-bs-target="#scheduledModal">
+      <i class="fa fa-clock"></i> Agendados
+    </button>
     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRecognitionModal">
       <i class="fa fa-plus"></i> Nuevo Comunicado
     </button>
@@ -207,6 +210,27 @@
         <button type="submit" id="publishBtn" class="btn btn-primary" disabled>Publicar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal fade" id="scheduledModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Comunicados Programados</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="scheduled-list-container" class="p-3 text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
