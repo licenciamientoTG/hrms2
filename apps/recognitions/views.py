@@ -27,18 +27,18 @@ from datetime import datetime
 from django.utils.timezone import make_aware, get_current_timezone
 from .services import publish_recognition_if_due
 from apps.employee.models import Employee
-
+from django.utils import timezone
 
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
 def recognition_dashboard(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('recognition_dashboard_admin')
     else:
         return redirect('recognition_dashboard_user')
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def recognition_dashboard_admin(request):
     # --- 1. Lógica de Guardado (POST) ---
     if request.method == "POST":
@@ -473,3 +473,24 @@ def recognition_likes_list(request, pk):
         "count": qs.count(),
         "items": items,
     })
+ 
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def recognition_scheduled_list(request):
+    """Devuelve HTML parcial con la lista de comunicados programados para el futuro"""
+    now = timezone.now()
+    scheduled = Recognition.objects.filter(
+        publish_at__gt=now,  # Fecha futura
+        status='scheduled'   # Opcional si usas status
+    ).order_by('publish_at')
+
+    return render(request, 'recognitions/admin/_scheduled_list.html', {'scheduled': scheduled})
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def recognition_delete_scheduled(request, pk):
+    """Permite cancelar/eliminar un comunicado agendado"""
+    rec = get_object_or_404(Recognition, pk=pk)
+    rec.delete()
+    return JsonResponse({'ok': True})

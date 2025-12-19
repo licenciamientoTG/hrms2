@@ -34,6 +34,8 @@ class CourseCategory(models.Model):
         verbose_name = "Categoría de curso"
         verbose_name_plural = "Categorías de cursos"
 
+
+
     def __str__(self):
         return self.title
 
@@ -92,6 +94,10 @@ class CourseHeader(models.Model):
     class Meta:
         verbose_name = "Curso"
         verbose_name_plural = "Cursos"
+
+        permissions = [
+            ("Modulo_cursos", "Acceso al Módulo de Cursos"),
+        ]
 
     def __str__(self):
         return self.title

@@ -36,6 +36,11 @@ class News(models.Model):
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     likes = models.ManyToManyField(User, through='NewsLike', related_name='liked_news', blank=True)
 
+    class Meta:
+        permissions = [
+            ("Modulo_noticias", "Acceso al Módulo de Noticias"),
+        ]
+
     def __str__(self):
         return self.title
 

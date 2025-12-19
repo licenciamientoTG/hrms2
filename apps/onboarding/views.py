@@ -5,14 +5,14 @@ from django.contrib.auth.decorators import user_passes_test
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
 def onboarding_dashboard(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('onboarding_dashboard_admin')
     else:
         return redirect('onboarding_dashboard_user')
 
 # esta vista es para el administrador
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def onboarding_dashboard_admin(request):
 
     return render(request, 'onboarding/admin/onboarding_dashboard_admin.html')

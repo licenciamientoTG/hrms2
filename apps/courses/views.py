@@ -60,7 +60,7 @@ def get_employees_with_user(request):
 
 @login_required
 def course_wizard(request):
-    if not request.user.is_superuser:
+    if not request.user.is_staff:
         return redirect('user_courses')
  
     check_and_archive_courses()
@@ -309,7 +309,7 @@ def save_course(request):
 
 
 
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def save_course_ajax(request):
     if request.method == 'POST':
         try:
@@ -522,7 +522,7 @@ def user_segmentation_view(request, course_id):
     })
 
 @csrf_exempt
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def run_assignments(request, course_id):
     if request.method == 'POST':
         try:
@@ -617,7 +617,7 @@ def view_course_content(request, course_id):
         'cert': cert,
     })
 
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staffr)
 def admin_course_stats(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     config = CourseConfig.objects.filter(course=course).first()
@@ -700,7 +700,7 @@ def admin_course_stats(request, course_id):
         'user_progress': user_progress,
     })
     
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def admin_course_edit(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     config = get_object_or_404(CourseConfig, course=course)
@@ -892,7 +892,7 @@ def user_courses(request):
 
 @staff_member_required
 def admin_courses(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         # Si es un administrador, obtener todos los cursos
         courses = CourseHeader.objects.all()
         template_name = "courses/admin/admin_courses.html"
@@ -1289,7 +1289,7 @@ def generar_y_guardar_certificado(usuario, curso):
     return certificado
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def course_summary_view(request):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)

@@ -4,6 +4,11 @@ class Department(models.Model):
     name = models.CharField(max_length=255)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subdepartments')
 
+    class Meta:
+        permissions = [
+            ("Modulo_organigrama", "Acceso al Módulo de Organigrama"),
+        ]
+
     def __str__(self):
         return self.name
 

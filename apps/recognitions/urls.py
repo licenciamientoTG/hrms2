@@ -13,7 +13,8 @@ from .views import (
     recognition_comment_delete,
     recognition_like_toggle,
     recognition_likes_list,
-
+    recognition_scheduled_list,
+    recognition_delete_scheduled,
 )
 
 urlpatterns = [
@@ -32,5 +33,6 @@ urlpatterns = [
     path('recognitions/<int:pk>/comment/<int:cid>/delete/', recognition_comment_delete, name='recognition_comment_delete'),
     path('recognitions/<int:pk>/like/',  recognition_like_toggle, name='recognition_like_toggle'),
     path('recognitions/<int:pk>/likes/', recognition_likes_list,   name='recognition_likes_list'),
-
+    path('scheduled/', recognition_scheduled_list, name='recognition_scheduled_list'),
+    path('delete/<int:pk>/', recognition_delete_scheduled, name='recognition_delete'),
 ]

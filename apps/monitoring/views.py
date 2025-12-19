@@ -24,7 +24,7 @@ def humanize_delta(delta):
     m = (delta.seconds % 3600) // 60
     return f"{m}m"
 
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def monitoring_view(request):
     now = timezone.now()
     idle_threshold = now - timedelta(seconds=IDLE_SECONDS)

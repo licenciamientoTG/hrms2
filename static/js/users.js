@@ -143,3 +143,117 @@ function toggleStatus(userId) {
         });
     });
 })();
+
+// 1. Script para eliminar grupo (ya lo tenías)
+function confirmarEliminar(groupId, groupName) {
+    if(confirm("¿Estás seguro de eliminar el grupo '" + groupName + "'? \n\nEsto quitará los permisos a TODOS los usuarios que pertenezcan a este grupo.")) {
+        var form = document.getElementById('deleteGroupForm');
+        // Ajusta la URL si es necesario
+        form.action = "/users/groups/delete/" + groupId + "/"; 
+        form.submit();
+    }
+}
+
+// 2. FUNCIÓN DE FILTRADO REUTILIZABLE
+// Esta función sirve para los 3 buscadores
+function configurarFiltro(inputId, contenedorId, contadorId = null) {
+    const input = document.getElementById(inputId);
+    const contenedor = document.getElementById(contenedorId);
+    
+    if (!input || !contenedor) return; // Si no existen en el HTML, no hace nada
+
+    const items = contenedor.getElementsByClassName('item-filtro');
+
+    input.addEventListener('keyup', function(e) {
+        const texto = e.target.value.toLowerCase();
+        let visibles = 0;
+
+        Array.from(items).forEach(function(item) {
+            // Buscamos el texto dentro del item (incluye etiquetas label, small, etc.)
+            const contenido = item.innerText.toLowerCase();
+            
+            if (contenido.includes(texto)) {
+                item.style.display = ''; // Mostrar (valor por defecto)
+                visibles++;
+            } else {
+                item.style.display = 'none'; // Ocultar
+            }
+        });
+
+        // Si hay un elemento para mostrar el contador, lo actualizamos
+        if (contadorId) {
+            const contadorElem = document.getElementById(contadorId);
+            if (contadorElem) {
+                contadorElem.innerText = texto.length > 0 ? visibles + " resultados" : "";
+            }
+        }
+    });
+}
+
+// 3. Inicializar los filtros cuando cargue la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtro del Modal de Crear Grupo
+    configurarFiltro('filtroModal', 'contenedorModal', 'contadorModal');
+    
+    // Filtro de Permisos Individuales (Columna Izquierda)
+    configurarFiltro('filtroPermisosIndiv', 'contenedorPermisosIndiv');
+
+    // Filtro de Grupos (Columna Derecha)
+    configurarFiltro('filtroGrupos', 'contenedorGrupos');
+});
+
+function confirmarEliminar(groupId, groupName) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: `Estás a punto de eliminar el grupo "${groupName}". Esta acción quitará los permisos a todos los usuarios que pertenezcan a este grupo.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Si confirma, enviamos el formulario oculto
+            var form = document.getElementById('deleteGroupForm');
+            form.action = "/users/groups/delete/" + groupId + "/"; 
+            form.submit();
+        }
+    });
+}
+
+// 3. Función de búsqueda (Filtros)
+function configurarFiltro(inputId, contenedorId, contadorId = null) {
+    const input = document.getElementById(inputId);
+    const contenedor = document.getElementById(contenedorId);
+    if (!input || !contenedor) return;
+
+    const items = contenedor.getElementsByClassName('item-filtro');
+
+    input.addEventListener('keyup', function(e) {
+        const texto = e.target.value.toLowerCase();
+        let visibles = 0;
+
+        Array.from(items).forEach(function(item) {
+            const contenido = item.innerText.toLowerCase();
+            if (contenido.includes(texto)) {
+                item.style.display = '';
+                visibles++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        if (contadorId) {
+            const contadorElem = document.getElementById(contadorId);
+            if (contadorElem) contadorElem.innerText = texto.length > 0 ? visibles + " resultados" : "";
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    configurarFiltro('filtroModal', 'contenedorModal', 'contadorModal');
+    configurarFiltro('filtroPermisosIndiv', 'contenedorPermisosIndiv');
+    configurarFiltro('filtroGrupos', 'contenedorGrupos');
+});
+

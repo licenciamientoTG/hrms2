@@ -529,3 +529,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
   io.observe(sentinel);
 })();
+
+
+$(document).ready(function() {
+    // AL ABRIR EL MODAL: Cargar lista
+    const modalEl = document.getElementById('scheduledModal');
+    modalEl.addEventListener('show.bs.modal', function (event) {
+        loadScheduledList();
+    });
+
+    function loadScheduledList() {
+        $('#scheduled-list-container').html('<div class="spinner-border text-primary"></div> Cargando...');
+        
+        // Ajusta la URL según tu urls.py
+        $.get("/recognitions/scheduled/", function(data) {
+            $('#scheduled-list-container').html(data);
+        }).fail(function() {
+            $('#scheduled-list-container').html('<p class="text-danger">Error al cargar.</p>');
+        });
+    }
+
+    $(document).on('click', '.js-delete-scheduled', function() {
+        const id = $(this).data('id');
+        if(!confirm('¿Seguro que deseas cancelar esta publicación?')) return;
+
+        // 1. OBTENER EL TOKEN REAL DESDE EL HTML
+        // Buscamos cualquier input oculto de csrf que Django haya puesto en tus formularios
+        const csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+
+        $.post("/recognitions/delete/" + id + "/", {
+            csrfmiddlewaretoken: csrfToken // <--- Usamos la variable, no el tag {{ }}
+        }, function(res) {
+            if(res.ok) {
+                // Efecto visual de borrado
+                $('#row-' + id).fadeOut(function(){ $(this).remove(); });
+                
+                // Opcional: Recargar la lista si quedó vacía
+                if($('tbody tr:visible').length <= 1) {
+                    loadScheduledList(); 
+                }
+            } else {
+                alert('Error al eliminar');
+            }
+        }).fail(function() {
+            alert('Error de servidor al intentar eliminar.');
+        });
+    });
+});
+
+
+$(document).ready(function() {
+    // Verificar si la URL tiene un parámetro "highlight"
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightId = urlParams.get('highlight');
+
+    if (highlightId) {
+        const targetId = '#recognition-' + highlightId;
+        const $target = $(targetId);
+
+        if ($target.length) {
+            // 1. Scroll suave hasta el elemento
+            $('html, body').animate({
+                scrollTop: $target.offset().top - 100 // -100 para dejar espacio arriba
+            }, 1000);
+
+            // 2. Efecto de "Glow" o borde temporal
+            $target.css('transition', 'box-shadow 0.5s ease-in-out');
+            $target.css('box-shadow', '0 0 15px rgba(13, 110, 253, 0.6)'); // Brillo azul
+            $target.css('border-color', '#0d6efd');
+
+            // Quitar el brillo después de 3 segundos
+            setTimeout(function() {
+                $target.css('box-shadow', '');
+                $target.css('border-color', '');
+            }, 3000);
+        }
+    }
+});

@@ -16,14 +16,14 @@ from .models import ObjectiveCycle
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
 def objective_view(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('admin_objective')
     else:
         return redirect('user_objective')
 
 #esta vista solo nos manda a admin_staff_requisitions.html
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def admin_objective(request):
     q = (request.GET.get('q') or '').strip()
 
@@ -125,7 +125,7 @@ def create_objective(request):
 
 # --- ADMIN: formulario de creación de ciclo (solo plantilla)
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def obj_cycle_create(request):
     if request.method == "POST":
         name = (request.POST.get("name") or "").strip()
@@ -190,7 +190,7 @@ def obj_cycle_create(request):
     return render(request, "objectives/admin/cycle_form.html", {"formdata": {}})
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 @require_POST
 def cycle_delete(request, pk):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
@@ -209,7 +209,7 @@ def cycle_delete(request, pk):
     return redirect('admin_objective')
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def obj_cycle_edit(request, pk):
     cycle = get_object_or_404(ObjectiveCycle, pk=pk)
 

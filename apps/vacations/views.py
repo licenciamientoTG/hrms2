@@ -41,7 +41,7 @@ def is_manager(user):
 # ==========================================
 @login_required
 def vacation_dashboard(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('vacation_form_rh')
     
     elif is_manager(request.user):
@@ -179,7 +179,7 @@ def vacation_form_user(request):
 @login_required
 def vacation_form_manager(request):
     # Seguridad
-    if not is_manager(request.user) and not request.user.is_superuser:
+    if not is_manager(request.user) and not request.user.is_staff:
         return redirect('vacation_form_user')
 
     if request.method == 'POST':
@@ -276,7 +276,7 @@ def vacation_form_manager(request):
 # 4. VISTA DE RH (ADMIN)
 # ==========================================
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def vacation_form_rh(request):
     if request.method == 'POST':
         req_id = request.POST.get('req_id')

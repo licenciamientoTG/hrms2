@@ -44,11 +44,11 @@ except Exception:
 
 @login_required
 def survey_dashboard(request):
-    return redirect('survey_dashboard_admin') if request.user.is_superuser else redirect('survey_dashboard_user')
+    return redirect('survey_dashboard_admin') if request.user.is_staff else redirect('survey_dashboard_user')
 
 # -------- dashboard (ya lo tenías; dejo el mismo con el fix de creator) --------
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_dashboard_admin(request):
     q = (request.GET.get("q") or "").strip()
     sort = (request.GET.get("sort") or "-created_at").strip()
@@ -257,7 +257,7 @@ def survey_dashboard_user(request):
     return render(request, "surveys/user/survey_dashboard_user.html", context)
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_new(request):
     return render(request, 'surveys/admin/survey_new.html', {
         "survey": None,
@@ -270,7 +270,7 @@ def _is_ajax(request):
 
 @require_POST
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def section_create(request, survey_id):
     if not _is_ajax(request): return HttpResponseBadRequest("AJAX only")
     survey = get_object_or_404(Survey, pk=survey_id)
@@ -281,7 +281,7 @@ def section_create(request, survey_id):
 
 @require_POST
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def section_rename(request, section_id):
     if not _is_ajax(request): return HttpResponseBadRequest("AJAX only")
     section = get_object_or_404(SurveySection, pk=section_id)
@@ -294,7 +294,7 @@ def section_rename(request, section_id):
 
 @require_GET
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def section_options(request, survey_id):
     """Devuelve opciones para el select 'Después de la sección X' """
     if not _is_ajax(request): return HttpResponseBadRequest("AJAX only")
@@ -304,7 +304,7 @@ def section_options(request, survey_id):
 
 @require_POST
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def question_create(request, section_id):
     if not _is_ajax(request): return HttpResponseBadRequest("AJAX only")
     section = get_object_or_404(SurveySection, pk=section_id)
@@ -315,7 +315,7 @@ def question_create(request, section_id):
 
 @require_POST
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def question_rename(request, question_id):
     if not _is_ajax(request): return HttpResponseBadRequest("AJAX only")
     q = get_object_or_404(SurveyQuestion, pk=question_id)
@@ -327,7 +327,7 @@ def question_rename(request, question_id):
     return JsonResponse({'ok': True})
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 @require_GET
 def survey_audience_meta(request):
     deps = list(Department.objects.values('id', 'name').order_by('name'))
@@ -336,7 +336,7 @@ def survey_audience_meta(request):
     return JsonResponse({'departments': deps, 'positions': pos, 'locations': locs})
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 @require_GET
 def survey_audience_user_search(request):
     q = (request.GET.get('q') or '').strip()
@@ -372,7 +372,7 @@ def survey_audience_user_search(request):
     return JsonResponse(items, safe=False)
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 @require_POST
 def survey_audience_preview(request):
     try:
@@ -417,7 +417,7 @@ def survey_audience_preview(request):
     return JsonResponse({'count': total, 'results': results})
 
 
-@method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
+@method_decorator([login_required, user_passes_test(lambda u: u.is_staff)], name='dispatch')
 class SurveyImportView(View):
     def post(self, request, survey_id=None):
         if request.headers.get('x-requested-with') != 'XMLHttpRequest':
@@ -509,7 +509,7 @@ class SurveyImportView(View):
 
 # ---------------- Eliminar (AJAX/POST) ----------------
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 @require_POST
 def survey_delete(request, pk: int):
     s = get_object_or_404(Survey, pk=pk)
@@ -520,7 +520,7 @@ def survey_delete(request, pk: int):
     return redirect("survey_dashboard_admin")
 
 # @login_required
-# @user_passes_test(lambda u: u.is_superuser)
+# @user_passes_test(lambda u: u.is_staff)
 # def survey_export_csv(request, pk: int):
 #     s = get_object_or_404(Survey, pk=pk)
 #     import csv
@@ -559,7 +559,7 @@ def survey_delete(request, pk: int):
 #     return resp
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_edit(request, pk: int):
     s = (Survey.objects
          .prefetch_related(
@@ -1015,7 +1015,7 @@ def survey_thanks(request, survey_id):
     return render(request, 'surveys/user/thanks.html', {'survey': survey})
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_detail_admin(request, pk: int):
     # evita import circular
     from .models import (
@@ -1238,7 +1238,7 @@ def survey_detail_admin(request, pk: int):
     return render(request, "surveys/admin/survey_detail.html", context)
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_export_xlsx(request, pk: int):
 
 # 1. Recuperar datos de la encuesta
@@ -1544,7 +1544,7 @@ def survey_export_xlsx(request, pk: int):
     return response
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
     survey = get_object_or_404(Survey, pk=pk)
 
@@ -1630,7 +1630,7 @@ def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def survey_summary_pdf(request):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,

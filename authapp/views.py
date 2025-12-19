@@ -75,7 +75,7 @@ def third_monday_of_november(year: int) -> date:
 @login_required
 def home(request):
     # --- Dashboard de superusuario ---
-    if request.user.is_superuser:
+    if request.user.is_staff:
         User = get_user_model()
         total_colaboradores = User.objects.filter(
             is_active=True,

@@ -58,7 +58,7 @@
 
                 <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
                     <span class="text-dark">
-                        {% if user.is_superuser %}
+                        {% if user.is_staff %}
                             {{ user.username }}
                         {% else %}
                             {{ user.last_name }}

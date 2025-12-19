@@ -15,7 +15,7 @@ from django.utils import timezone
 
 @login_required
 def calculator_view(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('calculator_admin')
     else:
         return redirect('calculator_user')
@@ -36,7 +36,7 @@ def calculator_user(request):
     )
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def calculator_admin(request):
     q = (request.GET.get('q') or '').strip()
     
@@ -182,7 +182,7 @@ def create_loan_request(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
 
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def export_loans_excel(request):
     q = (request.GET.get('q') or '').strip()
     f_ini_str = request.GET.get('fecha_inicio')

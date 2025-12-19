@@ -11,12 +11,15 @@
         </a>
 
         <ul class="sidebar-nav">
-            {% if user.is_superuser%}
+            {% if perms.monitoring.Modulo_monitoreo %}
                 <li class="sidebar-item {% if 'monitoring' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'monitoring_view' %}">
                         <i class="fa-solid fa-id-card"></i><span class="align-middle">Monitoreo</span>
                     </a>
                 </li>
+            {% endif %}
+            
+            {% if  perms.users.Modulo_usuarios %}
                 <li class="sidebar-item {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'user_dashboard' %}">
                         <i class="fa-solid fa-user"></i>
@@ -30,9 +33,11 @@
                         </span>
                     </a>
                 </li>
-                {% endif %}
+            {% endif %}
 
-                {% if user.is_superuser or user.first_name == "Jose Bernardo"%}
+            {% comment %} {% if user.is_staff or user.first_name == "Jose Bernardo"%} {% endcomment %}
+            {% comment %} {% if not user.is_staff or perms.news.Modulo_noticias %} {% endcomment %}
+            {% if perms.news.Modulo_noticias %}
                 <li class="sidebar-item {% if 'news' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'news_view' %}">
                         <i class="fa-solid fa-newspaper"></i>
@@ -46,7 +51,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.recognitions.Modulo_comunicados %} {% endcomment %}
+            {% if perms.recognitions.Modulo_comunicados %}
                 <li class="sidebar-item {% if 'recognition' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
                         <i class="fa-solid fa-award"></i>
@@ -62,21 +70,24 @@
                 </li>
             {% endif %}
 
-            <li class="sidebar-item {% if 'request' in request.resolver_match.url_name or 'forms' in request.resolver_match.url_name or 'constancia' in request.resolver_match.url_name or 'guarderia' in request.resolver_match.url_name or 'carta' in request.resolver_match.url_name %}active{% endif %}">
-                <a class="sidebar-link" href="{% url 'request_form' %}">
-                    <i class="fa-brands fa-wpforms"></i>
-                    <span class="align-middle">
-                        Solicitud de constancias
-                        {% with notif_module_counts.constancias as c %}
-                            {% if c %}
-                                <span class="badge bg-danger ms-1">{{ c }}</span>
-                            {% endif %}
-                        {% endwith %}
-                    </span>
-                </a>
-            </li>
+            {% if not user.is_staff or perms.forms_requests.Modulo_constancias %}
+                <li class="sidebar-item {% if 'request' in request.resolver_match.url_name or 'forms' in request.resolver_match.url_name or 'constancia' in request.resolver_match.url_name or 'guarderia' in request.resolver_match.url_name or 'carta' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link" href="{% url 'request_form' %}">
+                        <i class="fa-brands fa-wpforms"></i>
+                        <span class="align-middle">
+                            Solicitud de constancias
+                            {% with notif_module_counts.constancias as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                    </a>
+                </li>
+            {% endif %}
 
-            {% if user.is_superuser or user.first_name == "Jose Bernardo" or user.first_name == "PRUEBA"%}
+            {% comment %} {% if not user.is_staff or perms.surveys.Modulo_encuestas %} {% endcomment %}
+            {% if perms.surveys.Modulo_encuestas %}
                 <li class="sidebar-item {% if 'survey' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i>
@@ -90,7 +101,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.courses.Modulo_cursos %} {% endcomment %}
+            {% if perms.courses.Modulo_cursos %}
                 <li class="sidebar-item {% if 'course' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i>
@@ -104,7 +118,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.org_chart.Modulo_organigrama %} {% endcomment %}
+            {% if perms.org_chart.Modulo_organigrama %}
                 <li class="sidebar-item {% if 'org_chart' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i>
@@ -118,7 +135,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.vacations.Modulo_vacaciones %} {% endcomment %}
+            {% if perms.vacations.Modulo_vacaciones %}
                 <li class="sidebar-item {% if 'vacation' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
                         <i class="fa-solid fa-calendar-days"></i>
@@ -132,7 +152,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.objectives.Modulo_objetivos %} {% endcomment %}
+            {% if perms.objectives.Modulo_objetivos %}
                 <li class="sidebar-item {% if 'objective' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'objective_view' %}">
                         <i class="fa-solid fa-bullseye"></i>
@@ -146,7 +169,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.archive.view_archive %} {% endcomment %}
+            {% if perms.archive.view_archive %}
                 <li class="sidebar-item {% if 'archive' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'archive_dashboard' %}">
                         <i class="fa-solid fa-folder"></i>
@@ -160,7 +186,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.onboarding.view_onboardingtask %} {% endcomment %}
+            {% if perms.onboarding.view_onboardingtask %}
                 <li class="sidebar-item {% if 'onboarding' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'onboarding_dashboard' %}">
                         <i class="fa-solid fa-user-plus"></i>
@@ -174,7 +203,9 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% if user.is_superuser %}
                 <li class="sidebar-item {% if 'document' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'document_dashboard' %}">
                         <i class="fa-solid fa-folder-open"></i>
@@ -188,7 +219,11 @@
                         </span>
                     </a>
                 </li>
-
+            {% endif %}
+                
+                
+            {% comment %} {% if not user.is_staff or perms.job_offers.view_joboffer %} {% endcomment %}
+            {% if perms.job_offers.view_joboffer %}
                 <li class="sidebar-item {% if 'job' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'job_offers_dashboard' %}">
                         <i class="fa-solid fa-briefcase"></i>
@@ -202,7 +237,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.policies.view_policy %} {% endcomment %}
+            {% if perms.policies.view_policy %}    
                 <li class="sidebar-item {% if 'policies' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'policies_dashboard_view' %}">
                         <i class="fa-solid fa-landmark"></i>
@@ -216,7 +254,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if not user.is_staff or perms.career.view_careerplan %} {% endcomment %}
+            {% if perms.career.view_careerplan %}
                 <li class="sidebar-item {% if 'career' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'career_plan_dashboard' %}">
                         <i class="fa-solid fa-road"></i>
@@ -230,7 +271,10 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% comment %} {% if perms.staff_requisitions.add_staffrequisition or perms.staff_requisitions.view_staffrequisition %} {% endcomment %}
+            {% if perms.staff_requisitions.view_staffrequisition %}
                 <li class="sidebar-item {% if 'staff' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'staff_requisitions_home' %}">
                         <i class="fa-solid fa-user-tie"></i>
@@ -244,7 +288,9 @@
                         </span>
                     </a>
                 </li>
+            {% endif %}
 
+            {% if perms.tools.Modulo_herramientas %}
                 <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link d-flex justify-content-between align-items-center {% if 'calculator' not in request.resolver_match.url_name %}collapsed{% endif %}"
                        data-bs-toggle="collapse" 
@@ -267,7 +313,7 @@
                         </ul>
                     </div>
                 </li>
-            {% endif %}
+             {% endif %}
 
         </div>
     </nav>
