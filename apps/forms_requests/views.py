@@ -82,13 +82,13 @@ def get_sello_path(company):
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
 def request_form_view(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('admin_forms')
     else:
         return redirect('user_forms')
 
 #esta vista nos dirige a la plantilla de nuestro administrador
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def admin_forms_view(request):
     q = (request.GET.get('q') or '').strip()
     estado_filtro = (request.GET.get('estado') or '').strip()
@@ -627,7 +627,7 @@ def guarderia_detalle(request, pk):
     obj = get_object_or_404(ConstanciaGuarderia, pk=pk)
 
     # seguridad: solo el dueño o un admin pueden ver
-    if not request.user.is_superuser and obj.empleado_id != request.user.id:
+    if not request.user.is_staff and obj.empleado_id != request.user.id:
         raise Http404()
 
     data = {

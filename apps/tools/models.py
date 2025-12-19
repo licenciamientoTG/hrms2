@@ -50,5 +50,9 @@ class LoanRequest(models.Model):
         verbose_name_plural = "Solicitudes de Préstamo"
         ordering = ['-created_at']
 
+        permissions = [
+            ("Modulo_herramientas", "Acceso al Módulo de Herramientas"),
+        ]
+
     def __str__(self):
         return f"Solicitud #{self.id} - {self.full_name}"

@@ -66,13 +66,13 @@ def send_news_notification(news):
 #esta vista solo nos separa la vista del usuario y del administrador por medio de su url
 @login_required
 def news_view(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('admin_news')
     else:
         return redirect('user_news')
 
 #esta vista nos dirige a la plantilla de nuestro administrador
-@user_passes_test(lambda u: u.is_superuser, login_url='user_news')
+@user_passes_test(lambda u: u.is_staff, login_url='user_news')
 def admin_news_view(request):
     q = request.GET.get('q', '').strip()
     news = (News.objects.select_related('author')
@@ -118,7 +118,7 @@ def user_news_view(request):
     return render(request, 'news/user/news_view_user.html', {'news': news, 'q': q})
 
 # esta vista es para que el administrador pueda editar las noticias
-@user_passes_test(lambda u: u.is_superuser, login_url='user_news')
+@user_passes_test(lambda u: u.is_staff, login_url='user_news')
 def news_detail_admin(request, pk):
     news = get_object_or_404(News, pk=pk)
     tags = NewsTag.objects.all().order_by('name')
@@ -206,13 +206,13 @@ def news_detail_user(request, pk):
     n = get_object_or_404(qs, pk=pk)
 
     # Si no está publicada, no la muestres al usuario final
-    if not request.user.is_superuser and not n.published_at:
+    if not request.user.is_staff and not n.published_at:
         return redirect('user_news')
 
     return render(request, 'news/user/news_detail_user.html', {'n': n})
 
 # esta vista es para que el administrador elimine noticias
-@user_passes_test(lambda u: u.is_superuser, login_url='user_news')
+@user_passes_test(lambda u: u.is_staff, login_url='user_news')
 def news_delete(request, pk):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
@@ -235,7 +235,7 @@ def news_delete(request, pk):
     return redirect('admin_news')
 
 #esta es la vista para la plantilla de crear noticias
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def create_news(request):
     if request.method == 'POST':
         title        = request.POST.get('title', '').strip()
@@ -336,9 +336,9 @@ def news_comment_delete(request, pk, cid):
     user = request.user
     is_owner = (getattr(comment, 'user_id', None) == user.id)  # o comment.author_id si tu campo se llama así
     can_moderate = user.has_perm('news.delete_newscomment')    # 👈 sin exigir is_staff
-    is_super = user.is_superuser
+    is_st = user.is_staff
 
-    if not (is_owner or can_moderate or is_super):
+    if not (is_owner or can_moderate or is_st):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
         return HttpResponseForbidden('No autorizado')

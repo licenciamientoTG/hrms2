@@ -29,6 +29,9 @@ class SessionEvent(models.Model):
             models.Index(fields=["user", "ts"]),
             models.Index(fields=["event", "ts"]),
         ]
+        permissions = [
+            ("Modulo_monitoreo", "Acceso al Módulo de Monitoreo"),
+        ]
 
 class UserDailyUse(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

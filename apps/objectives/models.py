@@ -13,5 +13,10 @@ class ObjectiveCycle(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        permissions = [
+            ("Modulo_objetivos", "Acceso al Módulo de Objetivos"),
+        ]
+
     def __str__(self):
         return self.name

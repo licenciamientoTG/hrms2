@@ -39,6 +39,7 @@ class ConstanciaGuarderia(models.Model):
 
     class Meta:
         permissions = [
+            ("Modulo_constancias", "Acceso al Módulo de Constancias"),
             ("puede_solicitar_guarderia", "Puede solicitar constancia de guardería"),
             ("puede_solicitar_personal", "Puede solicitar personal"),
         ]

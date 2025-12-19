@@ -18,6 +18,10 @@ class Survey(models.Model):
         related_name='surveys'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        permissions = [
+            ("Modulo_encuestas", "Acceso al Módulo de Encuestas"),
+        ]
 
     def __str__(self):
         return self.title

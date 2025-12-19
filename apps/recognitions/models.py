@@ -72,6 +72,10 @@ class Recognition(models.Model):
 
     class Meta:
         ordering = ("-published_at", "-created_at")
+        
+        permissions = [
+            ("Modulo_comunicados", "Acceso al Módulo de Comunicados"),
+        ]
 
     def __str__(self):
         return f'{self.author} → {self.category} ({self.created_at:%Y-%m-%d})'

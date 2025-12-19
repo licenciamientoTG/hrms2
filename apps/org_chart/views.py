@@ -9,7 +9,7 @@ from collections import defaultdict
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
 def org_chart_view(request):
-    if request.user.is_superuser:
+    if request.user.is_staff:
         return redirect('org_chart_admin')
     else:
         return redirect('org_chart_user')
@@ -17,7 +17,7 @@ def org_chart_view(request):
 
 # vista admin
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def org_chart_admin(request):
     return render(request, 'org_chart/admin/org_chart_admin.html')
 
@@ -154,7 +154,7 @@ def org_chart_data_1(request):
 
 @require_POST
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_staff)
 def api_move_position(request):
     try:
         moved_id = request.POST.get('moved_position_id')

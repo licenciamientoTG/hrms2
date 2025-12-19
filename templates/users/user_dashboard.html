@@ -10,9 +10,6 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Usuarios</h2>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearGrupoModal">
-    Grupos
-  </button>
 </div>
 
 <div class="card p-3">
@@ -46,33 +43,44 @@
         </tr>
       </thead>
       <tbody>
-        {% for emp in empleados %}
-          <tr id="row-{{ emp.user.id }}">
+        {% for u in users_list %}
+          <tr id="row-{{ u.id }}">
             <td class="user-info">
               <div class="details">
-                <div class="name">{{ emp.first_name }} {{ emp.last_name }}</div>
-                <div class="email text-muted small">{{ emp.email|default:"sin email" }}</div>
+                <div class="name">
+                    {{ u.get_full_name|default:u.username }}
+                    {% if u.is_staff %}
+                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">Staff</span>
+                    {% endif %}
+                </div>
+                <div class="email text-muted small">{{ u.email|default:"Sin email" }}</div>
+                
+                {% if u.employee %}
+                    <div class="small text-primary">{{ u.employee.department.name }}</div>
+                {% endif %}
               </div>
             </td>
-            <td>{{ emp.user.username }}</td>
+            
+            <td>{{ u.username }}</td>
+            
             <td>
-              <span class="badge status-badge {% if emp.user.is_active %}bg-success{% else %}bg-secondary{% endif %}">
-                {% if emp.user.is_active %}Activo{% else %}Inactivo{% endif %}
+              <span class="badge status-badge {% if u.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                {% if u.is_active %}Activo{% else %}Inactivo{% endif %}
               </span>
             </td>
             <td>
               <div class="btn-group">
                 <button
                   class="btn btn-sm btn-outline-secondary js-toggle-status"
-                  data-user-id="{{ emp.user.id }}">
-                  {% if emp.user.is_active %}Desactivar{% else %}Activar{% endif %}
+                  data-user-id="{{ u.id }}">
+                  {% if u.is_active %}Desactivar{% else %}Activar{% endif %}
                 </button>
 
-                <a href="{% url 'manage_user_permissions' emp.user.id %}"
+                <a href="{% url 'manage_user_permissions' u.id %}"
                    class="btn btn-sm btn-outline-primary"
                    title="Configurar permisos">⚙️</a>
 
-                <a href="{% url 'admin_reset_password' emp.user.id %}"
+                <a href="{% url 'admin_reset_password' u.id %}"
                    class="btn btn-sm btn-outline-warning"
                    title="Restablecer contraseña">🔑</a>
               </div>
@@ -121,47 +129,6 @@
   </div></div>
 </div>
 
-<!-- Modal: crear grupo -->
-<div class="modal fade" id="crearGrupoModal" tabindex="-1" aria-labelledby="crearGrupoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg"><div class="modal-content">
-    <form method="post" action="{% url 'crear_grupo' %}">
-      {% csrf_token %}
-      <div class="modal-header">
-        <h5 class="modal-title" id="crearGrupoModalLabel">Crear nuevo grupo</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="nombre" class="form-label">Nombre del grupo</label>
-          <input type="text" class="form-control" name="nombre" id="nombre" required>
-        </div>
-        
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="mb-0">Permisos</h6>
-            <input type="search" id="searchPermissions" class="form-control form-control-sm" style="width: 200px;" placeholder="🔍 Filtrar permisos...">
-        </div>
-
-        <div style="max-height:300px;overflow-y:auto;" class="border rounded p-2">
-          <div class="row" id="permissionsList">
-            {% for permiso in permissions %}
-              <div class="col-md-6 perm-item">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="group_permissions" value="{{ permiso.id }}" id="perm{{ permiso.id }}">
-                  <label class="form-check-label" for="perm{{ permiso.id }}">
-                    {{ permiso.name }}
-                  </label>
-                </div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-success">Crear grupo</button>
-      </div>
-    </form>
-  </div></div>
-</div>
 {% endblock %}
 
 {% block scripts %}
