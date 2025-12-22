@@ -27,23 +27,36 @@ def user_dashboard(request):
     q = (request.GET.get('q') or '').strip()
     users_qs = User.objects.filter(is_superuser=False).select_related('employee').order_by('-date_joined')
 
-    # 2. Búsqueda
+    # 2. Búsqueda Inteligente
     if q:
-        users_qs = users_qs.filter(
+        # A. Creamos los filtros de texto básicos (lo que ya tenías)
+        filtros = (
             Q(first_name__icontains=q) |
             Q(last_name__icontains=q) |
             Q(username__icontains=q) |
             Q(email__icontains=q)
         )
 
-    # 3. Paginación
+        # B. MAGIA: Si escribe "staff" o variaciones, agregamos la condición is_staff=True
+        # Usamos lower() para que detecte Staff, STAFF, staff, etc.
+        palabras_clave_staff = ['staff', 'staf', 'admin', 'administrador']
+        
+        if q.lower() in palabras_clave_staff:
+            # El operador | significa "O" (OR).
+            # "Busca por nombre... O si es staff verdadero"
+            filtros = filtros | Q(is_staff=True)
+
+        # C. Aplicamos todos los filtros juntos
+        users_qs = users_qs.filter(filtros)
+
+    # 3. Paginación (Sigue igual...)
     page_size = int(request.GET.get('page_size', 10))
     paginator = Paginator(users_qs, page_size)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'users/user_dashboard.html', {
-        'users_list': page_obj.object_list,  # Cambié el nombre a users_list para ser más claro
+        'users_list': page_obj.object_list,
         'permissions': Permission.objects.all(),
         'page_obj': page_obj,
         'page_size': page_size,

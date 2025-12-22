@@ -1,190 +1,175 @@
+/* org_chart.css */
+
 #chart-container {
-    border: 1px solid #ccc;
-    border-radius: 8px;
+    border: none;
+    background-color: #ffffff; /* FONDO BLANCO PURO */
     overflow: auto;
     margin-top: 10px;
-    height: calc(100vh - 220px); 
-    max-height: calc(100vh - 220px);
+    height: calc(100vh - 150px);
+    /* Fondo de cuadrícula sutil (opcional) */
+    background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+    background-size: 20px 20px;
 }
 
-/* Quitar cuadriculado rojo de fondo */
+/* --- ESTILO GENERAL DEL ORGANIGRAMA --- */
 .orgchart {
     background-image: none !important;
-    background-color: #f8f9fa;
+    padding: 20px;
 }
 
-/* Caja de cada tarjeta */
+/* --- NODO (LA CAJA INVISIBLE) --- */
 .orgchart .node {
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,.15);
-    background-color: #b9d4ff;
-    padding: 0;              /* quitamos padding extra */
-    min-width: 220px;        /* que no se encoja demasiado */
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    
+    /* Espaciado vital */
+    width: 180px !important;
+    margin: 0 15px !important;
 }
 
-/* Título (nombre) */
-.orgchart .title {
-    background-color: transparent !important;
-    font-weight: 600;
-    font-size: 14px;
-    color: #333 !important;
-    padding: 6px 8px 2px 8px;
+/* Ocultar título por defecto */
+.orgchart .node .title {
+    display: none; 
 }
 
-/* Contenido (foto + puesto + depto...) */
+/* Contenido interno */
 .orgchart .node .content {
-    font-size: 12px;
-    line-height: 1.3;
-    color: #333 !important;
-
-    height: auto !important;      /* ya NO altura fija gigantesca   */
-    border: none !important;      /* quitamos el rectángulo rojo    */
-
-    padding: 4px 8px 8px 8px;
+    border: none !important;
+    background-color: transparent !important;
+    height: auto !important;
+    width: 100%;
+    padding: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow: visible;
 }
 
-/* Texto dentro del contenido */
-.orgchart .node .content div {
-    color: #555;
-}
-
-/* Imagen / logo */
-.avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 4px;
-}
-
-/* Nodo resaltado por el buscador */
-.orgchart .node.orgchart-highlight {
-    box-shadow: 0 0 0 3px #007bff;
-    border-color: #007bff;
-}
-
-/* Panel lateral de tarjeta de presentación */
-.profile-panel {
-    position: fixed;
-    top: 70px; /* ajusta según tu header */
-    right: -380px; /* oculto por defecto */
-    width: 340px;
-    height: calc(100% - 80px);
-    background: #ffffff;
-    box-shadow: -2px 0 8px rgba(0,0,0,.18);
-    border-radius: 16px 0 0 16px;
-    overflow: hidden;  
-    z-index: 999;
-    transition: right .25s ease-in-out;
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-panel.open {
-    right: 0;
-}
-
-.profile-panel-header {
-    background: #007bff;
-    color: #fff;
-    padding: 18px 16px 50px 16px;
-    text-align: center;
+/* --- FOTO (AVATAR) - AHORA PROTEGIDA --- */
+/* Usamos .orgchart delante para que NO afecte al menú lateral */
+.orgchart .avatar-wrapper {
     position: relative;
-    border-radius: 16px 0 0 16 px;
+    margin-bottom: 10px;
+    transition: transform 0.2s ease;
+    z-index: 2;
 }
 
-.profile-name {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 8px;
+.orgchart .node:hover .avatar-wrapper {
+    transform: scale(1.1);
 }
 
-.profile-avatar-wrapper {
-    position: absolute;
-    bottom: -40px;
-    left: 50%;
-    transform: translateX(-50%);
+.orgchart .avatar {
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    border: 3px solid #ffffff;
-    overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0,0,0,.25);
-}
-
-.profile-avatar {
-    width: 100%;
-    height: 100%;
     object-fit: cover;
+    border: 4px solid #ffffff; /* Borde blanco SOLO para el organigrama */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.profile-close {
+/* --- TEXTOS --- */
+.orgchart .node-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #004085;
+    margin-bottom: 4px;
+    line-height: 1.2;
+    text-align: center;
+    width: 100%;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.orgchart .node-role {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 400;
+    text-align: center;
+    line-height: 1.1;
+    width: 100%;
+    white-space: normal;
+}
+
+/* --- LÍNEAS CONECTORAS (Versión Estricta) --- */
+
+/* 1. CAMBIO CLAVE: Usamos 'collapse' para que los bordes se toquen perfectamente */
+.orgchart table {
+    border-collapse: collapse !important; 
+    border-spacing: 0 !important;
+}
+
+/* 2. Limpiamos las celdas de las líneas antes de dibujar */
+.orgchart tr.lines td {
+    height: 20px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important; /* Borramos cualquier borde por defecto */
+    background-color: transparent !important;
+    box-sizing: border-box;
+}
+
+/* 3. Dibujamos las líneas una por una
+   Usamos un gris más oscuro (#777) para confirmar que se vean, 
+   luego puedes cambiarlo a #ccc si prefieres más suave.
+*/
+
+/* Línea vertical derecha */
+.orgchart tr.lines td.rightLine {
+    border-right: 1px solid #777 !important;
+}
+
+/* Línea vertical izquierda */
+.orgchart tr.lines td.leftLine {
+    border-left: 1px solid #777 !important;
+}
+
+/* Línea horizontal superior (la que conecta hermanos) */
+.orgchart tr.lines td.topLine {
+    border-top: 1px solid #777 !important;
+}
+
+/* 4. AJUSTE ESPECIAL: La línea que baja del nodo (Down Line)
+   A veces la librería usa background-color en lugar de border para esta línea.
+   Forzamos ambos métodos para asegurar que se vea fina.
+*/
+.orgchart .node .downLine {
+    background-color: #777 !important;
+    width: 1px !important; /* Forzamos grosor de 1px */
+    height: 20px !important;
+    margin: 0 auto !important;
+    border: none !important;
+}
+
+/* --- BADGE DE SUBORDINADOS --- */
+.orgchart .direct-reports-badge {
     position: absolute;
-    top: 8px;
-    right: 10px;
-    border: none;
-    background: transparent;
-    color: #ffffff;
-    font-size: 22px;
-    cursor: pointer;
-}
-
-.profile-panel-body {
-    padding: 56px 16px 16px 16px; /* deja espacio para avatar */
-    overflow-y: auto;
-}
-
-.profile-item {
-    margin-bottom: 10px;
-}
-
-.profile-label {
+    right: 0px;
+    bottom: 0px;
+    background: #28a745;
+    color: white;
     font-size: 11px;
-    text-transform: uppercase;
-    color: #888;
-    margin-bottom: 2px;
+    font-weight: bold;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 20 !important;
 }
 
-.profile-value {
-    font-size: 13px;
-    color: #333;
-    word-break: break-word;
+.orgchart .direct-reports-badge i {
+    display: none;
 }
 
-.profile-value a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.profile-value a:hover {
-    text-decoration: underline;
-}
-
-/* Asegura que el nodo sea contenedor relativo */
-.orgchart .node {
-  position: relative;
-}
-
-/* Badge de subordinados directos */
-.direct-reports-badge {
-  position: absolute;
-  right: 8px;
-  bottom: 6px;
-  font-size: 11px;
-  background: #e8f0ff;
-  color: #0d6efd;
-  border-radius: 999px;
-  padding: 2px 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.direct-reports-badge i {
-  font-size: 12px;
+/* Efecto Hover sobre todo el nodo */
+.orgchart .node:hover {
+    background-color: transparent !important;
+    z-index: 20;
 }
 
 /* Controles flotantes a la derecha */
@@ -226,4 +211,162 @@
 .orgchart-controls .oc-btn:active {
   transform: translateY(0);
   box-shadow: 0 4px 12px rgba(0,0,0,.18);
+}
+
+/* --- TARJETA FLOTANTE (DRAGGABLE CARD) --- */
+.profile-panel {
+    position: fixed;
+    top: 20%;
+    left: 20px;
+    width: 320px;
+    height: auto;
+    background: #ffffff;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3); /* Sombra más elegante */
+    border-radius: 12px;
+    z-index: 1000;
+    display: none;
+    overflow: visible; /* IMPORTANTE: Visible para que la foto no se corte si sobresale */
+    border: 1px solid #e0e0e0;
+}
+
+.profile-panel-header {
+    background: #004085; /* Azul corporativo */
+    height: 70px;        /* Altura fija para el bloque azul */
+    position: relative;
+    border-radius: 12px 12px 0 0;
+    cursor: move;        /* Manita para mover */
+}
+
+/* El contenedor de la foto */
+.profile-avatar-wrapper {
+    position: absolute;
+    bottom: -35px; /* Esto hace que la foto quede 50% dentro y 50% fuera del header */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;   /* Un poco más grande */
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid #ffffff; /* Borde blanco grueso para separar del fondo */
+    background: #fff;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1001;
+    overflow: hidden;
+}
+
+.profile-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Botón cerrar */
+.profile-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.9;
+}
+.profile-close:hover { opacity: 1; transform: scale(1.1); }
+
+/* Cuerpo de la tarjeta */
+.profile-panel-body {
+    padding: 50px 25px 25px 25px; /* 50px arriba para dejar espacio a la foto */
+    background-color: #fff;
+    border-radius: 0 0 12px 12px;
+    text-align: center; /* Centramos todo el contenido */
+}
+
+/* Estilo del Nombre (Ahora en oscuro) */
+.profile-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #2c3e50;
+    margin-bottom: 20px; /* Separación con el resto de datos */
+    line-height: 1.2;
+}
+
+/* Items de datos */
+.profile-item {
+    margin-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 8px;
+    text-align: left; /* Los datos se ven mejor alineados a la izquierda */
+}
+.profile-item:last-child { border-bottom: none; }
+
+.profile-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #999;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.profile-value {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* =========================================
+   DISTINTIVO DE SELECCIÓN (MEDIO CÍRCULO VERDE)
+   ========================================= */
+
+/* org_chart.css */
+
+/* org_chart.css */
+
+.orgchart .node.orgchart-highlight .avatar-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    
+    /* Para que el borde se calcule dentro del tamaño */
+    box-sizing: border-box; 
+    
+    /* AJUSTE 1: Grosor más fino (4px) para igualar el borde blanco */
+    border-width: 4px; 
+    border-style: solid;
+    
+    /* Color verde lima abajo y a la izquierda */
+    border-color: transparent transparent #a4d13d #a4d13d;
+    
+    /* Rotación para centrar el arco en la parte inferior */
+    transform: rotate(-45deg);
+    
+    z-index: 10;
+    pointer-events: none;
+    
+    /* AJUSTE 2: Sin sombra */
+    box-shadow: none;
+}
+
+/* OPCIONAL: Si quieres que la foto crezca un poco más al seleccionarla */
+.orgchart .node.orgchart-highlight .avatar-wrapper {
+     transform: scale(1.05);
+}
+
+/* IMPORTANTE: Quitamos el estilo anterior de resaltado si existiera */
+.orgchart .node.orgchart-highlight {
+    box-shadow: none !important; /* Quitamos sombras cuadradas */
+    border-color: transparent !important; /* Quitamos bordes cuadrados */
+}
+
+/* IMPORTANTE: Quitamos el estilo cuadrado amarillo/azul por defecto */
+.orgchart .node.orgchart-highlight,
+.orgchart .node.focused { /* Agregamos .focused por si la librería lo activa solo */
+    box-shadow: none !important; 
+    border-color: transparent !important;
+    background-color: transparent !important; /* <--- ESTA ES LA CLAVE */
 }
