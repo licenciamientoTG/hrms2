@@ -7,7 +7,6 @@ from datetime import datetime
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.models import User
-# Asegúrate de que esta ruta sea correcta en tu proyecto
 from apps.notifications.models import Notification  
 
 # ==========================================
@@ -226,7 +225,7 @@ def vacation_form_manager(request):
         # ---------------------------------------------------------
         try:
             # Buscamos a todos los usuarios administradores (RH)
-            rh_users = User.objects.filter(is_superuser=True, is_active=True)
+            rh_users = User.objects.filter(is_staff=True, is_active=True)
 
             nombre_jefe = request.user.get_full_name() or request.user.username
             nombre_empleado = req.user.get_full_name() or req.user.username

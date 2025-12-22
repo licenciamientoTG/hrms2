@@ -44,7 +44,9 @@
       <div class="quick-access-card">
         <h6>Totál de colaboradores</h6>
         <p>{{ total_colaboradores|default:"0" }}</p>
-        <a href="{% url 'user_dashboard' %}" class="btn btn-success btn-sm">Ir →</a>
+        {% if perms.users.Modulo_usuarios%}
+            <a href="{% url 'user_dashboard' %}" class="btn btn-success btn-sm">Ir →</a>
+        {% endif %}
       </div>
     </div>
     <div class="col-md-3 mb-1">

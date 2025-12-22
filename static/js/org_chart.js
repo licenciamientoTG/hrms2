@@ -28,49 +28,65 @@ $(function () {
         // ID de empleado en el DOM
         $node.attr('data-employee-id', data.id);
 
-        // número de empleado para "ir a mí"
         if (data.employee_number) {
           $node.attr('data-empno', data.employee_number);
         }
-
-        // guardamos todos los datos para la tarjeta
+        
+        // Guardamos datos
         $node.data('emp', data);
 
-        // Título (nombre)
-        $node.find('.title').text(data.name || '');
-
-        // Contenido (solo foto + badge)
+        // --- CONSTRUCCIÓN DEL HTML PERSONALIZADO ---
+        
         let html = '';
+        const photoUrl = data.photo || '/static/template/img/logos/logo_sencillo.png'; // Fallback imagen
 
-        // Foto
-        if (data.photo) {
-          html += '<div><img class="avatar" src="' + data.photo + '"></div>';
-        }
-
-        // 🔹 SUBORDINADOS DIRECTOS (children del nodo)
+        // 1. Contenedor de la foto (Avatar)
+        html += '<div class="avatar-wrapper">';
+        html += '  <img class="avatar" src="' + photoUrl + '">';
+        
+        // Badge de subordinados (pegado a la foto)
         const directReports = Array.isArray(data.children) ? data.children.length : 0;
         if (directReports > 0) {
-          html += `
-            <div class="direct-reports-badge">
-              <i class="fas fa-users"></i>
-              <span>${directReports}</span>
-            </div>
-          `;
+           html += `
+             <div class="direct-reports-badge" title="${directReports} subordinados directos">
+               <span>${directReports}</span>
+             </div>
+           `;
+        }
+        html += '</div>'; // Fin avatar-wrapper
+
+        // 2. Nombre (Azul y negritas)
+        html += `<div class="node-name">${data.name || 'Sin Nombre'}</div>`;
+
+        // 3. Puesto (Gris y pequeño) - Usamos data.title que viene del JSON
+        if (data.title) {
+            html += `<div class="node-role">${data.title}</div>`;
         }
 
+        // Inyectamos todo en la sección .content del plugin
+        // Nota: .title está oculto por CSS, así que esto es lo único que se verá
         $node.find('.content').html(html);
 
-        // 🔹 Click en título/contenido -> toggle del panel
-        $node.find('.title, .content')
-          .css('cursor', 'pointer')
+        // --- EVENTOS DE CLICK ---
+        $node.css('cursor', 'pointer')
           .on('click', function (e) {
-            e.stopPropagation(); // que no colapse/expand el orgchart
+            // Evitar que el clic se propague si tocas un botón interno (si los hubiera)
+            if($(e.target).closest('.oc-btn').length) {
+                 return;
+            }
+            
+            // --- NUEVO: MANEJO DE SELECCIÓN VISUAL ---
+            // 1. Quitamos el resaltado a cualquier otro nodo que lo tenga
+            $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
+            // 2. Añadimos el resaltado al nodo que acabamos de clicar
+            $node.addClass('orgchart-highlight');
+            // -----------------------------------------
 
             const empData = $node.data('emp');
 
-            // si ya está abierto el panel con este mismo id, lo cerramos
-            if ($('#profile-panel').hasClass('open') && currentProfileId === empData.id) {
-              $('#profile-panel').removeClass('open');
+            // Lógica del panel lateral (se mantiene igual)
+            if ($('#profile-panel').is(':visible') && currentProfileId === empData.id) {
+              $('#profile-panel').fadeOut(200);
               currentProfileId = null;
             } else {
               showProfile(empData);
@@ -270,36 +286,73 @@ $(function () {
       }
     });
 
-    // =========================
-    //  DRAG & DROP -> API
-    // =========================
-    oc.$chart.on('nodedrop.orgchart', function (event, extra) {
-      const draggedNode = extra.draggedNode.closest('.node');
-      const dropNode    = extra.dropZone ? extra.dropZone.closest('.node') : null;
+    function showProfile(data) {
+      if (!data) return;
 
-      const draggedId   = draggedNode.attr('data-employee-id') || '';
-      const newParentId = dropNode && dropNode.length
-        ? (dropNode.attr('data-employee-id') || '')
-        : '';
+      const photo = data.photo || '/static/template/img/logos/logo_sencillo.png';
+      
+      // Llenamos los datos
+      $('#profile-name').text(data.name || '');
+      $('#profile-photo').attr('src', photo);
+      $('#profile-title').text(data.title || '—');
+      $('#profile-dept').text(data.department || '—');
+      $('#profile-team').text(data.team || '—');
+      $('#profile-responsible').text(data.responsible || '—');
 
-      console.log('draggedId:', draggedId, 'newParentId:', newParentId);
+      currentProfileId = data.id;
 
-      $.ajax({
-        url: moveUrl,
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        data: {
-          moved_position_id: draggedId,
-          new_parent_id: newParentId
-        },
-        success: function (resp) {
-          console.log('API OK:', resp);
-        },
-        error: function (xhr) {
-          console.error('API ERROR', xhr.status, xhr.responseText);
-        }
-      });
+      // MOSTRAR LA TARJETA (Efecto Fade en lugar de slide)
+      const $panel = $('#profile-panel');
+      
+      // Opcional: Si quieres que aparezca cerca del mouse o centrada siempre
+      // Por ahora la dejamos donde la haya dejado el usuario o en su posición CSS default
+      $panel.fadeIn(200);
+    }
+
+    // Botón cerrar
+    $('#profile-close').on('click', function () {
+      $('#profile-panel').fadeOut(200);
+      currentProfileId = null;
     });
+
+    // =========================
+    //  LÓGICA DE ARRASTRAR (DRAG & DROP)
+    // =========================
+    const card = document.getElementById("profile-panel");
+    const header = document.querySelector(".profile-panel-header");
+    let isDragging = false;
+    let offsetX, offsetY;
+
+    if (header && card) {
+        header.addEventListener("mousedown", (e) => {
+            isDragging = true;
+            // Calcular la distancia entre el mouse y la esquina de la tarjeta
+            offsetX = e.clientX - card.getBoundingClientRect().left;
+            offsetY = e.clientY - card.getBoundingClientRect().top;
+            header.style.cursor = "grabbing"; // Efecto visual de agarre
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+            e.preventDefault(); // Evitar selección de texto
+            
+            // Nueva posición
+            let x = e.clientX - offsetX;
+            let y = e.clientY - offsetY;
+
+            // Aplicar
+            card.style.left = `${x}px`;
+            card.style.top = `${y}px`;
+            
+            // Resetear transformaciones si las hubiera para evitar conflictos
+            card.style.transform = "none"; 
+        });
+
+        document.addEventListener("mouseup", () => {
+            isDragging = false;
+            if (header) header.style.cursor = "move";
+        });
+    }
 
   }).fail(function (err) {
     console.error('Error cargando organigrama (admin):', err);

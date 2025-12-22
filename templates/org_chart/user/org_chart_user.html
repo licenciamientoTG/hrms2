@@ -56,14 +56,19 @@
 
   {# 🔹 Panel lateral (el mismo que en admin) #}
   <div id="profile-panel" class="profile-panel">
+    
     <div class="profile-panel-header">
       <button id="profile-close" class="profile-close">&times;</button>
-      <div id="profile-name" class="profile-name">Nombre</div>
+      
       <div class="profile-avatar-wrapper">
         <img id="profile-photo" src="" alt="Foto" class="profile-avatar">
       </div>
     </div>
+
     <div class="profile-panel-body">
+      
+      <div id="profile-name" class="profile-name">Nombre del Colaborador</div>
+
       <div class="profile-item">
         <div class="profile-label">Puesto</div>
         <div id="profile-title" class="profile-value"></div>
@@ -91,7 +96,6 @@
 <script>
   window.ORGCHART_DATA_URL = "{% url 'org_chart_data_1' %}";
   window.ORGCHART_ME_EMPLOYEE_NUMBER = "{{ request.user.employee.employee_number|default_if_none:'' }}";
-  // NOTA: NO ponemos ORGCHART_MOVE_URL aquí => modo USUARIO (solo ver, sin drag)
 </script>
 
 <script src="{% static 'js/org_chart.js' %}"></script>
