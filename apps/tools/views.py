@@ -297,20 +297,6 @@ def export_loans_excel(request):
 
     worksheet.write(row, 6, total_prestamos, total_fmt)
 
-    sig_start_row = row + 5
-    # (El bloque de firmas sigue igual...)
-    worksheet.merge_range(sig_start_row, 1, sig_start_row, 3, "Maribel Ceballos", sig_name_fmt)
-    worksheet.merge_range(sig_start_row + 1, 1, sig_start_row + 1, 3, "Gerente Administracion", sig_title_fmt)
-    worksheet.merge_range(sig_start_row + 2, 1, sig_start_row + 2, 3, "Autoriza", sig_action_fmt)
-
-    worksheet.merge_range(sig_start_row, 5, sig_start_row, 7, "Enrique Lopez Garciglia", sig_name_fmt)
-    worksheet.merge_range(sig_start_row + 1, 5, sig_start_row + 1, 7, "Director General", sig_title_fmt)
-    worksheet.merge_range(sig_start_row + 2, 5, sig_start_row + 2, 7, "Autoriza", sig_action_fmt)
-
-    worksheet.merge_range(sig_start_row, 9, sig_start_row, 11, "Franco Ibañez, Luis Miguel", sig_name_fmt)
-    worksheet.merge_range(sig_start_row + 1, 9, sig_start_row + 1, 11, "Jefe de Administración", sig_title_fmt)
-    worksheet.merge_range(sig_start_row + 2, 9, sig_start_row + 2, 11, "Autoriza", sig_action_fmt)
-
     workbook.close()
     output.seek(0)
 

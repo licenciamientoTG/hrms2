@@ -64,7 +64,7 @@
         <div id="coverPreview" class="rounded-3 overflow-hidden border"
              style="background:{{ initial.color_hex|default:'#1E3361' }}; height:300px; position:relative;">
           <img id="coverImage" src="{% static 'template/img/wallpaper/confetti.png' %}" alt="preview"
-               style="width:100%;height:100%;object-fit:cover;opacity:0.95;">
+               style="width:100%;height:100%;object-fit:fill;opacity:0.95;">
           <div id="pointsBadge" class="position-absolute top-0 end-0 m-2 badge bg-light text-dark"
                style="display:{% if initial.show_points %}inline-block{% else %}none{% endif %};">
             <span id="pointsValue">{{ initial.points|default:'0' }}</span> pts
