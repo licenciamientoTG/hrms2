@@ -20,6 +20,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
+from django.core.paginator import Paginator
 
 def send_news_notification(news):
     """
@@ -98,7 +99,7 @@ def user_news_view(request):
     qs = (News.objects
           .select_related('author')
           .prefetch_related('tags')
-          .filter(published_at__isnull=False))  # <-- ya publicada
+          .filter(published_at__isnull=False)) 
 
     if q:
         qs = qs.filter(
@@ -107,15 +108,30 @@ def user_news_view(request):
             Q(tags__name__icontains=q)
         ).distinct()
 
-    news = (qs
-            .annotate(
+    # QuerySet completo ordenado
+    qs = (qs.annotate(
                 like_count=Count('like_set', distinct=True),
                 my_liked=my_like,
                 comment_count=Count('comments', distinct=True),
             )
-            .order_by('-published_at'))  # <-- orden por fecha real de publicación
+            .order_by('-published_at'))
 
-    return render(request, 'news/user/news_view_user.html', {'news': news, 'q': q})
+    # --- LÓGICA DE PAGINACIÓN ---
+    # Mostrar 6 noticias por página
+    paginator = Paginator(qs, 6) 
+    
+    # Obtener el número de página de la URL (?page=1)
+    page_number = request.GET.get('page')
+    
+    # Obtener el objeto de la página actual
+    page_obj = paginator.get_page(page_number)
+
+    # Pasamos 'page_obj' como 'news' para que tu bucle en el HTML siga funcionando igual
+    # pero ahora solo contendrá 6 elementos.
+    return render(request, 'news/user/news_view_user.html', {
+        'news': page_obj, 
+        'q': q
+    })
 
 # esta vista es para que el administrador pueda editar las noticias
 @user_passes_test(lambda u: u.is_staff, login_url='user_news')

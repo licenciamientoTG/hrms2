@@ -51,8 +51,8 @@ def publish_recognition_if_due(recognition):
                 notifs_to_create.append(
                     Notification(
                         user=user,
-                        title="¡Nuevo Comunicado!",
-                        body=f"Has recibido un comunicado en la categoría: {r.category.title}",
+                        title="¡Te han mencionado!",
+                        body=f"Has sido mencionado en un comunicado de: {r.category.title}",
                         url=rec_url,
                         module="comunicados"
                     )

@@ -174,9 +174,47 @@
             </div> {# cierre de .col-md-4 #}
         {% endfor %}
     </div>
+    {% if courses.has_other_pages %}
+    <nav aria-label="Navegación de cursos" class="mt-4">
+    <ul class="pagination justify-content-center">
+        
+        {% if courses.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ courses.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">&laquo;</span>
+        </li>
+        {% endif %}
+
+        {% for i in courses.paginator.page_range %}
+        {% if courses.number == i %}
+            <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+        {% else %}
+            <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+        {% endif %}
+        {% endfor %}
+
+        {% if courses.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ courses.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">&raquo;</span>
+        </li>
+        {% endif %}
+
+    </ul>
+    </nav>
+    {% endif %}
   </div>
 </div>
-<div id="pagination" class="d-flex justify-content-center mt-3"></div>
 
 {% endblock %}
 

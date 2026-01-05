@@ -57,12 +57,53 @@
       </div>
     </div>
   </div>
-  {% empty %}
+{% empty %}
   <div class="col">
     <div class="alert alert-light border">No hay noticias visibles aún.</div>
   </div>
   {% endfor %}
-</div>
+</div> 
+{% if news.has_other_pages %}
+<nav aria-label="Navegación de noticias" class="mt-5 mb-4">
+  <ul class="pagination justify-content-center">
+    
+    {% if news.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ news.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" aria-label="Anterior">
+          <span aria-hidden="true">&laquo;</span>
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&laquo;</span>
+      </li>
+    {% endif %}
+
+    {% for i in news.paginator.page_range %}
+      {% if news.number == i %}
+        <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+      {% else %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ i }}{% if q %}&q={{ q }}{% endif %}">{{ i }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+
+    {% if news.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ news.next_page_number }}{% if q %}&q={{ q }}{% endif %}" aria-label="Siguiente">
+          <span aria-hidden="true">&raquo;</span>
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&raquo;</span>
+      </li>
+    {% endif %}
+    
+  </ul>
+</nav>
+{% endif %}
 
 <div class="offcanvas offcanvas-end" tabindex="-1" id="likesOffcanvas" aria-labelledby="likesOffcanvasLabel">
   <div class="offcanvas-header">

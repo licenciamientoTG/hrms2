@@ -42,7 +42,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from apps.notifications.models import Notification
 from apps.courses.course_utils import ensure_allusers_notifications_for
-
+from django.core.paginator import Paginator
 
 LessonFormSet = formset_factory(LessonForm, extra=1)  # Permite agregar varias lecciones
 
@@ -868,10 +868,15 @@ def user_courses(request):
 
     pending_courses_count = len(all_courses) - len(completed_course_ids)
 
+    all_courses.sort(key=lambda x: x.created_at, reverse=True)
+    paginator = Paginator(all_courses, 6) 
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
 
     # 9) Renderizar
     return render(request, 'courses/user/wizard_form_user.html', {
-        'courses': all_courses,
+        'courses': page_obj,
         'enrolled_courses': all_enrollments,
         'today': today,
         'totalcursos': len(all_courses),

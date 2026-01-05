@@ -4,6 +4,7 @@ from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.urls import reverse
 from apps.notifications.utils import notify
+from django.db.models import Q
 
 @receiver(post_save, sender=User)
 def notificar_nuevo_usuario(sender, instance, created, **kwargs):
@@ -11,10 +12,11 @@ def notificar_nuevo_usuario(sender, instance, created, **kwargs):
     Envía una notificación a todos los superusuarios cuando se registra un nuevo usuario.
     """
     if created:
-        # 1. Obtener todos los administradores activos
-        # NOTA: Verifica que tus admins tengan 'is_superuser=True'
-        admins = User.objects.filter(is_superuser=True, is_active=True)
-        
+
+        admins = User.objects.filter(
+            Q(is_staff=True) | Q(is_superuser=True), 
+            is_active=True
+        )        
         nombre = instance.get_full_name() or instance.username
         email = instance.email or "sin email"
         
