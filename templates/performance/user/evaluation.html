@@ -1,0 +1,415 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Evaluación de Desempeño Cualitativa{% endblock %}
+
+{% block content %}
+
+<style>
+    /* Estilos para igualar el look del Excel */
+    .thead-dark-blue {
+        background-color: #1f4e79;
+        color: white;
+    }
+    .bg-light-blue {
+        background-color: #dfe7f5;
+    }
+    .table-input {
+        width: 100%;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 4px;
+    }
+    textarea.table-input {
+        resize: vertical;
+        min-height: 60px;
+    }
+    .score-cell {
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle;
+        background-color: #eef;
+    }
+    .logro-cell {
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 1.1rem;
+    }
+    .desc-cell {
+        font-size: 0.85rem;
+        min-width: 280px; /* Un poco más ancho para que lea bien el texto largo */
+        text-align: justify;
+    }
+    .sticky-total {
+        position: sticky;
+        bottom: 0;
+        background-color: #1f4e79;
+        color: white;
+        font-size: 1.1rem;
+        z-index: 10;
+    }
+    .text-white-force {
+        color: white !important;
+    }
+    /* Fondos específicos para Logro imitando el Excel */
+    .bg-excelente { background-color: #d9ead3 !important; color: #38761d; } /* Verde suave */
+    .bg-bueno { background-color: #cfe2f3 !important; color: #0b5394; }     /* Azul suave */
+    .bg-regular { background-color: #fff2cc !important; color: #bf9000; }   /* Amarillo suave */
+</style>
+
+<div class="container-fluid py-4">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom-0">
+            <h5 class="text-primary fw-bold mb-0">Cálculo de Compensación Variable Cualitativa</h5>
+        </div>
+        <div class="card-body pt-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="bg-light fw-bold" style="width: 15%;">Nombre del colaborador:</td>
+                            <td style="width: 35%;">{{ empleado.nombre_completo|default:"Nombre del colaborador" }}</td>
+                            <td class="bg-light fw-bold" style="width: 15%;">No. de Empleado:</td>
+                            <td style="width: 35%;">{{ empleado.numero|default:"No. de empleado" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="bg-light fw-bold">Puesto:</td>
+                            <td>{{ empleado.puesto|default:"Puesto" }}</td>
+                            <td class="bg-light fw-bold">Periodo Evaluado:</td>
+                            <td>{{ empleado.periodo_evaluado|default:"JUL-DIC 2025" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="bg-light fw-bold">Área:</td>
+                            <td>{{ empleado.area|default:"Área" }}</td>
+                            <td class="bg-light fw-bold">Periodo de Revisión:</td>
+                            <td>{{ empleado.periodo_revision|default:"enero / 2026" }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" id="evalForm">
+        {% csrf_token %}
+        
+        <div class="card shadow">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover mb-0 align-middle">
+                        <thead class="thead-dark-blue text-center small align-middle">
+                            <tr>
+                                <th rowspan="2" style="width: 8%;" class="text-white-force">Rubro</th>
+                                <th rowspan="2" style="width: 25%;" class="text-white-force">Descripción</th>
+                                <th rowspan="2" style="width: 5%;" class="text-white-force">Tipo de Periodo</th>
+                                <th rowspan="2" style="width: 4%;" class="text-white-force">Medición</th>
+                                <th rowspan="2" style="width: 5%;" class="text-white-force">Valor (%)</th>
+                                <th rowspan="2" style="width: 5%;" class="text-white-force">Objetivo</th>
+                                <th colspan="3" class="text-white-force">Metas 2024</th> 
+                                <th rowspan="2" style="width: 8%; background-color: #4472c4;" class="text-white-force">Resultado</th> 
+                                <th rowspan="2" style="width: 4%; background-color: #1155cc;" class="text-white-force">Logro</th>
+                                <th rowspan="2" style="width: 5%;" class="text-white-force">Puntos %</th> 
+                                <th rowspan="2" style="width: 15%;" class="text-white-force">Comentarios Líder</th>
+                                <th rowspan="2" style="width: 15%;" class="text-white-force">Compromisos</th>
+                            </tr>
+                            <tr>
+                                <th class="bg-secondary text-white-force" style="font-size: 0.75rem;">Regular (1)</th>
+                                <th class="bg-info text-white-force" style="font-size: 0.75rem;">Satisfactorio (2)</th>
+                                <th class="bg-success text-white-force" style="font-size: 0.75rem;">Excelente (3)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center">COMUNICACIÓN</td>
+                                <td class="desc-cell text-muted">
+                                    Comparte información de manera clara y asertiva, adaptándose al contexto. Escucha activamente y valora las opiniones de los demás. Se expresa con respeto y efectividad, tanto de forma verbal como escrita reforzando a través de medios oficiales.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_comunicacion" required>
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_comunicacion"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_comunicacion"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center">TRABAJO EN EQUIPO</td>
+                                <td class="desc-cell text-muted">
+                                    Participa activamente, colabora y coopera con los demás para alcanzar objetivos comunes. Comparte conocimientos, motiva y reconoce el valor de cada miembro del equipo. Genera confianza y contribuye a un ambiente de trabajo positivo y colaborativo.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_equipo">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_equipo"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_equipo"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center small">RESOLUCIÓN DE CONFLICTO</td>
+                                <td class="desc-cell text-muted">
+                                    Analiza situaciones con objetividad y calma. Se enfoca en las causas clave, priorizando soluciones constructivas sobre el conflicto, se centra en la resolución, no en el conflicto (pasado). Muestra flexibilidad, apertura al cambio y considera las consecuencias antes de actuar. Conserva la calma ante momentos complicados.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_conflicto">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_conflicto"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_conflicto"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center small">GESTIÓN DEL TIEMPO</td>
+                                <td class="desc-cell text-muted">
+                                    Organiza y prioriza sus actividades para cumplir objetivos en tiempo y forma. Administra eficientemente los recursos disponibles y delega según las capacidades del equipo. Utiliza herramientas como Agenda en Papel, Electrónica, Monday, Drive etc. para optimizar su productividad.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_tiempo">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_tiempo"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_tiempo"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center small">SERVICIO AL CLIENTE (INTERNO / EXTERNO)</td>
+                                <td class="desc-cell text-muted">
+                                    Brinda un servicio de calidad, generando confianza y valor en cada interacción. Se enfoca en la satisfacción del cliente, ofreciendo atención oportuna, clara y con trato profesional. Es percibido como una persona confiable que representa la empresa.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_servicio">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_servicio"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_servicio"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center small">INICIATIVA</td>
+                                <td class="desc-cell text-muted">
+                                    Propone ideas y soluciones con proactividad, entusiasmo y confianza. Actúa con rapidez ante los retos y se anticipa a las necesidades. Se compromete con los resultados y persevera frente a los obstáculos.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="15"> 15.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_iniciativa">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_iniciativa"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_iniciativa"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center">ASISTENCIA</td>
+                                <td class="desc-cell text-muted">
+                                    Obtuvo una asistencia mayor al 98% dentro del periodo evaluado.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="7"> 7.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_asistencia">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_asistencia"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_asistencia"></textarea></td>
+                            </tr>
+
+                            <tr class="fila-evaluacion">
+                                <td class="fw-bold text-center small">PUNTUALIDAD</td>
+                                <td class="desc-cell text-muted">
+                                    Cumple con los horarios establecidos para el inicio de su jornada laboral, obteniendo de 13 a 20 retardos semestrales.
+                                </td>
+                                <td class="text-center small">Semestral</td>
+                                <td class="text-center small">%</td>
+                                <td class="text-center"><input type="hidden" class="valor-weight" value="3"> 3.00%</td>
+                                <td class="text-center fw-bold text-primary">BUENO</td>
+                                <td class="text-center text-muted small">REGULAR</td>
+                                <td class="text-center text-muted small">BUENO</td>
+                                <td class="text-center text-muted small">EXCELENTE</td>
+                                <td class="bg-light-blue">
+                                    <select class="form-select form-select-sm select-resultado" name="res_puntualidad">
+                                        <option value="0" selected>Seleccionar...</option>
+                                        <option value="1">REGULAR (1)</option>
+                                        <option value="2">BUENO (2)</option>
+                                        <option value="3">EXCELENTE (3)</option>
+                                    </select>
+                                </td>
+                                <td class="logro-cell">0</td>
+                                <td class="score-cell text-end"><span class="puntos-reales">0.00</span>%</td>
+                                <td><textarea class="form-control form-control-sm" name="com_puntualidad"></textarea></td>
+                                <td><textarea class="form-control form-control-sm" name="comp_puntualidad"></textarea></td>
+                            </tr>
+
+                        </tbody>
+                        
+                        <tfoot class="sticky-total">
+                            <tr>
+                                <td colspan="4" class="text-end fw-bold text-white-force">TOTALES:</td>
+                                <td class="text-center fw-bold text-white-force">100%</td>
+                                <td colspan="5"></td>
+                                <td class="text-end fw-bold bg-warning text-dark border border-dark">
+                                    <span id="granTotal">0.00</span>%
+                                </td>
+                                <td colspan="2" class="bg-white"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-end">
+                <button type="button" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold">
+                    <i class="fas fa-save me-2"></i>Guardar Evaluación
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filas = document.querySelectorAll('.fila-evaluacion');
+        const spanTotal = document.getElementById('granTotal');
+
+        function calcularFila(fila) {
+            const peso = parseFloat(fila.querySelector('.valor-weight').value); 
+            const select = fila.querySelector('.select-resultado');
+            const spanPuntos = fila.querySelector('.puntos-reales');
+            const celdaLogro = fila.querySelector('.logro-cell');
+            
+            let factor = 0;
+            const valorSeleccionado = parseInt(select.value);
+
+            // Limpiar clases de color previas
+            celdaLogro.className = 'logro-cell'; // Reset a clase base
+            celdaLogro.innerText = valorSeleccionado > 0 ? valorSeleccionado : "-";
+
+            if (valorSeleccionado === 1) {
+                // REGULAR
+                factor = 0.5; 
+                celdaLogro.classList.add('bg-regular');
+            } 
+            else if (valorSeleccionado === 2) {
+                // BUENO
+                factor = 1;
+                celdaLogro.classList.add('bg-bueno');
+            } 
+            else if (valorSeleccionado === 3) {
+                // EXCELENTE
+                factor = 1; 
+                celdaLogro.classList.add('bg-excelente');
+            }
+
+            const puntosCalculados = peso * factor;
+            spanPuntos.innerText = puntosCalculados.toFixed(2);
+            
+            calcularTotalGeneral();
+        }
+
+        function calcularTotalGeneral() {
+            let total = 0;
+            filas.forEach(fila => {
+                const puntos = parseFloat(fila.querySelector('.puntos-reales').innerText);
+                total += puntos;
+            });
+            spanTotal.innerText = total.toFixed(2);
+        }
+
+        filas.forEach(fila => {
+            const select = fila.querySelector('.select-resultado');
+            select.addEventListener('change', () => calcularFila(fila));
+        });
+    });
+</script>
+
+{% endblock %}

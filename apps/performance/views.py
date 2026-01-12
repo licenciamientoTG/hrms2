@@ -1,20 +1,32 @@
 from django.shortcuts import render, redirect
 from .forms import PerformanceReviewForm
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 
 @login_required
-def performance_review_view(request):
-    if request.method == "POST":
-        form = PerformanceReviewForm(request.POST)
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.reviewer = request.user
-            review.save()
-            return redirect('performance_success')  # Redirige a la página de éxito
+def performance_view(request):
+    if request.user.is_staff:
+        return redirect('performance_view_admin')
     else:
-        form = PerformanceReviewForm()
+        return redirect('performance_view_user')
 
-    return render(request, 'performance/performance_form.html', {'form': form})
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def performance_view_admin(request):
+    return render(request, 'performance/admin/performance_view_admin.html')
 
-def performance_success_view(request):
-    return render(request, 'performance/performance_success.html')
+@login_required
+def performance_view_user(request):
+    return render(request, 'performance/user/performance_view_user.html')
+
+# # esta vista es para el administrador
+# @login_required
+# @user_passes_test(lambda u: u.is_staff)
+# def job_offers_dashboard_admin(request):
+
+#     return render(request, 'job_offers/admin/job_offers_dashboard_admin.html')
+
+# # esta vista es para el usuario
+# @login_required
+# def job_offers_dashboard_user(request):
+
+#     return render(request, 'job_offers/user/job_offers_dashboard_user.html')

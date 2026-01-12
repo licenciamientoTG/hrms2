@@ -53,8 +53,7 @@
                 </li>
             {% endif %}
 
-            {% comment %} {% if not user.is_staff or perms.recognitions.Modulo_comunicados %} {% endcomment %}
-            {% if perms.recognitions.Modulo_comunicados %}
+            {% if not user.is_staff or perms.recognitions.Modulo_comunicados %}
                 <li class="sidebar-item {% if 'recognition' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'recognition_dashboard' %}">
                         <i class="fa-solid fa-award"></i>
@@ -100,6 +99,22 @@
                             {% endwith %}
                         </span>
                     </a>
+                </li>
+            {% endif %}
+            
+            {% if perms.courses.Modulo_cursos %}
+                <li class="sidebar-item">
+                <a class="sidebar-link" href="{% url 'performance' %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span class="align-middle">
+                    Evaluación de desempeño
+                    {% with notif_module_counts.encuestas as c %}
+                        {% if c %}
+                        <span class="badge bg-danger ms-1">{{ c }}</span>
+                        {% endif %}
+                    {% endwith %}
+                    </span>
+                </a>
                 </li>
             {% endif %}
 

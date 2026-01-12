@@ -1,0 +1,208 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Administración de Desempeño{% endblock %}
+{% block title %}Tablero de Control - Evaluación de Desempeño{% endblock %}
+
+{% block content %}
+
+<style>
+    .card-kpi {
+        border-left: 4px solid #0d6efd;
+        transition: transform 0.2s;
+    }
+    .card-kpi:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .progress-thin {
+        height: 6px;
+        border-radius: 3px;
+    }
+    .avatar-list img {
+        width: 30px;
+        height: 30px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        margin-left: -10px;
+    }
+    .avatar-list img:first-child {
+        margin-left: 0;
+    }
+</style>
+
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-gray-800">Gestión de Ciclos de Evaluación</h1>
+            <p class="text-muted mb-0">Administra, monitorea y valida los procesos de evaluación del personal.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-kpi shadow-sm h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Ciclos Activos</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.ciclos_activos|default:"0" }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sync fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #f6c23e;">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pendientes de Llenado</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.pendientes|default:"0" }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #36b9cc;">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Por Validar (CH)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.por_validar|default:"0" }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-double fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #1cc88a;">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Promedio General</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.promedio_general|default:"0.0" }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">Listado de Ciclos</h6>
+            
+            <div class="input-group input-group-sm w-25">
+                <input type="text" class="form-control" placeholder="Buscar ciclo...">
+                <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-dark">
+                        <tr>
+                            <th class="ps-4">Nombre del Ciclo</th>
+                            <th>Vigencia</th>
+                            <th>Tipo</th>
+                            <th>Participantes</th>
+                            <th>Avance</th>
+                            <th>Estatus</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ciclo in ciclos %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ ciclo.nombre }}</div>
+                                <small class="text-muted">{{ ciclo.objetivo|truncatechars:40 }}</small>
+                            </td>
+                            <td>
+                                <div class="small"><i class="far fa-calendar-alt me-1"></i> {{ ciclo.fecha_inicio|date:"d M" }}</div>
+                                <div class="small"><i class="far fa-flag me-1"></i> {{ ciclo.fecha_fin|date:"d M Y" }}</div>
+                            </td>
+                            <td>
+                                {% if ciclo.tipo == '360' %}
+                                    <span class="badge rounded-pill bg-purple text-white" style="background-color: #6f42c1;">360° Completa</span>
+                                {% else %}
+                                    <span class="badge rounded-pill bg-secondary">Estándar</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-bold me-2">{{ ciclo.total_participantes }}</span>
+                                    <i class="fas fa-users text-muted"></i>
+                                </div>
+                            </td>
+                            <td style="min-width: 150px;">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small fw-bold">{{ ciclo.porcentaje_avance }}%</span>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar {% if ciclo.porcentaje_avance < 30 %}bg-danger{% elif ciclo.porcentaje_avance < 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ ciclo.porcentaje_avance }}%">
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if ciclo.estatus == 'ABIERTO' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">En Curso</span>
+                                {% elif ciclo.estatus == 'VALIDACION' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">Validación</span>
+                                {% elif ciclo.estatus == 'CERRADO' %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">Cerrado</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">Borrador</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group">
+                                    <a href="#" class="btn btn-sm btn-outline-primary" title="Gestionar / Ver Detalle">
+                                        <i class="fas fa-cog"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-success" title="Descargar Reporte">
+                                        <i class="fas fa-file-excel"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x mb-3 text-gray-300"></i>
+                                <p>No hay ciclos de evaluación registrados.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer py-3">
+            </div>
+    </div>
+
+</div>
+
+
+{% endblock %}
