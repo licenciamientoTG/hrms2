@@ -6,5 +6,5 @@ class RecognitionsConfig(AppConfig):
     name = 'apps.recognitions'
 
     # ESTO ES LO QUE FALTA: Importar las señales para que Django las escuche
-    # def ready(self):
-    #         import apps.recognitions.signals
+    def ready(self):
+            import apps.recognitions.signals

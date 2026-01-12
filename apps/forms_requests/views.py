@@ -313,15 +313,14 @@ def validar_empleado_numero(request):
     })
 
 # --- PDF: generar carta de recomendación (activos + inactivos) ---
-@xframe_options_exempt  # necesario si lo cargas en <iframe>
-@user_passes_test(lambda u: u.is_staff or u.is_superuser)  # solo admins
+@xframe_options_exempt
+@user_passes_test(lambda u: u.is_staff or u.is_superuser)
 @login_required
 def generar_carta_recomendacion(request):
     emp_num = (request.GET.get("employee_number") or "").strip()
     if not emp_num:
         raise Http404("Falta employee_number")
 
-    # Usa _base_manager para no filtrar inactivos
     employee = get_object_or_404(
         Employee._base_manager.select_related("user", "department", "job_position"),
         employee_number=emp_num
@@ -344,13 +343,12 @@ def generar_carta_recomendacion(request):
     if isinstance(term, datetime):
         term = term.date()
 
-    SENTINELAS_SIN_TERMINO = {date(1900, 1, 1)}  # agrega otros si tu base los usa
+    SENTINELAS_SIN_TERMINO = {date(1900, 1, 1)}
     es_activo = (term is None) or (term in SENTINELAS_SIN_TERMINO)
 
     fecha_termino = "(Empleado activo)" if es_activo else term.strftime("%d/%m/%Y")
     fecha_hoy = date.today().strftime("%d/%m/%Y")
 
-    # Verifica que exista la plantilla
     if es_empresa_aqua(employee.company):
         base_name = 'Carta_recomendacion_AQUA.pdf'
     else:
@@ -363,7 +361,8 @@ def generar_carta_recomendacion(request):
         raise Http404("Plantilla de carta no encontrada")
 
     # --- Generar overlay con ReportLab ---
-    width, height = 842, 800  # ajusta a tu plantilla real (o usa A4 si corresponde)
+    # NOTA: Asegúrate que estas dimensiones coincidan con tu PDF real o usa el método de leer el mediabox
+    width, height = 842, 800 
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(width, height))
 
@@ -377,7 +376,6 @@ def generar_carta_recomendacion(request):
         alignment=4,  # justify
     )
 
-    # Frase distinta si es activo
     if es_activo:
         frase_termino = "y continúa laborando."
     else:
@@ -395,6 +393,45 @@ def generar_carta_recomendacion(request):
     Frame(70, 250, 500, 320, showBoundary=0).addFromList([Paragraph(texto, style)], c)
     c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(440, 644, fecha_hoy)
+    sello_path = get_sello_path(employee.company)
+    
+    if sello_path and os.path.exists(sello_path):
+        try:
+            sello = ImageReader(sello_path)
+            img_w_px, img_h_px = sello.getSize()
+
+            # Configuraciones de tamaño (igual que en constancia)
+            STAMP_W = 38 * mm
+            scale   = STAMP_W / float(img_w_px)
+            STAMP_H = img_h_px * scale
+
+            # Posicionamiento:
+            # Usamos las variables 'width' y 'height' que definiste arriba para el Canvas
+            # Ajusta 0.66 y 0.18 si la firma en la Carta está en otra posición visual
+            SIGN_X = width * 0.48
+            SIGN_Y = height * 0.18
+
+            OFFSET_X = -10 * mm
+            OFFSET_Y = +6  * mm
+
+            STAMP_X = SIGN_X + OFFSET_X
+            STAMP_Y = SIGN_Y + OFFSET_Y
+
+            ANGLE = -12
+            
+            c.saveState()
+            c.translate(STAMP_X, STAMP_Y)
+            c.rotate(ANGLE)
+            c.drawImage(
+                sello, 0, 0,
+                width=STAMP_W, height=STAMP_H,
+                preserveAspectRatio=True, mask='auto'
+            )
+            c.restoreState()
+        except Exception as e:
+            # Opcional: imprimir error en consola si falla el sello, para no romper el PDF entero
+            print(f"Error al poner sello: {e}")
+
     c.save()
     buffer.seek(0)
 
@@ -416,7 +453,7 @@ def generar_carta_recomendacion(request):
     response['Content-Disposition'] = (
         'attachment' if request.GET.get('dl') == '1' else 'inline'
     ) + f'; filename="{filename}"'
-    # anti-caché (opcional pero recomendado)
+    
     response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response['Pragma'] = 'no-cache'
     return response
