@@ -47,6 +47,7 @@ class Recognition(models.Model):
     message     = models.TextField(blank=True)
     image       = models.ImageField(upload_to='recognitions/', blank=True, null=True)
     created_at  = models.DateTimeField(auto_now_add=True)
+    email_subject = models.CharField(max_length=255, blank=True, null=True)
 
     recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
 

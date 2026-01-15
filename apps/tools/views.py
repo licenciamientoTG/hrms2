@@ -12,6 +12,7 @@ import io
 import xlsxwriter
 from django.http import HttpResponse
 from django.utils import timezone
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 @login_required
 def calculator_view(request):
@@ -118,69 +119,91 @@ def calculator_admin(request):
 @require_POST
 def create_loan_request(request):
     try:
-        # 1. Leer datos enviados por el botón JS (solo monto y semanas)
-        data = json.loads(request.body)
-        monto = float(data.get('amount', 0))
-        semanas = int(data.get('weeks', 0))
+        data = json.loads(request.body or "{}")
 
-        # 2. Buscar datos del empleado en la BD
+        # 1) Parseo seguro
+        try:
+            monto = Decimal(str(data.get("amount", "0"))).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        except (InvalidOperation, TypeError):
+            return JsonResponse({"ok": False, "error": "Monto inválido."})
+
+        try:
+            semanas = int(data.get("weeks", 0))
+        except (ValueError, TypeError):
+            return JsonResponse({"ok": False, "error": "Semanas inválidas."})
+
+        # 2) Validaciones básicas
+        if monto <= 0:
+            return JsonResponse({"ok": False, "error": "El monto debe ser mayor a 0."})
+
+        if semanas < 1 or semanas > 10:
+            return JsonResponse({"ok": False, "error": "El plazo debe ser entre 1 y 10 semanas."})
+
+        # 3) Obtener empleado
         employee = Employee.objects.filter(user=request.user).first()
         if not employee:
-            return JsonResponse({'ok': False, 'error': 'No se encontró información de empleado para este usuario.'})
+            return JsonResponse({"ok": False, "error": "No se encontró información de empleado para este usuario."})
 
-        # 3. Extraer valores del empleado (Ahorro, Puesto, Empresa)
-        ahorro_total = float(employee.saving_fund or 0)
-        puesto = str(employee.job_position) if employee.job_position else "Sin puesto"
-        empresa = employee.company or "Sin empresa"
-        num_empleado = employee.employee_number or ""
-        nombre_completo = f"{employee.first_name} {employee.last_name}"
+        ahorro_total = Decimal(str(employee.saving_fund or 0)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        limite = (ahorro_total * Decimal("0.50")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
-        # 4. Validaciones
+        # 4) ✅ Validación anti-hack del 50%
+        if monto > limite:
+            return JsonResponse({
+                "ok": False,
+                "error": f"El monto solicitado (${monto}) excede el 50% permitido (${limite})."
+            })
+
+        # 5) Validar préstamo activo
         ultimo_prestamo = LoanRequest.objects.filter(
             user=request.user,
-            status__in=['pending', 'approved'] # Ignoramos 'rejected' o 'paid'
-        ).order_by('-created_at').first()
+            status__in=["pending", "approved"]
+        ).order_by("-created_at").first()
 
         if ultimo_prestamo:
-            # Si está pendiente, no dejar pedir otro
-            if ultimo_prestamo.status == 'pending':
-                return JsonResponse({'ok': False, 'error': 'Ya tienes una solicitud en revisión. Espera a que sea aprobada o rechazada.'})
-            
-            # Si está aprobado, verificar si ya pasó el plazo
-            if ultimo_prestamo.status == 'approved':
-                # Calcular fecha de fin: Fecha Inicio + Semanas
-                fecha_inicio = ultimo_prestamo.created_at
-                semanas_plazo = ultimo_prestamo.weeks
-                fecha_fin_estimada = fecha_inicio + timedelta(weeks=semanas_plazo)
-                
-                # Si HOY es antes de la fecha fin, sigue pagando
+            if ultimo_prestamo.status == "pending":
+                return JsonResponse({"ok": False, "error": "Ya tienes una solicitud en revisión."})
+
+            if ultimo_prestamo.status == "approved":
+                fecha_fin_estimada = ultimo_prestamo.created_at + timedelta(weeks=ultimo_prestamo.weeks)
                 if timezone.now() < fecha_fin_estimada:
                     dias_restantes = (fecha_fin_estimada - timezone.now()).days
                     return JsonResponse({
-                        'ok': False, 
-                        'error': f'Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {dias_restantes} días.'
+                        "ok": False,
+                        "error": f"Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {dias_restantes} días."
                     })
 
-        # 5. Guardar la solicitud con TODOS los datos
+        # 6) Crear solicitud
+        puesto = employee.job_position.title if employee.job_position else "Sin puesto"
+        empresa = employee.company or "Sin empresa"
+        num_empleado = employee.employee_number or ""
+        nombre_completo = f"{employee.first_name} {employee.last_name}".strip()
+
+        pago_semanal = (monto / Decimal(semanas)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
         LoanRequest.objects.create(
             user=request.user,
-            # Datos Snapshot (copia del momento)
             employee_number=num_empleado,
             full_name=nombre_completo,
             job_position=puesto,
             company=empresa,
             saving_fund_snapshot=ahorro_total,
-            # Datos del préstamo
             amount=monto,
             weeks=semanas,
-            payment_amount=monto / semanas, # Cálculo simple del pago
-            status='approved'
+            payment_amount=pago_semanal,
+            status="approved",  # si así lo quieres; si quieres revisión, cambia a "pending"
         )
 
-        return JsonResponse({'ok': True})
+        return JsonResponse({"ok": True})
 
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)})
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Error al procesar la solicitud."})
 
 @user_passes_test(lambda u: u.is_staff)
 def export_loans_excel(request):

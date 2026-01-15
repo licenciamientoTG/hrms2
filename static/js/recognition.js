@@ -534,9 +534,11 @@ document.addEventListener('DOMContentLoaded', () => {
 $(document).ready(function() {
     // AL ABRIR EL MODAL: Cargar lista
     const modalEl = document.getElementById('scheduledModal');
-    modalEl.addEventListener('show.bs.modal', function (event) {
+    if (modalEl) {
+      modalEl.addEventListener('show.bs.modal', function () {
         loadScheduledList();
-    });
+      });
+    }
 
     function loadScheduledList() {
         $('#scheduled-list-container').html('<div class="spinner-border text-primary"></div> Cargando...');
