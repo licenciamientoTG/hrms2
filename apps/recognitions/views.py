@@ -45,6 +45,7 @@ def recognition_dashboard_admin(request):
         recipients_ids = request.POST.getlist('recipients')
         category_id    = request.POST.get('category')
         message        = (request.POST.get('message') or '').strip()
+        email_subject  = (request.POST.get('email_subject') or '').strip()
         files          = request.FILES.getlist('media')
         notify_email   = bool(request.POST.get('notify_email'))
         email_channels = request.POST.getlist('email_channels') if notify_email else []
@@ -75,6 +76,7 @@ def recognition_dashboard_admin(request):
                     author=request.user,
                     category=category,
                     message=message,
+                    email_subject=email_subject,
                     publish_at=publish_at,
                     notify_email=notify_email,
                     notify_push=True,

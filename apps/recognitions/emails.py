@@ -36,19 +36,14 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
 
     base = (getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
 
-    # URL destino
-    try:
-        rec_url = f"{base}{reverse('recognition_detail', args=[recognition.id])}"
-    except Exception:
-        rec_url = f"{base}{reverse('recognition_dashboard_user')}"
+    dashboard_url = reverse('recognition_dashboard_user')
+    rec_url = f"{base}{dashboard_url}?highlight={recognition.id}#recognition-{recognition.id}"
 
-    # Categoría (se usa en asunto y posible fallback de portada)
     cat = getattr(recognition, "category", None)
 
-    # Portada: 1) primera imagen subida  2) cover de categoría  3) logo
     cover_url = ""
     try:
-        media_rel = getattr(recognition, "media", None)  # related_name de RecognitionMedia
+        media_rel = getattr(recognition, "media", None)
         first_media = media_rel.order_by("id").first() if media_rel is not None else None
         if first_media and getattr(first_media, "file", None) and getattr(first_media.file, "url", ""):
             cover_url = f"{base}{first_media.file.url}"
@@ -61,8 +56,50 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
     if not cover_url:
         cover_url = f"{base}/static/template/img/logos/LOGOTIPO.png"
 
-    subject = f"Nuevo Comunicado: {cat.title if cat else 'Comunicado'}"
-    teaser  = _build_teaser(recognition.message, limit=240)
+    # Paso A: Revisar si hay un asunto manual en el formulario
+    raw_subject = getattr(recognition, 'email_subject', '')
+    custom_subject = (raw_subject or "").strip()
+
+    if custom_subject:
+        # PRIORIDAD 1: Usar el asunto que escribió el usuario
+        subject = custom_subject
+        
+    else:
+        # PRIORIDAD 2: Generación Automática
+        cat_title = cat.title if cat else 'Comunicado'
+        subject = f"Nuevo Comunicado: {cat_title}"
+
+        # Caso Especial: Cumpleaños
+        if cat and "CUMPLEAÑOS" in cat_title.upper():
+            target_name = "COLABORADOR"
+            nombre_corto = ""
+            apellido_corto = ""
+            user_obj = None
+
+            # Buscar usuario en tabla intermedia
+            try:
+                relacion = recognition.recognitionrecipient_set.select_related('user').first()
+                if relacion and relacion.user:
+                    user_obj = relacion.user
+            except Exception:
+                if hasattr(recognition, 'recipients'):
+                    user_obj = recognition.recipients.first()
+
+            # Extraer nombres limpios
+            if user_obj:
+                if user_obj.first_name:
+                    nombre_corto = user_obj.first_name.strip().split()[0]
+                if user_obj.last_name:
+                    apellido_corto = user_obj.last_name.strip().split()[0]
+
+            # Formatear nombre
+            if nombre_corto or apellido_corto:
+                target_name = f"{nombre_corto} {apellido_corto}".strip()
+            
+            subject = f"¡¡FELIZ CUMPLEAÑOS!! {target_name.upper()}"
+
+
+    teaser = _build_teaser(recognition.message, limit=80)
 
     ctx = {
         "rec": recognition,

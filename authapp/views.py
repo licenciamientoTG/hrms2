@@ -18,12 +18,18 @@ from apps.employee.models import Employee
 # ==========================
 
 def login_view(request):
+    next_url = request.POST.get('next') or request.GET.get('next')
+
     if request.method == "POST":
         form = LoginForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect("home")
+            
+            if next_url:
+                return redirect(next_url) 
+            else:
+                return redirect("home")    
     else:
         form = LoginForm()
 

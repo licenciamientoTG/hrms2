@@ -2,207 +2,349 @@
 {% load static %}
 
 {% block page_title %}Administración de Desempeño{% endblock %}
-{% block title %}Tablero de Control - Evaluación de Desempeño{% endblock %}
 
 {% block content %}
 
 <style>
+    /* Identidad TotalGas y Estilos */
+    :root {
+        --tg-green: #9ec64d;
+        --tg-blue: #007bff;
+        --tg-dark: #2c3e50;
+    }
+
+    /* Estilos Generales igual que antes ... */
     .card-kpi {
-        border-left: 4px solid #0d6efd;
-        transition: transform 0.2s;
+        border: 1px solid rgba(0,0,0,0.05);
+        border-radius: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        background-color: #fff;
     }
     .card-kpi:hover {
         transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
     }
-    .progress-thin {
-        height: 6px;
-        border-radius: 3px;
+    .kpi-icon-bg {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
     }
-    .avatar-list img {
-        width: 30px;
-        height: 30px;
-        border: 2px solid #fff;
-        border-radius: 50%;
-        margin-left: -10px;
+    .active-evaluation-card {
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
     }
-    .avatar-list img:first-child {
-        margin-left: 0;
+    .active-evaluation-header {
+        background-color: #fff;
+        border-left: 6px solid var(--tg-green);
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .active-evaluation-header:hover {
+        background-color: #f8f9fa;
+    }
+    .progress-custom {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+
+    /* ESTILOS PARA EL MODAL DE INICIO */
+    .selector-option {
+        cursor: pointer;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 12px;
+        transition: all 0.2s;
+        height: 100%;
+        text-align: center;
+        background: #fff;
+    }
+    .selector-option:hover {
+        border-color: #b0b0b0;
+        background-color: #f8f9fa;
+    }
+    
+    /* Input Radio Oculto */
+    .custom-check-input:checked + .selector-option {
+        background-color: #f0f9e2; /* Verde suave fondo */
+        color: var(--tg-dark);
+        border-color: var(--tg-green);
+        box-shadow: 0 0 0 2px rgba(158, 198, 77, 0.3);
+    }
+    
+    /* Icono de Check */
+    .custom-check-input:checked + .selector-option .icon-indicator {
+        color: var(--tg-green);
+        transform: scale(1.1);
+    }
+    .icon-indicator {
+        color: #ccc;
+        transition: all 0.2s;
+        margin-bottom: 8px;
+    }
+
+    .auto-field {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        color: #495057;
+        font-weight: bold;
+        cursor: not-allowed;
+    }
+
+.selection-col {
+        display: flex; /* Para que las columnas intenten igualar altura */
+    }
+
+    .selection-card {
+        cursor: pointer;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 15px;
+        transition: all 0.2s ease-in-out;
+        background: #fff;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        /* IMPORTANTE: Altura automática para que crezca */
+        height: auto; 
+        min-height: 100px; /* Altura mínima para que se vea bien */
+    }
+    .selection-card:hover {
+        border-color: #b0b0b0;
+        background-color: #f8f9fa;
+        transform: translateY(-2px);
+    }
+    
+    /* Input Radio Oculto */
+    .custom-check-input:checked + .selection-card {
+        background-color: #f0f9e2; /* Verde suave fondo */
+        color: var(--tg-dark);
+        border-color: var(--tg-green);
+        box-shadow: 0 4px 12px rgba(158, 198, 77, 0.2);
+    }
+    
+    /* Icono de Check e Icono Principal */
+    .custom-check-input:checked + .selection-card .icon-indicator {
+        color: var(--tg-green);
+    }
+
+    .icon-indicator {
+        color: #ccc;
+        transition: all 0.2s;
+        font-size: 2.5rem;
+    }
+
+    /* Contenedor del switch 360 */
+    #container360 {
+        display: none; /* Oculto por defecto */
+        background-color: rgba(255, 255, 255, 0.6);
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 15px; /* Espacio arriba */
+        border: 1px solid rgba(158, 198, 77, 0.3);
+    }
+
+    .auto-field {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        color: #495057;
+        font-weight: bold;
+        cursor: not-allowed;
     }
 </style>
 
-<div class="container-fluid py-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Evaluaciones de Desempeño</h2>
+</div>
+
+<div class="container-fluid py-4 bg-light">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 text-gray-800">Gestión de Ciclos de Evaluación</h1>
-            <p class="text-muted mb-0">Administra, monitorea y valida los procesos de evaluación del personal.</p>
+            <p class="text-muted mb-0">Tablero de control del ciclo actual y gestión histórica.</p>
         </div>
+        <button class="btn btn-primary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#initEvalModal">
+            <i class="fas fa-play me-2"></i>Iniciar Evaluación
+        </button>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-kpi shadow-sm h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Ciclos Activos</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.ciclos_activos|default:"0" }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-sync fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #f6c23e;">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pendientes de Llenado</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.pendientes|default:"0" }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #36b9cc;">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Por Validar (CH)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.por_validar|default:"0" }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-double fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-kpi shadow-sm h-100 py-2" style="border-left-color: #1cc88a;">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Promedio General</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ kpis.promedio_general|default:"0.0" }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
-            <h6 class="m-0 font-weight-bold text-primary">Listado de Ciclos</h6>
+    <div class="card active-evaluation-card shadow mb-5">
+        <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between" 
+             data-bs-toggle="collapse" 
+             data-bs-target="#collapseActive">
             
-            <div class="input-group input-group-sm w-25">
-                <input type="text" class="form-control" placeholder="Buscar ciclo...">
-                <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+            <div class="d-flex align-items-center">
+                <div class="me-4 text-center">
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-1 rounded-pill mb-1">
+                        <i class="fas fa-sync fa-spin me-1"></i> EN CURSO
+                    </span>
+                    <div class="small text-muted mt-1">Activa</div>
+                </div>
+                <div>
+                    <h4 class="m-0 font-weight-bold text-dark mb-1">Evaluación Enero 2026</h4>
+                    <p class="text-muted mb-0 small">
+                        <i class="fas fa-list-ul me-1"></i> Cualitativa
+                        <span class="mx-2">|</span>
+                        <i class="far fa-calendar me-1"></i> 1er Semestre
+                    </p>
+                </div>
+            </div>
+            <div class="text-muted pe-3">
+                <span class="me-2 fw-bold text-primary small">VER ESTADÍSTICAS</span>
+                <i class="fas fa-chevron-down"></i>
             </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light text-dark">
-                        <tr>
-                            <th class="ps-4">Nombre del Ciclo</th>
-                            <th>Vigencia</th>
-                            <th>Tipo</th>
-                            <th>Participantes</th>
-                            <th>Avance</th>
-                            <th>Estatus</th>
-                            <th class="text-end pe-4">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ciclo in ciclos %}
-                        <tr>
-                            <td class="ps-4">
-                                <div class="fw-bold text-dark">{{ ciclo.nombre }}</div>
-                                <small class="text-muted">{{ ciclo.objetivo|truncatechars:40 }}</small>
-                            </td>
-                            <td>
-                                <div class="small"><i class="far fa-calendar-alt me-1"></i> {{ ciclo.fecha_inicio|date:"d M" }}</div>
-                                <div class="small"><i class="far fa-flag me-1"></i> {{ ciclo.fecha_fin|date:"d M Y" }}</div>
-                            </td>
-                            <td>
-                                {% if ciclo.tipo == '360' %}
-                                    <span class="badge rounded-pill bg-purple text-white" style="background-color: #6f42c1;">360° Completa</span>
-                                {% else %}
-                                    <span class="badge rounded-pill bg-secondary">Estándar</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <span class="fw-bold me-2">{{ ciclo.total_participantes }}</span>
-                                    <i class="fas fa-users text-muted"></i>
-                                </div>
-                            </td>
-                            <td style="min-width: 150px;">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="small fw-bold">{{ ciclo.porcentaje_avance }}%</span>
-                                </div>
-                                <div class="progress progress-thin">
-                                    <div class="progress-bar {% if ciclo.porcentaje_avance < 30 %}bg-danger{% elif ciclo.porcentaje_avance < 80 %}bg-warning{% else %}bg-success{% endif %}" 
-                                         role="progressbar" 
-                                         style="width: {{ ciclo.porcentaje_avance }}%">
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if ciclo.estatus == 'ABIERTO' %}
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">En Curso</span>
-                                {% elif ciclo.estatus == 'VALIDACION' %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">Validación</span>
-                                {% elif ciclo.estatus == 'CERRADO' %}
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">Cerrado</span>
-                                {% else %}
-                                    <span class="badge bg-light text-dark border">Borrador</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end pe-4">
-                                <div class="btn-group">
-                                    <a href="#" class="btn btn-sm btn-outline-primary" title="Gestionar / Ver Detalle">
-                                        <i class="fas fa-cog"></i>
-                                    </a>
-                                    <button class="btn btn-sm btn-outline-success" title="Descargar Reporte">
-                                        <i class="fas fa-file-excel"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
-                                <i class="fas fa-folder-open fa-3x mb-3 text-gray-300"></i>
-                                <p>No hay ciclos de evaluación registrados.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div id="collapseActive" class="collapse show">
+             <div class="card-body bg-light bg-opacity-50 pt-4 pb-4">
+                 <p class="text-center text-muted">... Gráficas y KPIs del ciclo activo ...</p>
+             </div>
         </div>
-        <div class="card-footer py-3">
-            </div>
     </div>
 
+    </div>
+
+<div class="modal fade" id="initEvalModal" tabindex="-1" aria-labelledby="initEvalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            
+            <div class="modal-header bg-white border-bottom-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark" id="initEvalModalLabel">Iniciar Nuevo Ciclo</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body pt-4">
+                <form action="#" method="POST" id="evaluationForm"> 
+                    {% csrf_token %}
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-9">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Nombre de la Evaluación</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-tag text-muted"></i></span>
+                                <input type="text" class="form-control auto-field border-start-0" id="autoEvalName" name="nombre_ciclo" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Año Fiscal</label>
+                            <input type="text" class="form-control auto-field text-center" id="autoFiscalYear" name="anio_fiscal" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark mb-3">Seleccione el Tipo de Evaluación</label>
+                        
+                        <div class="row g-3 align-items-stretch"> <div class="col-md-6 selection-col">
+                                <input type="radio" class="btn-check custom-check-input" name="tipo_evaluacion" id="tipoCuali" value="cualitativa" checked onchange="toggle360Option()">
+                                
+                                <label class="selection-card" for="tipoCuali">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="me-3 text-center" style="width: 50px;">
+                                            <i class="fas fa-users-cog icon-indicator"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-1">Cualitativa</h6>
+                                            <div class="text-muted small">Competencias, conductas y cultura.</div>
+                                        </div>
+                                    </div>
+
+                                    <div id="container360">
+                                        <div class="form-check form-switch d-flex align-items-center ps-0">
+                                            <input class="form-check-input me-2 mt-0" type="checkbox" id="check360" name="es_360" style="cursor: pointer; width: 35px; height: 18px; margin-left: 0;">
+                                            <div class="ms-2">
+                                                <label class="form-check-label fw-bold text-dark small mb-0" for="check360" style="cursor: pointer;">Habilitar Modalidad 360°</label>
+                                                <div class="text-muted" style="font-size: 0.7rem;">Incluye pares, jefes y subordinados.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <div class="col-md-6 selection-col">
+                                <input type="radio" class="btn-check custom-check-input" name="tipo_evaluacion" id="tipoCuanti" value="cuantitativa" onchange="toggle360Option()">
+                                
+                                <label class="selection-card justify-content-center" for="tipoCuanti">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3 text-center" style="width: 50px;">
+                                            <i class="fas fa-chart-line icon-indicator"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-1">Cuantitativa</h6>
+                                            <div class="text-muted small">Sincronización de Objetivos y KPIs.</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning bg-opacity-10 border-0 d-flex align-items-start mt-4 mb-0" role="alert">
+                        <i class="fas fa-exclamation-circle text-warning mt-1 me-3"></i>
+                        <div class="small text-muted">
+                            <strong>Importante:</strong> Al hacer clic en "Iniciar", la evaluación se activará inmediatamente para todos los colaboradores.
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                        <button type="button" class="btn btn-light text-muted me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fas fa-rocket me-2"></i>Crear e Iniciar Ahora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
+<script>
+    function toggle360Option() {
+        const isCuali = document.getElementById('tipoCuali').checked;
+        const container360 = document.getElementById('container360');
+        const check360 = document.getElementById('check360');
 
+        if (isCuali) {
+            // Usamos jQuery para una animación suave si está disponible, si no, CSS display
+            if (typeof $ !== 'undefined') {
+                $(container360).slideDown(200);
+            } else {
+                container360.style.display = 'block';
+            }
+        } else {
+            if (typeof $ !== 'undefined') {
+                $(container360).slideUp(200);
+            } else {
+                container360.style.display = 'none';
+            }
+            check360.checked = false; 
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('initEvalModal');
+        
+        modal.addEventListener('show.bs.modal', function () {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            
+            // Generar nombre automático: Evaluación [Mes] [Año]
+            const monthName = today.toLocaleString('es-ES', { month: 'long' });
+            const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+            const evalName = `Evaluación ${capitalizedMonth} ${currentYear}`;
+            
+            document.getElementById('autoEvalName').value = evalName;
+            document.getElementById('autoFiscalYear').value = currentYear;
+            
+            // Asegurarnos que el estado del 360 sea correcto al abrir
+            toggle360Option();
+        });
+    });
+</script>
 {% endblock %}
