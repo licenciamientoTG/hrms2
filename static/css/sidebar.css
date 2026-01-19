@@ -100,3 +100,55 @@ transform: scale(1.05);   /* crece parejo a ambos lados */
     background-color: #ffffff !important; /* El sub-elemento activo final sí es blanco puro */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+/* 1. Bloqueamos el scroll de la página completa para que no se mueva todo junto */
+body, html {
+    height: 100vh;
+    overflow: hidden; /* Esto quita la barra de la derecha del navegador */
+    margin: 0;
+}
+
+/* 2. Aseguramos que el contenedor 'padre' ocupe toda la pantalla sin moverse */
+.wrapper {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* 3. Configuración para el Sidebar (Barra Azul) */
+#sidebar {
+    min-width: 260px;
+    max-width: 260px;
+    height: 100%;
+    
+    /* Funcionalidad de Scroll */
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* OCULTAR BARRA: Firefox y Edge */
+    scrollbar-width: none !important;       
+    -ms-overflow-style: none !important;    
+}
+
+/* OCULTAR BARRA: Chrome, Safari, Opera */
+/* Aplicamos esto tanto al ID como a la clase interna por si acaso */
+#sidebar::-webkit-scrollbar, 
+#sidebar .sidebar-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important; /* Hazla invisible si todo lo demás falla */
+}
+
+/* 4. Configuración para el Contenido Principal (Parte Blanca) */
+.main {
+    /* Toma todo el espacio restante a la derecha */
+    flex-grow: 1; 
+    
+    /* Ocupa toda la altura */
+    height: 100vh; 
+    
+    /* ACTIVA EL SCROLL SOLO AQUÍ */
+    overflow-y: auto; 
+}

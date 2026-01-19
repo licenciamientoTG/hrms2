@@ -136,6 +136,8 @@ document.addEventListener('click', async (e) => {
     document.getElementById('det-guarderia').textContent = s.nombre_guarderia || '—';
     document.getElementById('det-direccion').textContent = s.direccion_guarderia || '—';
     document.getElementById('det-menor').textContent = s.nombre_menor ? `${s.nombre_menor} (nac. ${s.nacimiento_menor || '—'})` : '—';
+    document.getElementById('det-registro').textContent = s.registro_patronal || '—';
+    document.getElementById('det-vacaciones').textContent = s.periodo_vacacional || '—';
 
     const estado = document.getElementById('det-estado');
     estado.textContent = s.estado || '—';

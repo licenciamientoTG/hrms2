@@ -1,0 +1,151 @@
+/* Identidad TotalGas y Estilos */
+:root {
+    --tg-green: #9ec64d;
+    --tg-blue: #007bff;
+    --tg-dark: #2c3e50;
+}
+
+/* Estilos Generales igual que antes ... */
+.card-kpi {
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    background-color: #fff;
+}
+.card-kpi:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
+}
+.kpi-icon-bg {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+.active-evaluation-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.active-evaluation-header {
+    background-color: #fff;
+    border-left: 6px solid var(--tg-green);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.active-evaluation-header:hover {
+    background-color: #f8f9fa;
+}
+.progress-custom {
+    height: 8px;
+    border-radius: 4px;
+    background-color: #e9ecef;
+    overflow: hidden;
+}
+
+/* ESTILOS PARA EL MODAL DE INICIO */
+.selector-option {
+    cursor: pointer;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px;
+    transition: all 0.2s;
+    height: 100%;
+    text-align: center;
+    background: #fff;
+}
+.selector-option:hover {
+    border-color: #b0b0b0;
+    background-color: #f8f9fa;
+}
+
+/* Input Radio Oculto */
+.custom-check-input:checked + .selector-option {
+    background-color: #f0f9e2; /* Verde suave fondo */
+    color: var(--tg-dark);
+    border-color: var(--tg-green);
+    box-shadow: 0 0 0 2px rgba(158, 198, 77, 0.3);
+}
+
+/* Icono de Check */
+.custom-check-input:checked + .selector-option .icon-indicator {
+    color: var(--tg-green);
+    transform: scale(1.1);
+}
+.icon-indicator {
+    color: #ccc;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+}
+
+.auto-field {
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    color: #495057;
+    font-weight: bold;
+    cursor: not-allowed;
+}
+
+.selection-col {
+    display: flex; /* Para que las columnas intenten igualar altura */
+}
+
+.selection-card {
+    cursor: pointer;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 15px;
+    transition: all 0.2s ease-in-out;
+    background: #fff;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    /* IMPORTANTE: Altura automática para que crezca */
+    height: auto; 
+    min-height: 100px; /* Altura mínima para que se vea bien */
+}
+.selection-card:hover {
+    border-color: #b0b0b0;
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+}
+
+/* Input Radio Oculto */
+.custom-check-input:checked + .selection-card {
+    background-color: #f0f9e2; /* Verde suave fondo */
+    color: var(--tg-dark);
+    border-color: var(--tg-green);
+    box-shadow: 0 4px 12px rgba(158, 198, 77, 0.2);
+}
+
+/* Icono de Check e Icono Principal */
+.custom-check-input:checked + .selection-card .icon-indicator {
+    color: var(--tg-green);
+}
+
+.icon-indicator {
+    color: #ccc;
+    transition: all 0.2s;
+    font-size: 2.5rem;
+}
+
+/* Contenedor del switch 360 */
+#container360 {
+    display: none; /* Oculto por defecto */
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 15px; /* Espacio arriba */
+    border: 1px solid rgba(158, 198, 77, 0.3);
+}
+
+.auto-field {
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    color: #495057;
+    font-weight: bold;
+    cursor: not-allowed;
+}

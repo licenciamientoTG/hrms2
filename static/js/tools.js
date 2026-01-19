@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 3. Confirmación visual con SweetAlert2
             Swal.fire({
                 title: '¿Confirmar solicitud?',
-                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>.`,
+                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>. <p><br>Al enviar esta solicitud despues del jueves a las 12:00 pm el prestamo se procesará hasta la siguiente semana.</p>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',

@@ -196,6 +196,14 @@
             <label for="nacimiento_menor" class="form-label">Fecha de nacimiento del menor</label>
             <input type="date" class="form-control" id="nacimiento_menor" name="nacimiento_menor" required max="{{today|date:'Y-m-d'}}">
           </div>
+          <div class="mb-3">
+            <label for="registro_patronal" class="form-label">Registro Patronal <span class="text-muted small">(Opcional)</span></label>
+            <input type="text" class="form-control" id="registro_patronal" name="registro_patronal">
+          </div>    
+          <div class="mb-3">
+            <label for="periodo_vacacional" class="form-label">Periodo vacacional <span class="text-muted small">(Opcional)</span></label>
+            <input type="text" class="form-control" id="periodo_vacacional" name="periodo_vacacional" placeholder="Ej. Del 15 al 20 de Diciembre">
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

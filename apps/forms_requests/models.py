@@ -26,6 +26,17 @@ class ConstanciaGuarderia(models.Model):
     fecha_solicitud = models.DateTimeField(auto_now_add=True)
     nacimiento_menor = models.DateField(verbose_name="Fecha de nacimiento del menor")
 
+    registro_patronal = models.CharField(
+        max_length=100, 
+        blank=True, null=True, 
+        verbose_name="Registro Patronal"
+    )
+    periodo_vacacional = models.CharField(
+        max_length=255, 
+        blank=True, null=True, 
+        verbose_name="Periodo Vacacional"
+    )
+
     pdf_respuesta = models.FileField(
         upload_to='guarderia_respuestas/',
         null=True, blank=True
