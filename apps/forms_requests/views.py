@@ -603,6 +603,9 @@ def guardar_constancia_guarderia(request):
         dias = request.POST.getlist("dias_laborales")
         dias_str = ",".join(dias)
 
+        registro_patronal = request.POST.get('registro_patronal', '').strip()
+        periodo_vacacional = request.POST.get('periodo_vacacional', '').strip()
+
         # parseo de fecha/hora del POST
         nacimiento_str   = request.POST.get("nacimiento_menor")  # 'YYYY-MM-DD'
         hora_entrada_str = request.POST.get("hora_entrada")      # 'HH:MM'
@@ -622,6 +625,8 @@ def guardar_constancia_guarderia(request):
             direccion_guarderia=request.POST.get("direccion_guarderia"),
             nombre_menor=request.POST.get("nombre_menor"),
             nacimiento_menor=nacimiento,
+            registro_patronal=registro_patronal,
+            periodo_vacacional=periodo_vacacional,
         )
 
         # 🔔 Notificar a los administradores
@@ -680,12 +685,14 @@ def guarderia_detalle(request, pk):
         "nacimiento_menor": obj.nacimiento_menor.strftime("%d/%m/%Y") if obj.nacimiento_menor else "",
         "estado": obj.estado,
         "pdf_url": obj.pdf_respuesta.url if getattr(obj.pdf_respuesta, "name", "") else None,
+        'registro_patronal': obj.registro_patronal or 'N/A',
+        'periodo_vacacional': obj.periodo_vacacional or 'No especificado'
     }
     return JsonResponse({"ok": True, "solicitud": data})
 
 # vista para responder la constancia de guardería
 @login_required
-@permission_required('forms_requests.change_constanciaguarderia', raise_exception=True)
+@permission_required('forms_requests.Modulo_constancias', raise_exception=True)
 def responder_guarderia(request, pk: int):
     if request.method != 'POST':
         return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
@@ -720,7 +727,7 @@ def responder_guarderia(request, pk: int):
     return JsonResponse({"ok": True, "id": obj.id, "pdf_url": pdf_url})
 
 @login_required
-@permission_required('forms_requests.change_constanciaguarderia', raise_exception=True)
+@permission_required('forms_requests.Modulo_constancias', raise_exception=True)
 @require_POST
 def rechazar_guarderia(request, pk: int):
     obj = get_object_or_404(ConstanciaGuarderia, pk=pk)
