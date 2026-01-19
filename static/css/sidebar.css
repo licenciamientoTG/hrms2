@@ -101,54 +101,32 @@ transform: scale(1.05);   /* crece parejo a ambos lados */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* 1. Bloqueamos el scroll de la página completa para que no se mueva todo junto */
-body, html {
-    height: 100vh;
-    overflow: hidden; /* Esto quita la barra de la derecha del navegador */
-    margin: 0;
+
+
+/* 1) Sidebar siempre al alto de la pantalla */
+#sidebar{
+  height: auto !important;
 }
 
-/* 2. Aseguramos que el contenedor 'padre' ocupe toda la pantalla sin moverse */
-.wrapper {
-    display: flex;
-    height: 100vh;
-    width: 100%;
-    overflow: hidden;
+
+/* 4) El menú ocupa el resto y aquí vive el scroll */
+#sidebar .sidebar-nav{
+  flex: 1 1 auto;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 1rem;
+  overscroll-behavior: contain;
 }
 
-/* 3. Configuración para el Sidebar (Barra Azul) */
-#sidebar {
-    min-width: 260px;
-    max-width: 260px;
-    height: 100%;
-    
-    /* Funcionalidad de Scroll */
-    overflow-y: auto;
-    overflow-x: hidden;
+/* 5) Ocultar scrollbar nativo (Chrome/Edge/Safari + Firefox) */
+#sidebar .sidebar-nav::-webkit-scrollbar{ width: 0; height: 0; }
+#sidebar .sidebar-nav{ scrollbar-width: none; -ms-overflow-style: none; }
 
-    /* OCULTAR BARRA: Firefox y Edge */
-    scrollbar-width: none !important;       
-    -ms-overflow-style: none !important;    
-}
 
-/* OCULTAR BARRA: Chrome, Safari, Opera */
-/* Aplicamos esto tanto al ID como a la clase interna por si acaso */
-#sidebar::-webkit-scrollbar, 
-#sidebar .sidebar-content::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    background: transparent !important; /* Hazla invisible si todo lo demás falla */
-}
-
-/* 4. Configuración para el Contenido Principal (Parte Blanca) */
-.main {
-    /* Toma todo el espacio restante a la derecha */
-    flex-grow: 1; 
-    
-    /* Ocupa toda la altura */
-    height: 100vh; 
-    
-    /* ACTIVA EL SCROLL SOLO AQUÍ */
-    overflow-y: auto; 
+/* ===== Si estás usando AdminKit/SimpleBar (js-simplebar), oculta SU barra ===== */
+#sidebar .simplebar-track{ display: none !important; }
+#sidebar .simplebar-scrollbar{ display: none !important; }
+#sidebar .simplebar-content-wrapper{
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
