@@ -180,6 +180,8 @@ function renderDesglose() {
   const $semanas = document.getElementById('semanas');
   const $panel   = document.getElementById('detalle-contenido');
   const $btnEnviar = document.getElementById('btn-enviar-solicitud');
+  const $inputWeek = document.getElementById('server-current-week');
+  const serverWeek = $inputWeek ? $inputWeek.value : '--';
 
   if (!$monto || !$semanas || !$panel) return;
 
@@ -251,8 +253,8 @@ function renderDesglose() {
     </div>
     <p class="text-muted small mb-0">
       La información que se muestra queda sujeta a revisión. </br>
-      Recuerda que no podrás solicitar prestamos desde el {{fecha }} hasta el {{fecha}}
-    </p>
+      Semana actual: <strong>${serverWeek}</strong>.<br>
+      Recuerda que el deposito será en la semana 44 </p>
   `;
 
   // ✅ MOSTRAR EL BOTÓN
@@ -379,3 +381,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+(function () {
+  const $select = document.getElementById('semanas');
+  const $limitInput = document.getElementById('server-max-weeks');
+  const $monto = document.getElementById('monto');
+  const $btn = document.getElementById('btn-detalles');
+
+  // Si no hay input hidden, no limitamos nada
+  if (!$limitInput) return;
+
+  const maxAllowed = parseInt($limitInput.value, 10);
+
+  // CASO 1: Periodo Cerrado (Semana 44)
+  if (maxAllowed <= 0) {
+      if ($monto) {
+          $monto.disabled = true;
+          $monto.value = "";
+          $monto.placeholder = "Periodo cerrado (Semana 44)";
+          const $help = document.getElementById('montoHelp');
+          if ($help) $help.classList.add('d-none');
+      }
+      if ($select) $select.disabled = true;
+      if ($btn) $btn.disabled = true;
+      return;
+  }
+
+  // CASO 2: Periodo Restringido (Ej. Semana 43 -> Solo 1 semana)
+  if ($select) {
+      // Recorremos de atrás para adelante para borrar sin romper índices
+      for (let i = $select.options.length - 1; i >= 0; i--) {
+          const val = parseInt($select.options[i].value, 10);
+          if (val > maxAllowed) {
+              $select.remove(i); 
+          }
+      }
+      
+      // Corregir selección inválida si el usuario tenía algo seleccionado
+      if (parseInt($select.value, 10) > maxAllowed) {
+          $select.value = "1";
+          // Disparamos evento change para recalcular pagos
+          $select.dispatchEvent(new Event('change'));
+      }
+  }
+})();
