@@ -278,6 +278,21 @@ def recibir_datos1(request):
         with transaction.atomic():
             existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
 
+            # ===== PARCHE 4744 =====
+            # Solo permitir que el reloj 4744 se cree/actualice si la CURP es la esperada
+            if str(employee_number).strip() == "4744":
+                curp_in = (incoming_defaults.get("curp") or "").strip().upper()
+                curp_ok = "NUSN840705MDGXNR05"
+                if curp_in != curp_ok:
+                    print(f"⛔ PARCHE 4744: ignorado. CURP entrante={curp_in} (se esperaba {curp_ok})")
+                    return JsonResponse({
+                        "success": True,
+                        "status": "ignored_patch_4744",
+                        "mensaje": "Registro ignorado por parche: reloj 4744 solo se procesa con CURP autorizada."
+                    }, status=200)
+            # ===== FIN PARCHE 4744 =====
+
+
             if existing and existing.is_active and not incoming_is_active:
                 # Ignoramos el "inactivo" del archivo
                 incoming_defaults["is_active"] = True

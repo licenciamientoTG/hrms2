@@ -83,3 +83,30 @@
 
 /* Enlaces pequeños tipo “ver más” */
 .btn-link-sm{ border:none; background:none; padding:0; font-size:.9rem; }
+
+
+/* Clase para el efecto de zoom suave */
+.img-hover-zoom {
+    transition: transform 0.3s ease; /* Suaviza la animación (0.3 segundos) */
+    cursor: pointer; /* Mantenemos la manita para confirmar que es clicable */
+}
+
+/* Lo que pasa cuando pones el mouse encima */
+.img-hover-zoom:hover {
+    transform: scale(1.03); /* Crece un 3% */
+    filter: brightness(0.95); /* Opcional: Se oscurece un pelín para dar profundidad */
+}
+
+/* Aseguramos que el contenedor recorte lo que se salga al hacer zoom */
+.carousel-inner, .carousel-item {
+    overflow: hidden; 
+    border-radius: 0.375rem; /* rounded de bootstrap */
+}
+
+/* Forzar que el modal esté por encima de cualquier barra de navegación o sidebar */
+.modal {
+    z-index: 100000 !important;
+}
+.modal-backdrop {
+    z-index: 99999 !important; /* El fondo gris justo debajo del modal */
+}

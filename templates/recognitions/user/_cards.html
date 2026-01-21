@@ -1,4 +1,8 @@
 {% load static %}
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'css/recognition.css' %}">
+{% endblock %}
+
 {% for rec in feed %}
   <div class="card shadow-sm mb-4 overflow-hidden post-card" id="recognition-{{ rec.id }}">
 
@@ -109,9 +113,10 @@
             <div class="carousel-inner rounded overflow-hidden">
               {% for m in imgs %}
                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                  <img src="{{ m.file.url }}" class="d-block w-100"
+                  <img src="{{ m.file.url }}" class="d-block w-100 img-hover-zoom"
                        alt="Imagen del comunicado"
-                       style="max-height:auto; object-fit:cover;">
+                       style="max-height:auto; object-fit:cover;"
+                       onclick="viewFullImage('{{ m.file.url }}')">
                 </div>
               {% endfor %}
             </div>
@@ -130,7 +135,7 @@
             {% endif %}
           </div>
         {% elif rec.image %}
-          <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded" style="max-height:420px;object-fit:cover;" alt="">
+          <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded img-hover-zoom" style="max-height:420px;object-fit:cover;" alt="" onclick="viewFullImage('{{ rec.image.url }}')">
         {% endif %}
       {% endwith %}
 
@@ -177,6 +182,22 @@
         </div>
       </form>
     </div>
-
   </div>
 {% endfor %}
+  <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content bg-transparent border-0 shadow-none">
+      <div class="modal-body p-0 text-center position-relative">
+        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" 
+                data-bs-dismiss="modal" aria-label="Close" style="z-index: 1056; filter: invert(1);"></button>
+        
+        <img id="img-viewer-src" src="" class="img-fluid rounded shadow-lg" 
+             style="max-height: 90vh; max-width: 100%; object-fit: contain;" alt="Vista previa">
+      </div>
+    </div>
+  </div>
+</div>
+{% block scripts %}
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="{% static 'js/recognition.js' %}"></script>
+{% endblock %}

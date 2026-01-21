@@ -608,3 +608,26 @@ $(document).ready(function() {
         }
     }
 });
+
+
+
+// En recognition.js
+
+function viewFullImage(imgUrl) {
+    // 1. Imprimir en consola para ver si llega bien la ruta
+    console.log("--> URL recibida:", imgUrl);
+
+    var modalImg = document.getElementById('img-viewer-src');
+    
+    if (modalImg) {
+        // 2. Asignar la URL
+        modalImg.src = imgUrl;
+        
+        var modalEl = document.getElementById('imageViewerModal');
+        // Asegurarse de usar bootstrap global
+        var myModal = new bootstrap.Modal(modalEl);
+        myModal.show();
+    } else {
+        console.error("Error: No se encontró la etiqueta <img id='img-viewer-src'> en el HTML");
+    }
+}
