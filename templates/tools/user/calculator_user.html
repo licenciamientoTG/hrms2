@@ -56,15 +56,36 @@
           </div>
 
           <!-- Semanas -->
+          <input type="hidden" id="server-max-weeks" value="{{ max_weeks_allowed }}">
+          <input type="hidden" id="server-current-week" value="{{ current_week }}">
+
           <div class="mb-4">
-            <label class="form-label">Seleccione las semanas de plazo</label>
-            <select id="semanas" class="form-select" aria-label="semanas de plazo">
-              <option value="1" selected>1</option><option value="2">2</option>
-              <option value="3">3</option><option value="4">4</option>
-              <option value="5">5</option><option value="6">6</option>
-              <option value="7">7</option><option value="8">8</option>
-              <option value="9">9</option><option value="10">10</option>
-            </select>
+              <label class="form-label">Seleccione las semanas de plazo</label>
+              
+              {% if max_weeks_allowed == 0 %}
+                  <div class="alert alert-info text-center p-2 small">
+                      <i class="fas fa-calendar-times"></i> Semana de corte de Fondo de Ahorro. Préstamos suspendidos temporalmente.
+                  </div>
+              {% else %}
+                  <select id="semanas" class="form-select" aria-label="semanas de plazo">
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                  </select>
+                  
+                  {% if max_weeks_allowed < 10 and max_weeks_allowed > 0 %}
+                      <div class="form-text text-warning">
+                          <i class="fas fa-clock"></i> Plazo ajustado por cierre anual (Semana 44).
+                      </div>
+                  {% endif %}
+              {% endif %}
           </div>
 
           <!-- Resultado -->

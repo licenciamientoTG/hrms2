@@ -13,10 +13,6 @@ from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
 from apps.employee.models import Employee
 
 
-# ==========================
-#  Auth views
-# ==========================
-
 def login_view(request):
     next_url = request.POST.get('next') or request.GET.get('next')
 

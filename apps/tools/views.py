@@ -24,16 +24,48 @@ def calculator_view(request):
 @login_required
 def calculator_user(request):
     employee = Employee.objects.filter(user=request.user).first()
-
     fondo_ahorro = 0
-    if employee and employee.saving_fund is not None:
-        # lo pasamos como entero para el input number
+    if employee and employee.saving_fund:
         fondo_ahorro = int(employee.saving_fund)
+
+    # --- LÓGICA DE TIEMPO ---
+    today = date.today()
+    current_week = today.isocalendar()[1]
+    # current_week = 43  # <--- COMENTAR EN PRODUCCIÓN
+    target_week = 44 
+    
+    if current_week > target_week:
+        max_weeks_allowed = 10
+    elif current_week == target_week:
+        max_weeks_allowed = 0
+    else:
+        max_weeks_allowed = max(0, min(10, target_week - current_week))
+
+    # --- LÓGICA DE CAPACIDAD DE PAGO (Regla del 30% del Bruto) ---
+    capacidad_pago_semanal = 0
+    
+    # 30% del Bruto es el estándar seguro para deducir vía nómina
+    # Esto deja el 70% restante para Impuestos (ISR/IMSS) y Gastos.
+    PORCENTAJE_SEGURO = 0.30 
+
+    if employee:
+        sueldo_bruto_semanal = 0
+        if hasattr(employee, 'daily_salary') and employee.daily_salary:
+             sueldo_bruto_semanal = float(employee.daily_salary) * 7
+        elif hasattr(employee, 'monthly_salary') and employee.monthly_salary:
+             sueldo_bruto_semanal = (float(employee.monthly_salary) / 30) * 7
+        
+        capacidad_pago_semanal = sueldo_bruto_semanal * PORCENTAJE_SEGURO
 
     return render(
         request,
         "tools/user/calculator_user.html",
-        {"fondo_ahorro": fondo_ahorro},
+        {
+            "fondo_ahorro": fondo_ahorro,
+            "max_weeks_allowed": max_weeks_allowed,
+            "sueldo_semanal": capacidad_pago_semanal,
+            "current_week": current_week,
+        },
     )
 
 @login_required
@@ -121,89 +153,104 @@ def create_loan_request(request):
     try:
         data = json.loads(request.body or "{}")
 
-        # 1) Parseo seguro
         try:
-            monto = Decimal(str(data.get("amount", "0"))).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-        except (InvalidOperation, TypeError):
-            return JsonResponse({"ok": False, "error": "Monto inválido."})
-
-        try:
+            monto = Decimal(str(data.get("amount", "0"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             semanas = int(data.get("weeks", 0))
-        except (ValueError, TypeError):
-            return JsonResponse({"ok": False, "error": "Semanas inválidas."})
+        except:
+            return JsonResponse({"ok": False, "error": "Datos inválidos."})
 
-        # 2) Validaciones básicas
-        if monto <= 0:
-            return JsonResponse({"ok": False, "error": "El monto debe ser mayor a 0."})
+        # --- VALIDACIÓN DE TIEMPO ---
+        today = date.today()
+        current_week = today.isocalendar()[1] 
+        # current_week = 43 # <--- COMENTAR EN PRODUCCIÓN
+        target_week = 44
+        
+        if current_week > target_week:
+            max_allowed = 10
+        elif current_week == target_week:
+            max_allowed = 0
+        else:
+            max_allowed = min(10, target_week - current_week)
 
-        if semanas < 1 or semanas > 10:
-            return JsonResponse({"ok": False, "error": "El plazo debe ser entre 1 y 10 semanas."})
+        if max_allowed == 0:
+             return JsonResponse({"ok": False, "error": "Semana de corte (44)."})
+        if semanas > max_allowed:
+            return JsonResponse({"ok": False, "error": f"Plazo máximo permitido: {max_allowed} semanas."})
 
-        # 3) Obtener empleado
+        # Validaciones básicas
+        if monto <= 0: return JsonResponse({"ok": False, "error": "Monto mayor a 0."})
+        if semanas < 1: return JsonResponse({"ok": False, "error": "Mínimo 1 semana."})
+
+        # Empleado
         employee = Employee.objects.filter(user=request.user).first()
-        if not employee:
-            return JsonResponse({"ok": False, "error": "No se encontró información de empleado para este usuario."})
+        if not employee: return JsonResponse({"ok": False, "error": "Empleado no encontrado."})
 
-        ahorro_total = Decimal(str(employee.saving_fund or 0)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        limite = (ahorro_total * Decimal("0.50")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        # ---------------------------------------------------------
+        # BLOQUE DE CAPACIDAD (30% DEL BRUTO)
+        # ---------------------------------------------------------
+        limit_pago_semanal = Decimal("0.00")
+        PORCENTAJE_SEGURO = Decimal("0.30") # 30% Estricto
 
-        # 4) ✅ Validación anti-hack del 50%
-        if monto > limite:
+        sueldo_bruto = Decimal("0.00")
+        if hasattr(employee, 'daily_salary') and employee.daily_salary:
+             sueldo_bruto = Decimal(str(employee.daily_salary)) * 7
+        elif hasattr(employee, 'monthly_salary') and employee.monthly_salary:
+             sueldo_bruto = (Decimal(str(employee.monthly_salary)) / 30) * 7
+        
+        # Calculamos el límite seguro
+        limit_pago_semanal = sueldo_bruto * PORCENTAJE_SEGURO
+        
+        # Proyección
+        pago_semanal_proyectado = monto / semanas
+        
+        # Validación
+        if limit_pago_semanal > 0 and pago_semanal_proyectado > limit_pago_semanal:
             return JsonResponse({
-                "ok": False,
-                "error": f"El monto solicitado (${monto}) excede el 50% permitido (${limite})."
+                "ok": False, 
+                "error": f"El pago semanal calculado (${pago_semanal_proyectado:,.2f}) es riesgoso para tu nivel salarial. "
+                         f"Por política de seguridad financiera, tu descuento máximo permitido es de ${limit_pago_semanal:,.2f} semanales (30% de tu sueldo bruto)."
             })
+        # ---------------------------------------------------------
 
-        # 5) Validar préstamo activo
-        ultimo_prestamo = LoanRequest.objects.filter(
-            user=request.user,
-            status__in=["pending", "approved"]
-        ).order_by("-created_at").first()
+        # Validar 50% Fondo
+        ahorro_total = Decimal(str(employee.saving_fund or 0))
+        limite_fondo = ahorro_total * Decimal("0.50")
+        if monto > limite_fondo:
+            return JsonResponse({"ok": False, "error": f"Excede el 50% de tu fondo (${limite_fondo:,.2f})."})
 
-        if ultimo_prestamo:
-            if ultimo_prestamo.status == "pending":
-                return JsonResponse({"ok": False, "error": "Ya tienes una solicitud en revisión."})
+        # Validar Prestamo Activo
+        ultimo = LoanRequest.objects.filter(user=request.user, status__in=["pending", "approved"]).order_by("-created_at").first()
+        if ultimo:
+            if ultimo.status == "pending": return JsonResponse({"ok": False, "error": "Solicitud en revisión."})
+            if ultimo.status == "approved":
+                fin = ultimo.created_at + timedelta(weeks=ultimo.weeks)
+                if timezone.now() < fin:
+                    return JsonResponse({"ok": False, "error": "Tienes un préstamo activo."})
 
-            if ultimo_prestamo.status == "approved":
-                fecha_fin_estimada = ultimo_prestamo.created_at + timedelta(weeks=ultimo_prestamo.weeks)
-                if timezone.now() < fecha_fin_estimada:
-                    dias_restantes = (fecha_fin_estimada - timezone.now()).days
-                    return JsonResponse({
-                        "ok": False,
-                        "error": f"Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {dias_restantes} días."
-                    })
-
-        # 6) Crear solicitud
+        # Crear
         puesto = employee.job_position.title if employee.job_position else "Sin puesto"
         empresa = employee.company or "Sin empresa"
         num_empleado = employee.employee_number or ""
-        nombre_completo = f"{employee.first_name} {employee.last_name}".strip()
-
-        pago_semanal = (monto / Decimal(semanas)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        nombre = f"{employee.first_name} {employee.last_name}".strip()
+        pago_final = pago_semanal_proyectado.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         LoanRequest.objects.create(
             user=request.user,
             employee_number=num_empleado,
-            full_name=nombre_completo,
+            full_name=nombre,
             job_position=puesto,
             company=empresa,
             saving_fund_snapshot=ahorro_total,
             amount=monto,
             weeks=semanas,
-            payment_amount=pago_semanal,
-            status="approved",  # si así lo quieres; si quieres revisión, cambia a "pending"
+            payment_amount=pago_final,
+            status="approved", 
         )
 
         return JsonResponse({"ok": True})
 
     except Exception:
-        return JsonResponse({"ok": False, "error": "Error al procesar la solicitud."})
+        return JsonResponse({"ok": False, "error": "Error interno."})
 
 @user_passes_test(lambda u: u.is_staff)
 def export_loans_excel(request):
