@@ -140,9 +140,11 @@
             </div>
 
             <div class="modal-body pt-4">
-                <form action="#" method="POST" id="evaluationForm"> 
+                <form action="{% url 'create_cycle' %}" method="POST" id="evaluationForm" enctype="multipart/form-data"> 
                     {% csrf_token %}
                     
+                    <input type="hidden" name="selection_type" value="excel">
+
                     <div class="row g-3 mb-4">
                         <div class="col-md-9">
                             <label class="form-label fw-bold text-muted small text-uppercase">Nombre de la Evaluación</label>
@@ -159,21 +161,14 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold text-dark mb-3">Seleccione el Tipo de Evaluación</label>
-                        
-                        <div class="row g-3 align-items-stretch"> <div class="col-md-6 selection-col">
+                        <div class="row g-3 align-items-stretch"> 
+                            <div class="col-md-6 selection-col">
                                 <input type="radio" class="btn-check custom-check-input" name="tipo_evaluacion" id="tipoCuali" value="cualitativa" checked onchange="toggle360Option()">
-                                
                                 <label class="selection-card" for="tipoCuali">
                                     <div class="d-flex align-items-center mb-2">
-                                        <div class="me-3 text-center" style="width: 50px;">
-                                            <i class="fas fa-users-cog icon-indicator"></i>
-                                        </div>
-                                        <div>
-                                            <h6 class="fw-bold mb-1">Cualitativa</h6>
-                                            <div class="text-muted small">Competencias, conductas y cultura.</div>
-                                        </div>
+                                        <div class="me-3 text-center" style="width: 50px;"><i class="fas fa-users-cog icon-indicator"></i></div>
+                                        <div><h6 class="fw-bold mb-1">Cualitativa</h6><div class="text-muted small">Competencias, conductas y cultura.</div></div>
                                     </div>
-
                                     <div id="container360">
                                         <div class="form-check form-switch d-flex align-items-center ps-0">
                                             <input class="form-check-input me-2 mt-0" type="checkbox" id="check360" name="es_360" style="cursor: pointer; width: 35px; height: 18px; margin-left: 0;">
@@ -185,21 +180,34 @@
                                     </div>
                                 </label>
                             </div>
-                            
                             <div class="col-md-6 selection-col">
                                 <input type="radio" class="btn-check custom-check-input" name="tipo_evaluacion" id="tipoCuanti" value="cuantitativa" onchange="toggle360Option()">
-                                
                                 <label class="selection-card justify-content-center" for="tipoCuanti">
                                     <div class="d-flex align-items-center">
-                                        <div class="me-3 text-center" style="width: 50px;">
-                                            <i class="fas fa-chart-line icon-indicator"></i>
-                                        </div>
-                                        <div>
-                                            <h6 class="fw-bold mb-1">Cuantitativa</h6>
-                                            <div class="text-muted small">Sincronización de Objetivos y KPIs.</div>
-                                        </div>
+                                        <div class="me-3 text-center" style="width: 50px;"><i class="fas fa-chart-line icon-indicator"></i></div>
+                                        <div><h6 class="fw-bold mb-1">Cuantitativa</h6><div class="text-muted small">Sincronización de Objetivos y KPIs.</div></div>
                                     </div>
                                 </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-dark mb-2">Cargar Participantes</label>
+                        
+                        <div class="border rounded p-4 bg-white text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                                <br>
+                                <label for="excelFile" class="form-label fw-bold text-dark">
+                                    Subir archivo filtrado (.xlsx)
+                                </label>
+                                <input class="form-control form-control-sm mx-auto" style="max-width: 400px;" type="file" id="excelFile" name="excel_file" accept=".xlsx, .xls, .csv">
+                            </div>
+                            
+                            <div class="alert alert-success bg-opacity-10 border-0 small text-start d-inline-block mx-auto mb-0" style="max-width: 90%;">
+                                <i class="fas fa-info-circle me-1"></i> <strong>Instrucciones:</strong>
+                                El sistema buscará la pestaña <code>Empleados</code> y la columna <code>Número</code> para inscribir automáticamente a las personas.
                             </div>
                         </div>
                     </div>
@@ -207,7 +215,7 @@
                     <div class="alert alert-warning bg-opacity-10 border-0 d-flex align-items-start mt-4 mb-0" role="alert">
                         <i class="fas fa-exclamation-circle text-warning mt-1 me-3"></i>
                         <div class="small text-muted">
-                            <strong>Importante:</strong> Al hacer clic en "Iniciar", la evaluación se activará inmediatamente para todos los colaboradores.
+                            <strong>Importante:</strong> Al hacer clic en "Iniciar", la evaluación se activará inmediatamente para los colaboradores encontrados en el archivo.
                         </div>
                     </div>
 
