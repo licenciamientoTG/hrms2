@@ -1,14 +1,14 @@
 import zipfile
 import xml.etree.ElementTree as ET
 import re
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from apps.employee.models import Employee
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview
+from django.db.models import Q
 
-# --- CLASE AUXILIAR MEJORADA (DETECTA FILAS OCULTAS) ---
 class NativeXLSXReader:
     def __init__(self, file_obj):
         self.zip_ref = zipfile.ZipFile(file_obj)
@@ -167,7 +167,30 @@ def performance_view_admin(request):
 
 @login_required
 def performance_view_user(request):
-    return render(request, 'performance/user/performance_view_user.html')
+    try:
+        current_employee = request.user.employee 
+    except AttributeError:
+        return render(request, 'performance/user/performance_view_user.html', {'error_msg': 'Sin perfil.'})
+
+    active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
+    
+    # Lista de personas a las que YO tengo que evaluar (incluyéndome a mí mismo si aplica)
+    assignments = [] 
+
+    if active_cycle:
+        # Buscamos en la tabla PerformanceReview donde el 'reviewer' sea el usuario actual
+        assignments = PerformanceReview.objects.filter(
+            cycle=active_cycle
+        ).filter(
+            Q(reviewer=current_employee) | Q(employee=current_employee)
+        ).select_related('employee', 'employee__user').distinct()
+
+    context = {
+        'active_cycle': active_cycle,
+        'assignments': assignments,  # <--- ESTA ES LA VARIABLE NUEVA CLAVE
+    }
+    
+    return render(request, 'performance/user/performance_view_user.html', context)
 
 # --- CREAR CICLO ---
 
@@ -238,7 +261,7 @@ def create_cycle(request):
         
         # Crear Evaluaciones
         reviews_created = [
-            PerformanceReview(cycle=ciclo, employee=emp, status='draft') 
+            PerformanceReview(cycle=ciclo, employee=emp, reviewer=emp, status='draft') 
             for emp in employees_to_evaluate
         ]
         PerformanceReview.objects.bulk_create(reviews_created)
@@ -249,3 +272,113 @@ def create_cycle(request):
     except Exception as e:
         messages.error(request, f"Error crítico: {str(e)}")
         return redirect('performance_view_admin')
+
+        
+@login_required
+def evaluate_person(request, review_id):
+    # 1. Obtener la evaluación específica
+    review = get_object_or_404(PerformanceReview, id=review_id)
+
+    # 2. SEGURIDAD: Verificar que el usuario logueado es el revisor asignado
+    # (Si es autoevaluación, el reviewer debe ser él mismo en la BD)
+    if review.reviewer.user != request.user:
+        messages.error(request, "No tienes permiso para ver esta evaluación.")
+        return redirect('performance_view_user')
+
+    # 3. PROCESAR EL GUARDADO (POST)
+    if request.method == 'POST':
+        try:
+            # Recopilamos los datos del formulario "Excel"
+            evaluation_data = {
+                'comunicacion': {
+                    'comentarios': request.POST.get('com_comunicacion'),
+                    'compromisos': request.POST.get('comp_comunicacion'),
+                    'logro': request.POST.get('logro_comunicacion') 
+                },
+                'equipo': {  # OJO: en el HTML usamos 'equipo', asegúrate que coincida
+                    'comentarios': request.POST.get('com_equipo'),
+                    'compromisos': request.POST.get('comp_equipo'),
+                    'logro': request.POST.get('logro_equipo')
+                },
+                'conflicto': {
+                    'comentarios': request.POST.get('com_conflicto'),
+                    'compromisos': request.POST.get('comp_conflicto'),
+                    'logro': request.POST.get('logro_conflicto')
+                },
+                'tiempo': {
+                    'comentarios': request.POST.get('com_tiempo'),
+                    'compromisos': request.POST.get('comp_tiempo'),
+                    'logro': request.POST.get('logro_tiempo')
+                },
+                'servicio': {
+                    'comentarios': request.POST.get('com_servicio'),
+                    'compromisos': request.POST.get('comp_servicio'),
+                    'logro': request.POST.get('logro_servicio')
+                },
+                'iniciativa': {
+                    'comentarios': request.POST.get('com_iniciativa'),
+                    'compromisos': request.POST.get('comp_iniciativa'),
+                    'logro': request.POST.get('logro_iniciativa')
+                },
+                'asistencia': {
+                    'comentarios': request.POST.get('com_asistencia'),
+                    'compromisos': request.POST.get('comp_asistencia'),
+                    'logro': request.POST.get('logro_asistencia')
+                },
+                'puntualidad': {
+                    'comentarios': request.POST.get('com_puntualidad'),
+                    'compromisos': request.POST.get('comp_puntualidad'),
+                    'logro': request.POST.get('logro_puntualidad')
+                }
+            }
+
+            # Guardamos el Gran Total calculado
+            grand_total = request.POST.get('grand_total_input', '0')
+            
+            # Actualizamos el modelo
+            review.rating = float(grand_total)
+            # Guardamos todo el detalle como JSON en el campo comments
+            review.comments = json.dumps(evaluation_data, ensure_ascii=False) 
+            review.status = 'completed' # O 'closed' si quieres cerrarlo directo
+            review.date_reviewed = timezone.now()
+            review.save()
+
+            messages.success(request, f"Evaluación de {review.employee.user.first_name} guardada correctamente.")
+            return redirect('performance_view_user')
+
+        except Exception as e:
+            messages.error(request, f"Error al guardar: {str(e)}")
+
+    # 4. RENDERIZAR (GET)
+    # Convertimos los comentarios guardados de JSON a Dict para rellenar el formulario si ya existe
+    saved_data = {}
+    if review.comments and review.comments.startswith('{'):
+        try:
+            saved_data = json.loads(review.comments)
+        except:
+            pass
+    
+    periodo_texto = "N/A"
+    fecha_ref = review.cycle.start_date
+    if not fecha_ref:
+        fecha_ref = timezone.now()
+
+    mes = fecha_ref.month
+    anio = fecha_ref.year
+
+    # Si la evaluación termina en el primer semestre (Enero-Junio), 
+    # significa que estamos evaluando el SEGUNDO semestre del año ANTERIOR.
+    if mes <= 6:
+        periodo_texto = f"JUL - DIC {anio - 1}"
+    else:
+        # Si es en el segundo semestre (Julio en adelante),
+        # evaluamos el PRIMER semestre de ESTE año.
+        periodo_texto = f"ENE - JUN {anio}"
+
+    context = {
+        'review': review,
+        'employee': review.employee, # El empleado a evaluar (puede ser uno mismo)
+        'data': saved_data,
+        'periodo_texto': periodo_texto
+    }
+    return render(request, 'performance/user/evaluation.html', context)

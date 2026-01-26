@@ -262,7 +262,7 @@ def recibir_datos1(request):
             "seniority_raw": seniority_raw,
             "company": company_name,
             "education_level": _safe_str(data.get("Estudios", "sin dato")),
-            "email": email if email else "sin email",
+            "email": email if email else "",
             # Campos por defecto si no vienen del archivo:
             "birth_date": date(1991, 1, 1),
             "notes": "Sin observaciones",
@@ -282,13 +282,15 @@ def recibir_datos1(request):
             # Solo permitir que el reloj 4744 se cree/actualice si la CURP es la esperada
             if str(employee_number).strip() == "4744":
                 curp_in = (incoming_defaults.get("curp") or "").strip().upper()
-                curp_ok = "NUSN840705MDGXNR05"
-                if curp_in != curp_ok:
-                    print(f"⛔ PARCHE 4744: ignorado. CURP entrante={curp_in} (se esperaba {curp_ok})")
+
+                curp_prefix_ok = "NUSN840705"  # ej. 10 chars, SIN el resto
+
+                if not curp_in.startswith(curp_prefix_ok):
+                    print(f"⛔ PARCHE 4744: ignorado. CURP prefijo no coincide. Entrante={curp_in}")
                     return JsonResponse({
                         "success": True,
                         "status": "ignored_patch_4744",
-                        "mensaje": "Registro ignorado por parche: reloj 4744 solo se procesa con CURP autorizada."
+                        "mensaje": "Registro ignorado por parche: reloj 4744 protegido."
                     }, status=200)
             # ===== FIN PARCHE 4744 =====
 

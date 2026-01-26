@@ -19,103 +19,116 @@
         <div>
             <p class="text-muted mb-0">Gestiona tus evaluaciones pendientes y consulta tu historial de resultados.</p>
         </div>
-        </div>
-
-    {# --- SECCIÓN 1: EVALUACIÓN ACTIVA (TAREAS PENDIENTES) --- #}
+    </div>
+    
+    {# --- CORRECCIÓN 1: Usamos 'active_cycle' en lugar de 'my_active_review' --- #}
     {% if active_cycle %}
-        <div class="card active-evaluation-card shadow mb-5">
-            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between" 
-                 data-bs-toggle="collapse" 
-                 data-bs-target="#collapseActive">
+        <div class="card active-evaluation-card shadow mb-5 border-start border-5 border-success">
+            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between bg-white">
                 
                 <div class="d-flex align-items-center">
                     <div class="me-4 text-center">
-                        <span class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-1 rounded-pill mb-1">
-                            <i class="fas fa-pen-nib me-1"></i> ABIERTA
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill mb-1">
+                            <i class="fas fa-bullseye me-1"></i> EN CURSO
                         </span>
-                        <div class="small text-muted mt-1">Tu participación</div>
                     </div>
                     <div>
                         <h4 class="m-0 font-weight-bold text-dark mb-1">{{ active_cycle.name }}</h4>
                         <p class="text-muted mb-0 small">
-                            <span class="me-2">Cierre estimado: <strong>{{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}</strong></span>
+                            <i class="far fa-calendar-alt me-1"></i> Año Fiscal: {{ active_cycle.year }}
+                            <span class="mx-2">|</span>
+                            <span class="text-danger">
+                                <i class="far fa-clock me-1"></i> Cierre: {{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}
+                            </span>
                         </p>
                     </div>
                 </div>
-                <div class="text-muted pe-3">
-                    <span class="me-2 fw-bold text-primary small">VER PENDIENTES</span>
-                    <i class="fas fa-chevron-down"></i>
+
+                {# --- CORRECCIÓN 2: Quitamos el botón "Iniciar Evaluación" general porque ahora hay una lista --- #}
+                <div class="text-end">
+                    <span class="text-muted small">
+                        Pendientes: <strong>{{ assignments|length }}</strong>
+                    </span>
                 </div>
             </div>
             
-            <div id="collapseActive" class="collapse show">
-                 <div class="card-body bg-white pt-4 pb-4">
-                     
-                     <h6 class="fw-bold text-secondary mb-3 ps-2 border-start border-4 border-primary">
-                        Personas que debes evaluar en este ciclo:
-                     </h6>
+            <div class="card-body bg-light p-0">
+                
+                {% if assignments %}
+                    <div class="p-3 border-bottom bg-white">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-tasks me-2"></i>Personas a evaluar
+                        </h6>
+                    </div>
 
-                     {% if assignments %}
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Colaborador</th>
-                                        <th>Relación</th>
-                                        <th>Estado</th>
-                                        <th class="text-end">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for task in assignments %}
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="avatar-placeholder bg-light text-primary rounded-circle me-3 d-flex align-items-center justify-content-center fw-bold" style="width: 35px; height: 35px;">
-                                                    {{ task.target_user.first_name|slice:":1" }}{{ task.target_user.last_name|slice:":1" }}
-                                                </div>
-                                                <div>
-                                                    <div class="fw-bold text-dark">{{ task.target_user.get_full_name }}</div>
-                                                    <div class="small text-muted">{{ task.target_user.email }}</div>
-                                                </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th class="ps-4">Colaborador</th>
+                                    <th class="text-center">Tipo</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-end pe-4">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for review in assignments %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold me-3" 
+                                                 style="width: 35px; height: 35px; font-size: 0.8rem;">
+                                                {{ review.employee.user.first_name|slice:":1" }}{{ review.employee.user.last_name|slice:":1" }}
                                             </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-info text-dark bg-opacity-10 border border-info">
-                                                {{ task.get_relationship_display }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {% if task.is_completed %}
-                                                <span class="text-success small"><i class="fas fa-check-circle me-1"></i> Completado</span>
-                                            {% else %}
-                                                <span class="text-warning small"><i class="fas fa-clock me-1"></i> Pendiente</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-end">
-                                            {% if not task.is_completed %}
-                                                <a href="{% url 'evaluate_person' task.id %}" class="btn btn-sm btn-primary px-3 rounded-pill">
-                                                    Evaluar <i class="fas fa-arrow-right ms-1"></i>
-                                                </a>
-                                            {% else %}
-                                                <button class="btn btn-sm btn-light text-muted px-3 rounded-pill" disabled>
-                                                    Enviado
-                                                </button>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                     {% else %}
-                        <div class="text-center py-4 text-muted">
-                            <i class="fas fa-check-double fa-2x mb-2 text-success opacity-50"></i>
-                            <p class="mb-0">¡Todo listo! No tienes evaluaciones pendientes asignadas.</p>
-                        </div>
-                     {% endif %}
+                                            <div>
+                                                <div class="fw-bold text-dark">{{ review.employee.user.get_full_name }}</div>
+                                                <div class="small text-muted">{{ review.employee.puesto.title|default:"Colaborador" }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
 
-                 </div>
+                                    <td class="text-center">
+                                        {# Lógica para detectar si es autoevaluación #}
+                                        {% if review.employee.id == request.user.employee.id %}
+                                            <span class="badge bg-info text-dark bg-opacity-10 border border-info rounded-pill px-3">Autoevaluación</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary text-dark bg-opacity-10 border border-secondary rounded-pill px-3">Evaluación a Equipo</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td class="text-center">
+                                        {% if review.status == 'completed' or review.status == 'closed' %}
+                                            <span class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i> Completado</span>
+                                        {% else %}
+                                            <span class="text-warning small fw-bold"><i class="fas fa-clock me-1"></i> Pendiente</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td class="text-end pe-4">
+                                        {% if review.status == 'completed' or review.status == 'closed' %}
+                                            <button class="btn btn-sm btn-light text-muted border" disabled>Enviado</button>
+                                        {% else %}
+                                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-sm btn-primary fw-bold shadow-sm px-3">
+                                                Evaluar <i class="fas fa-chevron-right ms-1" style="font-size: 0.7rem;"></i>
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                {% else %}
+                    <div class="p-5 text-center">
+                        <i class="fas fa-check-circle text-success fa-2x mb-3"></i>
+                        <h6 class="text-dark fw-bold">¡Estás al día!</h6>
+                        <p class="text-muted mb-0">
+                            No tienes evaluaciones asignadas (ni propias ni de equipo) en este momento.
+                        </p>
+                    </div>
+                {% endif %}
+
             </div>
         </div>
 

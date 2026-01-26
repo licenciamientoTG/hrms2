@@ -200,6 +200,7 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").strip().lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+PASSWORD_RESET_TIMEOUT = 86400
 
 # settings.py
 TEST_NEWS_EMAIL = os.getenv("TEST_NEWS_EMAIL", "").strip()
@@ -210,6 +211,7 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "")
 CORPO_NEWS_EMAIL = os.getenv("CORPO_NEWS_EMAIL", "").strip()
 ESTACIONES_NEWS_EMAIL = os.getenv("ESTACIONES_NEWS_EMAIL", "").strip()
 ESTACIONES_JUAREZ_EMAIL = os.getenv("ESTACIONES_JUAREZ_EMAIL", "").strip()
+
 
 NEWS_EMAILS = {
     "corpo": CORPO_NEWS_EMAIL,
