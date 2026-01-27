@@ -15,6 +15,8 @@ from .views import (
     recognition_likes_list,
     recognition_scheduled_list,
     recognition_delete_scheduled,
+    group_management_view,
+    editar_miembros_grupo,
 )
 
 urlpatterns = [
@@ -35,4 +37,6 @@ urlpatterns = [
     path('recognitions/<int:pk>/likes/', recognition_likes_list,   name='recognition_likes_list'),
     path('scheduled/', recognition_scheduled_list, name='recognition_scheduled_list'),
     path('delete/<int:pk>/', recognition_delete_scheduled, name='recognition_delete'),
+    path('comunicados/grupos/', group_management_view, name='administrar_grupos'),
+    path('comunicados/grupos/<int:group_id>/miembros/', editar_miembros_grupo, name='editar_miembros'),
 ]

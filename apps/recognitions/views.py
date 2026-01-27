@@ -19,7 +19,6 @@ from django.views.decorators.http import require_GET
 from django.utils.timezone import now
 from django.utils.timesince import timesince
 from .models import RecognitionLike
-from django.contrib import messages
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
 from .emails import send_recognition_email
 from django.db import transaction
@@ -28,6 +27,11 @@ from django.utils.timezone import make_aware, get_current_timezone
 from .services import publish_recognition_if_due
 from apps.employee.models import Employee
 from django.utils import timezone
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import Group
+from apps.employee.models import Employee 
+from departments.models import Department
+from apps.employee.models import JobPosition
 
 # esta vista te redirige a las vistas de usuario y administrador
 @login_required
@@ -495,3 +499,73 @@ def recognition_delete_scheduled(request, pk):
     rec = get_object_or_404(Recognition, pk=pk)
     rec.delete()
     return JsonResponse({'ok': True})
+
+@staff_member_required  # O el decorador de permisos que uses
+def group_management_view(request):
+    # Nombres exactos de tus grupos
+    nombres_grupos = ["Corporativo", "Estaciones", "Estaciones Juárez"]
+    for nombre in nombres_grupos:
+        Group.objects.get_or_create(name=nombre)
+    
+    # Filtramos solo estos 3 grupos para mostrarlos
+    grupos = Group.objects.filter(name__in=nombres_grupos)
+    
+    context = {
+        "grupos": grupos
+    }
+    return render(request, "recognitions/admin/group_list.html", context)
+
+@staff_member_required
+def editar_miembros_grupo(request, group_id):
+    grupo = get_object_or_404(Group, id=group_id)
+    
+    if request.method == 'POST':
+        # 1. Obtener IDs de los 3 selectores
+        user_ids = request.POST.getlist('usuarios_seleccionados')
+        dept_ids = request.POST.getlist('departamentos_seleccionados')
+        puesto_ids = request.POST.getlist('puestos_seleccionados')
+        
+        # 2. Buscar los objetos User correspondientes
+        # A) Seleccionados manualmente
+        users_directos = User.objects.filter(id__in=user_ids)
+        
+        # B) Por Departamento (Buscamos empleados en esos depts y obtenemos sus usuarios)
+        # Nota: Filtramos user__isnull=False para ignorar empleados sin usuario de sistema
+        users_por_dept = User.objects.filter(
+            employee__department_id__in=dept_ids, 
+            employee__is_active=True
+        )
+        
+        # C) Por Puesto
+        users_por_puesto = User.objects.filter(
+            employee__job_position_id__in=puesto_ids,
+            employee__is_active=True
+        )
+        
+        # 3. UNIÓN DE CONJUNTOS (El operador | elimina duplicados automáticamente)
+        # Esto junta las 3 listas y deja solo 1 registro por persona
+        lista_final_usuarios = users_directos | users_por_dept | users_por_puesto
+        
+        # .distinct() asegura que no haya duplicados a nivel base de datos
+        grupo.user_set.set(lista_final_usuarios.distinct())
+        
+        messages.success(request, f'Grupo "{grupo.name}" actualizado. Total miembros: {grupo.user_set.count()}')
+        return redirect('administrar_grupos')
+
+    # GET: Preparamos los datos para el formulario
+    usuarios_disponibles = User.objects.filter(is_active=True).select_related('employee').order_by('first_name')
+    departamentos = Department.objects.all().order_by('name')
+    puestos = JobPosition.objects.all().order_by('title')
+    
+    # Obtenemos los miembros actuales para mostrarlos en la tabla
+    miembros_actuales = grupo.user_set.all().select_related('employee').order_by('first_name')
+    
+    context = {
+        'grupo': grupo,
+        'usuarios_disponibles': usuarios_disponibles,
+        'departamentos': departamentos,
+        'puestos': puestos,
+        'miembros_actuales': miembros_actuales
+    }
+
+    return render(request, 'recognitions/admin/edit_members.html', context)

@@ -252,8 +252,10 @@ function renderDesglose() {
     </div>
     <p class="text-muted small mb-0">
       La información que se muestra queda sujeta a revisión. <br>
-      Semana actual: <strong>${serverWeek}</strong>.<br>
-      Recuerda que el deposito será en la semana 44
+      El saldo real del préstamo se podrá consultar en su recibo de nómina. <br>
+      En caso de incidencia se ajustarán las semanas de pago. <br>
+      Recuerda que el depósito será en la semana 44 <br>
+      Semana actual de fondo de ahorro: <strong>${serverWeek}</strong>.
     </p>
   `;
 
@@ -329,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 3. Confirmación visual con SweetAlert2
             Swal.fire({
                 title: '¿Confirmar solicitud?',
-                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>. <p><br>Al enviar esta solicitud despues del jueves a las 12:00 pm el prestamo se procesará hasta la siguiente semana.</p>`,
+                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>. <p><br>Al enviar esta solicitud despues del miércoles a partir de las 5:00 pm el préstamo se procesará hasta la siguiente semana.</p>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',

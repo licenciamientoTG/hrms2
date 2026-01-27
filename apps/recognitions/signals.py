@@ -7,6 +7,13 @@ from apps.notifications.models import Notification
 
 @receiver(user_logged_in)
 def generate_missed_recognition_notifications(sender, user, request, **kwargs):
+
+    if user.is_staff:
+        return
+
+    if not user.has_perm('recognitions.Modulo_comunicados'):
+        return
+
     print(f"--- SIGNAL DISPARADO: Usuario {user.username} ha entrado ---") # DEBUG
     
     start_date = timezone.now() - timedelta(days=30)

@@ -278,8 +278,6 @@ def recibir_datos1(request):
         with transaction.atomic():
             existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
 
-            # ===== PARCHE 4744 =====
-            # Solo permitir que el reloj 4744 se cree/actualice si la CURP es la esperada
             if str(employee_number).strip() == "4744":
                 curp_in = (incoming_defaults.get("curp") or "").strip().upper()
 
@@ -292,12 +290,13 @@ def recibir_datos1(request):
                         "status": "ignored_patch_4744",
                         "mensaje": "Registro ignorado por parche: reloj 4744 protegido."
                     }, status=200)
-            # ===== FIN PARCHE 4744 =====
-
 
             if existing and existing.is_active and not incoming_is_active:
-                # Ignoramos el "inactivo" del archivo
-                incoming_defaults["is_active"] = True
+                # Bloqueamos si no trae fecha O si la fecha es muy antigua (default de SQL)
+                is_invalid_date = not termination_date or termination_date.year < 1910
+                
+                if is_invalid_date:
+                    incoming_defaults["is_active"] = True
 
             # 1) No existe -> crear
             if action == "no_existing":
