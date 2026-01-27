@@ -202,8 +202,7 @@ function renderDesglose() {
   let saldoCents = totalCents;
   const rows = [];
 
-  // Fechas por semana (primera = semana actual: lun-dom)
-  const week0Start = addDays(startOfThisWeek(), 7);
+  // ELIMINADO: Ya no calculamos week0Start ni fechas de calendario
 
   for (let i = 0; i < weeks; i++) {
     const pagoCents = baseCents + (leftover > 0 ? 1 : 0);
@@ -214,12 +213,12 @@ function renderDesglose() {
     const pago  = pagoCents / 100;
     const saldo = Math.max(saldoCents / 100, 0);
 
-    const start = addDays(week0Start, i * 7);
-    const end   = addDays(start, 4);
+    // CAMBIO AQUI: En lugar de fechas, mostramos el número de semana (1, 2, 3...)
+    const numSemana = i + 1;
 
     rows.push(`
       <tr>
-        <td class="text-center">${fmtDate(start)} – ${fmtDate(end)}</td>
+        <td class="text-center">${numSemana}</td>
         <td class="text-end">${MXN2.format(pago)}</td>
         <td class="text-end">${MXN2.format(saldo)}</td>
       </tr>
@@ -235,9 +234,9 @@ function renderDesglose() {
       <table class="table table-sm table-striped align-middle mb-2 desglose-table">
         <thead class="table-light">
           <tr>
-            <th class="text-center" style="width: 54 %;">Fechas</th>
-            <th class="text-end"   style="width: 23%;">Pago</th>
-            <th class="text-end"   style="width: 23%;">Saldo pendiente</th>
+            <th class="text-center" style="width: 54%;">#Semana</th>
+            <th class="text-end"    style="width: 23%;">Pago</th>
+            <th class="text-end"    style="width: 23%;">Saldo pendiente</th>
           </tr>
         </thead>
         <tbody>
@@ -252,9 +251,12 @@ function renderDesglose() {
       </table>
     </div>
     <p class="text-muted small mb-0">
-      La información que se muestra queda sujeta a revisión. </br>
-      Semana actual: <strong>${serverWeek}</strong>.<br>
-      Recuerda que el deposito será en la semana 44 </p>
+      La información que se muestra queda sujeta a revisión. <br>
+      El saldo real del préstamo se podrá consultar en su recibo de nómina. <br>
+      En caso de incidencia se ajustarán las semanas de pago. <br>
+      Recuerda que el depósito será en la semana 44 <br>
+      Semana actual de fondo de ahorro: <strong>${serverWeek}</strong>.
+    </p>
   `;
 
   // ✅ MOSTRAR EL BOTÓN
@@ -329,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 3. Confirmación visual con SweetAlert2
             Swal.fire({
                 title: '¿Confirmar solicitud?',
-                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>. <p><br>Al enviar esta solicitud despues del jueves a las 12:00 pm el prestamo se procesará hasta la siguiente semana.</p>`,
+                html: `Solicitarás <b>$${monto.toLocaleString('es-MX')}</b> a pagar en <b>${semanas} semanas</b>. <p><br>Al enviar esta solicitud despues del miércoles a partir de las 5:00 pm el préstamo se procesará hasta la siguiente semana.</p>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',

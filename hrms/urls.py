@@ -5,7 +5,7 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
 from apps.users.views import force_password_change
-from authapp.views import home   # 👈 importas la vista home desde authapp
+from authapp.views import home 
 
 
 urlpatterns = [
@@ -44,7 +44,11 @@ urlpatterns = [
     path("change-password/", force_password_change, name="force_password_change"),
 
     # Reset de contraseña (flujo estándar Django)
-    path("password_reset/",auth_views.PasswordResetView.as_view(),name="password_reset"),
+    path("password_reset/", auth_views.PasswordResetView.as_view(
+        template_name='registration/password_reset_form.html',           
+        html_email_template_name='registration/password_reset_email.html',
+        subject_template_name='registration/password_reset_subject.txt'    
+    ), name="password_reset"),    
     path("password_reset_done/", auth_views.PasswordResetDoneView.as_view(), name="password_reset_done"),
     path("reset/<uidb64>/<token>/", auth_views.PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("reset/done/", auth_views.PasswordResetCompleteView.as_view(), name="password_reset_complete"),

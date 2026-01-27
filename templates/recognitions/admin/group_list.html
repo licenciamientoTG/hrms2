@@ -1,0 +1,33 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Administración de Grupos de Comunicados</h2>
+    <a href="{% url 'recognition_dashboard_admin' %}" class="btn btn-light mb-3">← Volver a Comunicados</a>
+
+    <div class="row">
+        {% for grupo in grupos %}
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="my-0">{{ grupo.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Usuarios:</strong> {{ grupo.user_set.count }}</p>
+                    <hr>
+                    
+                    <a href="{% url 'editar_miembros' grupo.id %}" class="btn btn-sm btn-outline-primary w-100">
+                        Gestionar Miembros
+                    </a>
+                    
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-warning">
+            No se encontraron los grupos. Asegúrate de crearlos en el Admin: "Corporativo", "Estaciones", "Estaciones Juárez".
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

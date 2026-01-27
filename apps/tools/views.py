@@ -41,29 +41,12 @@ def calculator_user(request):
     else:
         max_weeks_allowed = max(0, min(10, target_week - current_week))
 
-    # --- LÓGICA DE CAPACIDAD DE PAGO (Regla del 30% del Bruto) ---
-    capacidad_pago_semanal = 0
-    
-    # 30% del Bruto es el estándar seguro para deducir vía nómina
-    # Esto deja el 70% restante para Impuestos (ISR/IMSS) y Gastos.
-    PORCENTAJE_SEGURO = 0.30 
-
-    if employee:
-        sueldo_bruto_semanal = 0
-        if hasattr(employee, 'daily_salary') and employee.daily_salary:
-             sueldo_bruto_semanal = float(employee.daily_salary) * 7
-        elif hasattr(employee, 'monthly_salary') and employee.monthly_salary:
-             sueldo_bruto_semanal = (float(employee.monthly_salary) / 30) * 7
-        
-        capacidad_pago_semanal = sueldo_bruto_semanal * PORCENTAJE_SEGURO
-
     return render(
         request,
         "tools/user/calculator_user.html",
         {
             "fondo_ahorro": fondo_ahorro,
             "max_weeks_allowed": max_weeks_allowed,
-            "sueldo_semanal": capacidad_pago_semanal,
             "current_week": current_week,
         },
     )
@@ -185,33 +168,6 @@ def create_loan_request(request):
         employee = Employee.objects.filter(user=request.user).first()
         if not employee: return JsonResponse({"ok": False, "error": "Empleado no encontrado."})
 
-        # ---------------------------------------------------------
-        # BLOQUE DE CAPACIDAD (30% DEL BRUTO)
-        # ---------------------------------------------------------
-        limit_pago_semanal = Decimal("0.00")
-        PORCENTAJE_SEGURO = Decimal("0.30") # 30% Estricto
-
-        sueldo_bruto = Decimal("0.00")
-        if hasattr(employee, 'daily_salary') and employee.daily_salary:
-             sueldo_bruto = Decimal(str(employee.daily_salary)) * 7
-        elif hasattr(employee, 'monthly_salary') and employee.monthly_salary:
-             sueldo_bruto = (Decimal(str(employee.monthly_salary)) / 30) * 7
-        
-        # Calculamos el límite seguro
-        limit_pago_semanal = sueldo_bruto * PORCENTAJE_SEGURO
-        
-        # Proyección
-        pago_semanal_proyectado = monto / semanas
-        
-        # Validación
-        if limit_pago_semanal > 0 and pago_semanal_proyectado > limit_pago_semanal:
-            return JsonResponse({
-                "ok": False, 
-                "error": f"El pago semanal calculado (${pago_semanal_proyectado:,.2f}) es riesgoso para tu nivel salarial. "
-                         f"Por política de seguridad financiera, tu descuento máximo permitido es de ${limit_pago_semanal:,.2f} semanales (30% de tu sueldo bruto)."
-            })
-        # ---------------------------------------------------------
-
         # Validar 50% Fondo
         ahorro_total = Decimal(str(employee.saving_fund or 0))
         limite_fondo = ahorro_total * Decimal("0.50")
@@ -225,13 +181,17 @@ def create_loan_request(request):
             if ultimo.status == "approved":
                 fin = ultimo.created_at + timedelta(weeks=ultimo.weeks)
                 if timezone.now() < fin:
-                    return JsonResponse({"ok": False, "error": "Tienes un préstamo activo."})
+                    dias_restantes = (fin - timezone.now()).days
+                    return JsonResponse({"ok": False, "error": f"Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {dias_restantes} días."})
 
         # Crear
         puesto = employee.job_position.title if employee.job_position else "Sin puesto"
         empresa = employee.company or "Sin empresa"
         num_empleado = employee.employee_number or ""
         nombre = f"{employee.first_name} {employee.last_name}".strip()
+
+        # Calcular pago semanal proyectado
+        pago_semanal_proyectado = monto / semanas
         pago_final = pago_semanal_proyectado.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         LoanRequest.objects.create(

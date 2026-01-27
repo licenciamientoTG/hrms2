@@ -163,3 +163,57 @@ def delete_group(request, group_id):
     
     # Redirigir a la misma página
     return redirect(request.META.get('HTTP_REFERER', 'user_dashboard'))
+
+@user_passes_test(lambda u: u.is_staff)
+def reset_password_to_default(request, user_id):
+    # 1. Obtenemos el usuario
+    target_user = get_object_or_404(User, pk=user_id)
+    
+    # 2. Intentamos obtener el empleado ligado
+    try:
+        employee = target_user.employee 
+    except Exception:
+        # Si falla el acceso directo, intentamos buscarlo manualmente
+        employee = Employee.objects.filter(user=target_user).first()
+
+    if not employee:
+        messages.error(request, f"El usuario {target_user.username} no tiene un empleado asignado. No se puede calcular la contraseña default.")
+        return redirect('admin_reset_password', user_id=user_id)
+
+    # 3. Lógica matemática de la contraseña (ID + CURP)
+    try:
+        emp_number = str(employee.employee_number)
+        
+        # Validamos que tenga CURP para evitar errores
+        curp_fragment = "000000"
+        if employee.curp and len(employee.curp) >= 10:
+            # Tomamos dígitos del 4 al 10 (YYMMDD)
+            curp_fragment = employee.curp[4:10]
+        
+        default_password = f"{emp_number}{curp_fragment}"
+        
+        # 4. Establecemos la contraseña
+        target_user.set_password(default_password)
+        target_user.save()
+
+        try:
+            # Intentamos acceder al perfil (authapp_userprofile)
+            if hasattr(target_user, 'userprofile'):
+                target_user.userprofile.must_change_password = True
+                target_user.userprofile.save()
+            else:
+                # Si por alguna razón el usuario no tenía perfil creado, lo creamos
+                from authapp.models import UserProfile
+                UserProfile.objects.create(user=target_user, must_change_password=True)
+                
+            messages.success(request, f"✅ Contraseña restablecida a: {default_password} (Se forzará el cambio al iniciar sesión).")
+            
+        except Exception as e:
+            # Si falla actualizar el perfil, al menos avisamos, pero la contraseña ya se cambió
+            print(f"Error actualizando perfil: {e}")
+            messages.warning(request, f"Contraseña cambiada a {default_password}, pero hubo un error activando el cambio obligatorio.")
+
+    except Exception as e:
+        messages.error(request, f"Error al generar contraseña: {str(e)}")
+
+    return redirect('admin_reset_password', user_id=user_id)

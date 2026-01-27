@@ -1,0 +1,152 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css">
+<style>
+    .section-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        font-weight: bold;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #f8f9fa;
+        padding-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-5 mb-4">
+            <div class="card shadow-sm sticky-top" style="top: 20px; z-index: 1;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fa fa-user-plus"></i> Configurar Miembros</h5>
+                    <small>{{ grupo.name }}</small>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <div class="section-title">Agregar por Grupo</div>
+                            
+                            <label class="form-label small">Departamentos</label>
+                            <select class="selectpicker form-control mb-2" 
+                                    name="departamentos_seleccionados" 
+                                    multiple 
+                                    data-live-search="true" 
+                                    data-actions-box="true"
+                                    title="Todo el departamento..."
+                                    data-style="btn-outline-secondary">
+                                {% for d in departamentos %}
+                                    <option value="{{ d.id }}">{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <label class="form-label small">Puestos</label>
+                            <select class="selectpicker form-control" 
+                                    name="puestos_seleccionados" 
+                                    multiple 
+                                    data-live-search="true" 
+                                    data-actions-box="true"
+                                    title="Todo el puesto..."
+                                    data-style="btn-outline-secondary">
+                                {% for p in puestos %}
+                                    <option value="{{ p.id }}">{{ p.title }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small text-muted">
+                                * Se agregarán todos los empleados activos de estos grupos.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="section-title">Selección Individual / Excepciones</div>
+                            <label class="form-label small">Usuarios Específicos</label>
+                            <select class="selectpicker form-control" 
+                                    name="usuarios_seleccionados" 
+                                    multiple 
+                                    data-live-search="true" 
+                                    data-actions-box="true" 
+                                    title="Buscar persona..."
+                                    data-width="100%">
+                                
+                                {% for usuario in usuarios_disponibles %}
+                                    <option value="{{ usuario.id }}" 
+                                        {% if usuario in miembros_actuales %}selected{% endif %}>
+                                        {{ usuario.first_name }} {{ usuario.last_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small text-muted">
+                                * Puedes desmarcar personas aquí para sacarlas del grupo manualmente.
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fa fa-save"></i> Actualizar Grupo
+                            </button>
+                            <a href="{% url 'administrar_grupos' %}" class="btn btn-light text-muted">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-dark">Miembros Actuales</h5>
+                        <span class="badge bg-primary rounded-pill">{{ miembros_actuales.count }} usuarios</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-hover table-striped mb-0 align-middle">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Departamento</th>
+                                    <th>Puesto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for miembro in miembros_actuales %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">{{ miembro.first_name }} {{ miembro.last_name }}</div>
+                                        <small class="text-muted">{{ miembro.username }}</small>
+                                    </td>
+                                    <td>
+                                        {{ miembro.employee.department.name|default:"--" }}
+                                    </td>
+                                    <td>
+                                        {{ miembro.employee.job_position.title|default:"--" }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center py-4 text-muted">
+                                        <i class="fa fa-users fa-2x mb-2"></i><br>
+                                        Este grupo está vacío actualmente.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+{% endblock %}
