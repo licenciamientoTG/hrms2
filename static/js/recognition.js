@@ -631,3 +631,11 @@ function viewFullImage(imgUrl) {
         console.error("Error: No se encontró la etiqueta <img id='img-viewer-src'> en el HTML");
     }
 }
+
+document.getElementById('group_all').addEventListener('change', function() {
+        let checkboxes = document.querySelectorAll('.group-checkbox');
+        checkboxes.forEach(cb => {
+            cb.disabled = this.checked;
+            if(this.checked) cb.checked = false;
+        });
+    });

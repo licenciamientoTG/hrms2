@@ -292,10 +292,6 @@ def recibir_datos1(request):
                     }, status=200)
 
             if existing and existing.is_active and not incoming_is_active:
-                # Bloqueamos si no trae fecha O si la fecha es muy antigua (default de SQL)
-                is_invalid_date = not termination_date or termination_date.year < 1910
-                
-                if is_invalid_date:
                     incoming_defaults["is_active"] = True
 
             # 1) No existe -> crear

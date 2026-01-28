@@ -556,8 +556,8 @@ def editar_miembros_grupo(request, group_id):
     # GET: Preparamos los datos para el formulario
     usuarios_disponibles = User.objects.filter(is_active=True).select_related('employee').order_by('first_name')
     departamentos = Department.objects.all().order_by('name')
-    puestos = JobPosition.objects.all().order_by('title')
-    
+    puestos_unicos = JobPosition.objects.values_list('title', flat=True).distinct().order_by('title') 
+
     # Obtenemos los miembros actuales para mostrarlos en la tabla
     miembros_actuales = grupo.user_set.all().select_related('employee').order_by('first_name')
     
@@ -565,7 +565,7 @@ def editar_miembros_grupo(request, group_id):
         'grupo': grupo,
         'usuarios_disponibles': usuarios_disponibles,
         'departamentos': departamentos,
-        'puestos': puestos,
+        'puestos': puestos_unicos,
         'miembros_actuales': miembros_actuales
     }
 
