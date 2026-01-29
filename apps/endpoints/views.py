@@ -140,34 +140,25 @@ def _create_user_for_employee(employee):
         print(f"❌ Error creando usuario para {employee.first_name} {employee.last_name}: {e}")
         return None, f"Error: {str(e)}"
 
-def _handle_duplicate_employees(employee_number, incoming_is_active):
-    all_employees = Employee.objects.filter(employee_number=employee_number).order_by('-is_active', '-id')
-    
-    if not all_employees.exists():
-        return None, "no_existing"
-    
-    active_employee = all_employees.filter(is_active=True).first()
-    
-    if incoming_is_active:
-        if active_employee:
-            # Ya hay un activo: usarlo y desactivar al resto
-            other_employees = all_employees.exclude(id=active_employee.id)
-            if other_employees.exists():
-                other_employees.update(is_active=False)
-            return active_employee, "use_existing_active"
-        else:
-            # No hay activos: activar el primero disponible
-            return all_employees.first(), "activate_existing"
+def _handle_duplicate_employees(employee_number, start_date):
+    """
+    Busca empleados por clave compuesta (número de reloj + fecha de ingreso).
+    Esto permite diferenciar reingresos con el mismo número de reloj.
+    """
+    if not start_date:
+        # Si no hay fecha de ingreso, no podemos usar la clave compuesta.
+        # Fallback: buscar solo por número (peligroso si hay homónimos, pero necesario si falta el dato)
+        # O retornamos None para forzar revisión manual/error.
+        # Aquí intentamos buscar el más reciente como fallback o null.
+        qs = Employee.objects.filter(employee_number=employee_number, start_date__isnull=True)
     else:
-        # Viene INACTIVO
-        if active_employee:
-            # Antes: keep_active_ignore_inactive
-            # Ahora: actualizar al activo (lo vamos a desactivar)
-            print(f"🔻 Empleado {employee_number}: Viene INACTIVO y hay uno ACTIVO -> se va a desactivar actualizado")
-            return active_employee, "deactivate_existing"
-        else:
-            # No hay activos: usar el primero inactivo
-            return all_employees.first(), "use_existing_inactive"
+        qs = Employee.objects.filter(employee_number=employee_number, start_date=start_date)
+    
+    if qs.exists():
+        # Encontrado registro exacto
+        return qs.first(), "found_exact"
+    
+    return None, "no_existing"
 
 
 def _apply_seniority(employee, seniority_raw, overwrite=True):
@@ -276,7 +267,7 @@ def recibir_datos1(request):
 
         # ------- Manejar duplicados con prioridad -------
         with transaction.atomic():
-            existing, action = _handle_duplicate_employees(employee_number, incoming_is_active)
+            existing, action = _handle_duplicate_employees(employee_number, start_date)
 
             if str(employee_number).strip() == "4744":
                 curp_in = (incoming_defaults.get("curp") or "").strip().upper()
@@ -290,9 +281,6 @@ def recibir_datos1(request):
                         "status": "ignored_patch_4744",
                         "mensaje": "Registro ignorado por parche: reloj 4744 protegido."
                     }, status=200)
-
-            if existing and existing.is_active and not incoming_is_active:
-                    incoming_defaults["is_active"] = True
 
             # 1) No existe -> crear
             if action == "no_existing":
@@ -328,14 +316,35 @@ def recibir_datos1(request):
 
             # 2) Cualquier otro caso -> actualizar empleado existente
             #    (use_existing_active, activate_existing, use_existing_inactive, deactivate_existing)
-            existing = Employee.objects.select_for_update().get(id=existing.id)
+            existing = Employee.objects.select_for_update().filter(id=existing.id).first()
+            if not existing:
+                return JsonResponse({"success": False, "error": "Empleado no encontrado para actualizar"}, status=404)
+
+            # --- VALIDACIÓN: Solo actualizar si actualmente está activo ---
+            if not existing.is_active:
+                return JsonResponse({
+                    "success": True,
+                    "status": "skipped_inactive_db",
+                    "mensaje": f"El empleado {existing.employee_number} ya está inactivo (histórico). Se ignora la actualización.",
+                    "changes": []
+                })
+
+            # Desactivar usuario en turno (si existe), independientemente de Activo/No activo
+            if incoming_is_active and existing.user and existing.user.is_active:
+                existing.user.is_active = False
+                existing.user.save(update_fields=["is_active"])
             
+
+                            
             fields_to_check = list(incoming_defaults.keys())
             changes, changed_fields = _diff_instance(existing, incoming_defaults, fields_to_check)
 
             if not changed_fields:
                 # Solo seniority_raw podría cambiar
                 if _apply_seniority(existing, seniority_raw, overwrite=True):
+                    if existing.is_active and existing.user and not existing.user.is_active:
+                        existing.user.is_active = True
+                        existing.user.save(update_fields=["is_active"])
                     return JsonResponse({
                         'success': True,
                         'status': 'updated',
@@ -367,6 +376,11 @@ def recibir_datos1(request):
                 if user_message:
                     response_data['user_info'] = user_message
                 
+                # ✅ Si el empleado está activo, reactivar usuario (lo apagamos al inicio)
+                if existing.is_active and existing.user and not existing.user.is_active:
+                    existing.user.is_active = True
+                    existing.user.save(update_fields=["is_active"])
+
                 return JsonResponse(response_data)
 
             # Aplicar cambios de verdad
@@ -385,17 +399,13 @@ def recibir_datos1(request):
                 user_result = f"Usuario: {user_msg}" if user else f"Sin usuario: {user_msg}"
                 user_message = user_msg
             elif not existing.is_active and existing.user:
-                # Empleado desactivado, eliminar usuario
-                user = existing.user
-                username = user.username
-                existing.user = None
-                existing.save(update_fields=['user'])
-                user.delete()
-                user_result = f"Usuario eliminado: {username}"
-                user_message = f"Usuario eliminado: {username}"
-                print(f"❌ Usuario {username} eliminado porque el empleado fue desactivado")
+                u = existing.user
+                if u.is_active:
+                    u.is_active = False
+                    u.save(update_fields=["is_active"])
+                user_result = f"Usuario desactivado: {u.username}"
+                user_message = user_result
 
-            print(f"[Empleado actualizado] {existing.employee_number} -> {existing.first_name} {existing.last_name}")
             if user_result:
                 print(f"  {user_result}")
             for ch in changes:
@@ -409,6 +419,10 @@ def recibir_datos1(request):
             }
             if user_message:
                 response_data['user_info'] = user_message
+
+            if existing.is_active and existing.user and not existing.user.is_active:
+                existing.user.is_active = True
+                existing.user.save(update_fields=["is_active"])
 
             return JsonResponse(response_data)
 
