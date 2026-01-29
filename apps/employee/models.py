@@ -14,7 +14,6 @@ class Employee(models.Model):
     # Información Básica
     employee_number = models.CharField(
         max_length=20,
-        unique=True,
         verbose_name=_("Número de empleado"),
         help_text=_("Número único de identificación del empleado")
     )
@@ -256,6 +255,12 @@ class Employee(models.Model):
         verbose_name = _("Empleado")
         verbose_name_plural = _("Empleados")
         ordering = ['last_name', 'first_name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['employee_number', 'start_date'], 
+                name='unique_employee_number_start_date'
+            )
+        ]
     
     def __str__(self):
         return f"{self.first_name} ({self.employee_number})" 

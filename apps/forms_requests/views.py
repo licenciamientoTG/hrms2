@@ -280,14 +280,12 @@ def validar_empleado_numero(request):
     if not num:
         return JsonResponse({"exists": False})
 
-    qs = Employee._base_manager.select_related('user')  # incluye inactivos y sin user
-    try:
-        e = qs.get(employee_number=num)
-    except MultipleObjectsReturned:
-        e = qs.filter(employee_number=num).order_by('-id').first()
-        if not e:
-            return JsonResponse({"exists": False})
-    except Employee.DoesNotExist:
+    # Prioridad: Activos primero, luego por fecha de ingreso más reciente
+    e = Employee._base_manager.select_related('user').filter(
+        employee_number=num
+    ).order_by('-is_active', '-start_date').first()
+
+    if not e:
         return JsonResponse({"exists": False})
 
     user_obj = getattr(e, 'user', None)
@@ -321,10 +319,14 @@ def generar_carta_recomendacion(request):
     if not emp_num:
         raise Http404("Falta employee_number")
 
-    employee = get_object_or_404(
-        Employee._base_manager.select_related("user", "department", "job_position"),
+    employee = Employee._base_manager.select_related(
+        "user", "department", "job_position"
+    ).filter(
         employee_number=emp_num
-    )
+    ).order_by('-is_active', '-start_date').first()
+
+    if not employee:
+        raise Http404("Empleado no encontrado")
 
     user_obj = getattr(employee, "user", None)
     nombre = (
@@ -870,9 +872,11 @@ def empleado_datos_por_numero(request):
         return JsonResponse({"ok": False, "error": "Falta num"}, status=400)
 
     qs = Employee._base_manager.select_related("user", "department", "job_position")
-    try:
-        e = qs.get(employee_number=num)
-    except Employee.DoesNotExist:
+    
+    # Priorizar activo y fecha de ingreso reciente
+    e = qs.filter(employee_number=num).order_by('-is_active', '-start_date').first()
+    
+    if not e:
         return JsonResponse({"ok": True, "exists": False})
 
     user_obj = getattr(e, "user", None)
