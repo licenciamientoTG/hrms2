@@ -85,8 +85,7 @@
                 </li>
             {% endif %}
 
-            {% comment %} {% if not user.is_staff or perms.surveys.Modulo_encuestas %} {% endcomment %}
-            {% if perms.surveys.Modulo_encuestas %}
+            {% if not user.is_staff or perms.surveys.Modulo_encuestas %}
                 <li class="sidebar-item {% if 'survey' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'survey_dashboard' %}">
                         <i class="fa-solid fa-square-poll-vertical"></i>

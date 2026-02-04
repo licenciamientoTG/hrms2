@@ -386,6 +386,7 @@ def survey_audience_preview(request):
     dep_ids   = list(map(int, f.get('departments') or []))
     pos_ids   = list(map(int, f.get('positions')   or []))
     loc_ids   = list(map(int, f.get('locations')   or []))
+    search_q  = (data.get('q') or '').strip()
 
     qs = (Employee.objects
           .select_related('user', 'department', 'job_position', 'station')
@@ -403,9 +404,22 @@ def survey_audience_preview(request):
             qs = qs.filter(cond)
         else:
             qs = qs.none()
+    
+    # 1) Total real (sin filtrar por búsqueda) para saber el alcance total
+    total_audience = qs.distinct().count()
+
+    # 2) Filtrar por búsqueda si existe
+    if search_q:
+        qs = qs.filter(
+            Q(first_name__icontains=search_q) |
+            Q(last_name__icontains=search_q)  |
+            Q(department__name__icontains=search_q) |
+            Q(job_position__title__icontains=search_q)
+        )
 
     qs = qs.distinct()
-    total = qs.count()
+    
+    # Resultados paginados (o limitados)
     results = [{
         'name': f"{e.first_name} {e.last_name}",
         'email': e.email or (e.user.email if e.user else ''),
@@ -414,7 +428,10 @@ def survey_audience_preview(request):
         'location':   e.station.name if e.station else '',
     } for e in qs.order_by('first_name', 'last_name')[:50]]
 
-    return JsonResponse({'count': total, 'results': results})
+    return JsonResponse({
+        'count': total_audience, 
+        'results': results
+    })
 
 
 @method_decorator([login_required, user_passes_test(lambda u: u.is_staff)], name='dispatch')

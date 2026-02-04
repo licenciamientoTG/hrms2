@@ -1294,9 +1294,18 @@ function buildStateFromServerDOM(){
     const { departments, positions, locations } = await resp.json();
     const s = readState();
 
-    // Deps y Locs: list-group normal por id
+    // --- FILTRO DE SEGURIDAD ---
+    // Solo dejamos las ubicaciones que NO contienen la palabra "equipo"
+    const ubicacionesReales = (locations || []).filter(loc => {
+        const nombre = (loc.name || "").toLowerCase();
+        return !nombre.includes("equipo");
+    });
+
+    // Deps: normal
     renderListGroup(listDeps, departments || [], s.filters.departments);
-    renderListGroup(listLocs, locations   || [], s.filters.locations);
+    
+    // Locs: usamos la lista filtrada para que no aparezcan los equipos aquí
+    renderListGroup(listLocs, ubicacionesReales, s.filters.locations);
 
     // --- AGRUPAR POSICIONES POR TÍTULO (case-insensitive) ---
     posTitleMap = {}; // { key: { title, ids:[] } }
@@ -1362,11 +1371,9 @@ function buildStateFromServerDOM(){
     return keys.flatMap(k => posTitleMap[k]?.ids || []);
   }
 
-  // Preview
-  async function updatePreview(){
-    if (!previewUrl) return;
+  function getPayload(){
     const s = readState();
-    const payload = {
+    return {
       allUsers: (s.mode === 'all'),
       users: s.users,
       filters: {
@@ -1375,6 +1382,13 @@ function buildStateFromServerDOM(){
         locations:   s.filters.locations
       }
     };
+  }
+  window.getSurveyAudiencePayload = getPayload;
+
+  // Preview
+  async function updatePreview(){
+    if (!previewUrl) return;
+    const payload = getPayload();
 
     try {
       const resp = await fetch(previewUrl, {
