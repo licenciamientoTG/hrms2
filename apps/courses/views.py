@@ -584,6 +584,48 @@ def run_assignments(request, course_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
 @login_required
+def valores_memorama_view(request, course_id=None):
+    """
+    Renderiza el memorama del curso "Valores".
+    course_id es opcional por si lo quieres llamar directo por URL o desde view_course_content.
+    """
+
+    values = [
+        {
+            "letter": "R",
+            "title": "Respeto y resiliencia",
+            "descriptions": [
+                "Tratamos a las personas con dignidad.",
+                "Nos adaptamos ante cambios sin perder el rumbo.",
+            ],
+        },
+        {
+            "letter": "I",
+            "title": "Integridad",
+            "description": "Actuamos con honestidad y coherencia en todo momento.",
+        },
+        {
+            "letter": "S",
+            "title": "Servicio",
+            "description": "Buscamos ayudar con actitud y enfoque al cliente.",
+        },
+        {
+            "letter": "C",
+            "title": "Compromiso",
+            "description": "Cumplimos lo que prometemos y cuidamos los resultados.",
+        },
+    ]
+
+    questionnaire_url = ""
+
+    return render(request, "courses/user/valores_memorama.html", {
+        "values": values,
+        "questionnaire_url": questionnaire_url,
+        "course_id": course_id,
+    })
+
+
+@login_required
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
     enrolled = EnrolledCourse.objects.filter(course=course, user=request.user).first()
