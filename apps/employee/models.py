@@ -257,7 +257,7 @@ class Employee(models.Model):
         ordering = ['last_name', 'first_name']
         constraints = [
             models.UniqueConstraint(
-                fields=['employee_number', 'start_date', 'curp'], 
+                fields=['employee_number', 'start_date', 'curp', 'company'], 
                 name='unique_employee_identity'
             )
         ]

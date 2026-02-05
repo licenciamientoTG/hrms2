@@ -91,10 +91,18 @@ def _diff_instance(current, incoming_dict, field_names):
 
     return changes, changed_fields
 
+def _is_tsa(company_name):
+    """Helper para identificar si la empresa es TSA"""
+    return 'tsa' in str(company_name or '').lower()
+
 def _create_user_for_employee(employee):
     """
-    Crea usuario para empleado activo. 
-    Si el username (reloj) ya está ocupado por OTRA persona, agrega un sufijo (1, 2...).
+    Crea o reasigna un usuario para un empleado activo.
+    Reglas:
+    1. Si es la MISMA PERSONA (mismo CURP) en varias empresas:
+       - Solo un usuario (prioridad TSA > Activo).
+    2. Si son PERSONAS DIFERENTES (distinto CURP) con mismo número de reloj:
+       - Se genera sufijo (reloj, reloj1, reloj2...).
     """
     if not employee.is_active:
         return None, "Empleado no está activo"
@@ -106,26 +114,71 @@ def _create_user_for_employee(employee):
         from authapp.models import UserProfile
         
         emp_number = str(employee.employee_number).strip()
+        curp = (employee.curp or "").strip().upper()
         # Contraseña basada en CURP (posiciones 4 a 10)
-        birth_date_part = employee.curp[4:10] if employee.curp and len(employee.curp) >= 10 else "000000"
+        birth_date_part = curp[4:10] if len(curp) >= 10 else "000000"
         
-        username = emp_number
+        base_username = emp_number
         password = f"{emp_number}{birth_date_part}"
 
-        # LÓGICA DE SUFIJO: Si el nombre de usuario ya existe
-        base_username = username
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            # Si el usuario existe, verificamos si es de este mismo empleado (raro por OneToOne pero preventivo)
-            existing_user = User.objects.get(username=username)
-            if hasattr(existing_user, 'employee') and existing_user.employee == employee:
-                break 
+        # --- BUSCAR SI ESTA PERSONA YA TIENE UN USUARIO EN OTRO REGISTRO ---
+        existing_user_for_person = User.objects.filter(
+            employee__curp__iexact=curp
+        ).first()
+
+        if existing_user_for_person:
+            current_owner = existing_user_for_person.employee
             
-            # Si es de otra persona, agregamos el sufijo
+            # Lógica de prioridad para ver si le "robamos" el usuario a su otro registro
+            is_new_tsa = _is_tsa(employee.company)
+            is_old_tsa = _is_tsa(current_owner.company)
+            
+            should_steal = False
+            if is_new_tsa and not is_old_tsa:
+                should_steal = True
+            elif is_new_tsa == is_old_tsa:
+                if employee.is_active and not current_owner.is_active:
+                    should_steal = True
+            
+            if should_steal:
+                current_owner.user = None
+                current_owner.save(update_fields=['user'])
+                employee.user = existing_user_for_person
+                employee.save(update_fields=['user'])
+                # Actualizar datos
+                existing_user_for_person.first_name = employee.first_name
+                existing_user_for_person.last_name = employee.last_name
+                existing_user_for_person.is_active = True
+                existing_user_for_person.save()
+                return existing_user_for_person, "Usuario reasignado desde su otro registro (Prioridad)"
+            else:
+                # El otro registro es más importante, no creamos uno nuevo para esta misma persona
+                return None, f"La persona ya tiene usuario en su registro de {current_owner.company}"
+
+        # --- SI NO TIENE USUARIO, BUSCAR UN USERNAME DISPONIBLE ---
+        username = base_username
+        counter = 1
+        while True:
+            existing_user = User.objects.filter(username=username).first()
+            if not existing_user:
+                # Username libre
+                break
+            
+            # Si el username está ocupado, verificamos si es de la MISMA persona 
+            # (esto no debería pasar por el filtro de CURP arriba, pero por seguridad)
+            if hasattr(existing_user, 'employee'):
+                owner_curp = (existing_user.employee.curp or "").strip().upper()
+                if owner_curp == curp:
+                    # Es la misma persona, ya debió manejarse arriba pero si llega aquí, lo vinculamos
+                    employee.user = existing_user
+                    employee.save(update_fields=['user'])
+                    return existing_user, "Usuario vinculado (coincidencia de CURP)"
+            
+            # Si es otra persona o no tiene empleado, probamos con el siguiente sufijo
             username = f"{base_username}{counter}"
             counter += 1
 
-        # Crear usuario de Django
+        # Crear nuevo usuario
         user = User.objects.create_user(
             username=username,
             email=employee.email or "",
@@ -134,11 +187,7 @@ def _create_user_for_employee(employee):
             last_name=employee.last_name,
             is_active=True
         )
-
-        # Crear perfil de usuario
         UserProfile.objects.create(user=user)
-        
-        # Vincular al empleado
         employee.user = user
         employee.save(update_fields=['user'])
 
@@ -147,20 +196,26 @@ def _create_user_for_employee(employee):
     except Exception as e:
         return None, f"Error: {str(e)}"
 
-def _handle_duplicate_employees(employee_number, start_date, curp=None, rfc=None):
-    # 1. Búsqueda por la verdadera identidad: Reloj + CURP
-    # Esto hará que Omar (CURP AALO...) e Itze (CURP MOEI...) sean distintos
-    match = Employee.objects.filter(
+def _handle_duplicate_employees(employee_number, start_date, curp=None, rfc=None, company=None):
+    # 1. Búsqueda por la verdadera identidad: Reloj + CURP + Empresa
+    # Esto hará que Omar (CURP AALO...) e Itze (CURP MOEI...) sean distintos,
+    # y que la misma persona en dos empresas distintas se cree doble.
+    qs = Employee.objects.filter(
         employee_number=employee_number,
         curp__iexact=_safe_str(curp).strip()
-    ).first()
+    )
+    
+    # Si viene empresa, filtramos también por ella para diferenciar razones sociales
+    if company:
+        qs = qs.filter(company__iexact=_safe_str(company).strip())
+
+    match = qs.first()
 
     if match:
-        # Si coincide CURP y Reloj, es la misma persona
+        # Si coincide CURP, Reloj y Empresa, es la misma persona/registro
         return match, "exact_match"
     
-    # 2. Si la CURP no coincide, devolvemos None. 
-    # Esto obligará a crear un registro NUEVO para Itze.
+    # 2. Si no coincide, devolvemos None -> se creará nuevo.
     return None, "no_existing"
 
 def _apply_seniority(employee, seniority_raw, overwrite=True):
@@ -317,7 +372,8 @@ def recibir_datos1(request):
                 employee_number, 
                 start_date,
                 curp=incoming_defaults.get('curp'),
-                rfc=incoming_defaults.get('rfc')
+                rfc=incoming_defaults.get('rfc'),
+                company=company_name
             )
 
             # 1) No existe -> crear
