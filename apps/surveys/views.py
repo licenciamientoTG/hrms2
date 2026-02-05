@@ -197,27 +197,25 @@ def survey_dashboard_user(request):
             matches = True
         # Modo SEGMENTED: evaluar filtros
         elif audience.mode == 'segmented':
+            filters = audience.filters or {}
+            dep_ids = set(_i_list(filters.get('departments')))
+            pos_ids = set(_i_list(filters.get('positions')))
+            loc_ids = set(_i_list(filters.get('locations')))
+            
+            # 1. Verificar por filtros de empleado
             if employee:
-                filters = audience.filters or {}
-                dep_ids = filters.get('departments') or []
-                pos_ids = filters.get('positions') or []
-                loc_ids = filters.get('locations') or []
-                
-                # Verificar si el empleado cumple con algún filtro (OR)
-                # Usar OR sin elif para que evalúe TODAS las condiciones
-                if dep_ids and employee.department_id in dep_ids:
-                    matches = True
-                if pos_ids and employee.job_position_id in pos_ids:
-                    matches = True
-                if loc_ids and employee.station_id in loc_ids:
+                if (employee.department_id in dep_ids or 
+                    employee.job_position_id in pos_ids or 
+                    employee.station_id in loc_ids):
                     matches = True
             
-            # También verificar usuarios específicos en modo segmented
-            if not matches and audience.users.filter(pk=user.pk).exists():
-                matches = True
+            # 2. Verificar por usuario específico (siempre, como un OR)
+            if not matches:
+                if user in audience.users.all():
+                    matches = True
         # Otros modos: verificar usuarios específicos
         else:
-            if audience.users.filter(pk=user.pk).exists():
+            if user in audience.users.all():
                 matches = True
         
         if matches:
@@ -371,6 +369,17 @@ def survey_audience_user_search(request):
         })
     return JsonResponse(items, safe=False)
 
+def _i_list(seq):
+    """Convierte una secuencia a lista de enteros de forma segura."""
+    out = []
+    for v in (seq or []):
+        try:
+            if v is not None:
+                out.append(int(v))
+        except (ValueError, TypeError):
+            pass
+    return out
+
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 @require_POST
@@ -381,11 +390,11 @@ def survey_audience_preview(request):
         return JsonResponse({'count': 0, 'results': []})
 
     all_users = bool(data.get('allUsers'))
-    user_ids  = list(map(int, data.get('users') or []))
+    user_ids  = _i_list(data.get('users'))
     f         = data.get('filters') or {}
-    dep_ids   = list(map(int, f.get('departments') or []))
-    pos_ids   = list(map(int, f.get('positions')   or []))
-    loc_ids   = list(map(int, f.get('locations')   or []))
+    dep_ids   = _i_list(f.get('departments'))
+    pos_ids   = _i_list(f.get('positions'))
+    loc_ids   = _i_list(f.get('locations'))
     search_q  = (data.get('q') or '').strip()
 
     qs = (Employee.objects
@@ -446,28 +455,73 @@ class SurveyImportView(View):
         except json.JSONDecodeError:
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
-        title    = (payload.get('title') or 'Encuesta sin título').strip()
-        builder  = payload.get('builder')  or {}
-        settings = payload.get('settings') or {}
-        audience = payload.get('audience') or {}
+        try:
+            title    = (payload.get('title') or 'Encuesta sin título').strip()
+            builder  = payload.get('builder')  or {}
+            settings = payload.get('settings') or {}
+            audience = payload.get('audience') or {}
 
-        # helper: intención de activación desde settings o builder
-        wants_active = settings.get('is_active')
-        if wants_active is None:
-            wants_active = settings.get('active')
-        if wants_active is None:
-            wants_active = builder.get('active')   # 👈 soporta builder.active
+            # helper: intención de activación desde settings o builder
+            wants_active = settings.get('is_active')
+            if wants_active is None:
+                wants_active = settings.get('active')
+            if wants_active is None:
+                wants_active = builder.get('active')
 
-        if survey_id is None:
-            # ===== Crear =====
-            survey = Survey.objects.create(title=title, creator=request.user)
+            if survey_id is None:
+                # ===== Crear =====
+                survey = Survey.objects.create(title=title, creator=request.user)
 
-            # Aplica estado activo si vino en el payload
+                # Aplica estado activo si vino en el payload
+                if wants_active is not None and bool(wants_active) != survey.is_active:
+                    survey.is_active = bool(wants_active)
+                    survey.save(update_fields=['is_active'])
+
+                # Guardar resto normalmente
+                persist_builder_state(survey, builder)
+                persist_settings(survey, settings)
+                persist_audience(survey, audience)
+
+                if survey.is_active:
+                    send_survey_notifications(survey)
+
+                return JsonResponse({'ok': True, 'id': survey.id})
+
+            # ===== Actualizar =====
+            survey = get_object_or_404(Survey, pk=survey_id)
+            has_responses = getattr(survey, 'responses').exists()
+
+            if has_responses:
+                # 🔒 Con respuestas: solo permitir toggle de activo y/o cambio de título.
+                did_change = False
+
+                if wants_active is not None and bool(wants_active) != survey.is_active:
+                    survey.is_active = bool(wants_active)
+                    survey.save(update_fields=['is_active'])
+                    did_change = True
+
+                    if survey.is_active:
+                        send_survey_notifications(survey)
+
+                if title and title != survey.title:
+                    survey.title = title
+                    survey.save(update_fields=['title'])
+                    did_change = True
+
+                if did_change:
+                    return JsonResponse({'ok': True, 'id': survey.id, 'note': 'toggled_or_title'})
+
+                return JsonResponse({'ok': False, 'error': 'locked'}, status=409)
+
+            # ✅ Sin respuestas: se permite todo
+            if title and title != survey.title:
+                survey.title = title
+                survey.save(update_fields=['title'])
+
             if wants_active is not None and bool(wants_active) != survey.is_active:
                 survey.is_active = bool(wants_active)
                 survey.save(update_fields=['is_active'])
 
-            # Guardar resto normalmente
             persist_builder_state(survey, builder)
             persist_settings(survey, settings)
             persist_audience(survey, audience)
@@ -476,53 +530,11 @@ class SurveyImportView(View):
                 send_survey_notifications(survey)
 
             return JsonResponse({'ok': True, 'id': survey.id})
-
-        # ===== Actualizar =====
-        survey = get_object_or_404(Survey, pk=survey_id)
-        has_responses = getattr(survey, 'responses').exists()  # ajusta si tu related se llama distinto
-
-        if has_responses:
-            # 🔒 Con respuestas: solo permitir toggle de activo y/o cambio de título.
-            did_change = False
-
-            if wants_active is not None and bool(wants_active) != survey.is_active:
-                survey.is_active = bool(wants_active)
-                survey.save(update_fields=['is_active'])
-                did_change = True
-
-                # si se reactivó, puedes notificar (opcional)
-                if survey.is_active:
-                    send_survey_notifications(survey)
-
-            if title and title != survey.title:
-                survey.title = title
-                survey.save(update_fields=['title'])
-                did_change = True
-
-            if did_change:
-                return JsonResponse({'ok': True, 'id': survey.id, 'note': 'toggled_or_title'})
-
-            # cualquier otro cambio de builder/audiencia/settings se bloquea
-            return JsonResponse({'ok': False, 'error': 'locked'}, status=409)
-
-        # ✅ Sin respuestas: se permite todo
-        if title and title != survey.title:
-            survey.title = title
-            survey.save(update_fields=['title'])
-
-        # Aplica activo si vino explícito
-        if wants_active is not None and bool(wants_active) != survey.is_active:
-            survey.is_active = bool(wants_active)
-            survey.save(update_fields=['is_active'])
-
-        persist_builder_state(survey, builder)
-        persist_settings(survey, settings)
-        persist_audience(survey, audience)
-
-        if survey.is_active:
-            send_survey_notifications(survey)
-
-        return JsonResponse({'ok': True, 'id': survey.id})
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Error al publicar encuesta: %s", e)
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
 # ---------------- Eliminar (AJAX/POST) ----------------
 @login_required
@@ -717,31 +729,26 @@ def survey_view_user(request, survey_id: int):
         allowed = True
     # Modo SEGMENTED: evaluar filtros
     elif aud.mode == 'segmented':
+        filters = aud.filters or {}
+        dep_ids = set(_i_list(filters.get('departments')))
+        pos_ids = set(_i_list(filters.get('positions')))
+        loc_ids = set(_i_list(filters.get('locations')))
+
+        # 1. Verificar por empleado/filtros
         try:
-            employee = Employee.objects.select_related(
-                'department', 'job_position', 'station'
-            ).get(user=request.user, is_active=True)
-            
-            filters = aud.filters or {}
-            dep_ids = filters.get('departments') or []
-            pos_ids = filters.get('positions') or []
-            loc_ids = filters.get('locations') or []
-            
-            # Verificar si el empleado cumple con algún filtro (OR)
-            # Usar IF sin elif para evaluar todas las condiciones
-            if dep_ids and employee.department_id in dep_ids:
-                allowed = True
-            if pos_ids and employee.job_position_id in pos_ids:
-                allowed = True
-            if loc_ids and employee.station_id in loc_ids:
-                allowed = True
-            
-            # También verificar usuarios específicos
-            if not allowed and aud.users.filter(pk=request.user.pk).exists():
+            employee = Employee.objects.get(user=request.user, is_active=True)
+            if (employee.department_id in dep_ids or 
+                employee.job_position_id in pos_ids or 
+                employee.station_id in loc_ids):
                 allowed = True
         except Employee.DoesNotExist:
             pass
-    # Usuario explícitamente incluido en otros modos
+        
+        # 2. Verificar por usuario específico (como un OR)
+        if not allowed:
+            if aud.users.filter(pk=request.user.pk).exists():
+                allowed = True
+    # Otros modos: verificar usuarios específicos
     elif aud.users.filter(pk=request.user.pk).exists():
         allowed = True
     

@@ -161,10 +161,11 @@ def persist_audience(survey: Survey, audience_dict: Dict[str, Any]) -> None:
     if not poss:
         titles = [t for t in (f.get('positionsTitles') or []) if _s(t)]
         if titles:
-            ids = JobPosition.objects.filter(title__iexact=titles[0])
-            for t in titles[1:]:
-                ids = ids.union(JobPosition.objects.filter(title__iexact=t))
-            poss = list(ids.values_list('id', flat=True))
+            from django.db.models import Q
+            q_obj = Q()
+            for t in titles:
+                q_obj |= Q(title__iexact=t)
+            poss = list(JobPosition.objects.filter(q_obj).values_list('id', flat=True))
 
     aud.filters = {'departments': deps, 'positions': poss, 'locations': locs}
     aud.save(update_fields=['mode', 'filters'])

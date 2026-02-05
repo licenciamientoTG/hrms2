@@ -69,11 +69,13 @@ def _audience_user_ids(aud) -> set[int]:
 
 def send_survey_notifications(survey) -> int:
     """
-    Crea notificaciones 'Tienes una nueva encuesta' para los usuarios de la audiencia,
-    usando notify(). Evita duplicados por (user, title, url) no leídos.
-    Devuelve cuántas notificaciones se intentaron crear.
+    Crea notificaciones 'Tienes una nueva encuesta' para los usuarios de la audiencia.
+    Optimizado con bulk_create para manejar grandes audiencias eficientemente.
     """
     SurveyAudience = apps.get_model("surveys", "SurveyAudience")
+    Notification = apps.get_model("notifications", "Notification")
+    User = apps.get_model("auth", "User")
+    from django.urls import reverse
 
     try:
         aud = survey.audience
@@ -84,28 +86,38 @@ def send_survey_notifications(survey) -> int:
     if not user_ids:
         return 0
 
-    # URL a donde llevará la notificación
-    from django.urls import reverse
     url = reverse("survey_view_user", args=[survey.id])
 
-    Notification = apps.get_model("notifications", "Notification")
-    # Excluir los que YA tienen una noti no leída con misma URL
-    existing = set(Notification.objects.filter(
-        user_id__in=user_ids, url=url, read_at__isnull=True
+    # Filtrar usuarios que YA tienen una notificación no leída para esta misma encuesta
+    existing_uids = set(Notification.objects.filter(
+        user_id__in=user_ids, 
+        url=url, 
+        read_at__isnull=True
     ).values_list("user_id", flat=True))
 
-    to_create = [uid for uid in user_ids if uid not in existing]
-    if not to_create:
+    to_create_uids = [uid for uid in user_ids if uid not in existing_uids]
+    if not to_create_uids:
         return 0
 
     title = survey.title or "Nueva encuesta"
     body = "Tienes una nueva encuesta para responder."
 
-    # Usa notify() para cada usuario (respeta dedupe)
-    created = 0
-    for uid in to_create:
-        user = apps.get_model("auth", "User").objects.filter(id=uid).first()
-        if user:
-            if notify(user, title, body=body, url=url, module="encuestas", dedupe_key=True):
-                created += 1
-    return created
+    # Crear objetos de notificación sin guardarlos todavía
+    notifications = [
+        Notification(
+            user_id=uid,
+            title=title,
+            body=body,
+            url=url,
+            module="encuestas"
+        )
+        for uid in to_create_uids
+    ]
+
+    # Insertar todas las notificaciones en una sola consulta (o bloques de 500)
+    try:
+        created_objs = Notification.objects.bulk_create(notifications, batch_size=500)
+        return len(created_objs)
+    except Exception as e:
+        log.exception("Error en bulk_create de notificaciones: %s", e)
+        return 0
