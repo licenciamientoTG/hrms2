@@ -273,6 +273,7 @@ def recibir_datos1(request):
 
         employee_number = _safe_str(data.get('Numero'), '0')
         incoming_is_active = _as_bool(data.get('Activo'))
+        archivo_origen = _safe_str(data.get('archivo_origen'))
 
         seniority_raw = _safe_str(data.get('Antiguedad'))
 
@@ -375,6 +376,34 @@ def recibir_datos1(request):
                 rfc=incoming_defaults.get('rfc'),
                 company=company_name
             )
+
+            # --- LÓGICA DE PRIORIDAD MULTI-EMPRESA (TSA vs Otros) ---
+            # Si hay conflicto de CURP con otra empresa, priorizar TSA (archivo o company)
+            curp_clean = incoming_defaults.get('curp')
+            if curp_clean and len(curp_clean) > 10:
+                is_incoming_tsa = 'empleados tsa' in archivo_origen.lower() or 'tsa' in company_name.lower()
+                
+                conflict_qs = Employee.objects.filter(curp__iexact=curp_clean, is_active=True)
+                if existing:
+                    conflict_qs = conflict_qs.exclude(id=existing.id)
+                
+                conflicts = list(conflict_qs)
+                for conflict in conflicts:
+                    conflict_is_tsa = 'tsa' in str(conflict.company or '').lower()
+                    
+                    if is_incoming_tsa:
+                        # Solo desactivamos al competidor si el entrante (TSA) viene ACTIVO
+                        if incoming_is_active:
+                            print(f"⚔️ Prioridad TSA: Desactivando conflicto {conflict.first_name} ({conflict.company})")
+                            conflict.is_active = False
+                            conflict.save(update_fields=['is_active'])
+                    else:
+                        # El entrante NO es TSA.
+                        if conflict_is_tsa:
+                            # El existente ES TSA -> Gana existente. Entrante nace inactivo.
+                            print(f"🛡️ Prioridad TSA: Registro entrante {first_name} forzado a Inactivo vs {conflict.company}")
+                            incoming_defaults['is_active'] = False
+                            incoming_is_active = False
 
             # 1) No existe -> crear
             if action == "no_existing":
