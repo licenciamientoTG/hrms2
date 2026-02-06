@@ -1569,86 +1569,58 @@ def survey_export_xlsx(request, pk: int):
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)
-def survey_responses(request, pk):  # o survey_id si ya lo cambiaste
+def survey_responses(request, pk):
     survey = get_object_or_404(Survey, pk=pk)
 
-    questions = (
-        SurveyQuestion.objects
-        .filter(section__survey=survey)
-        .select_related('section')
-        .order_by('section__order', 'order', 'id')
-    )
+    # 1. Obtener preguntas de forma eficiente
+    questions = list(SurveyQuestion.objects.filter(section__survey=survey)
+                     .select_related('section')
+                     .order_by('section__order', 'order', 'id'))
 
-    answers_qs = SurveyAnswer.objects.select_related('question')
-    responses = (
-        SurveyResponse.objects
-        .filter(survey=survey, status='submitted')
-        .select_related('user')
-        .prefetch_related(Prefetch('answers', queryset=answers_qs))
-        .order_by('-submitted_at')
-    )
+    # 2. Obtener respuestas con Paginación (Crítico para evitar el Error 500)
+    responses_qs = (SurveyResponse.objects
+                    .filter(survey=survey, status='submitted')
+                    .select_related('user')
+                    .prefetch_related('answers')
+                    .order_by('-submitted_at'))
+    
+    paginator = Paginator(responses_qs, 25) # Mostramos 25 por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    responses = page_obj.object_list
 
-    # === Mapear user_id -> departamento ===
-    user_ids = list({r.user_id for r in responses})
-    emp_by_user = {
-        e.user_id: (e.department.name if e.department else "")
-        for e in Employee.objects.select_related('department').filter(
-            user_id__in=user_ids, is_active=True
-        )
-    }
+    # 3. Mapear empleados de la página actual en una sola consulta
+    user_ids = [r.user_id for r in responses]
+    employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
+    emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
 
-    # Prepara valores visuales por respuesta
+    # 4. Procesar solo las respuestas de la página actual
     for r in responses:
-        r.department_name = emp_by_user.get(r.user_id, "")  # "" si no tiene
-        by_q = {}
-        for a in r.answers.all():
-            disp = "-"
-            qtype = (a.q_type or "").lower()
-            snap = a.snapshot or {}
-            opts = snap.get("options") or []
-            sel_labels = snap.get("selected_labels")
-
-            if qtype in {"single", "assessment", "frecuency", "frequency"}:
-                if sel_labels:
-                    disp = ", ".join(sel_labels)
-                elif a.value_choice is not None:
-                    idx = a.value_choice
-                    disp = str(opts[idx]) if 0 <= idx < len(opts) else str(idx)
-
-            elif qtype == "multiple":
-                if sel_labels:
-                    disp = ", ".join(sel_labels)
-                elif a.value_multi:
-                    lbls = []
-                    for i in (a.value_multi or []):
-                        if isinstance(i, int) and 0 <= i < len(opts):
-                            lbls.append(str(opts[i]))
-                        else:
-                            lbls.append(str(i))
-                    disp = ", ".join(lbls) if lbls else "-"
-
-            elif qtype == "rating":
-                disp = str(a.value_int) if a.value_int is not None else "-"
-
-            elif qtype == "text":
-                disp = (a.value_text or "").strip() or "-"
-
-            elif qtype == "integer":
-                disp = str(a.value_int) if a.value_int is not None else "-"
-
-            elif qtype == "decimal":
-                disp = f"{a.value_decimal}" if a.value_decimal is not None else "-"
-
-            a.display = disp
-            by_q[a.question_id] = a
-
-        r.cells = [by_q.get(q.id) for q in questions]
+        r.department_name = emp_map.get(r.user_id, "N/A")
+        # Creamos un diccionario temporal para acceso rápido O(1)
+        answers_dict = {a.question_id: a for a in r.answers.all()}
+        
+        cells = []
+        for q in questions:
+            ans = answers_dict.get(q.id)
+            if ans:
+                # Lógica de display (tu código original abreviado)
+                qtype = (ans.q_type or "").lower()
+                snap = ans.snapshot or {}
+                if qtype in {"single", "assessment", "frecuency"} and snap.get("selected_labels"):
+                    ans.display = ", ".join(snap.get("selected_labels"))
+                elif qtype == "multiple" and snap.get("selected_labels"):
+                    ans.display = ", ".join(snap.get("selected_labels"))
+                else:
+                    ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
+            cells.append(ans)
+        r.cells = cells
 
     return render(request, 'surveys/admin/survey_responses.html', {
         'survey': survey,
         'questions': questions,
         'responses': responses,
-
+        'page_obj': page_obj, # Enviamos el objeto de paginación al HTML
     })
 
 

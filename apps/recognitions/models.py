@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from django.contrib.auth.models import Group
 
 HEX_VALIDATOR = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
@@ -48,6 +49,8 @@ class Recognition(models.Model):
     image       = models.ImageField(upload_to='recognitions/', blank=True, null=True)
     created_at  = models.DateTimeField(auto_now_add=True)
     email_subject = models.CharField(max_length=255, blank=True, null=True)
+    target_groups = models.ManyToManyField(Group, blank=True, related_name='visible_recognitions')
+    is_public = models.BooleanField(default=False)
 
     recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
 
