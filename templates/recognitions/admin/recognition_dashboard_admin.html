@@ -123,11 +123,18 @@
   <div class="modal-dialog modal-dialog-aside modal-lg">
     <form method="post" action="" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
-      <div class="modal-header">
-        <h5 class="modal-title">Nuevo comunicado</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
+      <div class="modal-header d-flex align-items-center justify-content-between">
+          <h5 class="modal-title">Nuevo comunicado</h5>
+          
+          <div class="d-flex align-items-center gap-3">
+              <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" role="switch" id="switchEstadoComunicado">
+                  <label class="form-check-label small text-muted" for="switchEstadoComunicado">Prioritario</label>
+              </div>
 
+              <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+      </div>
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label">¿A quién deseas reconocer?</label>
@@ -202,11 +209,11 @@
         
         <div class="mb-4">
           <label class="form-label fw-bold">¿Quiénes pueden ver este comunicado?</label>
-          <div class="form-text mb-2">Selecciona los grupos que tendrán acceso. Si seleccionas 'Todos', los demás se ignoran.</div>
+          <div class="form-text mb-2">Selecciona los grupos que tendrán acceso.</div>
           
           <div class="card p-3 bg-light">
             <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" name="target_groups" id="group_all" value="todos">
+              <input class="form-check-input" type="checkbox" name="target_groups" id="group_all" value="todos" checked>
               <label class="form-check-label fw-bold" for="group_all">Todos (Público)</label>
             </div>
             <hr class="my-2">
@@ -270,6 +277,26 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const groupAll = document.getElementById('group_all');
+  const groupCheckboxes = document.querySelectorAll('.group-checkbox');
+
+  groupAll.addEventListener('change', function() {
+    if (this.checked) {
+      groupCheckboxes.forEach(cb => cb.checked = false);
+    }
+  });
+
+  groupCheckboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+      if (this.checked) {
+        groupAll.checked = false;
+      }
+    });
+  });
+});
+</script>
   <script src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
   

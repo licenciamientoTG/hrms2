@@ -76,6 +76,10 @@ def recognition_dashboard_admin(request):
         else:
             # Guardar
             with transaction.atomic():
+                # Lógica de audiencia
+                target_groups_input = request.POST.getlist('target_groups')
+                is_public = 'todos' in target_groups_input or not target_groups_input
+                
                 rec = Recognition.objects.create(
                     author=request.user,
                     category=category,
@@ -86,7 +90,14 @@ def recognition_dashboard_admin(request):
                     notify_push=True,
                     email_channels=email_channels or None,
                     status="scheduled" if publish_at else "draft",
+                    is_public=is_public
                 )
+                
+                # Si no es público, asignamos los grupos específicos
+                if not is_public and target_groups_input:
+                    groups = Group.objects.filter(name__in=target_groups_input)
+                    rec.target_groups.set(groups)
+
                 employees = Employee.objects.filter(id__in=recipients_ids, is_active=True).exclude(user_id__isnull=True)
                 users = User.objects.filter(id__in=employees.values_list('user_id', flat=True), is_active=True)
                 rec.recipients.add(*users)
@@ -222,10 +233,19 @@ def recognition_dashboard_user(request):
     # --- GET: feed con scroll infinito (solo publicados) ---
     page = int(request.GET.get('page', 1))
 
+    user_groups = request.user.groups.all()
+    
     base_qs = (
         Recognition.objects
         .select_related('author', 'category')
-        .filter(published_at__isnull=False)            # 👈 solo publicados
+        .filter(published_at__isnull=False)            # solo publicados
+        .filter(
+            Q(is_public=True) | 
+            Q(target_groups__in=user_groups) | 
+            Q(recipients=request.user) |
+            Q(target_groups__isnull=True, is_public=False) # Comunicados antiguos
+        )
+        .distinct()
         .annotate(
             like_count=Count('likes_rel', distinct=True),
             my_liked=Exists(
@@ -239,7 +259,7 @@ def recognition_dashboard_user(request):
                 queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
             )
         )
-        .order_by('-published_at')                     # 👈 orden por fecha de publicación real
+        .order_by('-published_at')
     )
 
     paginator = Paginator(base_qs, PAGE_SIZE)

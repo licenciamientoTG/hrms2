@@ -17,15 +17,23 @@ def generate_missed_recognition_notifications(sender, user, request, **kwargs):
     print(f"--- SIGNAL DISPARADO: Usuario {user.username} ha entrado ---") # DEBUG
     
     start_date = timezone.now() - timedelta(days=30)
+    from django.db.models import Q
     
-    # Agregamos status='published' por seguridad
+    # Filtramos por audiencia: Público, Grupos del usuario o si es destinatario
+    user_groups = user.groups.all()
+    
     recent_recognitions = Recognition.objects.filter(
         published_at__gte=start_date,     
         published_at__lte=timezone.now(),
-        status='published' # Aseguramos que solo busque publicados
-    ).prefetch_related('recipients')
+        status='published'
+    ).filter(
+        Q(is_public=True) | 
+        Q(target_groups__in=user_groups) | 
+        Q(recipients=user) |
+        Q(target_groups__isnull=True, is_public=False) # Antiguos
+    ).distinct().prefetch_related('recipients', 'category')
     
-    print(f"--- Encontrados {recent_recognitions.count()} comunicados recientes ---") # DEBUG
+    print(f"--- Encontrados {recent_recognitions.count()} comunicados recientes para este usuario ---") # DEBUG
 
     notifications_to_create = []
 

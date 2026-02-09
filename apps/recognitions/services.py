@@ -38,27 +38,46 @@ def publish_recognition_if_due(recognition):
                 r.save(update_fields=["emailed_at"])
         
         # --- 3. CREAR NOTIFICACIONES INTERNAS (INMEDIATO) ---
-        # Al hacerlo aquí, el usuario activo verá la notificación en su próxima recarga.
         if just_published and getattr(r, "notify_push", True):
-            # Obtenemos los destinatarios
-            recipients = r.recipients.filter(is_active=True)
+            from django.contrib.auth.models import User
+            from django.db.models import Q
+
+            # Determinar la audiencia
+            if r.is_public:
+                audience_users = User.objects.filter(is_active=True)
+            else:
+                # Miembros de los grupos seleccionados O destinatarios directos
+                audience_users = User.objects.filter(
+                    Q(groups__in=r.target_groups.all()) | Q(recognitions_received=r),
+                    is_active=True
+                ).distinct()
+
+            # IDs de los que son mencionados para cambiar el texto
+            recipient_ids = set(r.recipients.values_list('id', flat=True))
             
             notifs_to_create = []
-            for user in recipients:
-                # Url para ver el reconocimiento
-                rec_url = f"/recognitions/?highlight={r.id}#recognition-{r.id}"
+            rec_url = f"/recognitions/?highlight={r.id}#recognition-{r.id}"
+
+            for user in audience_users:
+                is_protagonist = user.id in recipient_ids
                 
+                if is_protagonist:
+                    title = "¡Te han mencionado!"
+                    body = f"Has sido mencionado en un comunicado de: {r.category.title}"
+                else:
+                    title = "Nuevo Comunicado"
+                    body = f"Se ha publicado un nuevo comunicado en: {r.category.title}"
+
                 notifs_to_create.append(
                     Notification(
                         user=user,
-                        title="¡Te han mencionado!",
-                        body=f"Has sido mencionado en un comunicado de: {r.category.title}",
+                        title=title,
+                        body=body,
                         url=rec_url,
                         module="comunicados"
                     )
                 )
             
-            # Insertar en bloque (Eficiente para 30 usuarios)
             if notifs_to_create:
                 Notification.objects.bulk_create(notifs_to_create)
 
