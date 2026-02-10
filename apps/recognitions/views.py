@@ -54,6 +54,7 @@ def recognition_dashboard_admin(request):
         notify_email   = bool(request.POST.get('notify_email'))
         email_channels = request.POST.getlist('email_channels') if notify_email else []
         publish_at     = _parse_datetime_local(request.POST.get('publish_at'))
+        es_prioritario = request.POST.get('is_priority') == 'on'
 
         errors = []
         if len(recipients_ids) > MAX_RECIPIENTS:
@@ -90,7 +91,8 @@ def recognition_dashboard_admin(request):
                     notify_push=True,
                     email_channels=email_channels or None,
                     status="scheduled" if publish_at else "draft",
-                    is_public=is_public
+                    is_public=is_public,
+                    is_priority=es_prioritario
                 )
                 
                 # Si no es público, asignamos los grupos específicos
@@ -589,3 +591,49 @@ def editar_miembros_grupo(request, group_id):
     }
 
     return render(request, 'recognitions/admin/edit_members.html', context)
+
+@login_required
+def check_priority_announcement(request):
+    """Busca el comunicado prioritario de la última semana no aceptado."""
+    user_groups = request.user.groups.all()
+    
+    # 1. Definimos el límite de tiempo a 7 días
+    hace_una_semana = timezone.now() - timezone.timedelta(days=7)
+    
+    # 2. Aplicamos el filtro de fecha
+    announcement = Recognition.objects.filter(
+        is_priority=True,
+        published_at__lte=timezone.now(),
+        published_at__gte=hace_una_semana  # Filtra comunicados de los últimos 7 días
+    ).filter(
+        Q(is_public=True) | Q(target_groups__in=user_groups) | Q(recipients=request.user)
+    ).exclude(
+        priority_viewed_by=request.user
+    ).order_by('-published_at').first()
+
+    if announcement:
+        # Lógica para obtener la imagen
+        image_url = None
+        if announcement.image:
+            image_url = announcement.image.url
+        elif announcement.media.exists():
+            image_url = announcement.media.first().file.url
+
+        return JsonResponse({
+            'has_priority': True,
+            'id': announcement.id,
+            'title': announcement.category.title,
+            'message': announcement.message,
+            'color': announcement.category.color_hex,
+            'image_url': image_url
+        })
+        
+    return JsonResponse({'has_priority': False})
+
+@login_required
+@require_POST
+def mark_priority_read(request, pk):
+    """Agrega al usuario a la lista de lectura del comunicado."""
+    announcement = get_object_or_404(Recognition, pk=pk)
+    announcement.priority_viewed_by.add(request.user)
+    return JsonResponse({'ok': True})

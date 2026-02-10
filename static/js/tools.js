@@ -60,30 +60,40 @@
   };
 
   // Recalcula tope a partir del fondo y aplica clamp a 200,000
+  // Localiza esta función en tu tools.js y reemplázala:
   const actualizarTope = () => {
-    let base = parseInt(($fondo.value || '').replace(/\D+/g,''), 10) || 0;
+      let base = parseInt(($fondo.value || '').replace(/\D+/g, ''), 10) || 0;
 
-    // clamp [0, CAP_FONDO] y reflejar en el input
-    if (base < 0) base = 0;
-    if (base > CAP_FONDO) {
-      base = CAP_FONDO;
-      $fondo.value = String(CAP_FONDO);
-    }
+      // 1. Limitar el fondo a un máximo de 200,000 (Tope absoluto)
+      if (base < 0) base = 0;
+      if (base > CAP_FONDO) {
+          base = CAP_FONDO;
+          $fondo.value = String(CAP_FONDO);
+      }
 
-    // pintar tope (50%) y porcentaje
-    const max = Math.floor(base * RATIO);
-    maxCache = max;
+      // 2. CALCULO DEL MÁXIMO CERRADO
+      // Calculamos el 50% y lo redondeamos hacia abajo al múltiplo de 100 más cercano
+      // Ejemplo: Si el 50% es $2,553 -> El máximo será $2,500
+      let maxCalculado = Math.floor(base * RATIO); 
+      const maxCerrado = Math.floor(maxCalculado / 100) * 100;
+      
+      maxCache = maxCerrado;
 
-    $maxEls.forEach(el => el.textContent = fmt.format(max));
-    if ($pct) $pct.textContent = Math.round(RATIO * 100) + '%';
+      // 3. Pintar el máximo en la interfaz (se verá el número cerrado)
+      $maxEls.forEach(el => el.textContent = fmt.format(maxCerrado));
+      
+      if ($pct) $pct.textContent = Math.round(RATIO * 100) + '%';
 
-    // habilitar el campo monto solo si base >= 2
-    toggleMonto(base >= 2);
+      // 4. Habilitar el campo monto solo si hay fondo suficiente
+      toggleMonto(base >= 2);
 
-    // setear atributo max nativo y recortar si se pasó
-    $monto.max = String(max);
-    const val = parseInt(($monto.value || '').replace(/\D+/g,''), 10);
-    if (!isNaN(val) && val > max) $monto.value = max || '';
+      // 5. Aplicar el límite al input de "Monto a solicitar"
+      $monto.max = String(maxCerrado);
+      
+      const valActual = parseInt(($monto.value || '').replace(/\D+/g, ''), 10);
+      if (!isNaN(valActual) && valActual > maxCerrado) {
+          $monto.value = maxCerrado || '';
+      }
   };
 
   // Validación en vivo del monto solicitado (sin impedir teclear)
@@ -254,7 +264,6 @@ function renderDesglose() {
       La información que se muestra queda sujeta a revisión. <br>
       El saldo real del préstamo se podrá consultar en su recibo de nómina. <br>
       En caso de incidencia se ajustarán las semanas de pago. <br>
-      Recuerda que el depósito será en la semana 44 <br>
       Semana actual de fondo de ahorro: <strong>${serverWeek}</strong>.
     </p>
   `;

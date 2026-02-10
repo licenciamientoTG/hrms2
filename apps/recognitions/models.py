@@ -51,6 +51,8 @@ class Recognition(models.Model):
     email_subject = models.CharField(max_length=255, blank=True, null=True)
     target_groups = models.ManyToManyField(Group, blank=True, related_name='visible_recognitions')
     is_public = models.BooleanField(default=False)
+    is_priority = models.BooleanField(default=False)
+    priority_viewed_by = models.ManyToManyField(User, blank=True, related_name='viewed_priority_recognitions')
 
     recipients  = models.ManyToManyField(User, related_name='recognitions_received', through='RecognitionRecipient')
 
