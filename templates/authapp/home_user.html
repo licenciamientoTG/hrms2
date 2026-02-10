@@ -3,28 +3,26 @@
 
 {% block page_title %} Home{% endblock %}
 
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/home.css' %}">
 
 <div class="background-wrapper p-4">
-<h1 class="text-center">
-  ¡Bienvenid@ {{ user.first_name }}! <br>
-  “Tu espacio personal para formación, gestión y comunicación.”
-</h1>
+  <h1 class="text-center">
+    ¡Bienvenid@ {{ user.first_name }}! <br>
+    “Tu espacio personal para formación, gestión y comunicación.”
+  </h1>
 
-<h2 class="mb-4 text-center">
-  <br>Acumulado Fondo de Ahorro
-</h2>
+  <h2 class="mb-4 text-center">
+    <br>Acumulado Fondo de Ahorro
+  </h2>
 
-  <div class="progress position-relative mb-4"
-      style="--p: {{ saving_progress_percent }}%;">
-    <div class="progress-bar bg-primary"
-        role="progressbar"
-        style="width: {{ saving_progress_percent }}%;"
-        aria-valuenow="{{ saving_progress_percent }}"
-        aria-valuemin="0" aria-valuemax="100">
+  <div class="progress position-relative mb-4" style="--p: {{ saving_progress_percent }}%;">
+    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ saving_progress_percent }}%;"
+      aria-valuenow="{{ saving_progress_percent }}" aria-valuemin="0" aria-valuemax="100">
     </div>
-
   </div>
 
   <div class="row mb-4">
@@ -32,7 +30,7 @@
       <div class="quick-access-card">
         <h6>Días de vacaciones disponibles</h6>
         <p>próximamente</p>
-        <a  class="btn btn-success btn-sm">Ir →</a>
+        <a class="btn btn-success btn-sm">Ir →</a>
       </div>
     </div>
     <div class="col-md-3 mb-1">
@@ -81,4 +79,138 @@
   </div>
 
 </div>
+
+<div class="modal fade" id="modalPrioridad" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+  aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div id="prioridadHeader" class="modal-header text-white py-1">
+        <h5 class="modal-title small" style="font-size: 0.85rem;">📢 COMUNICADO IMPORTANTE</h5>
+      </div>
+      <div class="modal-body p-0">
+        <div id="prioridadImageContainer" class="text-center">
+          <img id="prioridadImg" src="" alt="Comunicado" class="img-fluid"
+            style="max-height: 70vh; width: 100%; object-fit: contain; display: block;">
+        </div>
+
+        <div id="prioridadMessage" class="fs-6 fw-medium text-dark text-center py-2 px-3 d-none">
+        </div>
+      </div>
+      <div class="modal-footer border-0 pb-3 pt-0 justify-content-center">
+        <button type="button" id="btnAceptarPrioridad" class="btn btn-primary btn-sm px-4 py-1 w-auto"
+          style="font-size: 0.9rem;">
+          He leído y acepto
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="social-feed-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSocial"
+  aria-controls="offcanvasSocial">
+  <i class="fas fa-share-alt"></i>
+  <span>REDES SOCIALES</span>
+</button>
+
+<div class="offcanvas offcanvas-end social-offcanvas" tabindex="-1" id="offcanvasSocial"
+  aria-labelledby="offcanvasSocialLabel">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title fw-bold text-primary" id="offcanvasSocialLabel">Comunidad</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body p-3">
+    <p class="small fw-bold text-muted mb-4 text-center">CONÉCTATE CON NOSOTROS</p>
+
+    <div class="social-category mb-4">
+      <h6 class="text-uppercase fw-bold small mb-3">Comunidad TotalGas | Facebook</h6>
+      <a href="https://www.facebook.com/share/1DWUss6mao/" target="_blank" class="social-item">
+        <div class="icon-box bg-fb"><i class="fab fa-facebook-f"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">Facebook</p>
+          <small class="text-muted">TotalGas Oficial</small>
+        </div>
+      </a>
+
+      <h6 class="text-uppercase fw-bold small mb-3">TotalGas</h6>
+
+      <a href="https://www.facebook.com/totalgas" target="_blank" class="social-item">
+        <div class="icon-box bg-fb"><i class="fab fa-facebook-f"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">Facebook</p>
+          <small class="text-muted">TotalGas Oficial</small>
+        </div>
+      </a>
+
+      <a href="https://www.instagram.com/totalgasolinera/" target="_blank" class="social-item">
+        <div class="icon-box bg-ig"><i class="fab fa-instagram"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">Instagram</p>
+          <small class="text-muted">@totalgasolinera</small>
+        </div>
+      </a>
+
+      <a href="https://www.tiktok.com/@totalgasmx" target="_blank" class="social-item">
+        <div class="icon-box bg-dark text-white"><i class="fab fa-tiktok"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">TikTok</p>
+          <small class="text-muted">@totalgasmx</small>
+        </div>
+      </a>
+
+      <a href="https://www.linkedin.com/company/totalgasmx/" target="_blank" class="social-item">
+        <div class="icon-box bg-in"><i class="fab fa-linkedin-in"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">LinkedIn</p>
+          <small class="text-muted">TotalGas Corporate</small>
+        </div>
+      </a>
+
+      <a href="https://www.youtube.com/@totalgas8630" target="_blank" class="social-item">
+        <div class="icon-box bg-yt"><i class="fab fa-youtube"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">YouTube</p>
+          <small class="text-muted">Canal Oficial</small>
+        </div>
+      </a>
+    </div>
+
+    <div class="social-category mb-4">
+      <h6 class="text-uppercase fw-bold small mb-3">Aqua Car Club</h6>
+
+      <a href="https://www.facebook.com/Aquacarclubmx/" target="_blank" class="social-item">
+        <div class="icon-box bg-fb"><i class="fab fa-facebook-f"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">Facebook</p>
+          <small class="text-muted">Aqua Car Club MX</small>
+        </div>
+      </a>
+
+      <a href="https://www.instagram.com/aquacarwashmx/" target="_blank" class="social-item">
+        <div class="icon-box bg-ig"><i class="fab fa-instagram"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">Instagram</p>
+          <small class="text-muted">@aquacarwashmx</small>
+        </div>
+      </a>
+      <a href="https://www.tiktok.com/@aquacarclub.mx" target="_blank" class="social-item mb-2">
+        <div class="icon-box bg-dark text-white"><i class="fab fa-tiktok"></i></div>
+        <div class="ms-3">
+          <p class="mb-0 fw-bold">TikTok</p>
+          <small class="text-muted">@aquacarclub.mx</small>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Definimos las variables de Django para que el JS externo las vea
+    window.PriorityConfig = {
+        checkUrl: "{% url 'check_priority' %}",
+        csrfToken: "{{ csrf_token }}"
+    };
+</script>
+<script src="{% static 'js/home.js' %}"></script>
 {% endblock %}

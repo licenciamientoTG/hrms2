@@ -22,6 +22,7 @@ class News(models.Model):
     
     notify_email = models.BooleanField(default=True)
     notify_push = models.BooleanField(default=True)
+    is_priority = models.BooleanField(default=False, verbose_name="¿Es Prioritario?")
     
     AUDIENCE_CHOICES = [
         ('all', 'Todos los usuarios'),
