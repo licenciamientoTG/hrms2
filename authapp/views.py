@@ -154,17 +154,21 @@ def home(request):
 @login_required
 def terms_and_conditions_view(request):
     if request.method == "POST":
-        # Importación local para evitar errores de carga
         from .models import UserProfile 
         
-        # Buscamos el perfil. Si no existe, lo creamos.
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         
-        # Si el perfil es nuevo y es Staff/Admin, marcar contraseña como cambiada (0)
-        if created and (request.user.is_staff or request.user.is_superuser):
-            profile.must_change_password = False
-        
-        # Marcar términos como aceptados
+
+        if created:
+            if request.user.is_staff or request.user.is_superuser:
+                profile.must_change_password = False
+            else:
+                # Si quieres que a los empleados normales SI les pida cambio 
+                # la primera vez, deja esto en True. 
+                # Si prefieres que NADIE repita el proceso, ponlo en False.
+                profile.must_change_password = False 
+
+        # 3. Guardamos la aceptación de términos
         profile.accepted_terms = True
         profile.save()
         
