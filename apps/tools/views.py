@@ -173,6 +173,17 @@ def create_loan_request(request):
         employee = Employee.objects.filter(user=request.user).first()
         if not employee: return JsonResponse({"ok": False, "error": "Empleado no encontrado."})
 
+        # Validar antigüedad (6 meses)
+        if employee.start_date:
+            today = date.today()
+            diff_years = today.year - employee.start_date.year
+            diff_months = (diff_years * 12) + today.month - employee.start_date.month
+            if today.day < employee.start_date.day:
+                diff_months -= 1
+            
+            if diff_months < 6:
+                 return JsonResponse({"ok": False, "error": "Debes tener al menos 6 meses de antigüedad para solicitar un préstamo."})
+
         # Validar 50% Fondo
         ahorro_total = Decimal(str(employee.saving_fund or 0))
         limite_fondo = ahorro_total * Decimal("0.50")

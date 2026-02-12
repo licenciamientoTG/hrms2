@@ -7,43 +7,41 @@ class CheckTermsMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated:
-            # Lista de rutas permitidas aunque no haya aceptado términos
+            # 1. Rutas excluidas para evitar bucles
             allowed_paths = [
                 reverse('logout'),
-                '/admin/', # Opcional: permitir admin
                 '/static/', 
                 '/media/',
+                '/admin/',
             ]
             
-            # Intentamos obtener la URL de términos, si falla es porque aun no la creamos en urls.py
-            # pero el middleware se ejecutará después.
+            # Intentar agregar rutas dinámicas
             try:
-                terms_url = reverse('terms_and_conditions')
-                allowed_paths.append(terms_url)
+                allowed_paths.append(reverse('terms_and_conditions'))
             except:
-                terms_url = '/auth/terms/' # Fallback temporal
+                allowed_paths.append('/auth/terms/')
 
             try:
+                # Ruta de cambio de contraseña debe ser permitida 
+                # para que no se bloquee con los términos
                 allowed_paths.append(reverse('force_password_change'))
             except:
                 pass
 
-            # Verificar excepciones
-            is_allowed = False
-            for path in allowed_paths:
-                if request.path.startswith(path):
-                    is_allowed = True
-                    break
+            is_allowed = any(request.path.startswith(path) for path in allowed_paths)
             
             if not is_allowed:
-                # Verificar el perfil
-                if hasattr(request.user, 'userprofile'):
-                    if not request.user.userprofile.accepted_terms:
-                        return redirect('terms_and_conditions')
-                else:
-                    # Si el usuario no tiene perfil, podriamos querer crearlo o ignorarlo.
-                    # Por seguridad, si no tiene perfil, asumimos que no ha aceptado.
-                    # Pero en este sistema parece que userprofile es critico.
-                    pass
+                # 2. JERARQUÍA: Primero verificar cambio de contraseña
+                profile = getattr(request.user, 'userprofile', None)
+                
+                # Si tiene perfil y debe cambiar contraseña, dejamos que otro 
+                # middleware o la lógica de home lo mande allá. No bloqueamos aquí.
+                if profile and profile.must_change_password:
+                    return self.get_response(request)
+
+                # 3. Validar Términos y Condiciones
+                # Si no tiene perfil o no ha aceptado, mandarlo a términos
+                if not profile or not profile.accepted_terms:
+                    return redirect('terms_and_conditions')
 
         return self.get_response(request)
