@@ -150,3 +150,15 @@ def home(request):
         "next_saving_date": next_saving_date,
         "last_saving_date": last_saving_date,
     })
+
+@login_required
+def terms_and_conditions_view(request):
+    if request.method == "POST":
+        if hasattr(request.user, 'userprofile'):
+            profile = request.user.userprofile
+            profile.accepted_terms = True
+            profile.save()
+            messages.success(request, "Has aceptado los términos y condiciones.")
+            return redirect("home")
+    
+    return render(request, "authapp/terms_and_conditions.html")

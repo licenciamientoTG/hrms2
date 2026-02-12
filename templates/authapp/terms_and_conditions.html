@@ -1,0 +1,216 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'template/img/logos/logo_sencillo.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'template/img/logos/logo_sencillo.png' %}">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviso Legal - HRMS TOTALGAS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #f0f3f8, #ffffff);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        .header {
+            margin: 20px 0;
+        }
+
+        .terms-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 1px 0px 20px rgb(0 0 0 / 51%);
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .terms-header {
+            background: #1a4b96;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .terms-header h2 {
+            color: #a5e65a;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .terms-content {
+            padding: 30px;
+            color: #333;
+            max-height: 55vh;
+            overflow-y: auto;
+            font-size: 15px;
+            line-height: 1.6;
+            border-bottom: 1px solid #ddd;
+            background: #ffffff;
+        }
+
+        .legal-point {
+            margin-bottom: 15px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .legal-point::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #1a4b96;
+            font-weight: bold;
+        }
+
+        .acceptance-section {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-top: 1px solid #eee;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-container input {
+            width: 20px;
+            height: 20px;
+            margin-top: 3px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            font-weight: bold;
+            color: #1a4b96;
+            font-size: 16px;
+        }
+
+        .consent-text {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .terms-actions {
+            display: flex;
+            justify-content: flex-end; /* Mueve el botón totalmente a la derecha */
+            align-items: center;
+        }
+
+        .btn-accept {
+            background: #a5e65a;
+            color: #1a4b96;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .btn-accept:hover:not(:disabled) {
+            background: #8fc940;
+            transform: translateY(-1px);
+        }
+
+        .btn-accept:disabled {
+            background: #cccccc;
+            color: #888888;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* Scrollbar personalizado */
+        .terms-content::-webkit-scrollbar { width: 8px; }
+        .terms-content::-webkit-scrollbar-track { background: #f1f1f1; }
+        .terms-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="color: #2B57A4; font-size: 32px; letter-spacing: 2px;">HRMS</h1>
+    </div>
+
+    <div class="terms-container">
+        <div class="terms-header">
+            <h2>Aviso Legal de Uso del Sistema</h2>
+            <p>TOTALGAS - Recursos Humanos</p>
+        </div>
+
+        <div class="terms-content">
+            <p style="margin-bottom: 20px; font-weight: bold;">
+                Al acceder y utilizar este sistema HRMS de TOTALGAS, reconozco y acepto que:
+            </p>
+
+            <div class="legal-point">
+                El acceso se realiza mediante credenciales personales e intransferibles, por lo que soy el único responsable del uso que se haga de las mismas.
+            </div>
+
+            <div class="legal-point">
+                Todos los movimientos, solicitudes, trámites y acciones que realice dentro del sistema serán considerados realizados por mí y bajo mi total responsabilidad, produciendo plenos efectos laborales y administrativos.
+            </div>
+
+            <div class="legal-point">
+                La información que capture o modifique deberá ser veraz y correcta, siendo responsable de cualquier consecuencia derivada de datos incorrectos o falsos.
+            </div>
+
+            <div class="legal-point">
+                TOTALGAS no será responsable por el uso indebido del sistema cuando éste derive del uso de mis credenciales, aun cuando hayan sido utilizadas por terceros por mi descuido o negligencia.
+            </div>
+
+            <div class="legal-point">
+                El uso indebido del sistema podrá dar lugar a la aplicación de medidas disciplinarias conforme a la ley y a las políticas internas de la empresa.
+            </div>
+        </div>
+
+        <form method="POST" class="acceptance-section">
+            {% csrf_token %}
+            
+            <label class="checkbox-container">
+                <input type="checkbox" id="acceptCheck" name="accept_checkbox" onchange="toggleButton()">
+                <span class="checkbox-label">He leído y acepto el Aviso Legal</span>
+            </label>
+
+            <p class="consent-text">
+                Al marcar esta casilla y continuar, otorgo mi consentimiento expreso y acepto íntegramente el presente Aviso Legal.
+            </p>
+
+            <div class="terms-actions">
+                <button type="submit" id="submitBtn" class="btn-accept" disabled>Aceptar y Continuar</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function toggleButton() {
+            const checkbox = document.getElementById('acceptCheck');
+            const button = document.getElementById('submitBtn');
+            button.disabled = !checkbox.checked;
+        }
+    </script>
+</body>
+</html>
