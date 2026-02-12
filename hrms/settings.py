@@ -83,6 +83,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',   # ← ARRIBA
+    'authapp.middleware.CheckTermsMiddleware',                   # ← Nuevo Middleware de Términos
     'apps.monitoring.middleware.IdleTimeoutMiddleware',          # ← tus middlewares
     'apps.monitoring.middleware.DailyUsageMiddleware',           # ← van DESPUÉS de Auth
     'apps.users.middleware.ForcePasswordChangeMiddleware',       # ← si lo usas, aquí está bien

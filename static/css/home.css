@@ -223,3 +223,48 @@
   transform: translateY(-4px);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
 }
+
+.modal-auto-width {
+    display: flex !important;
+    align-items: flex-start !important; 
+    justify-content: center;
+    
+    padding-top: 40px !important; 
+    
+    max-width: none !important;
+    width: fit-content !important;
+    margin: auto;
+}
+
+.modal-auto-width .modal-content {
+    width: fit-content !important;
+    margin: auto;
+    border-radius: 15px;
+    background-color: #ffffff;
+    /* Sombra para que resalte del fondo */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+}
+
+/* Espacio interno para que la imagen no toque los bordes blancos */
+#prioridadImageContainer {
+    padding: 20px; 
+}
+
+#prioridadImg {
+    max-height: 70vh; 
+    width: auto;
+    display: block;
+    margin: auto;
+    border-radius: 5px;
+}
+
+/* Ajuste para móviles */
+@media (max-width: 576px) {
+    .modal-auto-width {
+        padding-top: 20px !important;
+        width: 95% !important;
+    }
+    #prioridadImageContainer {
+        padding: 10px;
+    }
+}
