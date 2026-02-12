@@ -154,11 +154,20 @@ def home(request):
 @login_required
 def terms_and_conditions_view(request):
     if request.method == "POST":
-        if hasattr(request.user, 'userprofile'):
-            profile = request.user.userprofile
-            profile.accepted_terms = True
-            profile.save()
-            messages.success(request, "Has aceptado los términos y condiciones.")
-            return redirect("home")
+        # Importación local para evitar errores de carga
+        from .models import UserProfile 
+        
+        # Buscamos el perfil. Si no existe, lo creamos.
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+        # Si el perfil es nuevo y es Staff/Admin, marcar contraseña como cambiada (0)
+        if created and (request.user.is_staff or request.user.is_superuser):
+            profile.must_change_password = False
+        
+        # Marcar términos como aceptados
+        profile.accepted_terms = True
+        profile.save()
+        
+        return redirect("home")
     
     return render(request, "authapp/terms_and_conditions.html")
