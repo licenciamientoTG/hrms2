@@ -1571,58 +1571,101 @@ def survey_export_xlsx(request, pk: int):
 @user_passes_test(lambda u: u.is_staff)
 def survey_responses(request, pk):
     survey = get_object_or_404(Survey, pk=pk)
+    view_filter = request.GET.get('ver', 'recibidas')
 
-    # 1. Obtener preguntas de forma eficiente
+    # 1. Preguntas comunes para ambos casos
     questions = list(SurveyQuestion.objects.filter(section__survey=survey)
                      .select_related('section')
                      .order_by('section__order', 'order', 'id'))
 
-    # 2. Obtener respuestas con Paginación (Crítico para evitar el Error 500)
-    responses_qs = (SurveyResponse.objects
-                    .filter(survey=survey, status='submitted')
-                    .select_related('user')
-                    .prefetch_related('answers')
-                    .order_by('-submitted_at'))
-    
-    paginator = Paginator(responses_qs, 25) # Mostramos 25 por página
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    responses = page_obj.object_list
+    if view_filter == 'faltantes':
+        respondedores_ids = SurveyResponse.objects.filter(
+            survey=survey, status='submitted'
+        ).values_list('user_id', flat=True)
 
-    # 3. Mapear empleados de la página actual en una sola consulta
-    user_ids = [r.user_id for r in responses]
-    employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
-    emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
+        # Lógica mejorada para detectar la audiencia real
+        try:
+            # Intentamos obtener usuarios específicos de la audiencia
+            audiencia_ids = survey.audience.users.values_list('id', flat=True)
+            
+            # Si la audiencia existe pero no tiene usuarios específicos (es global), 
+            # tomamos a todos los empleados activos.
+            if not audiencia_ids.exists():
+                audiencia_ids = Employee.objects.filter(
+                    user__isnull=False, user__is_active=True, is_active=True
+                ).values_list('user_id', flat=True)
+                
+        except AttributeError:
+            # Si ni siquiera existe el objeto audience, la base son todos los activos
+            audiencia_ids = Employee.objects.filter(
+                user__isnull=False, user__is_active=True, is_active=True
+            ).values_list('user_id', flat=True)
 
-    # 4. Procesar solo las respuestas de la página actual
-    for r in responses:
-        r.department_name = emp_map.get(r.user_id, "N/A")
-        # Creamos un diccionario temporal para acceso rápido O(1)
-        answers_dict = {a.question_id: a for a in r.answers.all()}
+        # Ahora filtramos: Base de audiencia MENOS los que ya respondieron
+        faltantes_qs = Employee.objects.filter(
+            user_id__in=audiencia_ids,
+            user__is_active=True
+        ).exclude(user_id__in=respondedores_ids).select_related('department', 'user').order_by('user__first_name')
+
+        paginator = Paginator(faltantes_qs, 25)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
         
-        cells = []
-        for q in questions:
-            ans = answers_dict.get(q.id)
-            if ans:
-                # Lógica de display (tu código original abreviado)
-                qtype = (ans.q_type or "").lower()
-                snap = ans.snapshot or {}
-                if qtype in {"single", "assessment", "frecuency"} and snap.get("selected_labels"):
-                    ans.display = ", ".join(snap.get("selected_labels"))
-                elif qtype == "multiple" and snap.get("selected_labels"):
-                    ans.display = ", ".join(snap.get("selected_labels"))
-                else:
-                    ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
-            cells.append(ans)
-        r.cells = cells
+        # RETORNO EXPLÍCITO PARA FALTANTES
+        return render(request, 'surveys/admin/survey_responses.html', {
+            'survey': survey,
+            'page_obj': page_obj,
+            'ver': view_filter,
+            'titulo': "Colaboradores Faltantes"
+        })
 
-    return render(request, 'surveys/admin/survey_responses.html', {
-        'survey': survey,
-        'questions': questions,
-        'responses': responses,
-        'page_obj': page_obj, # Enviamos el objeto de paginación al HTML
-    })
+    else:
+            # --- LÓGICA PARA RESPUESTAS RECIBIDAS ---
+            responses_qs = (SurveyResponse.objects
+                            .filter(survey=survey, status='submitted')
+                            .select_related('user')
+                            .prefetch_related('answers')
+                            .order_by('-submitted_at'))
+            
+            paginator = Paginator(responses_qs, 25)
+            page_number = request.GET.get('page')
+            page_obj = paginator.get_page(page_number)
+            responses = page_obj.object_list
 
+            user_ids = [r.user_id for r in responses]
+            employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
+            emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
+
+            for r in responses:
+                r.department_name = emp_map.get(r.user_id, "N/A")
+                answers_dict = {a.question_id: a for a in r.answers.all()}
+                cells = []
+                for q in questions:
+                    ans = answers_dict.get(q.id)
+                    if ans:
+                        # PROCESAMIENTO CRÍTICO: Definimos el atributo 'display' para el HTML
+                        qtype = (ans.q_type or "").lower()
+                        snap = ans.snapshot or {}
+                        
+                        if qtype in {"single", "assessment", "frecuency"} and snap.get("selected_labels"):
+                            ans.display = ", ".join(snap.get("selected_labels"))
+                        elif qtype == "multiple" and snap.get("selected_labels"):
+                            ans.display = ", ".join(snap.get("selected_labels"))
+                        else:
+                            # Fallback para texto, números o rating
+                            ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
+                    
+                    cells.append(ans) # Agregamos el objeto (que ahora tiene .display) a la celda
+                r.cells = cells
+
+            return render(request, 'surveys/admin/survey_responses.html', {
+                'survey': survey,
+                'questions': questions,
+                'responses': responses,
+                'page_obj': page_obj,
+                'ver': view_filter,
+                'titulo': "Respuestas Recibidas"
+            })
 
 
 @login_required

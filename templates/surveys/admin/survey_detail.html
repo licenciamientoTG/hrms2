@@ -19,10 +19,15 @@
         </div>
     </div>
     
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-primary" href="{% url 'survey_responses' survey.id %}">
-            <i class="fa-solid fa-list-check me-2"></i> Respuestas Individuales
+    <div class="d-flex gap-3">
+        <a class="btn btn-outline-danger" href="{% url 'survey_responses' survey.id %}?ver=faltantes">
+            <i class="fa-solid fa-user-xmark me-2"></i> C. Faltantes
         </a>
+        
+        <a class="btn btn-outline-success" href="{% url 'survey_responses' survey.id %}?ver=recibidas">
+            <i class="fa-solid fa-check-double me-2"></i> R. Recibidas 
+        </a>
+
         <a class="btn btn-success text-white" href="{% url 'survey_export_xlsx' survey.id %}">
             <i class="fa-solid fa-file-excel me-2"></i> Exportar Excel
         </a>
