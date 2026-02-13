@@ -6,7 +6,8 @@ from .views import (
     admin_reset_password,
     create_group,
     delete_group,
-    reset_password_to_default
+    reset_password_to_default,
+    terms_audit_view
 )
 from apps.users.views import force_password_change
 
@@ -20,4 +21,5 @@ urlpatterns = [
     path('groups/create/', create_group, name='create_group'),
     path('groups/delete/<int:group_id>/', delete_group, name='delete_group'),
     path('reset-default/<int:user_id>/', reset_password_to_default, name='reset_password_default'),
+    path('audit/terms/', terms_audit_view, name='terms_audit'),
 ]
