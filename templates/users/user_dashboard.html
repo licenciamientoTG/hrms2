@@ -10,6 +10,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Usuarios</h2>
+  {% if request.user.is_superuser %}
+    <a href="{% url 'terms_audit' %}" class="btn btn-primary">
+      <i class="fas fa-file-contract"></i> Auditoría de Términos
+    </a>
+  {% endif %}
 </div>
 
 <div class="card p-3">

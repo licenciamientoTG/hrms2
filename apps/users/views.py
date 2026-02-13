@@ -20,6 +20,7 @@ import chardet
 from .utils import parse_fecha
 from django.db.models import Prefetch
 from django.db.models import Q
+from django.contrib.auth import get_user_model
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)
@@ -217,3 +218,31 @@ def reset_password_to_default(request, user_id):
         messages.error(request, f"Error al generar contraseña: {str(e)}")
 
     return redirect('admin_reset_password', user_id=user_id)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def terms_audit_view(request):
+    User = get_user_model()
+    q = (request.GET.get('q') or '').strip()
+    
+    # 1. Base del Query con optimización de relaciones
+    users_qs = User.objects.select_related('userprofile', 'employee__department').order_by('username')
+    
+    # 2. Lógica de Buscador (Filtra por nombre, apellido o nombre de usuario)
+    if q:
+        users_qs = users_qs.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(employee__employee_number__icontains=q)
+        )
+    
+    # 3. Paginación (Carga de 15 en 15 como en tus otras vistas)
+    paginator = Paginator(users_qs, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, "authapp/terms_audit.html", {
+        "page_obj": page_obj,
+        "q": q
+    })
