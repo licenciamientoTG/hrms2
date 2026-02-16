@@ -21,6 +21,7 @@ MODULE_CHOICES = [
     ('politicas', 'Políticas internas'),
     ('plan_carrera', 'Plan de carrera'),
     ('requisiciones', 'Requisición de personal'),
+    ('prestamos', 'Préstamos'),
 ]
 
 class Notification(models.Model):

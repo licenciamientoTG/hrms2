@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 else if (href.includes('/policies/')) moduleName = 'politicas';
                 else if (href.includes('/career-plan/')) moduleName = 'plan_carrera';
                 else if (href.includes('/staff-requisitions/')) moduleName = 'requisiciones';
+                else if (href.includes('/tools/')) moduleName = 'prestamos';
 
                 if (moduleName) {
                     // Llamada asíncrona para marcar como leído (no esperamos la respuesta para navegar)

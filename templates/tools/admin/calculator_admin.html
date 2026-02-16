@@ -86,6 +86,7 @@
                         <th class="text-center">Plazo</th>
                         <th class="text-end">Pago Sem.</th>
                         <th>Patrón</th>
+                        <th class="text-center">Acciones</th> </tr>
                     </tr>
                 </thead>
                 <tbody>
@@ -126,6 +127,22 @@
                                 {{ s.company|default:"--"|truncatechars:15 }}
                             </span>
                         </td>
+
+                        <td class="text-center">
+                        {# Solo permitimos cancelar si no está ya cancelada #}
+                        {% if s.status != 'cancelled' %}
+                            <form action="{% url 'cancel_loan_request' s.id %}" method="POST" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                        onclick="return confirm('¿Estás seguro de que deseas cancelar esta solicitud? Esta acción no se puede deshacer.')"
+                                        title="Cancelar solicitud">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </form>
+                        {% else %}
+                            <span class="badge bg-danger">Cancelada</span>
+                        {% endif %}
+                    </td>
                     </tr>
                     {% empty %}
                     <tr>

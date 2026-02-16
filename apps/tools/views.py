@@ -13,6 +13,9 @@ import xlsxwriter
 from django.http import HttpResponse
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from apps.notifications.utils import notify
 
 @login_required
 def calculator_view(request):
@@ -234,7 +237,7 @@ def export_loans_excel(request):
     f_ini_str = request.GET.get('fecha_inicio')
     f_fin_str = request.GET.get('fecha_fin')
 
-    qs = LoanRequest.objects.select_related('user').order_by('-created_at')
+    qs = LoanRequest.objects.filter(status='approved').select_related('user').order_by('-created_at')
 
     start_aware = None
     end_aware = None
@@ -351,3 +354,32 @@ def export_loans_excel(request):
     response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
     
     return response
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def cancel_loan_request(request, pk):
+    """
+    Permite al administrador cancelar una solicitud que no se va a procesar.
+    """
+    solicitud = get_object_or_404(LoanRequest, pk=pk)
+    
+    # Cambiamos el estado a cancelado
+    solicitud.status = "cancelled"
+    solicitud.save()
+
+    # Notificar al usuario
+    notify(
+        user=solicitud.user,
+        title="Solicitud de préstamo rechazada",
+        body="Tu solicitud de préstamo ha sido cancelada por el administrador.",
+        module="prestamos",
+        url=reverse('calculator_user')
+    )
+    
+    # Si la petición es AJAX (opcional, por si quieres hacerlo más fluido)
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({"ok": True})
+    
+    # Si es una petición normal de formulario
+    return redirect('calculator_admin')

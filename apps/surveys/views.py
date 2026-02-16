@@ -77,7 +77,7 @@ def survey_dashboard_admin(request):
     # Obtener todos los IDs de encuestas en esta página
     survey_ids = [s.id for s in page_obj.object_list]
     
-    # Contar respuestas enviadas por encuesta
+    # Contar respuestas enviadas por encuesta (para la columna "Recibidas")
     from django.db.models import Count
     responses_count = dict(
         SurveyResponse.objects.filter(
@@ -87,60 +87,53 @@ def survey_dashboard_admin(request):
             count=Count('id')
         ).values_list('survey_id', 'count')
     )
+
+    # Pre-cargar IDs de respondedores por encuesta (para calcular "Esperados" correctamente)
+    # Expected = Union(Audiencia Activa, Respondedores Históricos)
+    from collections import defaultdict
+    responders_by_survey = defaultdict(set)
+    # Incluimos respuestas 'submitted' para que cuadre con "Recibidas"
+    # Si quisieras incluir 'draft' en el universo esperado, quita el status.
+    responses_qs = SurveyResponse.objects.filter(
+        survey_id__in=survey_ids,
+        status='submitted' 
+    ).values('survey_id', 'user_id')
     
-    # Contar audiencia esperada por encuesta
+    for row in responses_qs:
+        if row['user_id']:
+            responders_by_survey[row['survey_id']].add(row['user_id'])
+    
+    # Contar audiencia esperada por encuesta (Ajustado para cuadrar Recibidas + Faltantes)
     audience_counts = {}
     for survey in page_obj.object_list:
         try:
             aud = survey.audience
+            qs_base = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
+            
             if not aud or aud.mode == SurveyAudience.MODE_ALL:
-                # Todos los usuarios activos
-                total = Employee.objects.filter(
-                    user__isnull=False,
-                    user__is_active=True,
-                    is_active=True
-                ).count()
+                active_audience_qs = qs_base
             elif aud.mode == 'segmented':
-                # Calcular según filtros
-                filters = aud.filters or {}
-                dep_ids = filters.get('departments') or []
-                pos_ids = filters.get('positions') or []
-                loc_ids = filters.get('locations') or []
-                user_ids = list(aud.users.values_list('id', flat=True))
-                
-                qs_emp = Employee.objects.filter(
-                    user__isnull=False,
-                    user__is_active=True,
-                    is_active=True
-                )
-                
-                # Lógica OR: usuarios específicos o cualquier filtro
+                f = aud.filters or {}
                 cond = Q()
-                if user_ids:
-                    cond |= Q(user_id__in=user_ids)
-                if dep_ids:
-                    cond |= Q(department_id__in=dep_ids)
-                if pos_ids:
-                    cond |= Q(job_position_id__in=pos_ids)
-                if loc_ids:
-                    cond |= Q(station_id__in=loc_ids)
-                
-                if cond:
-                    total = qs_emp.filter(cond).distinct().count()
-                else:
-                    total = 0
+                def clean_ids(id_list): return [int(x) for x in id_list if str(x).isdigit()]
+                if f.get('departments'): cond |= Q(department_id__in=clean_ids(f['departments']))
+                if f.get('positions'):   cond |= Q(job_position_id__in=clean_ids(f['positions']))
+                if f.get('locations'):   cond |= Q(station_id__in=clean_ids(f['locations']))
+                uids = list(aud.users.values_list('id', flat=True))
+                if uids: cond |= Q(user_id__in=uids)
+                active_audience_qs = qs_base.filter(cond).distinct() if cond else Employee.objects.none()
             else:
-                # Modo desconocido, contar solo usuarios explícitos
-                total = aud.users.filter(is_active=True).count()
+                uids = list(aud.users.values_list('id', flat=True))
+                active_audience_qs = qs_base.filter(user_id__in=uids)
         except SurveyAudience.DoesNotExist:
-            # Sin audiencia = todos los usuarios
-            total = Employee.objects.filter(
-                user__isnull=False,
-                user__is_active=True,
-                is_active=True
-            ).count()
+            active_audience_qs = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
+
+        # Faltantes = Personas en la audiencia activa que aún NO han respondido con su cuenta
+        missing_count = active_audience_qs.exclude(user_id__in=responders_by_survey[survey.id]).count()
         
-        audience_counts[survey.id] = total
+        # Total Esperado = Recibidas (históricas/totales) + Faltantes (quienes faltan hoy)
+        # Esto garantiza matemáticamente que: Recibidas + Faltantes = Esperadas
+        audience_counts[survey.id] = responses_count.get(survey.id, 0) + missing_count
     
     # Asignar métricas a cada encuesta
     for i, s in enumerate(page_obj.object_list, start=1):
@@ -1075,34 +1068,40 @@ def survey_detail_admin(request, pk: int):
         pk=pk
     )
 
-    # ====== Métricas generales ======
-    responses_count = SurveyResponse.objects.filter(
-        survey=survey, status='submitted'
-    ).count()
+    # ====== Métricas generales (Ajustado para cuadrar Recibidas + Faltantes) ======
+    responses_qs_submitted = SurveyResponse.objects.filter(survey=survey, status='submitted')
+    responses_count = responses_qs_submitted.count()
+
+    # IDs de quienes ya respondieron (para excluirlos del cálculo de faltantes)
+    responder_ids = set(responses_qs_submitted.values_list('user_id', flat=True))
 
     try:
         aud = survey.audience
+        qs_base = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
+        
+        if not aud or aud.mode == SurveyAudience.MODE_ALL:
+            active_audience_qs = qs_base
+        elif aud.mode == 'segmented':
+            f = aud.filters or {}
+            cond = Q()
+            def clean_ids(id_list): return [int(x) for x in id_list if str(x).isdigit()]
+            if f.get('departments'): cond |= Q(department_id__in=clean_ids(f['departments']))
+            if f.get('positions'):   cond |= Q(job_position_id__in=clean_ids(f['positions']))
+            if f.get('locations'):   cond |= Q(station_id__in=clean_ids(f['locations']))
+            uids = list(aud.users.values_list('id', flat=True))
+            if uids: cond |= Q(user_id__in=uids)
+            active_audience_qs = qs_base.filter(cond).distinct() if cond else Employee.objects.none()
+        else:
+            uids = list(aud.users.values_list('id', flat=True))
+            active_audience_qs = qs_base.filter(user_id__in=uids)
     except SurveyAudience.DoesNotExist:
-        aud = None
+        active_audience_qs = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
 
-    if not aud or aud.mode == SurveyAudience.MODE_ALL:
-        expected = Employee.objects.filter(
-            user__isnull=False, user__is_active=True, is_active=True
-        ).count()
-    elif aud.mode == 'segmented':
-        f = aud.filters or {}
-        cond = Q()
-        if f.get('departments'): cond |= Q(department_id__in=f['departments'])
-        if f.get('positions'):   cond |= Q(job_position_id__in=f['positions'])
-        if f.get('locations'):   cond |= Q(station_id__in=f['locations'])
-        uids = list(aud.users.values_list('id', flat=True))
-        if uids: cond |= Q(user_id__in=uids)
-        expected = (Employee.objects.filter(
-            user__isnull=False, user__is_active=True, is_active=True
-        ).filter(cond).distinct().count()) if cond else 0
-    else:
-        expected = aud.users.filter(is_active=True).count()
-
+    # Faltantes = Gente en audiencia activa que no ha contestado
+    missing_count = active_audience_qs.exclude(user_id__in=responder_ids).count()
+    
+    # Total Esperado = Recibidas + Faltantes
+    expected = responses_count + missing_count
     progress = (responses_count / expected * 100) if expected else 0
 
     # ====== Stats por pregunta ======
@@ -1573,45 +1572,66 @@ def survey_responses(request, pk):
     survey = get_object_or_404(Survey, pk=pk)
     view_filter = request.GET.get('ver', 'recibidas')
 
-    # 1. Preguntas comunes para ambos casos
     questions = list(SurveyQuestion.objects.filter(section__survey=survey)
                      .select_related('section')
                      .order_by('section__order', 'order', 'id'))
 
     if view_filter == 'faltantes':
-        respondedores_ids = SurveyResponse.objects.filter(
+        # 1. Lista física de respondedores (para una resta estable en la BD)
+        respondedores_ids = list(SurveyResponse.objects.filter(
             survey=survey, status='submitted'
-        ).values_list('user_id', flat=True)
+        ).values_list('user_id', flat=True))
 
-        # Lógica mejorada para detectar la audiencia real
+        # 2. Base de audiencia EXACTA: Activos con usuario vinculado
+        # Esta es la misma base que usa el Dashboard para calcular los "Esperados"
+        qs_base = Employee.objects.filter(
+            user__isnull=False, 
+            user__is_active=True, 
+            is_active=True
+        )
+
         try:
-            # Intentamos obtener usuarios específicos de la audiencia
-            audiencia_ids = survey.audience.users.values_list('id', flat=True)
-            
-            # Si la audiencia existe pero no tiene usuarios específicos (es global), 
-            # tomamos a todos los empleados activos.
-            if not audiencia_ids.exists():
-                audiencia_ids = Employee.objects.filter(
-                    user__isnull=False, user__is_active=True, is_active=True
-                ).values_list('user_id', flat=True)
+            aud = survey.audience
+            if not aud or aud.mode == 'all':
+                audiencia_qs = qs_base
+            elif aud.mode == 'segmented':
+                f = aud.filters or {}
+                cond = Q()
                 
-        except AttributeError:
-            # Si ni siquiera existe el objeto audience, la base son todos los activos
-            audiencia_ids = Employee.objects.filter(
-                user__isnull=False, user__is_active=True, is_active=True
-            ).values_list('user_id', flat=True)
+                def clean_ids(id_list):
+                    return [int(x) for x in id_list if str(x).isdigit()]
 
-        # Ahora filtramos: Base de audiencia MENOS los que ya respondieron
-        faltantes_qs = Employee.objects.filter(
-            user_id__in=audiencia_ids,
-            user__is_active=True
-        ).exclude(user_id__in=respondedores_ids).select_related('department', 'user').order_by('user__first_name')
+                if f.get('departments'):
+                    cond |= Q(department_id__in=clean_ids(f['departments']))
+                if f.get('positions'):
+                    # Sincronizado con Dashboard: job_position_id
+                    cond |= Q(job_position_id__in=clean_ids(f['positions']))
+                if f.get('locations'):
+                    # Sincronizado con Dashboard: station_id
+                    cond |= Q(station_id__in=clean_ids(f['locations']))
+                
+                # Usuarios manuales (OR)
+                u_ids = list(aud.users.values_list('id', flat=True))
+                if u_ids: 
+                    cond |= Q(user_id__in=u_ids)
+                
+                audiencia_qs = qs_base.filter(cond).distinct() if cond else Employee.objects.none()
+            else:
+                uids = list(aud.users.values_list('id', flat=True))
+                audiencia_qs = qs_base.filter(user_id__in=uids)
+        
+        except Exception:
+            # Si falla la audiencia por cualquier razón, mostrar todos los activos
+            audiencia_qs = qs_base
+
+        # 3. La resta: Audiencia teórica - Respondedores reales
+        faltantes_qs = audiencia_qs.exclude(
+            user_id__in=respondedores_ids
+        ).select_related('department', 'job_position', 'user').order_by('user__first_name')
 
         paginator = Paginator(faltantes_qs, 25)
-        page_number = request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
+        page_obj = paginator.get_page(request.GET.get('page'))
         
-        # RETORNO EXPLÍCITO PARA FALTANTES
         return render(request, 'surveys/admin/survey_responses.html', {
             'survey': survey,
             'page_obj': page_obj,
@@ -1620,54 +1640,46 @@ def survey_responses(request, pk):
         })
 
     else:
-            # --- LÓGICA PARA RESPUESTAS RECIBIDAS ---
-            responses_qs = (SurveyResponse.objects
-                            .filter(survey=survey, status='submitted')
-                            .select_related('user')
-                            .prefetch_related('answers')
-                            .order_by('-submitted_at'))
-            
-            paginator = Paginator(responses_qs, 25)
-            page_number = request.GET.get('page')
-            page_obj = paginator.get_page(page_number)
-            responses = page_obj.object_list
+        # --- LÓGICA PARA RECIBIDAS ---
+        responses_qs = (SurveyResponse.objects
+                        .filter(survey=survey, status='submitted')
+                        .select_related('user')
+                        .prefetch_related('answers')
+                        .order_by('-submitted_at'))
+        
+        paginator = Paginator(responses_qs, 25)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        responses = page_obj.object_list
 
-            user_ids = [r.user_id for r in responses]
-            employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
-            emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
+        user_ids = [r.user_id for r in responses]
+        employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
+        emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
 
-            for r in responses:
-                r.department_name = emp_map.get(r.user_id, "N/A")
-                answers_dict = {a.question_id: a for a in r.answers.all()}
-                cells = []
-                for q in questions:
-                    ans = answers_dict.get(q.id)
-                    if ans:
-                        # PROCESAMIENTO CRÍTICO: Definimos el atributo 'display' para el HTML
-                        qtype = (ans.q_type or "").lower()
-                        snap = ans.snapshot or {}
-                        
-                        if qtype in {"single", "assessment", "frecuency"} and snap.get("selected_labels"):
-                            ans.display = ", ".join(snap.get("selected_labels"))
-                        elif qtype == "multiple" and snap.get("selected_labels"):
-                            ans.display = ", ".join(snap.get("selected_labels"))
-                        else:
-                            # Fallback para texto, números o rating
-                            ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
-                    
-                    cells.append(ans) # Agregamos el objeto (que ahora tiene .display) a la celda
-                r.cells = cells
+        for r in responses:
+            r.department_name = emp_map.get(r.user_id, "N/A")
+            answers_dict = {a.question_id: a for a in r.answers.all()}
+            cells = []
+            for q in questions:
+                ans = answers_dict.get(q.id)
+                if ans:
+                    qtype = (ans.q_type or "").lower()
+                    snap = ans.snapshot or {}
+                    if qtype in {"single", "multiple", "assessment", "frecuency"} and snap.get("selected_labels"):
+                        ans.display = ", ".join(snap.get("selected_labels"))
+                    else:
+                        ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
+                cells.append(ans)
+            r.cells = cells
 
-            return render(request, 'surveys/admin/survey_responses.html', {
-                'survey': survey,
-                'questions': questions,
-                'responses': responses,
-                'page_obj': page_obj,
-                'ver': view_filter,
-                'titulo': "Respuestas Recibidas"
-            })
-
-
+        return render(request, 'surveys/admin/survey_responses.html', {
+            'survey': survey,
+            'questions': questions,
+            'responses': responses,
+            'page_obj': page_obj,
+            'ver': view_filter,
+            'titulo': "Respuestas Recibidas"
+        })
+             
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def survey_summary_pdf(request):
@@ -1711,32 +1723,33 @@ def survey_summary_pdf(request):
         Paragraph('<b>Creada</b>', wrap_style),
     ]]
 
-    # ===== Helper para audiencia esperada =====
-    def expected_for(survey):
+    # ===== Helper para audiencia esperada (Ajustado para cuadrar Recibidas + Faltantes) =====
+    def expected_for(survey, responses_count):
         try:
             aud = survey.audience
+            qs_base = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
+            
+            if not aud or getattr(aud, "mode", "").lower() == SurveyAudience.MODE_ALL:
+                active_audience_qs = qs_base
+            elif aud.mode == 'segmented':
+                f = aud.filters or {}
+                cond = Q()
+                def clean_ids(id_list): return [int(x) for x in id_list if str(x).isdigit()]
+                if f.get('departments'): cond |= Q(department_id__in=clean_ids(f['departments']))
+                if f.get('positions'):   cond |= Q(job_position_id__in=clean_ids(f['positions']))
+                if f.get('locations'):   cond |= Q(station_id__in=clean_ids(f['locations']))
+                uids = list(aud.users.values_list('id', flat=True))
+                if uids: cond |= Q(user_id__in=uids)
+                active_audience_qs = qs_base.filter(cond).distinct() if cond else Employee.objects.none()
+            else:
+                uids = list(aud.users.values_list('id', flat=True))
+                active_audience_qs = qs_base.filter(user_id__in=uids)
         except SurveyAudience.DoesNotExist:
-            aud = None
+            active_audience_qs = Employee.objects.filter(user__isnull=False, user__is_active=True, is_active=True)
 
-        if not aud or getattr(aud, "mode", "").lower() == SurveyAudience.MODE_ALL:
-            return Employee.objects.filter(
-                user__isnull=False, user__is_active=True, is_active=True
-            ).count()
-
-        if aud.mode == 'segmented':
-            f = aud.filters or {}
-            cond = Q()
-            if f.get('departments'): cond |= Q(department_id__in=f['departments'])
-            if f.get('positions'):   cond |= Q(job_position_id__in=f['positions'])
-            if f.get('locations'):   cond |= Q(station_id__in=f['locations'])
-            uids = list(aud.users.values_list('id', flat=True))
-            if uids: cond |= Q(user_id__in=uids)
-            return (Employee.objects
-                    .filter(user__isnull=False, user__is_active=True, is_active=True)
-                    .filter(cond).distinct().count()) if cond else 0
-
-        # otros modos: solo lista explícita
-        return aud.users.filter(is_active=True).count()
+        responder_ids = SurveyResponse.objects.filter(survey=survey, status='submitted').values_list('user_id', flat=True)
+        missing_count = active_audience_qs.exclude(user_id__in=responder_ids).count()
+        return responses_count + missing_count
 
     # ===== Filas =====
     surveys = Survey.objects.all().order_by("-created_at")
@@ -1746,7 +1759,7 @@ def survey_summary_pdf(request):
 
     for s in surveys:
         respuestas = SurveyResponse.objects.filter(survey=s, status="submitted").count()
-        esperada   = expected_for(s)
+        esperada   = expected_for(s, respuestas)
         avance     = (respuestas / esperada * 100) if esperada else 0.0
         estado     = "Activa" if s.is_active else "Borrador"
         creada     = s.created_at.strftime("%d/%m/%Y") if getattr(s, "created_at", None) else ""
