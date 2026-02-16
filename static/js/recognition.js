@@ -118,17 +118,32 @@
 
       // Render
       preview.innerHTML = '';
-      selected.forEach(file => {
+      selected.forEach((file, index) => {
         const url = URL.createObjectURL(file);
         const fig = document.createElement('figure');
-        fig.className = 'm-0';
+        fig.className = 'm-0 position-relative';
         fig.style.width = '110px';
         fig.innerHTML = `
+          <button type="button" class="btn-close position-absolute top-0 end-0 bg-white shadow-sm" 
+                  style="padding: 0.4rem; font-size: 0.6rem; transform: translate(30%, -30%); opacity: 1; border-radius: 50%;" 
+                  aria-label="Eliminar" data-idx="${index}"></button>
           <img src="${url}" class="img-fluid rounded border" style="height:84px;object-fit:cover;width:100%;">
           <figcaption class="small text-truncate" title="${file.name}">${file.name}</figcaption>`;
         preview.appendChild(fig);
       });
     }
+
+    // Listener para eliminar imágenes
+    preview && preview.addEventListener('click', (e) => {
+      if (e.target.classList.contains('btn-close')) {
+        e.preventDefault();
+        const idx = parseInt(e.target.dataset.idx, 10);
+        if (!isNaN(idx)) {
+          selected.splice(idx, 1);
+          syncInputAndRender();
+        }
+      }
+    });
 
     function addFiles(fileList) {
       const incoming = [...(fileList || [])]
