@@ -1573,45 +1573,66 @@ def survey_responses(request, pk):
     survey = get_object_or_404(Survey, pk=pk)
     view_filter = request.GET.get('ver', 'recibidas')
 
-    # 1. Preguntas comunes para ambos casos
     questions = list(SurveyQuestion.objects.filter(section__survey=survey)
                      .select_related('section')
                      .order_by('section__order', 'order', 'id'))
 
     if view_filter == 'faltantes':
-        respondedores_ids = SurveyResponse.objects.filter(
+        # 1. Lista física de respondedores (para una resta estable en la BD)
+        respondedores_ids = list(SurveyResponse.objects.filter(
             survey=survey, status='submitted'
-        ).values_list('user_id', flat=True)
+        ).values_list('user_id', flat=True))
 
-        # Lógica mejorada para detectar la audiencia real
+        # 2. Base de audiencia EXACTA: Activos con usuario vinculado
+        # Esta es la misma base que usa el Dashboard para calcular los "Esperados"
+        qs_base = Employee.objects.filter(
+            user__isnull=False, 
+            user__is_active=True, 
+            is_active=True
+        )
+
         try:
-            # Intentamos obtener usuarios específicos de la audiencia
-            audiencia_ids = survey.audience.users.values_list('id', flat=True)
-            
-            # Si la audiencia existe pero no tiene usuarios específicos (es global), 
-            # tomamos a todos los empleados activos.
-            if not audiencia_ids.exists():
-                audiencia_ids = Employee.objects.filter(
-                    user__isnull=False, user__is_active=True, is_active=True
-                ).values_list('user_id', flat=True)
+            aud = survey.audience
+            if not aud or aud.mode == 'all':
+                audiencia_qs = qs_base
+            elif aud.mode == 'segmented':
+                f = aud.filters or {}
+                cond = Q()
                 
-        except AttributeError:
-            # Si ni siquiera existe el objeto audience, la base son todos los activos
-            audiencia_ids = Employee.objects.filter(
-                user__isnull=False, user__is_active=True, is_active=True
-            ).values_list('user_id', flat=True)
+                def clean_ids(id_list):
+                    return [int(x) for x in id_list if str(x).isdigit()]
 
-        # Ahora filtramos: Base de audiencia MENOS los que ya respondieron
-        faltantes_qs = Employee.objects.filter(
-            user_id__in=audiencia_ids,
-            user__is_active=True
-        ).exclude(user_id__in=respondedores_ids).select_related('department', 'user').order_by('user__first_name')
+                if f.get('departments'):
+                    cond |= Q(department_id__in=clean_ids(f['departments']))
+                if f.get('positions'):
+                    # Sincronizado con Dashboard: job_position_id
+                    cond |= Q(job_position_id__in=clean_ids(f['positions']))
+                if f.get('locations'):
+                    # Sincronizado con Dashboard: station_id
+                    cond |= Q(station_id__in=clean_ids(f['locations']))
+                
+                # Usuarios manuales (OR)
+                u_ids = list(aud.users.values_list('id', flat=True))
+                if u_ids: 
+                    cond |= Q(user_id__in=u_ids)
+                
+                audiencia_qs = qs_base.filter(cond).distinct() if cond else Employee.objects.none()
+            else:
+                uids = list(aud.users.values_list('id', flat=True))
+                audiencia_qs = qs_base.filter(user_id__in=uids)
+        
+        except Exception:
+            # Si falla la audiencia por cualquier razón, mostrar todos los activos
+            audiencia_qs = qs_base
+
+        # 3. La resta: Audiencia teórica - Respondedores reales
+        faltantes_qs = audiencia_qs.exclude(
+            user_id__in=respondedores_ids
+        ).select_related('department', 'job_position', 'user').order_by('user__first_name')
 
         paginator = Paginator(faltantes_qs, 25)
-        page_number = request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
+        page_obj = paginator.get_page(request.GET.get('page'))
         
-        # RETORNO EXPLÍCITO PARA FALTANTES
         return render(request, 'surveys/admin/survey_responses.html', {
             'survey': survey,
             'page_obj': page_obj,
@@ -1620,54 +1641,46 @@ def survey_responses(request, pk):
         })
 
     else:
-            # --- LÓGICA PARA RESPUESTAS RECIBIDAS ---
-            responses_qs = (SurveyResponse.objects
-                            .filter(survey=survey, status='submitted')
-                            .select_related('user')
-                            .prefetch_related('answers')
-                            .order_by('-submitted_at'))
-            
-            paginator = Paginator(responses_qs, 25)
-            page_number = request.GET.get('page')
-            page_obj = paginator.get_page(page_number)
-            responses = page_obj.object_list
+        # --- LÓGICA PARA RECIBIDAS ---
+        responses_qs = (SurveyResponse.objects
+                        .filter(survey=survey, status='submitted')
+                        .select_related('user')
+                        .prefetch_related('answers')
+                        .order_by('-submitted_at'))
+        
+        paginator = Paginator(responses_qs, 25)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        responses = page_obj.object_list
 
-            user_ids = [r.user_id for r in responses]
-            employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
-            emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
+        user_ids = [r.user_id for r in responses]
+        employees = Employee.objects.filter(user_id__in=user_ids).select_related('department')
+        emp_map = {e.user_id: (e.department.name if e.department else "Sin Depto") for e in employees}
 
-            for r in responses:
-                r.department_name = emp_map.get(r.user_id, "N/A")
-                answers_dict = {a.question_id: a for a in r.answers.all()}
-                cells = []
-                for q in questions:
-                    ans = answers_dict.get(q.id)
-                    if ans:
-                        # PROCESAMIENTO CRÍTICO: Definimos el atributo 'display' para el HTML
-                        qtype = (ans.q_type or "").lower()
-                        snap = ans.snapshot or {}
-                        
-                        if qtype in {"single", "assessment", "frecuency"} and snap.get("selected_labels"):
-                            ans.display = ", ".join(snap.get("selected_labels"))
-                        elif qtype == "multiple" and snap.get("selected_labels"):
-                            ans.display = ", ".join(snap.get("selected_labels"))
-                        else:
-                            # Fallback para texto, números o rating
-                            ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
-                    
-                    cells.append(ans) # Agregamos el objeto (que ahora tiene .display) a la celda
-                r.cells = cells
+        for r in responses:
+            r.department_name = emp_map.get(r.user_id, "N/A")
+            answers_dict = {a.question_id: a for a in r.answers.all()}
+            cells = []
+            for q in questions:
+                ans = answers_dict.get(q.id)
+                if ans:
+                    qtype = (ans.q_type or "").lower()
+                    snap = ans.snapshot or {}
+                    if qtype in {"single", "multiple", "assessment", "frecuency"} and snap.get("selected_labels"):
+                        ans.display = ", ".join(snap.get("selected_labels"))
+                    else:
+                        ans.display = ans.value_text or ans.value_int or ans.value_decimal or "-"
+                cells.append(ans)
+            r.cells = cells
 
-            return render(request, 'surveys/admin/survey_responses.html', {
-                'survey': survey,
-                'questions': questions,
-                'responses': responses,
-                'page_obj': page_obj,
-                'ver': view_filter,
-                'titulo': "Respuestas Recibidas"
-            })
-
-
+        return render(request, 'surveys/admin/survey_responses.html', {
+            'survey': survey,
+            'questions': questions,
+            'responses': responses,
+            'page_obj': page_obj,
+            'ver': view_filter,
+            'titulo': "Respuestas Recibidas"
+        })
+             
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def survey_summary_pdf(request):

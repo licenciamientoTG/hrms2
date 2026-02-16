@@ -131,7 +131,7 @@
       </ul>
     </nav>
     {% endif %}
-        Mostrando {{ responses|length }} registros
+        Mostrando {{ page_obj.object_list|length }} de {{ page_obj.paginator.count }} totales
     </div>
   </div>
 </div>

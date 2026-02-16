@@ -9,4 +9,5 @@ urlpatterns = [
     path('admin/', views.calculator_admin, name='calculator_admin'),
     path('api/create-loan/', views.create_loan_request, name='create_loan_request'),
     path('admin/export-excel/', views.export_loans_excel, name='export_loans_excel'),
+    path('admin/prestamos/cancelar/<int:pk>/', views.cancel_loan_request, name='cancel_loan_request'),
 ]

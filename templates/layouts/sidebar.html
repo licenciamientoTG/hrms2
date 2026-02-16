@@ -313,7 +313,14 @@
                        role="button" 
                        aria-expanded="{% if 'calculator' in request.resolver_match.url_name %}true{% else %}false{% endif %}" 
                        aria-controls="menu-tools">
-                        <span><i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas</span>
+                        <span class="align-middle">
+                            <i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas
+                            {% with notif_module_counts.prestamos as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
                         <i class="fa-solid fa-chevron-down small"></i>
                     </a>
 
@@ -321,7 +328,15 @@
                         <ul class="list-unstyled ps-4 py-2 m-0">
                             <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
                                 <a class="sidebar-link" href="{% url 'calculator_view' %}">
-                                    <i class="fa-solid fa-calculator me-2"></i> Calculadora de préstamo
+                                    <i class="fa-solid fa-calculator me-2"></i> 
+                                    <span class="align-middle">
+                                        Calculadora de préstamo
+                                        {% with notif_module_counts.prestamos as c %}
+                                            {% if c %}
+                                                <span class="badge bg-danger ms-1">{{ c }}</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </span>
                                 </a>
                             </li>
                         </ul>
