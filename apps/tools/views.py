@@ -44,6 +44,18 @@ def calculator_user(request):
     else:
         max_weeks_allowed = max(0, min(10, target_week - current_week))
 
+    # Obtener solicitud activa o pendiente si existe
+    active_loan = LoanRequest.objects.filter(
+        user=request.user, 
+        status__in=["pending", "approved"]
+    ).order_by("-created_at").first()
+
+    # Si está aprobado, verificar si ya venció el plazo de semanas
+    if active_loan and active_loan.status == "approved":
+        fecha_vencimiento = active_loan.created_at + timedelta(weeks=active_loan.weeks)
+        if timezone.now() >= fecha_vencimiento:
+            active_loan = None  # El plazo ya terminó, no mostrar como activo
+
     return render(
         request,
         "tools/user/calculator_user.html",
@@ -51,6 +63,7 @@ def calculator_user(request):
             "fondo_ahorro": fondo_ahorro,
             "max_weeks_allowed": max_weeks_allowed,
             "current_week": current_week,
+            "active_loan": active_loan,
         },
     )
 
