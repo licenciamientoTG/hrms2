@@ -7,25 +7,19 @@
 
     <div class="row">
         {% for grupo in grupos %}
-        <div class="col-md-4">
-            <div class="card mb-4 shadow-sm">
+        <div class="col-md-6">
+            <div class="card mb-4 shadow-sm mx-auto" style="max-width: 450px;">
                 <div class="card-header bg-primary text-white">
                     <h5 class="my-0">{{ grupo.name }}</h5>
                 </div>
                 <div class="card-body">
                     <p><strong>Usuarios:</strong> {{ grupo.user_set.count }}</p>
                     <hr>
-                    
                     <a href="{% url 'editar_miembros' grupo.id %}" class="btn btn-sm btn-outline-primary w-100">
                         Gestionar Miembros
                     </a>
-                    
                 </div>
             </div>
-        </div>
-        {% empty %}
-        <div class="alert alert-warning">
-            No se encontraron los grupos. Asegúrate de crearlos en el Admin: "Corporativo", "Estaciones", "Estaciones Juárez".
         </div>
         {% endfor %}
     </div>

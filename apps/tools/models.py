@@ -27,6 +27,7 @@ class LoanRequest(models.Model):
         ('approved', 'Aprobado'),
         ('rejected', 'Rechazado'),
         ('paid', 'Pagado'),
+        ('cancelled', 'Cancelado'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Estado")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha del préstamo")

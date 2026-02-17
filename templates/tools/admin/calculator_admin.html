@@ -131,10 +131,9 @@
                         <td class="text-center">
                         {# Solo permitimos cancelar si no está ya cancelada #}
                         {% if s.status != 'cancelled' %}
-                            <form action="{% url 'cancel_loan_request' s.id %}" method="POST" style="display:inline;">
+                            <form action="{% url 'cancel_loan_request' s.id %}" method="POST" style="display:inline;" class="form-cancelar-prestamo">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                        onclick="return confirm('¿Estás seguro de que deseas cancelar esta solicitud? Esta acción no se puede deshacer.')"
+                                <button type="submit" class="btn btn-sm btn-outline-danger btn-cancelar" 
                                         title="Cancelar solicitud">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
@@ -179,4 +178,34 @@
 
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('.form-cancelar-prestamo');
+    
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Deseas cancelar esta solicitud. Esta acción no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, cancelar',
+                cancelButtonText: 'No, volver'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

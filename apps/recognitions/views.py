@@ -525,7 +525,7 @@ def recognition_delete_scheduled(request, pk):
 @staff_member_required  # O el decorador de permisos que uses
 def group_management_view(request):
     # Nombres exactos de tus grupos
-    nombres_grupos = ["Corporativo", "Estaciones", "Estaciones Juárez"]
+    nombres_grupos = ["Corporativo", "Estaciones", "Estaciones Juárez", "Aquacar"]
     for nombre in nombres_grupos:
         Group.objects.get_or_create(name=nombre)
     
@@ -563,10 +563,17 @@ def editar_miembros_grupo(request, group_id):
             employee__job_position_id__in=puesto_ids,
             employee__is_active=True
         )
+
+        users_aquacar = User.objects.none()
+        if grupo.name == "Aquacar":
+            users_aquacar = User.objects.filter(
+                employee__company='AQUA CAR CLUB',
+                employee__is_active=True
+            )
         
         # 3. UNIÓN DE CONJUNTOS (El operador | elimina duplicados automáticamente)
         # Esto junta las 3 listas y deja solo 1 registro por persona
-        lista_final_usuarios = users_directos | users_por_dept | users_por_puesto
+        lista_final_usuarios = users_directos | users_por_dept | users_por_puesto | users_aquacar
         
         # .distinct() asegura que no haya duplicados a nivel base de datos
         grupo.user_set.set(lista_final_usuarios.distinct())
