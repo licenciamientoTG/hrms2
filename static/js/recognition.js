@@ -97,65 +97,84 @@
   categorySelect && categorySelect.addEventListener('change', updatePublishState);
   updatePublishState();
 
-  // ===== Dropzone (múltiples imágenes, ACUMULANDO) =====
-  (function() {
+// ===== Dropzone (Imágenes y Documentos, ACUMULANDO) =====
+(function() {
     const dropZone    = $('#dropZone');
     const mediaInput  = $('#mediaInput');
     const pickFileBtn = $('#pickFileBtn');
     const preview     = $('#previewArea');
 
     const MAX_MB = 10;
-    const isImg  = f => f && f.type?.startsWith('image/');
+    // MODIFICADO: Ahora acepta imágenes y tipos de oficina comunes
+    const isAllowed = f => {
+        const types = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        return f && types.some(t => f.type.startsWith(t) || f.type === t);
+    };
 
-    // Estado acumulado en memoria
     let selected = [];
 
     function syncInputAndRender() {
-      // Actualiza <input.files> desde selected
-      const dt = new DataTransfer();
-      selected.forEach(f => dt.items.add(f));
-      mediaInput.files = dt.files;
+        const dt = new DataTransfer();
+        selected.forEach(f => dt.items.add(f));
+        mediaInput.files = dt.files;
 
-      // Render
-      preview.innerHTML = '';
-      selected.forEach((file, index) => {
-        const url = URL.createObjectURL(file);
-        const fig = document.createElement('figure');
-        fig.className = 'm-0 position-relative';
-        fig.style.width = '110px';
-        fig.innerHTML = `
-          <button type="button" class="btn-close position-absolute top-0 end-0 bg-white shadow-sm" 
-                  style="padding: 0.4rem; font-size: 0.6rem; transform: translate(30%, -30%); opacity: 1; border-radius: 50%;" 
-                  aria-label="Eliminar" data-idx="${index}"></button>
-          <img src="${url}" class="img-fluid rounded border" style="height:84px;object-fit:cover;width:100%;">
-          <figcaption class="small text-truncate" title="${file.name}">${file.name}</figcaption>`;
-        preview.appendChild(fig);
-      });
+        preview.innerHTML = '';
+        selected.forEach((file, index) => {
+            const fig = document.createElement('figure');
+            fig.className = 'm-0 position-relative border rounded p-2 bg-white shadow-sm';
+            fig.style.width = '110px';
+            
+            let content = '';
+            if (file.type.startsWith('image/')) {
+                // Si es imagen, generar miniatura
+                const url = URL.createObjectURL(file);
+                content = `<img src="${url}" class="img-fluid rounded" style="height:84px;object-fit:cover;width:100%;">`;
+            } else {
+                // Si es DOCUMENTO, generar icono representativo
+                let icon = 'fa-file-alt';
+                let color = 'text-secondary';
+                if (file.name.endsWith('.pdf')) { icon = 'fa-file-pdf'; color = 'text-danger'; }
+                else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) { icon = 'fa-file-excel'; color = 'text-success'; }
+                else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) { icon = 'fa-file-word'; color = 'text-primary'; }
+                
+                content = `<div class="d-flex align-items-center justify-content-center bg-light rounded" style="height:84px;width:100%;">
+                             <i class="fas ${icon} ${color} fa-3x"></i>
+                           </div>`;
+            }
+
+            fig.innerHTML = `
+                <button type="button" class="btn-close position-absolute top-0 end-0 bg-white shadow-sm" 
+                        style="padding: 0.4rem; font-size: 0.6rem; transform: translate(30%, -30%); opacity: 1; border-radius: 50%;" 
+                        aria-label="Eliminar" data-idx="${index}"></button>
+                ${content}
+                <figcaption class="small text-truncate mt-1 text-center" title="${file.name}">${file.name}</figcaption>`;
+            preview.appendChild(fig);
+        });
     }
 
-    // Listener para eliminar imágenes
-    preview && preview.addEventListener('click', (e) => {
-      if (e.target.classList.contains('btn-close')) {
-        e.preventDefault();
-        const idx = parseInt(e.target.dataset.idx, 10);
-        if (!isNaN(idx)) {
-          selected.splice(idx, 1);
-          syncInputAndRender();
-        }
-      }
-    });
+    // ... (Mantén el resto de los listeners de 'preview', 'pickFileBtn' y 'dropZone' igual) ...
 
     function addFiles(fileList) {
-      const incoming = [...(fileList || [])]
-        .filter(f => isImg(f) && f.size <= MAX_MB * 1024 * 1024);
+        const incoming = [...(fileList || [])]
+            .filter(f => isAllowed(f) && f.size <= MAX_MB * 1024 * 1024); // USA isAllowed ahora
 
-      // Evita duplicados por (name,size,lastModified)
-      const key = f => `${f.name}|${f.size}|${f.lastModified}`;
-      const current = new Set(selected.map(key));
+        const key = f => `${f.name}|${f.size}|${f.lastModified}`;
+        const current = new Set(selected.map(key));
 
-      incoming.forEach(f => { if (!current.has(key(f))) selected.push(f); });
-      if (selected.length) syncInputAndRender();
+        incoming.forEach(f => { if (!current.has(key(f))) selected.push(f); });
+        syncInputAndRender(); // Actualiza siempre para ver que se seleccionó
     }
+
+    // Listener para eliminar (delegado en preview)
+    preview && preview.addEventListener('click', e => {
+        if (e.target.matches('.btn-close')) {
+            const idx = parseInt(e.target.dataset.idx, 10);
+            if (!isNaN(idx)) {
+                selected.splice(idx, 1);
+                syncInputAndRender();
+            }
+        }
+    });
 
     pickFileBtn && pickFileBtn.addEventListener('click', () => mediaInput?.click());
     mediaInput  && mediaInput.addEventListener('change', e => addFiles(e.target.files));

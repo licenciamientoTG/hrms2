@@ -72,45 +72,54 @@
         </p>
       {% endif %}
 
-      {# --- Imágenes (Carrusel o Única) --- #}
-      {% with imgs=rec.media.all %}
-        {% if imgs %}
-          <div id="rec-{{ rec.id }}-carousel" class="carousel slide mt-2" data-bs-ride="carousel">
-            {% if imgs|length > 1 %}
-              <div class="carousel-indicators">
-                {% for m in imgs %}
-                  <button type="button" data-bs-target="#rec-{{ rec.id }}-carousel"
-                          data-bs-slide-to="{{ forloop.counter0 }}"
-                          {% if forloop.first %}class="active" aria-current="true"{% endif %}></button>
-                {% endfor %}
-              </div>
-            {% endif %}
-
-            <div class="carousel-inner rounded overflow-hidden">
-              {% for m in imgs %}
-                <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                  <img src="{{ m.file.url }}" class="d-block w-100 img-hover-zoom"
-                       alt="Imagen" style="max-height:auto; object-fit:cover;"
-                       onclick="viewFullImage('{{ m.file.url }}')">
-                </div>
-              {% endfor %}
-            </div>
-
-            {% if imgs|length > 1 %}
-              <button class="carousel-control-prev" type="button" data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-              </button>
-              <button class="carousel-control-next" type="button" data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="next">
-                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-              </button>
-            {% endif %}
+      {# --- Bloque de Medios --- #}
+      {% with all_media=rec.media.all %}
+        <div id="rec-{{ rec.id }}-carousel" class="carousel slide mt-2" data-bs-ride="carousel">
+          <div class="carousel-inner rounded overflow-hidden">
+            {% for m in all_media %}
+              {% with url=m.file.url|lower %}
+                {% if ".png" in url or ".jpg" in url or ".jpeg" in url or ".gif" in url %}
+                  <div class="carousel-item">
+                    <img src="{{ m.file.url }}" class="d-block w-100" 
+                        style="height: 400px; object-fit: contain; background-color: #f8f9fa;" 
+                        onclick="viewFullImage('{{ m.file.url }}')"
+                        alt="Imagen adjunta">
+                  </div>
+                {% endif %}
+              {% endwith %}
+            {% endfor %}
           </div>
-          
-        {% elif rec.image %}
-          <img src="{{ rec.image.url }}" class="w-100 mt-2 rounded img-hover-zoom" 
-               style="max-height:420px;object-fit:cover;" alt="" 
-               onclick="viewFullImage('{{ rec.image.url }}')">
-        {% endif %}
+          {# Botones de navegación #}
+          <button class="carousel-control-prev" type="button" data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+          <button class="carousel-control-next" type="button" data-bs-target="#rec-{{ rec.id }}-carousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+        </div>
+
+        {# --- Sección de Documentos --- #}
+        <div class="row g-2 mt-3 px-2">
+          {% for m in all_media %}
+            {% with url=m.file.url|lower %}
+              {% if ".pdf" in url or ".doc" in url or ".docx" in url or ".xls" in url or ".xlsx" in url %}
+                <div class="col-md-3 col-6">
+                  <a href="{{ m.file.url }}" target="_blank" 
+                    class="btn btn-sm btn-outline-primary w-100 d-flex flex-column align-items-center p-2 h-100 shadow-sm"
+                    title="{{ m.file.name }}"> {# Icono dinámico #}
+                    {% if ".pdf" in url %}
+                      <i class="fas fa-file-pdf text-danger fa-2x mb-1"></i>
+                    {% elif ".xls" in url or ".xlsx" in url %}
+                      <i class="fas fa-file-excel text-success fa-2x mb-1"></i>
+                    {% else %}
+                      <i class="fas fa-file-word text-primary fa-2x mb-1"></i>
+                    {% endif %}
+
+                    {# Nombre del archivo truncado para no deformar el botón #}
+                    <span class="small text-dark fw-bold text-truncate w-100 text-center" style="max-width: 100%;">
+                      {{ m.file.name|slice:"19:" }} </span>
+                  </a>
+                </div>
+              {% endif %}
+            {% endwith %}
+          {% endfor %}
+        </div>
       {% endwith %}
 
       {# --- Botones de Acción (Like) --- #}
@@ -168,3 +177,25 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Corregir carruseles vacíos por culpa de PDFs/Docs
+    document.querySelectorAll('.carousel').forEach(carousel => {
+        const items = carousel.querySelectorAll('.carousel-item');
+        if (items.length > 0) {
+            items[0].classList.add('active'); // Forzamos que la primera imagen sea la activa
+        } else {
+            carousel.style.display = 'none'; // Si no hay imágenes del todo, ocultamos el carrusel
+        }
+    });
+
+    // 2. Asegurar que los botones de navegación solo salgan si hay más de 1 imagen
+    document.querySelectorAll('.carousel').forEach(carousel => {
+        const items = carousel.querySelectorAll('.carousel-item');
+        if (items.length <= 1) {
+            carousel.querySelectorAll('.carousel-control-prev, .carousel-control-next').forEach(el => el.remove());
+        }
+    });
+});
+</script>
