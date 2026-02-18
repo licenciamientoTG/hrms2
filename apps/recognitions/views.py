@@ -68,7 +68,7 @@ def recognition_dashboard_admin(request):
 
         if files:
             files = files[:MAX_IMAGES_PER_POST]
-            bad = [f.name for f in files if not _is_image_ok(f)]
+            bad = [f.name for f in files if not _is_file_allowed(f)]
             if bad:
                 errors.append(_("Imágenes inválidas: %(lst)s") % {"lst": ", ".join(bad)})
 
@@ -147,8 +147,24 @@ MAX_IMAGES_PER_POST = 10
 MAX_MB = 10
 PAGE_SIZE = 12
 
-def _is_image_ok(f):
-    return f.content_type.startswith('image/') and f.size <= MAX_MB * 1024 * 1024
+def _is_file_allowed(f):
+    # Lista de tipos de archivos permitidos (MIME types)
+    allowed_types = [
+        'image/',                                                                # Imágenes
+        'application/pdf',                                                       # PDF
+        'application/msword',                                                    # Word (.doc)
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', # Word (.docx)
+        'application/vnd.ms-excel',                                              # Excel (.xls)
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',     # Excel (.xlsx)
+        'application/vnd.ms-powerpoint',                                         # PPT (.ppt)
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' # PPT (.pptx)
+    ]
+    
+    # Verificamos si el tipo de archivo coincide con alguno de la lista
+    is_valid_type = any(f.content_type.startswith(t) for t in allowed_types)
+    
+    # Retorna True solo si el tipo es válido y el tamaño es menor al máximo (10MB)
+    return is_valid_type and f.size <= MAX_MB * 1024 * 1024
 
 def _parse_datetime_local(raw):
     if not raw:
@@ -191,7 +207,7 @@ def recognition_dashboard_user(request):
 
         if files:
             files = files[:MAX_IMAGES_PER_POST]
-            bad = [f.name for f in files if not _is_image_ok(f)]
+            bad = [f.name for f in files if not _is_file_allowed(f)]
             if bad:
                 errors.append(_("Hay imágenes no válidas o mayores a %(n)s MB: %(lst)s") %
                               {"n": MAX_MB, "lst": ", ".join(bad)})
@@ -602,17 +618,14 @@ def editar_miembros_grupo(request, group_id):
 
 @login_required
 def check_priority_announcement(request):
-    """Busca el comunicado prioritario de la última semana no aceptado."""
+    """Busca el comunicado prioritario de la última semana y garantiza devolver una imagen."""
     user_groups = request.user.groups.all()
-    
-    # 1. Definimos el límite de tiempo a 7 días
     hace_una_semana = timezone.now() - timezone.timedelta(days=7)
     
-    # 2. Aplicamos el filtro de fecha
     announcement = Recognition.objects.filter(
         is_priority=True,
         published_at__lte=timezone.now(),
-        published_at__gte=hace_una_semana  # Filtra comunicados de los últimos 7 días
+        published_at__gte=hace_una_semana
     ).filter(
         Q(is_public=True) | Q(target_groups__in=user_groups) | Q(recipients=request.user)
     ).exclude(
@@ -620,21 +633,35 @@ def check_priority_announcement(request):
     ).order_by('-published_at').first()
 
     if announcement:
-        # Lógica para obtener la imagen
         image_url = None
+        
+        # 1. Intentar obtener la imagen del campo principal si existe
         if announcement.image:
             image_url = announcement.image.url
-        elif announcement.media.exists():
-            image_url = announcement.media.first().file.url
+            
+        # 2. Si no hay imagen principal, buscar el primer archivo que SÍ sea imagen en los medios adjuntos
+        else:
+            # Filtramos por extensiones comunes de imagen para ignorar PDFs o documentos
+            first_img = announcement.media.filter(
+                Q(file__icontains='.png') | 
+                Q(file__icontains='.jpg') | 
+                Q(file__icontains='.jpeg') | 
+                Q(file__icontains='.gif')
+            ).first()
+            
+            if first_img:
+                image_url = first_img.file.url
 
-        return JsonResponse({
-            'has_priority': True,
-            'id': announcement.id,
-            'title': announcement.category.title,
-            'message': announcement.message,
-            'color': announcement.category.color_hex,
-            'image_url': image_url
-        })
+        # Solo enviamos la respuesta de prioridad si realmente encontramos una imagen para mostrar
+        if image_url:
+            return JsonResponse({
+                'has_priority': True,
+                'id': announcement.id,
+                'title': announcement.category.title,
+                'message': announcement.message,
+                'color': announcement.category.color_hex,
+                'image_url': image_url
+            })
         
     return JsonResponse({'has_priority': False})
 

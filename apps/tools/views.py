@@ -26,44 +26,51 @@ def calculator_view(request):
 
 @login_required
 def calculator_user(request):
-    employee = Employee.objects.filter(user=request.user).first()
-    fondo_ahorro = 0
-    if employee and employee.saving_fund:
-        fondo_ahorro = int(employee.saving_fund)
+    employee = Employee.objects.filter(user=request.user).first() #
+    fondo_ahorro = 0 #
+    if employee and employee.saving_fund: #
+        fondo_ahorro = int(employee.saving_fund) #
 
     # --- LÓGICA DE TIEMPO ---
-    today = date.today()
-    current_week = today.isocalendar()[1]
-    # current_week = 43  # <--- COMENTAR EN PRODUCCIÓN
-    target_week = 44 
+    today = date.today() #
+    current_week = today.isocalendar()[1] #
+    target_week = 44  #
     
-    if current_week > target_week:
-        max_weeks_allowed = 10
-    elif current_week == target_week:
-        max_weeks_allowed = 0
-    else:
-        max_weeks_allowed = max(0, min(10, target_week - current_week))
+    if current_week > target_week: #
+        max_weeks_allowed = 10 #
+    elif current_week == target_week: #
+        max_weeks_allowed = 0 #
+    else: #
+        max_weeks_allowed = max(0, min(10, target_week - current_week)) #
 
     # Obtener solicitud activa o pendiente si existe
     active_loan = LoanRequest.objects.filter(
         user=request.user, 
         status__in=["pending", "approved"]
-    ).order_by("-created_at").first()
+    ).order_by("-created_at").first() #
+
+    dias_restantes = None #
 
     # Si está aprobado, verificar si ya venció el plazo de semanas
-    if active_loan and active_loan.status == "approved":
-        fecha_vencimiento = active_loan.created_at + timedelta(weeks=active_loan.weeks)
-        if timezone.now() >= fecha_vencimiento:
+    if active_loan and active_loan.status == "approved": #
+        fecha_vencimiento = active_loan.created_at + timedelta(weeks=active_loan.weeks) #
+        
+        if timezone.now() >= fecha_vencimiento: #
             active_loan = None  # El plazo ya terminó, no mostrar como activo
+        else:
+            # Calculamos los días que faltan para llegar a la fecha de vencimiento
+            delta = fecha_vencimiento - timezone.now() #
+            dias_restantes = max(0, delta.days) #
 
     return render(
         request,
         "tools/user/calculator_user.html",
         {
-            "fondo_ahorro": fondo_ahorro,
-            "max_weeks_allowed": max_weeks_allowed,
-            "current_week": current_week,
-            "active_loan": active_loan,
+            "fondo_ahorro": fondo_ahorro, #
+            "max_weeks_allowed": max_weeks_allowed, #
+            "current_week": current_week, #
+            "active_loan": active_loan, #
+            "dias_restantes": dias_restantes, # Pasamos los días al HTML
         },
     )
 
