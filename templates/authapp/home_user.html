@@ -8,12 +8,33 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="background-wrapper p-4">
+
+  {# --- BANNER DE CUMPLEAÑOS AUTOMÁTICO --- #}
+  {% if is_birthday %}
+  <div class="birthday-banner mb-4 shadow-lg border-0 d-flex align-items-center position-relative overflow-hidden" 
+       style="background: linear-gradient(90deg, #1E3361 0%, #3a7bd5 100%); border-radius: 15px; padding: 1.5rem; color: white; border-left: 8px solid #ffcc00 !important;">
+      
+      <div class="birthday-icon me-4 d-flex align-items-center justify-content-center" 
+           style="background: rgba(255, 255, 255, 0.2); width: 80px; height: 80px; border-radius: 12px;">
+          <i class="fas fa-cake-candles fa-3x text-warning"></i>
+      </div>
+      
+      <div class="birthday-text">
+          <h2 class="fw-bold mb-1" style="letter-spacing: -1px;">¡Feliz Cumpleaños, {{ user.first_name|upper }}! 🎂</h2>
+          <p class="mb-0 fs-5 opacity-90">Todo el equipo de <strong>TotalGas</strong> te desea un excelente día lleno de éxito.</p>
+      </div>
+
+      <div class="ms-auto d-none d-lg-block opacity-25">
+          <i class="fas fa-gift fa-5x text-white"></i>
+      </div>
+  </div>
+  {% else %}
   <h1 class="text-center">
     ¡Bienvenid@ {{ user.first_name }}! <br>
     “Tu espacio personal para formación, gestión y comunicación.”
   </h1>
+  {% endif %}
 
   <h2 class="mb-4 text-center">
     <br>Acumulado Fondo de Ahorro
@@ -207,6 +228,44 @@
         checkUrl: "{% url 'check_priority' %}",
         csrfToken: "{{ csrf_token }}"
     };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Solo lanzamos el confeti si el banner de cumpleaños existe en el DOM
+    if ("{{ is_birthday }}" === "True") {
+      
+      // Configuración de la explosión
+      var duration = 5 * 1000;
+      var animationEnd = Date.now() + duration;
+      var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      var interval = setInterval(function() {
+        var timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        var particleCount = 50 * (timeLeft / duration);
+        
+        // Lanzar desde dos puntos (izquierda y derecha)
+        confetti(Object.assign({}, defaults, { 
+          particleCount, 
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } 
+        }));
+        confetti(Object.assign({}, defaults, { 
+          particleCount, 
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } 
+        }));
+      }, 250);
+    }
+  });
 </script>
 <script src="{% static 'js/home.js' %}"></script>
 {% endblock %}

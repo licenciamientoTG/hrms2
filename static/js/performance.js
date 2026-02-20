@@ -39,3 +39,28 @@ document.addEventListener('DOMContentLoaded', function() {
         toggle360Option();
     });
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    const closeForms = document.querySelectorAll('.js-confirm-close');
+    
+    closeForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            Swal.fire({
+                title: '¿Finalizar ciclo de evaluación?',
+                text: "Esta acción cerrará todas las evaluaciones pendientes y moverá el ciclo al historial.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, finalizar ahora',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+});
