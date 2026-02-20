@@ -47,10 +47,22 @@
                         </p>
                     </div>
                 </div>
-                <div class="text-muted pe-3">
-                    <span class="me-2 fw-bold text-primary small">VER ESTADÍSTICAS</span>
-                    <i class="fas fa-chevron-down"></i>
+            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between">
+                <div class="d-flex gap-2">
+                    {# Botón para ver estadísticas (el que ya tienes) #}
+                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="collapse" data-bs-target="#collapseActive">
+                        ESTADÍSTICAS <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+
+                    {# NUEVO: Botón para Finalizar el Ciclo #}
+                    <form action="{% url 'close_performance_cycle' active_cycle.id %}" method="POST" class="d-inline js-confirm-close">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger shadow-sm px-3">
+                            <i class="fas fa-flag-checkered me-1"></i> FINALIZAR CICLO
+                        </button>
+                    </form>
                 </div>
+            </div>
             </div>
             <div id="collapseActive" class="collapse show">
                  <div class="card-body bg-light bg-opacity-50 pt-4 pb-4">

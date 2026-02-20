@@ -268,3 +268,32 @@
         padding: 10px;
     }
 }
+
+/* Brillo animado para el banner de cumpleaños */
+.birthday-banner {
+    position: relative;
+    overflow: hidden;
+}
+
+.birthday-banner::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    animation: rotateGradient 10s linear infinite;
+    z-index: 1;
+}
+
+@keyframes rotateGradient {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Para asegurar que el texto esté por encima del brillo */
+.birthday-text, .birthday-icon {
+    position: relative;
+    z-index: 2;
+}

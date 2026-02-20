@@ -4,7 +4,7 @@
         <tr>
             <th>Fecha Programada</th>
             <th>Categoría</th>
-            <th>Mensaje</th>
+            <th>Asunto</th>
             <th>Acción</th>
         </tr>
     </thead>
@@ -17,8 +17,8 @@
                     {{ s.category.title }}
                 </span>
             </td>
-            <td class="text-truncate" style="max-width: 200px;">
-                {{ s.message }}
+            <td class="text" style="max-width: 200px;" title="{{ s.email_subject }}">
+                {{ s.email_subject }}
             </td>
             <td>
                 <button class="btn btn-sm btn-danger js-delete-scheduled" data-id="{{ s.id }}">

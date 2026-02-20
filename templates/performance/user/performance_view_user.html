@@ -131,67 +131,53 @@
 
             </div>
         </div>
-
-    {% else %}
-        <div class="text-center py-5 mb-5 border rounded-3 bg-white shadow-sm">
-            <div class="mb-3">
-                <i class="fas fa-mug-hot fa-3x text-muted opacity-25"></i>
-            </div>
-            <h5 class="text-muted fw-bold">No hay evaluaciones activas</h5>
-            <p class="text-muted small mb-0">Te notificaremos cuando inicie un nuevo ciclo.</p>
-        </div>
     {% endif %}
 
 
-    {# --- SECCIÓN 2: HISTORIAL (MIS RESULTADOS) --- #}
-    
+{# --- SECCIÓN 2: HISTORIAL DE EVALUACIONES REALIZADAS POR MÍ --- #}
     <div class="d-flex align-items-center mb-4 mt-5">
-        <h5 class="mb-0 fw-bold text-secondary">Mi Historial de Resultados</h5>
+        <h5 class="mb-0 fw-bold text-secondary">Evaluaciones que he realizado</h5>
         <div class="ms-3 border-bottom flex-grow-1"></div>
     </div>
 
-    {% if history_cycles %}
+    {% if my_finished_evaluations %}
         <div class="row">
-            {% for cycle in history_cycles %}
+            {% for review in my_finished_evaluations %}
             <div class="col-12 mb-3">
-                <div class="card shadow-sm border-start border-4 border-secondary">
+                <div class="card shadow-sm border-start border-4 border-info">
                     <div class="card-body py-3 d-flex align-items-center justify-content-between">
-                        
                         <div class="d-flex align-items-center">
-                            <div class="me-4 text-center" style="min-width: 80px;">
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-1 rounded-pill mb-1">
-                                    <i class="fas fa-flag-checkered me-1"></i> CERRADO
-                                </span>
-                                <div class="small text-muted mt-1">{{ cycle.year }}</div>
+                            <div class="rounded-circle bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center fw-bold me-3" style="width: 45px; height: 45px;">
+                                <i class="fas fa-user-check"></i>
                             </div>
-                            
                             <div>
-                                <h5 class="m-0 font-weight-bold text-dark mb-1">{{ cycle.name }}</h5>
+                                <h6 class="m-0 fw-bold">{{ review.employee.user.get_full_name }}</h6>
                                 <p class="text-muted mb-0 small">
-                                    <i class="fas fa-calendar-check me-1"></i> Finalizado el: {{ cycle.end_date|date:"d M Y" }}
+                                    Ciclo: {{ review.cycle.name }} ({{ review.cycle.year }}) 
+                                    <span class="mx-1">|</span>
+                                    Enviada el: {{ review.date_reviewed|date:"d/m/Y" }}
                                 </p>
                             </div>
                         </div>
-
-                        <div class="d-flex align-items-center">
-                            <a href="#" class="btn btn-sm btn-outline-primary me-3">
-                                <i class="fas fa-file-invoice me-1"></i> Ver Mis Resultados
-                            </a>
+                        <div class="text-end">
+                            <div class="fw-bold text-dark mb-1">Calificación: {{ review.rating|floatformat:2 }}%</div>
+                            {# Aquí podrías poner un link para ver el PDF o el detalle #}
+                            <button class="btn btn-sm btn-outline-info rounded-pill px-3">
+                                <i class="fas fa-eye me-1"></i> Ver Detalle
+                            </button>
                         </div>
-
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
-
     {% else %}
         <div class="text-center py-5 border rounded-3 bg-white shadow-sm" style="border-style: dashed !important;">
             <div class="mb-3">
-                <i class="fas fa-folder-open fa-3x text-muted opacity-25"></i>
+                <i class="fas fa-clipboard-list fa-3x text-muted opacity-25"></i>
             </div>
-            <h6 class="text-muted fw-bold">Aún no tienes historial</h6>
-            <p class="text-muted small mb-0">Tus resultados aparecerán aquí cuando finalice el primer ciclo.</p>
+            <h6 class="text-muted fw-bold">No has realizado evaluaciones aún</h6>
+            <p class="text-muted small mb-0">Cuando califiques a alguien, los registros aparecerán aquí.</p>
         </div>
     {% endif %}
 

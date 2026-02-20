@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from apps.employee.models import Employee
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview
 from django.db.models import Q
+from django.utils import timezone
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -174,20 +175,25 @@ def performance_view_user(request):
 
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     
-    # Lista de personas a las que YO tengo que evaluar (incluyéndome a mí mismo si aplica)
-    assignments = [] 
-
+    # 1. EVALUACIONES PENDIENTES (Solo ciclo activo y que no estén completadas)
+    assignments = []
     if active_cycle:
-        # Buscamos en la tabla PerformanceReview donde el 'reviewer' sea el usuario actual
         assignments = PerformanceReview.objects.filter(
-            cycle=active_cycle
-        ).filter(
-            Q(reviewer=current_employee) | Q(employee=current_employee)
-        ).select_related('employee', 'employee__user').distinct()
+            cycle=active_cycle,
+            reviewer=current_employee
+        ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
+
+    # 2. HISTORIAL DE EVALUACIONES REALIZADAS (Cualquier ciclo, que el usuario haya calificado)
+    # Buscamos donde el usuario fue el revisor y ya terminó
+    my_finished_evaluations = PerformanceReview.objects.filter(
+        reviewer=current_employee,
+        status__in=['completed', 'closed']
+    ).select_related('employee', 'employee__user', 'cycle').order_by('-date_reviewed')
 
     context = {
         'active_cycle': active_cycle,
-        'assignments': assignments,  # <--- ESTA ES LA VARIABLE NUEVA CLAVE
+        'assignments': assignments,
+        'my_finished_evaluations': my_finished_evaluations, # Nueva variable para el historial
     }
     
     return render(request, 'performance/user/performance_view_user.html', context)
@@ -382,3 +388,20 @@ def evaluate_person(request, review_id):
         'periodo_texto': periodo_texto
     }
     return render(request, 'performance/user/evaluation.html', context)
+
+@login_required
+@user_passes_test(es_evaluador)
+@require_POST
+def close_performance_cycle(request, cycle_id):
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id)
+    
+    # 1. Cambiar estado y poner fecha de finalización
+    cycle.status = 'closed'
+    cycle.end_date = timezone.now()
+    cycle.save()
+    
+    # 2. (Opcional) Cerrar todas las evaluaciones individuales que quedaron pendientes
+    PerformanceReview.objects.filter(cycle=cycle, status='draft').update(status='closed')
+
+    messages.success(request, f"El ciclo '{cycle.name}' ha sido finalizado y movido al historial.")
+    return redirect('performance_view_admin')

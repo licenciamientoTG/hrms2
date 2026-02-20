@@ -91,11 +91,28 @@ def home(request):
     # --- Dashboard de usuario normal ---
     user = request.user
     today = timezone.localdate()
+    is_birthday = False
+
 
     try:
         empleado = Employee.objects.get(user=user)
         vacation_balance = empleado.vacation_balance or 0
         saving_fund = empleado.saving_fund or 0
+
+        # ==== Lógica de Cumpleaños desde CURP ====
+        if empleado.curp and len(empleado.curp) >= 10:
+            try:
+                # CURP: XXXXYYMMDD... 
+                # Ejemplo: GOMR920514 -> Mes: 05, Día: 14
+                mes_curp = int(empleado.curp[6:8])
+                dia_curp = int(empleado.curp[8:10])
+                
+                if today.month == mes_curp and today.day == dia_curp:
+                    is_birthday = True
+            except (ValueError, IndexError):
+                # Si la CURP no tiene números en esas posiciones, ignoramos
+                pass
+
     except Employee.DoesNotExist:
         vacation_balance = 0
         saving_fund = 0
@@ -149,6 +166,7 @@ def home(request):
         "saving_progress_percent": saving_progress_percent,
         "next_saving_date": next_saving_date,
         "last_saving_date": last_saving_date,
+        "is_birthday": is_birthday,
     })
 
 @login_required
