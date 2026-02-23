@@ -5,186 +5,217 @@
 
 {% block styles %}
     <link rel="stylesheet" href="{% static 'css/performance.css' %}">
+    <style>
+        /* Estilos rápidos para lograr el diseño de la imagen */
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+        .stat-card .icon-box {
+            width: 50px;
+            height: 50px;
+            background: #f0f7ff;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            color: #0d6efd;
+        }
+        .evaluation-card {
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            background: white;
+            /* --- CAMBIO: Altura mínima para hacerla más larga --- */
+            min-height: 600px; 
+            display: flex;
+            flex-direction: column;
+        }
+        .evaluation-card:hover {
+            transform: translateY(-5px);
+        }
+        .card-banner {
+        height: 180px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .card-body {
+        /* --- CAMBIO: Flex-grow hace que el cuerpo ocupe el espacio restante --- */
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between; /* Empuja el botón hacia abajo */
+        padding: 2rem !important; /* Más aire interno */
+    }
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 5px;
+            background: rgba(0,0,0,0.2);
+            color: white;
+            text-transform: uppercase;
+        }
+        .rating-display {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: white;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
+<div class="container-fluid py-4 bg-light min-vh-100">
+    
+    <div class="mb-4">
+        <h2 class="fw-bold text-dark">Mis Evaluaciones</h2>
+        <p class="text-muted">Consulta y descarga el historial de tu desempeño profesional.</p>
+    </div>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="mb-0">Mis Evaluaciones</h2>
-</div>
-
-<div class="container-fluid py-4 bg-light">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <p class="text-muted mb-0">Gestiona tus evaluaciones pendientes y consulta tu historial de resultados.</p>
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="icon-box"><i class="fas fa-clipboard-check"></i></div>
+                <p class="text-muted mb-1 small fw-bold">TOTAL REALIZADAS</p>
+                <h3 class="fw-bold mb-0">{{ my_finished_evaluations|length }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="icon-box" style="background: #fff9e6; color: #f1c40f;"><i class="fas fa-award"></i></div>
+                <p class="text-muted mb-1 small fw-bold">ÚLTIMA PUNTUACIÓN</p>
+                <h3 class="fw-bold mb-0">95%</h3>
+            </div>
         </div>
     </div>
-    
-    {# --- CORRECCIÓN 1: Usamos 'active_cycle' en lugar de 'my_active_review' --- #}
-    {% if active_cycle %}
-        <div class="card active-evaluation-card shadow mb-5 border-start border-5 border-success">
-            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between bg-white">
-                
-                <div class="d-flex align-items-center">
-                    <div class="me-4 text-center">
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill mb-1">
-                            <i class="fas fa-bullseye me-1"></i> EN CURSO
-                        </span>
-                    </div>
-                    <div>
-                        <h4 class="m-0 font-weight-bold text-dark mb-1">{{ active_cycle.name }}</h4>
-                        <p class="text-muted mb-0 small">
-                            <i class="far fa-calendar-alt me-1"></i> Año Fiscal: {{ active_cycle.year }}
-                            <span class="mx-2">|</span>
-                            <span class="text-danger">
-                                <i class="far fa-clock me-1"></i> Cierre: {{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}
-                            </span>
-                        </p>
-                    </div>
-                </div>
 
-                {# --- CORRECCIÓN 2: Quitamos el botón "Iniciar Evaluación" general porque ahora hay una lista --- #}
-                <div class="text-end">
-                    <span class="text-muted small">
-                        Pendientes: <strong>{{ assignments|length }}</strong>
-                    </span>
+    {% if active_cycle %}
+    <div class="mb-5">
+        <h5 class="fw-bold mb-3"><i class="fas fa-clock text-warning me-2"></i>Evaluación en curso</h5>
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-body p-4 border-start border-5 border-success">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <span class="badge bg-success-soft text-success mb-2">EN CURSO</span>
+                        <h4 class="fw-bold">{{ active_cycle.name }}</h4>
+                        <p class="text-muted mb-0 small">Año Fiscal: {{ active_cycle.year }} | Cierre: {{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}</p>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <p class="mb-2 small text-muted">Pendientes: <strong>{{ assignments|length }}</strong></p>
+                        <button class="btn btn-primary px-4 rounded-pill" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#collapsePendientes" 
+                                aria-expanded="false" 
+                                aria-controls="collapsePendientes">
+                            Gestionar ahora
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="collapse mb-5" id="collapsePendientes">
+        <div class="pt-3"> <h5 class="fw-bold mb-3">
+                <i class="fas fa-tasks text-primary me-2"></i>Personas por evaluar
+            </h5>
             
-            <div class="card-body bg-light p-0">
-                
+            <div class="row g-3">
                 {% if assignments %}
-                    <div class="p-3 border-bottom bg-white">
-                        <h6 class="m-0 fw-bold text-primary">
-                            <i class="fas fa-tasks me-2"></i>Personas a evaluar
-                        </h6>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="bg-light text-secondary small text-uppercase">
-                                <tr>
-                                    <th class="ps-4">Colaborador</th>
-                                    <th class="text-center">Tipo</th>
-                                    <th class="text-center">Estado</th>
-                                    <th class="text-end pe-4">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for review in assignments %}
-                                <tr>
-                                    <td class="ps-4">
-                                        <div class="d-flex align-items-center">
-                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold me-3" 
-                                                 style="width: 35px; height: 35px; font-size: 0.8rem;">
-                                                {{ review.employee.user.first_name|slice:":1" }}{{ review.employee.user.last_name|slice:":1" }}
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold text-dark">{{ review.employee.user.get_full_name }}</div>
-                                                <div class="small text-muted">{{ review.employee.puesto.title|default:"Colaborador" }}</div>
-                                            </div>
+                    {% for review in assignments %}
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm rounded-4 hover-shadow">
+                            <div class="card-body p-3">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                            <i class="fas fa-user"></i>
                                         </div>
-                                    </td>
-
-                                    <td class="text-center">
-                                        {# Lógica para detectar si es autoevaluación #}
-                                        {% if review.employee.id == request.user.employee.id %}
-                                            <span class="badge bg-info text-dark bg-opacity-10 border border-info rounded-pill px-3">Autoevaluación</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary text-dark bg-opacity-10 border border-secondary rounded-pill px-3">Evaluación a Equipo</span>
-                                        {% endif %}
-                                    </td>
-
-                                    <td class="text-center">
-                                        {% if review.status == 'completed' or review.status == 'closed' %}
-                                            <span class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i> Completado</span>
-                                        {% else %}
-                                            <span class="text-warning small fw-bold"><i class="fas fa-clock me-1"></i> Pendiente</span>
-                                        {% endif %}
-                                    </td>
-
-                                    <td class="text-end pe-4">
-                                        {% if review.status == 'completed' or review.status == 'closed' %}
-                                            <button class="btn btn-sm btn-light text-muted border" disabled>Enviado</button>
-                                        {% else %}
-                                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-sm btn-primary fw-bold shadow-sm px-3">
-                                                Evaluar <i class="fas fa-chevron-right ms-1" style="font-size: 0.7rem;"></i>
-                                            </a>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                    </div>
+                                    <div class="col">
+                                        <h6 class="fw-bold mb-0">{{ review.employee.user.get_full_name }}</h6>
+                                        <p class="text-muted small mb-0">No. Empleado: {{ review.employee.employee_number }}</p>
+                                    </div>
+                                    <div class="col-md-auto text-end">
+                                        <span class="badge bg-light text-dark border me-3">Pendiente</span>
+                                        <a href="{% url 'evaluate_person' review.id %}" class="btn btn-primary btn-sm rounded-pill px-4">
+                                            Iniciar Evaluación
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-
+                    {% endfor %}
                 {% else %}
-                    <div class="p-5 text-center">
-                        <i class="fas fa-check-circle text-success fa-2x mb-3"></i>
-                        <h6 class="text-dark fw-bold">¡Estás al día!</h6>
-                        <p class="text-muted mb-0">
-                            No tienes evaluaciones asignadas (ni propias ni de equipo) en este momento.
-                        </p>
+                    <div class="col-12">
+                        <div class="text-center py-4 bg-white rounded-4 shadow-sm border-dashed">
+                            <p class="text-muted mb-0">No tienes evaluaciones pendientes.</p>
+                        </div>
                     </div>
                 {% endif %}
-
             </div>
         </div>
-    {% endif %}
-
-
-{# --- SECCIÓN 2: HISTORIAL DE EVALUACIONES REALIZADAS POR MÍ --- #}
-    <div class="d-flex align-items-center mb-4 mt-5">
-        <h5 class="mb-0 fw-bold text-secondary">Evaluaciones que he realizado</h5>
-        <div class="ms-3 border-bottom flex-grow-1"></div>
     </div>
 
-    {% if my_finished_evaluations %}
-        <div class="row">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <h5 class="fw-bold mb-0">Historial de Evaluaciones</h5>
+        <div class="btn-group">
+            <button class="btn btn-sm btn-primary px-3">Realizadas</button>
+            <button class="btn btn-sm btn-outline-secondary px-3">Pendientes</button>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        {% if my_finished_evaluations %}
             {% for review in my_finished_evaluations %}
-            <div class="col-12 mb-3">
-                <div class="card shadow-sm border-start border-4 border-info">
-                    <div class="card-body py-3 d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            <div class="rounded-circle bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center fw-bold me-3" style="width: 45px; height: 45px;">
-                                <i class="fas fa-user-check"></i>
+            <div class="col-12 col-sm-6 col-lg-6">
+                <div class="evaluation-card">
+                    <div class="card-banner {% if forloop.counter == 1 %}bg-info{% elif forloop.counter == 2 %}bg-success{% else %}bg-secondary{% endif %}" 
+                         style="opacity: 0.8;">
+                        <span class="status-badge">Finalizada</span>
+                        <div class="rating-display">{{ review.rating|floatformat:0 }}%</div>
+                    </div>
+                    <div class="card-body p-4">
+                        <h6 class="fw-bold mb-1">Evaluación {{ review.cycle.name }}</h6>
+                        <p class="text-muted small mb-3"><i class="far fa-calendar-alt me-1"></i> Enviada el: {{ review.date_reviewed|date:"d/m/Y" }}</p>
+                        
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="avatar-sm me-2 bg-light rounded-circle d-flex align-items-center justify-content-center" style="width:30px; height:30px;">
+                                <i class="fas fa-user-tie text-muted small"></i>
                             </div>
-                            <div>
-                                <h6 class="m-0 fw-bold">{{ review.employee.user.get_full_name }}</h6>
-                                <p class="text-muted mb-0 small">
-                                    Ciclo: {{ review.cycle.name }} ({{ review.cycle.year }}) 
-                                    <span class="mx-1">|</span>
-                                    Enviada el: {{ review.date_reviewed|date:"d/m/Y" }}
-                                </p>
-                            </div>
+                            <span class="small text-muted">Evaluador: Ing. Ricardo S.</span>
                         </div>
-                        <div class="text-end">
-                            <div class="fw-bold text-dark mb-1">Calificación: {{ review.rating|floatformat:2 }}%</div>
-                            {# Aquí podrías poner un link para ver el PDF o el detalle #}
-                            <button class="btn btn-sm btn-outline-info rounded-pill px-3">
-                                <i class="fas fa-eye me-1"></i> Ver Detalle
-                            </button>
-                        </div>
+
+                        <a href="#" class="btn btn-dark w-100 rounded-3 py-2">
+                            Ver Detalle <i class="fas fa-external-link-alt ms-2 small"></i>
+                        </a>
                     </div>
                 </div>
             </div>
             {% endfor %}
-        </div>
-    {% else %}
-        <div class="text-center py-5 border rounded-3 bg-white shadow-sm" style="border-style: dashed !important;">
-            <div class="mb-3">
-                <i class="fas fa-clipboard-list fa-3x text-muted opacity-25"></i>
+        {% else %}
+            <div class="col-12">
+                <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+                    <i class="fas fa-clipboard-list fa-3x text-muted opacity-25 mb-3"></i>
+                    <h6 class="text-muted fw-bold">No hay evaluaciones registradas</h6>
+                </div>
             </div>
-            <h6 class="text-muted fw-bold">No has realizado evaluaciones aún</h6>
-            <p class="text-muted small mb-0">Cuando califiques a alguien, los registros aparecerán aquí.</p>
-        </div>
-    {% endif %}
-
+        {% endif %}
+    </div>
 </div>
-
-{% endblock %}
-
-{% block scripts %}
-<script src="{% static 'js/performance.js' %}"></script>
 {% endblock %}

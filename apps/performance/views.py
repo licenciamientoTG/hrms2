@@ -9,6 +9,8 @@ from apps.employee.models import Employee
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview
 from django.db.models import Q
 from django.utils import timezone
+import json
+from django.core.paginator import Paginator
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -183,17 +185,21 @@ def performance_view_user(request):
             reviewer=current_employee
         ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
 
-    # 2. HISTORIAL DE EVALUACIONES REALIZADAS (Cualquier ciclo, que el usuario haya calificado)
-    # Buscamos donde el usuario fue el revisor y ya terminó
-    my_finished_evaluations = PerformanceReview.objects.filter(
+    # 2. HISTORIAL CON PAGINACIÓN
+    evaluations_query = PerformanceReview.objects.filter(
         reviewer=current_employee,
         status__in=['completed', 'closed']
     ).select_related('employee', 'employee__user', 'cycle').order_by('-date_reviewed')
 
+    # Configurar Paginador: 2 elementos por página
+    paginator = Paginator(evaluations_query, 2)
+    page_number = request.GET.get('page') # Obtiene el número de página de la URL (?page=2)
+    page_obj = paginator.get_page(page_number)
+
     context = {
         'active_cycle': active_cycle,
         'assignments': assignments,
-        'my_finished_evaluations': my_finished_evaluations, # Nueva variable para el historial
+        'my_finished_evaluations': page_obj,
     }
     
     return render(request, 'performance/user/performance_view_user.html', context)

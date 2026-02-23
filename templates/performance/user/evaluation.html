@@ -91,7 +91,7 @@
     }
 
     /* Estados Activos según Selección */
-    .rating-box.active-regular { border-color: #6c757d; background-color: #f8f9fa; }
+    .rating-box.active-regular { border-color: #ffc107; background-color: #fff9e6 }
     .rating-box.active-bueno { border-color: var(--primary-blue); background-color: #f0f7ff; }
     .rating-box.active-excelente { border-color: #198754; background-color: #f0fff4; }
 
@@ -132,6 +132,110 @@
         border-radius: 8px;
         font-weight: 600;
         font-size: 0.8rem;
+    }
+    .comp-icon {
+    /* 1. Definir un tamaño cuadrado exacto */
+    width: 45px;
+    height: 45px;
+    
+    /* 2. Crear el círculo perfecto */
+    border-radius: 50%;
+    
+    /* 3. Color de fondo (ajusta el color a tu diseño) */
+    background-color: #e9ecef; 
+    
+    /* 4. CENTRADO CRÍTICO: Flexbox */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* 5. Evitar que se aplaste si el texto de al lado es mucho */
+    flex-shrink: 0;
+    
+    /* 6. Espaciado con el texto */
+    margin-right: 15px;
+    }
+
+    .comp-icon i {
+        /* Ajusta el tamaño del icono y su color */
+        font-size: 1.2rem;
+        color: #007bff;
+    }
+    .footer-promedio-container {
+        position: fixed;
+        bottom: 25px;
+        right: 30px;
+        width: auto;             /* Deja que el contenido defina el ancho */
+        min-width: 500px;        /* Pero con un mínimo para que no se vea apretada */
+        background-color: white;
+        padding: 12px 25px;
+        border-radius: 16px;     /* Redondeada por TODOS los lados */
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Sombra más profunda para efecto flotante */
+        border: 1px solid #e9ecef;
+        z-index: 1000;
+        display: block;          /* Importante para que no herede flex del padre */
+    }
+
+    .footer-promedio-content {
+        display: flex;
+        justify-content: flex-end; /* TODO EL CONTENIDO A LA DERECHA */
+        align-items: center;
+        gap: 20px;                 /* Espacio entre el promedio y los botones */
+    }
+
+    /* Estilo para el badge amarillo */
+    .badge-calculo {
+        background-color: #ffcc4d;
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-weight: bold;
+        display: inline-block;
+    }
+
+    .rango-texto {
+        font-size: 0.75rem;
+        color: #adb5bd;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-left: 8px;
+    }    
+    /* Botones */
+    .botones {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .btn-cancelar {
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-weight: 600;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .btn-cancelar:hover {
+        color: #343a40;
+    }
+
+    .btn-guardar {
+        background-color: #5ba2da; /* El azul suave de la imagen */
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(91, 162, 218, 0.2);
+        transition: background 0.2s;
+    }
+
+    .btn-guardar:hover {
+        background-color: #4a8fc5;
     }
 </style>
 
@@ -212,8 +316,8 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -251,15 +355,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-users"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">TRABAJO EN EQUIPO</h5>
                             <h6 class="fw-bold mb-1">Participa activamente, colabora y coopera con los demás para alcanzar objetivos comunes. Comparte conocimientos, motiva y reconoce el valor de cada miembro del equipo. Genera confianza y contribuye a un ambiente de trabajo positivo y colaborativo.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -297,15 +401,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-handshake"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">RESOLUCIÓN DE CONFLICTO</h5>
                             <h6 class="fw-bold mb-1">Analiza situaciones con objetividad y calma. Se enfoca en las causas clave, priorizando soluciones constructivas sobre el conflicto, se centra en la resolución, no en el conflicto (pasado). Muestra flexibilidad, apertura al cambio y considera las consecuencias antes de actuar.Conserva la calma ante momentos complicados.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -343,15 +447,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-clock"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">GESTIÓN DEL TIEMPO</h5>
                             <h6 class="fw-bold mb-1">Organiza y prioriza sus actividades para cumplir objetivos en tiempo y forma. Administra eficientemente los recursos disponibles y delega según las capacidades del equipo. Utiliza herramientas como Agenda en Papel, Electrónica, Monday, Drive etc. para optimizar su productividad.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -389,15 +493,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-headset"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">SERVICIO AL CLIENTE (INTERNO / EXTERNO)</h5>
                             <h6 class="fw-bold mb-1">Brinda un servicio de calidad, generando confianza y valor en cada interacción. Se enfoca en la satisfacción del cliente, ofreciendo atención oportuna, clara y con trato profesional. Es percibido como una persona confiable que representa la empresa. </h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -435,15 +539,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-lightbulb"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">INICIATIVA</h5>
                             <h6 class="fw-bold mb-1">Propone ideas y soluciones con proactividad, entusiasmo y confianza. Actúa con rapidez ante los retos y se anticipa a las necesidades. Se compromete con los resultados y persevera frente a los obstáculos.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -481,15 +585,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-calendar-check"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">ASISTENCIA</h5>
                             <h6 class="fw-bold mb-1">Obtuvo una asistencia mayor al 98% dentro del periodo evaluado.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 7.00%</span>
+                        <input type="hidden" class="valor-weight" value="7.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -527,15 +631,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-user-clock"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">PUNTUALIDAD</h5>
                             <h6 class="fw-bold mb-1">Cumple con los horarios establecidos para el inicio de su jornada laboral, obteniendo de 13 a 20 retardos semestrales.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 3.00%</span>
+                        <input type="hidden" class="valor-weight" value="3.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -573,15 +677,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-gavel"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">TOMA DE DECISIONES</h5>
                             <h6 class="fw-bold mb-1">Analiza situaciones de manera objetiva, identificando opciones y evaluando sus posibles consecuencias. Elige con seguridad las alternativas alineadas con los objetivos organizacionales. Actúa con criterio, responsabilidad y enfoque en resultados.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -619,15 +723,15 @@
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
                     <div class="d-flex mb-3">
-                        <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
+                        <div class="comp-icon"><i class="fas fa-chalkboard-teacher"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">DESARROLLO DE COLABORADORES</h5>
                             <h6 class="fw-bold mb-1">Impulsa activamente el desarrollo de su equipo, identificando fortalezas y áreas de oportunidad. Proporciona retroalimentación constante y promueve la capacitación continua. Fomenta un entorno de mejora, delegando con propósito para el cumplimiento de los objetivos en común.</h6>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 15%</span>
-                        <input type="hidden" class="valor-weight" value="15">
+                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -661,16 +765,23 @@
             </div>
         </div>
 
-        <div class="sticky-footer d-flex justify-content-between align-items-center">
-            <div>
-                <span class="text-muted small">Promedio Acumulado</span>
-                <div class="h5 mb-0 fw-bold"><span id="granTotalFooter">0.00</span> / 110.00%</div>
-            </div>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-light px-4 fw-bold">Cancelar</button>
-                <button type="submit" class="btn btn-primary px-5 fw-bold shadow">
-                    <i class="fas fa-save me-2"></i>Guardar Evaluación
-                </button>
+        <div id="stickyFooter" class="footer-promedio-container">
+            <div class="footer-promedio-content">
+                <div class="d-flex align-items-center">
+                    <span class="text-muted fw-bold small text-uppercase me-3">Resultado Total:</span>
+                    <div class="badge-calculo">
+                        <span id="granTotalFooter">0.00</span>%
+                        <span class="rango-texto" id="rangoTexto">Pendiente</span>
+                    </div>
+                </div>
+                
+                <div class="botones">
+                    <button type="button" class="btn-cancelar" onclick="window.location.href='{% url 'performance' %}';">
+                        Cancelar
+                    </button>                    <button type="submit" form="evalForm" class="btn-guardar">
+                        <i class="fas fa-save"></i> Guardar Evaluación
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -678,6 +789,43 @@
 </div>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const footerBar = document.getElementById('stickyFooter');
+        const mainFooter = document.querySelector('footer.footer'); 
+        
+        // Initial style setup
+        if (footerBar) {
+            footerBar.style.position = 'fixed';
+            footerBar.style.bottom = '0';
+            footerBar.style.zIndex = '999';
+            // Reset potential CSS conflicts
+            footerBar.style.marginTop = '0';
+        }
+        
+        function updateFooterPosition() {
+            if (!footerBar) return;
+
+            if (mainFooter) {
+                const footerRect = mainFooter.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                const footerVisibleHeight = windowHeight - footerRect.top;
+                
+                if (footerVisibleHeight > 0) {
+                    footerBar.style.bottom = (footerVisibleHeight + 25) + 'px';
+                } else {
+                    footerBar.style.bottom = '25px';
+                }
+            }
+        }
+
+        window.addEventListener('scroll', updateFooterPosition);
+        window.addEventListener('resize', updateFooterPosition);
+        
+        // Call immediately and after a delay to ensure layout is settled
+        updateFooterPosition();
+        setTimeout(updateFooterPosition, 500);
+    });
+
     /**
      * Selecciona la calificación y actualiza visualmente y matemáticamente
      */
@@ -723,8 +871,12 @@
         // Actualizar visualizaciones
         const formattedTotal = total.toFixed(2);
         document.getElementById('granTotalFooter').innerText = formattedTotal;
-        document.getElementById('granTotalHeader').innerText = Math.round(total);
+        document.getElementById('granTotalHeader').innerText = formattedTotal;
         document.getElementById('grand_total_input').value = formattedTotal;
+
+        // Actualizar barra de progreso (capada al 100% visualmente aunque el total sea > 100)
+        const progressPercent = Math.min(total, 100);
+        document.getElementById('progressBarHeader').style.width = progressPercent + '%';
     }
 </script>
 
