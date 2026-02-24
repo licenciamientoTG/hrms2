@@ -115,6 +115,6 @@ class PerformanceReview(models.Model):
 
     class Meta:
         # Regla: Un empleado solo puede tener UNA evaluación principal por ciclo
-        unique_together = ['cycle', 'employee']
+        unique_together = ['cycle', 'employee', 'reviewer']
         verbose_name = "Evaluación de Desempeño"
         verbose_name_plural = "Evaluaciones de Desempeño"
