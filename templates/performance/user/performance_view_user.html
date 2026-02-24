@@ -74,6 +74,32 @@
             font-weight: 800;
             color: white;
         }
+        /* Contenedor principal de la paginación */
+        .pagination-container {
+            display: inline-block;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .pagination-container .btn {
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        /* Efecto hover para el enlace "Siguiente" */
+        .pagination-container a.btn:hover {
+            background-color: #f0f7ff;
+            color: #0056b3;
+        }
+
+        /* El botón de texto gris (Página X de Y) */
+        .pagination-container .text-muted {
+            color: #6c757d !important;
+            opacity: 1;
+        }
     </style>
 {% endblock %}
 
@@ -90,14 +116,14 @@
             <div class="stat-card">
                 <div class="icon-box"><i class="fas fa-clipboard-check"></i></div>
                 <p class="text-muted mb-1 small fw-bold">TOTAL REALIZADAS</p>
-                <h3 class="fw-bold mb-0">{{ my_finished_evaluations|length }}</h3>
+                <h3 class="fw-bold mb-0">{{ total_evaluaciones }}</h3>
             </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="icon-box" style="background: #fff9e6; color: #f1c40f;"><i class="fas fa-award"></i></div>
                 <p class="text-muted mb-1 small fw-bold">ÚLTIMA PUNTUACIÓN</p>
-                <h3 class="fw-bold mb-0">95%</h3>
+                <h3 class="fw-bold mb-0">%</h3>
             </div>
         </div>
     </div>
@@ -172,14 +198,6 @@
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-end mb-4">
-        <h5 class="fw-bold mb-0">Historial de Evaluaciones</h5>
-        <div class="btn-group">
-            <button class="btn btn-sm btn-primary px-3">Realizadas</button>
-            <button class="btn btn-sm btn-outline-secondary px-3">Pendientes</button>
-        </div>
-    </div>
-
     <div class="row g-4">
         {% if my_finished_evaluations %}
             {% for review in my_finished_evaluations %}
@@ -208,6 +226,29 @@
                 </div>
             </div>
             {% endfor %}
+            {% if my_finished_evaluations.has_other_pages %}
+            <div class="d-flex justify-content-start mt-4">
+                <div class="btn-group pagination-custom shadow-sm" role="group">
+                    
+                    {% if my_finished_evaluations.has_previous %}
+                        <a href="?page={{ my_finished_evaluations.previous_page_number }}" class="btn btn-outline-secondary btn-pag">
+                            « Anterior
+                        </a>
+                    {% endif %}
+
+                    <span class="btn btn-light btn-pag-info disabled">
+                        Página {{ my_finished_evaluations.number }} de {{ my_finished_evaluations.paginator.num_pages }}
+                    </span>
+
+                    {% if my_finished_evaluations.has_next %}
+                        <a href="?page={{ my_finished_evaluations.next_page_number }}" class="btn btn-outline-secondary btn-pag">
+                            Siguiente »
+                        </a>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endif %}      
         {% else %}
             <div class="col-12">
                 <div class="text-center py-5 bg-white rounded-4 shadow-sm">

@@ -149,3 +149,37 @@
     font-weight: bold;
     cursor: not-allowed;
 }
+.evaluation-card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+    background: white;
+    min-height: 400px; /* Ajustada para admin */
+    display: flex;
+    flex-direction: column;
+}
+.evaluation-card:hover {
+    transform: translateY(-5px);
+}
+.card-banner {
+    height: 120px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.status-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.2);
+    color: white;
+    text-transform: uppercase;
+}

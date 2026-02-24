@@ -191,6 +191,8 @@ def performance_view_user(request):
         status__in=['completed', 'closed']
     ).select_related('employee', 'employee__user', 'cycle').order_by('-date_reviewed')
 
+    total_evaluaciones = evaluations_query.count()
+
     # Configurar Paginador: 2 elementos por página
     paginator = Paginator(evaluations_query, 2)
     page_number = request.GET.get('page') # Obtiene el número de página de la URL (?page=2)
@@ -200,6 +202,7 @@ def performance_view_user(request):
         'active_cycle': active_cycle,
         'assignments': assignments,
         'my_finished_evaluations': page_obj,
+        'total_evaluaciones': total_evaluaciones,
     }
     
     return render(request, 'performance/user/performance_view_user.html', context)

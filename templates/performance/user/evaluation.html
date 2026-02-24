@@ -65,6 +65,7 @@
         display: flex;
         gap: 10px;
         margin-top: 10px;
+        flex-wrap: wrap;
     }
 
     .rating-box {
@@ -76,6 +77,7 @@
         cursor: pointer;
         background: white;
         transition: all 0.2s ease;
+        box-sizing: border-box;
     }
 
     .rating-box h6 {
@@ -163,26 +165,78 @@
     }
     .footer-promedio-container {
         position: fixed;
-        bottom: 25px;
-        right: 30px;
-        width: auto;             /* Deja que el contenido defina el ancho */
-        min-width: 500px;        /* Pero con un mínimo para que no se vea apretada */
+        bottom: 20px;
+        /* Centrado horizontal por defecto */
+        left: 50%;
+        transform: translateX(-50%);
+        
+        /* Ancho adaptativo */
+        width: 90%;            /* En celulares ocupa el 90% de la pantalla */
+        max-width: 800px;      /* En pantallas grandes no crecerá más de esto */
+        
         background-color: white;
         padding: 12px 25px;
-        border-radius: 16px;     /* Redondeada por TODOS los lados */
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Sombra más profunda para efecto flotante */
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         border: 1px solid #e9ecef;
         z-index: 1000;
-        display: block;          /* Importante para que no herede flex del padre */
     }
 
     .footer-promedio-content {
         display: flex;
-        justify-content: flex-end; /* TODO EL CONTENIDO A LA DERECHA */
+        justify-content: space-between; /* Separa el total de los botones */
         align-items: center;
-        gap: 20px;                 /* Espacio entre el promedio y los botones */
+        gap: 15px;
+        flex-wrap: wrap; /* Permite que los elementos bajen si no hay espacio */
     }
 
+    /* --- AJUSTES PARA MÓVIL (Pantallas menores a 768px) --- */
+    @media (max-width: 768px) {
+        .footer-promedio-container {
+            padding: 15px;
+            bottom: 10px; /* Un poco más pegado al borde en móvil */
+        }
+
+        .footer-promedio-content {
+            flex-direction: column; /* Apila el total arriba y botones abajo */
+            gap: 12px;
+        }
+
+        .botones {
+            width: 100%;
+            justify-content: center; /* Centra los botones en móvil */
+        }
+        
+        .btn-guardar, .btn-cancelar {
+            flex: 1; /* Hace que los botones crezcan equitativamente */
+            justify-content: center;
+        }
+        /* --- NUEVOS AJUSTES PARA QUE LAS SELECCIONES NO SE SALGAN --- */
+        .rating-container {
+            flex-wrap: wrap; /* Permite que las cajas bajen a la siguiente línea */
+            gap: 8px;
+        }
+
+        .rating-box {
+            flex: 1 1 calc(33.33% - 8px); /* Intenta mantener 3 columnas si hay espacio */
+            min-width: 100px; /* Si la pantalla es muy pequeña, bajarán automáticamente */
+            padding: 8px 4px;
+        }
+
+        .rating-box h6 {
+            font-size: 0.8rem; /* Ajuste de texto para los títulos (Regular, etc.) */
+        }
+
+        /* Ajuste para las descripciones de las competencias */
+        .competencia-card h5 {
+            font-size: 1rem;
+        }
+        
+        .competencia-card p {
+            font-size: 0.85rem;
+            line-height: 1.3;
+        }
+    }
     /* Estilo para el badge amarillo */
     .badge-calculo {
         background-color: #ffcc4d;
@@ -264,9 +318,6 @@
                     <i class="far fa-calendar-alt me-1 text-primary"></i> 
                     Periodo: {{ periodo_texto|default:"JUL-DIC 2025" }}
                 </span>
-                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" style="font-size: 0.75rem;">
-                    <i class="fas fa-history me-1"></i> Ver Historial
-                </button>
             </div>
         </div>
     </div>
@@ -312,38 +363,37 @@
                         <div class="comp-icon"><i class="fas fa-comment-alt"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">COMUNICACIÓN</h5>
-                            <h6 class="fw-bold mb-1">Comparte información de manera clara y asertiva, adaptándose al contexto. Escucha activamente y valora las opiniones de los demás. Se expresa con respeto y efectividad, tanto de forma verbal como escrita reforzando a través de medios oficiales.</h6>
+                            <p class="mb-1">Comparte información de manera clara y asertiva, adaptándose al contexto. Escucha activamente y valora las opiniones de los demás. Se expresa con respeto y efectividad, tanto de forma verbal como escrita reforzando a través de medios oficiales.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('comunicacion', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('comunicacion', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('comunicacion', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_comunicacion" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_comunicacion" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -358,38 +408,37 @@
                         <div class="comp-icon"><i class="fas fa-users"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">TRABAJO EN EQUIPO</h5>
-                            <h6 class="fw-bold mb-1">Participa activamente, colabora y coopera con los demás para alcanzar objetivos comunes. Comparte conocimientos, motiva y reconoce el valor de cada miembro del equipo. Genera confianza y contribuye a un ambiente de trabajo positivo y colaborativo.</h6>
+                            <p class="mb-1">Participa activamente, colabora y coopera con los demás para alcanzar objetivos comunes. Comparte conocimientos, motiva y reconoce el valor de cada miembro del equipo. Genera confianza y contribuye a un ambiente de trabajo positivo y colaborativo.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('trabajo_equipo', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('trabajo_equipo', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('trabajo_equipo', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_trabajo_equipo" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_trabajo_equipo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -404,38 +453,37 @@
                         <div class="comp-icon"><i class="fas fa-handshake"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">RESOLUCIÓN DE CONFLICTO</h5>
-                            <h6 class="fw-bold mb-1">Analiza situaciones con objetividad y calma. Se enfoca en las causas clave, priorizando soluciones constructivas sobre el conflicto, se centra en la resolución, no en el conflicto (pasado). Muestra flexibilidad, apertura al cambio y considera las consecuencias antes de actuar.Conserva la calma ante momentos complicados.</h6>
+                            <p class="mb-1">Analiza situaciones con objetividad y calma. Se enfoca en las causas clave, priorizando soluciones constructivas sobre el conflicto, se centra en la resolución, no en el conflicto (pasado). Muestra flexibilidad, apertura al cambio y considera las consecuencias antes de actuar.Conserva la calma ante momentos complicados.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('resolucion_conflicto', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('resolucion_conflicto', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('resolucion_conflicto', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_resolucion_conflicto" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_resolucion_conflicto" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -450,38 +498,37 @@
                         <div class="comp-icon"><i class="fas fa-clock"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">GESTIÓN DEL TIEMPO</h5>
-                            <h6 class="fw-bold mb-1">Organiza y prioriza sus actividades para cumplir objetivos en tiempo y forma. Administra eficientemente los recursos disponibles y delega según las capacidades del equipo. Utiliza herramientas como Agenda en Papel, Electrónica, Monday, Drive etc. para optimizar su productividad.</h6>
+                            <p class="mb-1">Organiza y prioriza sus actividades para cumplir objetivos en tiempo y forma. Administra eficientemente los recursos disponibles y delega según las capacidades del equipo. Utiliza herramientas como Agenda en Papel, Electrónica, Monday, Drive etc. para optimizar su productividad.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('gestion_tiempo', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('gestion_tiempo', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('gestion_tiempo', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_gestion_tiempo" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_gestion_tiempo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -496,38 +543,37 @@
                         <div class="comp-icon"><i class="fas fa-headset"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">SERVICIO AL CLIENTE (INTERNO / EXTERNO)</h5>
-                            <h6 class="fw-bold mb-1">Brinda un servicio de calidad, generando confianza y valor en cada interacción. Se enfoca en la satisfacción del cliente, ofreciendo atención oportuna, clara y con trato profesional. Es percibido como una persona confiable que representa la empresa. </h6>
+                            <p class="mb-1">Brinda un servicio de calidad, generando confianza y valor en cada interacción. Se enfoca en la satisfacción del cliente, ofreciendo atención oportuna, clara y con trato profesional. Es percibido como una persona confiable que representa la empresa. </p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('servicio_cliente', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('servicio_cliente', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('servicio_cliente', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_servicio_cliente" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_servicio_cliente" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -542,38 +588,37 @@
                         <div class="comp-icon"><i class="fas fa-lightbulb"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">INICIATIVA</h5>
-                            <h6 class="fw-bold mb-1">Propone ideas y soluciones con proactividad, entusiasmo y confianza. Actúa con rapidez ante los retos y se anticipa a las necesidades. Se compromete con los resultados y persevera frente a los obstáculos.</h6>
+                            <p class="mb-1">Propone ideas y soluciones con proactividad, entusiasmo y confianza. Actúa con rapidez ante los retos y se anticipa a las necesidades. Se compromete con los resultados y persevera frente a los obstáculos.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('iniciativa', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('iniciativa', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('iniciativa', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_iniciativa" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_iniciativa" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -588,38 +633,37 @@
                         <div class="comp-icon"><i class="fas fa-calendar-check"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">ASISTENCIA</h5>
-                            <h6 class="fw-bold mb-1">Obtuvo una asistencia mayor al 98% dentro del periodo evaluado.</h6>
+                            <p class="mb-1">Obtuvo una asistencia mayor al 98% dentro del periodo evaluado.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 7.00%</span>
+                        <span class="badge-puntos">Ponderación: 7.00%</span>
                         <input type="hidden" class="valor-weight" value="7.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('asistencia', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('asistencia', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('asistencia', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_asistencia" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_asistencia" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -634,38 +678,37 @@
                         <div class="comp-icon"><i class="fas fa-user-clock"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">PUNTUALIDAD</h5>
-                            <h6 class="fw-bold mb-1">Cumple con los horarios establecidos para el inicio de su jornada laboral, obteniendo de 13 a 20 retardos semestrales.</h6>
+                            <p class="mb-1">Cumple con los horarios establecidos para el inicio de su jornada laboral, obteniendo de 13 a 20 retardos semestrales.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 3.00%</span>
+                        <span class="badge-puntos">Ponderación: 3.00%</span>
                         <input type="hidden" class="valor-weight" value="3.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('puntualidad', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('puntualidad', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('puntualidad', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_puntualidad" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_puntualidad" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -680,38 +723,37 @@
                         <div class="comp-icon"><i class="fas fa-gavel"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">TOMA DE DECISIONES</h5>
-                            <h6 class="fw-bold mb-1">Analiza situaciones de manera objetiva, identificando opciones y evaluando sus posibles consecuencias. Elige con seguridad las alternativas alineadas con los objetivos organizacionales. Actúa con criterio, responsabilidad y enfoque en resultados.</h6>
+                            <p class="mb-1">Analiza situaciones de manera objetiva, identificando opciones y evaluando sus posibles consecuencias. Elige con seguridad las alternativas alineadas con los objetivos organizacionales. Actúa con criterio, responsabilidad y enfoque en resultados.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('toma_decisiones', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('toma_decisiones', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('toma_decisiones', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_toma_decisiones" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_toma_decisiones" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
@@ -726,38 +768,37 @@
                         <div class="comp-icon"><i class="fas fa-chalkboard-teacher"></i></div>
                         <div>
                             <h5 class="fw-bold mb-1">DESARROLLO DE COLABORADORES</h5>
-                            <h6 class="fw-bold mb-1">Impulsa activamente el desarrollo de su equipo, identificando fortalezas y áreas de oportunidad. Proporciona retroalimentación constante y promueve la capacitación continua. Fomenta un entorno de mejora, delegando con propósito para el cumplimiento de los objetivos en común.</h6>
+                            <p class="mb-1">Impulsa activamente el desarrollo de su equipo, identificando fortalezas y áreas de oportunidad. Proporciona retroalimentación constante y promueve la capacitación continua. Fomenta un entorno de mejora, delegando con propósito para el cumplimiento de los objetivos en común.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Peso: 11.25%</span>
+                        <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
 
                 <div class="col-lg-8">
-                    <label class="small fw-bold text-muted text-uppercase mb-2">Calificación de desempeño</label>
                     <div class="rating-container mb-4">
                         <div class="rating-box cell-1" onclick="selectRating('desarrollo_colaboradores', 1)">
-                            <h6>Regular</h6><small>Nivel 1</small>
+                            <h6>Regular</h6>
                         </div>
                         <div class="rating-box cell-2" onclick="selectRating('desarrollo_colaboradores', 2)">
-                            <h6>Satisfactorio</h6><small>Nivel 2</small>
+                            <h6>Satisfactorio</h6>
                         </div>
                         <div class="rating-box cell-3" onclick="selectRating('desarrollo_colaboradores', 3)">
-                            <h6>Excelente</h6><small>Nivel 3</small>
+                            <h6>Excelente</h6>
                         </div>
                     </div>
                     <input type="hidden" name="logro_desarrollo_colaboradores" class="logro-input" value="0">
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del Líder</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
                             <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Compromisos de Mejora</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_desarrollo_colaboradores" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
                     </div>
