@@ -9,6 +9,8 @@ from apps.employee.models import Employee
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview
 from django.db.models import Q
 from django.utils import timezone
+import json
+from django.core.paginator import Paginator
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -182,18 +184,27 @@ def performance_view_user(request):
             cycle=active_cycle,
             reviewer=current_employee
         ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
+        if not assignments.exists():
+            active_cycle = None
 
-    # 2. HISTORIAL DE EVALUACIONES REALIZADAS (Cualquier ciclo, que el usuario haya calificado)
-    # Buscamos donde el usuario fue el revisor y ya terminó
-    my_finished_evaluations = PerformanceReview.objects.filter(
+    # 2. HISTORIAL CON PAGINACIÓN
+    evaluations_query = PerformanceReview.objects.filter(
         reviewer=current_employee,
         status__in=['completed', 'closed']
     ).select_related('employee', 'employee__user', 'cycle').order_by('-date_reviewed')
 
+    total_evaluaciones = evaluations_query.count()
+
+    # Configurar Paginador: 2 elementos por página
+    paginator = Paginator(evaluations_query, 2)
+    page_number = request.GET.get('page') # Obtiene el número de página de la URL (?page=2)
+    page_obj = paginator.get_page(page_number)
+
     context = {
         'active_cycle': active_cycle,
         'assignments': assignments,
-        'my_finished_evaluations': my_finished_evaluations, # Nueva variable para el historial
+        'my_finished_evaluations': page_obj,
+        'total_evaluaciones': total_evaluaciones,
     }
     
     return render(request, 'performance/user/performance_view_user.html', context)
@@ -215,70 +226,105 @@ def create_cycle(request):
             messages.error(request, "Error: Sube el archivo Excel.")
             return redirect('performance_view_admin')
 
-        employees_to_evaluate = []
-
+        # --- 1. LECTURA DEL EXCEL (Define 'employees_to_evaluate') ---
         try:
             reader = NativeXLSXReader(excel_file)
             rows = reader.get_sheet_data("Empleados")
             
             if not rows:
-                messages.error(request, "No se encontró la columna 'Número' en las filas visibles del Excel.")
+                messages.error(request, "No se encontró información en la pestaña 'Empleados'.")
                 return redirect('performance_view_admin')
 
-            # Buscar columna clave
-            columna_clave = 'número'
-            if columna_clave not in rows[0]:
-                if 'numero' in rows[0]: columna_clave = 'numero'
-            
+            columna_clave = 'número' if 'número' in rows[0] else 'numero'
             lista_ids = []
             for row in rows:
-                # 1. Filtro "Activo" (SI/NO) del Excel
-                if 'activo' in row:
-                    val_activo = str(row['activo']).strip().upper()
-                    if val_activo != 'SI':
-                        continue
+                # Filtro de activos en el Excel
+                if 'activo' in row and str(row['activo']).strip().upper() != 'SI':
+                    continue
                 
-                # 2. Obtener ID
                 emp_id = str(row.get(columna_clave, '')).strip()
-                if emp_id.endswith('.0'):
-                    emp_id = emp_id[:-2]
-                
+                if emp_id.endswith('.0'): emp_id = emp_id[:-2]
                 if emp_id and emp_id.isdigit():
                     lista_ids.append(emp_id)
 
+            # ESTA ES LA VARIABLE QUE FALTABA
             employees_to_evaluate = Employee.objects.filter(
                 employee_number__in=lista_ids, 
                 is_active=True
             )
 
             if not employees_to_evaluate.exists():
-                messages.warning(request, f"Se leyeron {len(lista_ids)} registros visibles, pero ninguno coincide con la BD.")
+                messages.warning(request, "No se encontraron empleados en la BD que coincidan con el Excel.")
                 return redirect('performance_view_admin')
 
         except Exception as e:
             messages.error(request, f"Error procesando Excel: {str(e)}")
             return redirect('performance_view_admin')
 
-        # Crear Ciclo
+        # --- 2. CREACIÓN DEL CICLO ---
         ciclo = PerformanceReviewCycle.objects.create(
             name=nombre, year=anio, review_type=tipo, is_360=es_360,
             status='active', scope_type='excel'
         )
         
-        # Crear Evaluaciones
-        reviews_created = [
-            PerformanceReview(cycle=ciclo, employee=emp, reviewer=emp, status='draft') 
-            for emp in employees_to_evaluate
-        ]
-        PerformanceReview.objects.bulk_create(reviews_created)
+        created_relations = set()
+        reviews_to_create = []
 
-        messages.success(request, f"Éxito: Se crearon {len(reviews_created)} evaluaciones (Filas ocultas ignoradas).")
+        def add_review(employee_obj, reviewer_obj):
+            if employee_obj and reviewer_obj:
+                # La llave de control ahora incluye al evaluador
+                relation = (employee_obj.id, reviewer_obj.id)
+                if relation not in created_relations:
+                    reviews_to_create.append(
+                        PerformanceReview(
+                            cycle=ciclo, 
+                            employee=employee_obj, 
+                            reviewer=reviewer_obj,
+                            status='draft'
+                        )
+                    )
+                    created_relations.add(relation)
+
+        # --- 3. GENERAR RELACIONES ---
+        for emp in employees_to_evaluate:
+            # Identificar al líder (basado en el texto de 'responsible')
+            evaluador_lider = None
+            if emp.responsible and ',' in emp.responsible:
+                partes = emp.responsible.split(',')
+                evaluador_lider = Employee.objects.filter(
+                    last_name__icontains=partes[0].strip(),
+                    first_name__icontains=partes[1].strip()
+                ).first()
+
+            if es_360:
+                # A. Autoevaluación
+                add_review(emp, emp)
+
+                if evaluador_lider:
+                    # B. Líder evalúa a Subordinado
+                    add_review(emp, evaluador_lider)
+                    # C. Subordinado evalúa a Líder
+                    add_review(evaluador_lider, emp)
+
+                # D. Evaluación entre Pares (Mismo responsable)
+                companeros = employees_to_evaluate.filter(responsible=emp.responsible).exclude(id=emp.id)
+                for comp in companeros:
+                    add_review(comp, emp)
+            else:
+                # Cualitativa normal
+                if evaluador_lider:
+                    add_review(emp, evaluador_lider)
+
+        # --- 4. GUARDADO ---
+        if reviews_to_create:
+            PerformanceReview.objects.bulk_create(reviews_to_create)
+
+        messages.success(request, f"Ciclo '{ciclo.name}' creado con {len(reviews_to_create)} evaluaciones.")
         return redirect('performance_view_admin')
 
     except Exception as e:
         messages.error(request, f"Error crítico: {str(e)}")
         return redirect('performance_view_admin')
-
         
 @login_required
 def evaluate_person(request, review_id):
@@ -363,7 +409,8 @@ def evaluate_person(request, review_id):
             saved_data = json.loads(review.comments)
         except:
             pass
-    
+
+    es_lider = Employee.objects.filter(responsible=review.employee).exists()
     periodo_texto = "N/A"
     fecha_ref = review.cycle.start_date
     if not fecha_ref:
@@ -385,7 +432,8 @@ def evaluate_person(request, review_id):
         'review': review,
         'employee': review.employee, # El empleado a evaluar (puede ser uno mismo)
         'data': saved_data,
-        'periodo_texto': periodo_texto
+        'periodo_texto': periodo_texto,
+        'es_lider': es_lider,
     }
     return render(request, 'performance/user/evaluation.html', context)
 
