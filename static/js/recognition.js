@@ -82,10 +82,21 @@
   // Estado botón Publicar
   const recipientsSelect = $('#recipientsSelect');
   const publishBtn       = $('#publishBtn');
+  const recognitionForm  = $('#recognitionForm');
+
   function updatePublishState(){
     const haveCategory   = !!categorySelect && !!categorySelect.value;
     if (publishBtn) publishBtn.disabled = !( haveCategory);
   }
+  // === PREVENIR DOBLE ENVÍO ===
+  if (recognitionForm && publishBtn) {
+    recognitionForm.addEventListener('submit', () => {
+      // Deshabilitamos el botón en el instante que el formulario es válido y se envía
+      publishBtn.disabled = true;
+      publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Publicando...';
+    });
+  }
+  
   recipientsSelect && recipientsSelect.addEventListener('change', () => {
     const selected = Array.from(recipientsSelect.selectedOptions);
     if (selected.length > 30) {
@@ -543,8 +554,33 @@ document.addEventListener('DOMContentLoaded', () => {
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
       success: function(resp) {
         if (resp && resp.html) {
-          $('#feed').append(resp.html);
+          // 1. Convertimos el HTML recibido en objetos de jQuery para manipularlos
+          const $newElements = $(resp.html);
+          
+          // 2. Buscamos los carruseles dentro de lo nuevo y activamos la primera imagen
+          $newElements.find('.carousel').each(function() {
+            const $items = $(this).find('.carousel-item');
+            if ($items.length > 0) {
+              $items.first().addClass('active');
+              
+              // Si solo hay una imagen, quitamos las flechas para que se vea limpio
+              if ($items.length === 1) {
+                $(this).find('.carousel-control-prev, .carousel-control-next').remove();
+              }
+              
+              // Forzamos a Bootstrap a inicializar el componente dinámico
+              if (window.bootstrap && bootstrap.Carousel) {
+                new bootstrap.Carousel(this);
+              }
+            } else {
+              $(this).hide(); // Si no hay imágenes (solo documentos), ocultamos el contenedor vacío
+            }
+          });
+
+          // 3. Lo añadimos al feed
+          $('#feed').append($newElements);
         }
+
         if (resp && resp.has_next) {
           nextPage = resp.next_page;
         } else {
