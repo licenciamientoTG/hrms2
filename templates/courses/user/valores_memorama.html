@@ -1,0 +1,589 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block styles %}
+  <style>
+    .valores-memorama .card-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      margin-bottom: 1rem;
+    }
+
+    @media (min-width: 1200px) {
+      .valores-memorama .card-grid {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+      }
+    }
+
+    .valores-memorama .value-card {
+      aspect-ratio: 2 / 3;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .valores-memorama .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.45s ease;
+    }
+
+    .valores-memorama .value-card.is-flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .valores-memorama .card-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      background: #fff;
+      backface-visibility: hidden;
+      text-align: center;
+    }
+
+    .valores-memorama .card-back {
+      transform: rotateY(180deg);
+      background: #f8f9fa;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      text-align: center;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .valores-memorama .card-back h3 {
+      margin: 0;
+      text-align: center;
+      line-height: 1.25;
+      font-size: clamp(0.86rem, 0.45vw + 0.78rem, 1rem);
+    }
+
+    .valores-memorama .value-card.is-matched .card-back {
+      background: var(--match-color, #198754);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .valores-memorama .value-card.is-matched .card-back h3,
+    .valores-memorama .value-card.is-matched .card-back p,
+    .valores-memorama .value-card.is-matched .card-back li {
+      color: #fff;
+    }
+
+    .valores-memorama .card-logo {
+      width: 70%;
+      max-width: 72px;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .valores-memorama .description-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .valores-memorama .description-item {
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      text-align: center;
+    }
+
+    .valores-memorama .card-back p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      text-align: center;
+    }
+
+    .valores-memorama .card-back::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .valores-memorama .card-back::-webkit-scrollbar-thumb {
+      background: rgba(108, 117, 125, 0.45);
+      border-radius: 10px;
+    }
+
+    .valores-memorama .value-letter {
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .valores-memorama .value-card.is-flipped .value-letter {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 2px;
+    }
+
+    .valores-memorama .memorama-confetti {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2000;
+      pointer-events: none;
+      display: none;
+    }
+
+    .valores-memorama .route-map .list-group-item {
+      border-radius: 8px;
+    }
+
+    .valores-memorama .route-layout {
+      position: relative;
+    }
+
+    .valores-memorama .route-toggle {
+      position: absolute;
+      width: 32px;
+      height: 68px;
+      border-radius: 0 12px 12px 0;
+      border: 1px solid #d0d7e2;
+      border-left: 0;
+      background: linear-gradient(180deg, #fff 0%, #f3f6fb 100%);
+      color: #4f5d73;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+      z-index: 5;
+      transition: box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .valores-memorama .route-toggle:hover {
+      background: linear-gradient(180deg, #fff 0%, #eaf1ff 100%);
+      color: #0d6efd;
+      box-shadow: 0 10px 18px rgba(13, 110, 253, 0.2);
+    }
+
+    .valores-memorama .route-toggle:focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+
+    .valores-memorama .route-toggle .route-arrow {
+      width: 16px;
+      height: 16px;
+      transform-origin: center;
+      transition: transform 0.2s ease;
+    }
+
+    .valores-memorama .route-toggle .route-label {
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .valores-memorama .route-toggle.is-collapsed .route-arrow {
+      transform: rotate(180deg);
+    }
+
+    .valores-memorama .route-toggle.is-collapsed {
+      background: linear-gradient(180deg, #eaf1ff 0%, #dfe9ff 100%);
+      color: #0d6efd;
+    }
+
+    .valores-memorama .memorama-group {
+      margin-bottom: 0.5rem;
+    }
+
+    .valores-memorama .mobile-board-hint {
+      display: none;
+    }
+
+    .valores-memorama.is-mobile-merged .mobile-board-hint {
+      display: block;
+    }
+
+    @media (max-width: 991.98px) {
+      .valores-memorama .route-toggle {
+        width: 30px;
+        height: 56px;
+      }
+
+      .valores-memorama .route-toggle .route-label {
+        display: none;
+      }
+
+      .valores-memorama #memoramaBoardCol .card {
+        padding: 1rem !important;
+      }
+
+      .valores-memorama .card-grid {
+        gap: 8px;
+        margin-bottom: 0.75rem;
+      }
+
+      .valores-memorama .value-card {
+        aspect-ratio: 2 / 3;
+      }
+
+      .valores-memorama .card-face {
+        padding: 6px;
+        border-radius: 10px;
+      }
+
+      .valores-memorama .card-back {
+        justify-content: center;
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .valores-memorama .card-logo {
+        width: 64%;
+        max-width: 52px;
+      }
+
+      .valores-memorama .card-back h3 {
+        font-size: 0.74rem;
+        line-height: 1.15;
+      }
+
+      .valores-memorama .description-list {
+        gap: 3px;
+        justify-content: center;
+      }
+
+      .valores-memorama .description-item,
+      .valores-memorama .card-back p {
+        font-size: 10px;
+        line-height: 1.18;
+      }
+
+      .valores-memorama .alert.alert-info {
+        margin-bottom: 0.6rem;
+        font-size: 0.82rem;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .valores-memorama .card-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 576px) and (max-width: 991.98px) {
+      .valores-memorama .card-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container py-4 page valores-memorama" data-memorama-done-url="{{ memorama_done_url }}" data-questionnaire-url="{{ questionnaire_url }}">
+    <canvas id="memoramaConfetti" class="memorama-confetti" aria-hidden="true"></canvas>
+    <form id="csrfMemoramaForm" class="d-none">{% csrf_token %}</form>
+
+    <div class="row g-4 route-layout" id="memoramaRouteLayout">
+      <button type="button" class="route-toggle" id="btnToggleRoute" aria-label="Contraer ruta" title="Contraer ruta">
+        <svg class="route-arrow bi bi-chevron-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M6.854 3.646a.5.5 0 0 0-.708.708L9.293 7.5 6.146 10.646a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708z"></path>
+        </svg>
+        <span class="route-label">Ruta</span>
+      </button>
+
+      <div class="col-lg-3" id="memoramaRouteCol">
+        <div class="card shadow-sm rounded-4 p-4 h-100" id="memoramaRouteCard">
+          <h3 class="fw-bold mb-1">{% if course %}{{ course.title }}{% else %}{{ values|length }} valores{% endif %}</h3>
+          <p class="text-muted mb-3">Ruta del curso</p>
+
+          <span class="badge bg-primary mb-3">Paso 2 de 3</span>
+
+          <div class="progress mb-3" style="height: 24px; border-radius: 10px;">
+            <div class="progress-bar bg-success fw-semibold" role="progressbar" style="width: 66%;" aria-valuenow="66" aria-valuemin="0" aria-valuemax="100">66%</div>
+          </div>
+
+          <div class="list-group list-group-flush small route-map">
+            {% if video_step_url %}
+              <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+                 href="{{ video_step_url }}">
+                <span>1. Video</span>
+                <span class="badge bg-info">Disponible</span>
+              </a>
+            {% else %}
+              <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                <span>1. Video</span>
+                <span class="badge bg-success">Completo</span>
+              </div>
+            {% endif %}
+
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span>2. Memorama</span>
+              <span class="badge bg-success">Actual</span>
+            </div>
+
+            {% if free_navigation %}
+              <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+                 href="{{ questionnaire_url }}"
+                 data-quiz-link>
+                <span>3. Quiz final</span>
+                <span class="badge bg-info">Disponible</span>
+              </a>
+            {% else %}
+              <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                <span>3. Quiz final</span>
+                <span class="badge bg-secondary">Pendiente</span>
+              </div>
+            {% endif %}
+          </div>
+
+          {% if cert %}
+            <a class="btn btn-success mt-3 w-100" href="{{ cert.file.url }}" download>Descargar certificado</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-9" id="memoramaBoardCol">
+        <div class="card shadow-sm rounded-4 p-4" id="memoramaBoardCard">
+          <h4 class="fw-bold mb-2">Memorama de presencia y valores</h4>
+          <p class="text-muted mb-3">Voltea cartas para emparejar cada valor con su significado.</p>
+          <p class="mobile-board-hint small text-muted mb-2">Versión móvil: todas las cartas están en un solo tablero para jugar con menos scroll.</p>
+
+          <div class="alert alert-info py-2" role="alert">
+            Cuando completes todos los pares, podrás avanzar al cuestionario.
+          </div>
+
+          <div class="memorama-group" data-group="titles">
+            <h6 class="fw-semibold mt-3">Valores</h6>
+            <section class="card-grid" data-grid="titles">
+              {% for value in values %}
+                <article class="value-card" data-card data-letter="{{ value.letter }}" tabindex="0" role="button" aria-pressed="false" aria-label="{{ value.title }}">
+                  <div class="card-inner">
+                    <div class="card-face card-front">
+                      <img class="card-logo" src="{% static 'template/img/logos/logo_sencillo.png' %}" alt="TotalGas" />
+                    </div>
+
+                    <div class="card-face card-back">
+                      <h3 class="h6 mb-0">{{ value.title }}</h3>
+                    </div>
+                  </div>
+                </article>
+              {% endfor %}
+            </section>
+          </div>
+
+          <div class="memorama-group" data-group="descriptions">
+            <h6 class="fw-semibold mt-2">Significados</h6>
+            <section class="card-grid" data-grid="descriptions">
+              {% for value in values %}
+                <article class="value-card" data-card data-letter="{{ value.letter }}" tabindex="0" role="button" aria-pressed="false" aria-label="{{ value.title }}">
+                  <div class="card-inner">
+                    <div class="card-face card-front">
+                      <img class="card-logo" src="{% static 'template/img/logos/logo_sencillo.png' %}" alt="TotalGas" />
+                    </div>
+
+                    <div class="card-face card-back">
+                      {% if value.descriptions %}
+                        <ul class="description-list">
+                          {% for description in value.descriptions %}
+                            <li class="description-item">{{ description }}</li>
+                          {% endfor %}
+                        </ul>
+                      {% else %}
+                        <p class="small mb-0">{{ value.description }}</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </article>
+              {% endfor %}
+            </section>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap mt-3">
+            {% if questionnaire_url and free_navigation %}
+              <a class="btn btn-primary" href="{{ questionnaire_url }}" data-quiz-link>Ir al cuestionario</a>
+            {% endif %}
+            <a class="btn btn-link" href="{% url 'user_courses' %}">Volver a cursos</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="memoramaCompleteModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Memorama completado</h5>
+            <button type="button" class="btn-close" id="btnMemoramaClose" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Completaste correctamente todos los pares.</p>
+            <p class="mb-0"><strong>Pares encontrados:</strong> <span id="memoramaPairsLabel">7/7</span></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-primary" id="btnMemoramaReplay">Jugar de nuevo</button>
+            {% if questionnaire_url %}
+              <a class="btn btn-primary" href="{{ questionnaire_url }}" data-quiz-link>Ir al cuestionario</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/valores_memorama.js' %}?v=20260225-1"></script>
+
+  <script>
+    ;(function () {
+      const root = document.querySelector('.page.valores-memorama')
+      if (!root) return
+
+      const doneUrl = root.getAttribute('data-memorama-done-url') || ''
+      const questionnaireUrl = root.getAttribute('data-questionnaire-url') || ''
+
+      const tokenInput = document.querySelector('#csrfMemoramaForm input[name="csrfmiddlewaretoken"]')
+      const csrfToken = tokenInput ? tokenInput.value : ''
+
+      const routeCol = document.getElementById('memoramaRouteCol')
+      const routeCard = document.getElementById('memoramaRouteCard')
+      const boardCol = document.getElementById('memoramaBoardCol')
+      const boardCard = document.getElementById('memoramaBoardCard')
+      const routeLayout = document.getElementById('memoramaRouteLayout')
+      const btnToggleRoute = document.getElementById('btnToggleRoute')
+      const routeStorageKey = 'valores_route_collapsed'
+
+      function updateTogglePosition(collapsed) {
+        if (!routeLayout || !btnToggleRoute || !boardCol) return
+
+        const routeIsHidden = !routeCol || routeCol.classList.contains('d-none')
+        const useBoardAnchor = collapsed || routeIsHidden
+        const anchorEl = useBoardAnchor ? (boardCard || boardCol) : (routeCard || routeCol)
+        if (!anchorEl) return
+
+        const topBase = anchorEl.offsetTop + 24
+        const leftBase = useBoardAnchor
+          ? anchorEl.offsetLeft - btnToggleRoute.offsetWidth + 1
+          : anchorEl.offsetLeft + anchorEl.offsetWidth - 1
+
+        btnToggleRoute.style.top = `${Math.max(0, topBase)}px`
+        btnToggleRoute.style.left = `${Math.max(0, leftBase)}px`
+      }
+
+      function setRouteCollapsed(collapsed) {
+        if (!routeCol || !boardCol) return
+
+        routeCol.classList.toggle('d-none', collapsed)
+        boardCol.classList.toggle('col-lg-9', !collapsed)
+        boardCol.classList.toggle('col-lg-12', collapsed)
+
+        if (btnToggleRoute) {
+          const label = collapsed ? 'Mostrar ruta' : 'Contraer ruta'
+          btnToggleRoute.setAttribute('aria-label', label)
+          btnToggleRoute.setAttribute('title', label)
+          btnToggleRoute.setAttribute('aria-expanded', String(!collapsed))
+          btnToggleRoute.classList.toggle('is-collapsed', collapsed)
+        }
+
+        window.requestAnimationFrame(function () {
+          updateTogglePosition(collapsed)
+        })
+      }
+
+      const shouldAutoCollapseRoute = window.matchMedia('(max-width: 991.98px)').matches
+      let routeCollapsed = false
+      try {
+        const storedRouteState = window.localStorage.getItem(routeStorageKey)
+        routeCollapsed = shouldAutoCollapseRoute ? true : storedRouteState === '1'
+      } catch (e) {
+        routeCollapsed = shouldAutoCollapseRoute
+      }
+      setRouteCollapsed(routeCollapsed)
+
+      if (btnToggleRoute) {
+        btnToggleRoute.addEventListener('click', function () {
+          routeCollapsed = !routeCol.classList.contains('d-none')
+          setRouteCollapsed(routeCollapsed)
+          try {
+            window.localStorage.setItem(routeStorageKey, routeCollapsed ? '1' : '0')
+          } catch (e) {
+          }
+        })
+      }
+
+      window.addEventListener('resize', function () {
+        updateTogglePosition(routeCol ? routeCol.classList.contains('d-none') : false)
+      })
+
+      let marked = false
+      let marking = false
+
+      async function markMemoramaDone() {
+        if (!doneUrl || marked || marking) return marked
+        marking = true
+
+        try {
+          const res = await fetch(doneUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ done: true })
+          })
+
+          if (res.ok) {
+            marked = true
+            return true
+          }
+        } catch (e) {
+        } finally {
+          marking = false
+        }
+
+        return false
+      }
+
+      const modal = document.getElementById('memoramaCompleteModal')
+      if (modal) {
+        modal.addEventListener('shown.bs.modal', function () {
+          markMemoramaDone()
+        })
+
+        if (window.jQuery) {
+          window.jQuery(modal).on('shown.bs.modal', function () {
+            markMemoramaDone()
+          })
+        }
+      }
+
+      document.querySelectorAll('[data-quiz-link]').forEach(function (a) {
+        a.addEventListener('click', async function (ev) {
+          if (marked) return
+
+          ev.preventDefault()
+          const ok = await markMemoramaDone()
+          if (ok && questionnaireUrl) {
+            window.location.href = questionnaireUrl
+          }
+        })
+      })
+    })()
+  </script>
+{% endblock %}

@@ -1,0 +1,310 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block styles %}
+  <style>
+    .valores-video .video-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .valores-video .route-map .list-group-item {
+      border-radius: 8px;
+    }
+
+    .valores-video .route-layout {
+      position: relative;
+    }
+
+    .valores-video .route-toggle {
+      position: absolute;
+      width: 32px;
+      height: 68px;
+      border-radius: 0 12px 12px 0;
+      border: 1px solid #d0d7e2;
+      border-left: 0;
+      background: linear-gradient(180deg, #fff 0%, #f3f6fb 100%);
+      color: #4f5d73;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+      z-index: 5;
+      transition: box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .valores-video .route-toggle:hover {
+      background: linear-gradient(180deg, #fff 0%, #eaf1ff 100%);
+      color: #0d6efd;
+      box-shadow: 0 10px 18px rgba(13, 110, 253, 0.2);
+    }
+
+    .valores-video .route-toggle:focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+
+    .valores-video .route-toggle .route-arrow {
+      width: 16px;
+      height: 16px;
+      transform-origin: center;
+      transition: transform 0.2s ease;
+    }
+
+    .valores-video .route-toggle .route-label {
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .valores-video .route-toggle.is-collapsed .route-arrow {
+      transform: rotate(180deg);
+    }
+
+    .valores-video .route-toggle.is-collapsed {
+      background: linear-gradient(180deg, #eaf1ff 0%, #dfe9ff 100%);
+      color: #0d6efd;
+    }
+
+    @media (max-width: 991.98px) {
+      .valores-video .route-toggle {
+        width: 30px;
+        height: 56px;
+      }
+
+      .valores-video .route-toggle .route-label {
+        display: none;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container py-4 page valores-video" data-video-done-url="{{ video_done_url }}" data-next-url="{{ next_url }}">
+    <form id="csrfVideoForm" class="d-none">{% csrf_token %}</form>
+
+    <div class="row g-4 route-layout" id="videoRouteLayout">
+      <button type="button" class="route-toggle" id="btnToggleRoute" aria-label="Contraer ruta" title="Contraer ruta">
+        <svg class="route-arrow bi bi-chevron-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M6.854 3.646a.5.5 0 0 0-.708.708L9.293 7.5 6.146 10.646a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708z"></path>
+        </svg>
+        <span class="route-label">Ruta</span>
+      </button>
+
+      <div class="col-lg-3" id="videoRouteCol">
+        <div class="card shadow-sm rounded-4 p-4 h-100" id="videoRouteCard">
+          <h3 class="fw-bold mb-1">{{ course.title }}</h3>
+          <p class="text-muted mb-3">Ruta del curso</p>
+
+          <span class="badge bg-primary mb-3">Paso 1 de 3</span>
+
+          <div class="progress mb-3" style="height: 24px; border-radius: 10px;">
+            <div class="progress-bar bg-success fw-semibold" role="progressbar" style="width: 33%;" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100">33%</div>
+          </div>
+
+          <div class="list-group list-group-flush small route-map">
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span>1. Video</span>
+              <span class="badge bg-success">Actual</span>
+            </div>
+
+            {% if free_navigation %}
+              <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+                 href="{{ memorama_step_url }}">
+                <span>2. Memorama</span>
+                <span class="badge bg-info">Disponible</span>
+              </a>
+            {% else %}
+              <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                <span>2. Memorama</span>
+                <span class="badge bg-secondary">Pendiente</span>
+              </div>
+            {% endif %}
+
+            {% if free_navigation %}
+              <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+                 href="{{ quiz_step_url }}">
+                <span>3. Quiz final</span>
+                <span class="badge bg-info">Disponible</span>
+              </a>
+            {% else %}
+              <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                <span>3. Quiz final</span>
+                <span class="badge bg-secondary">Pendiente</span>
+              </div>
+            {% endif %}
+          </div>
+
+          {% if cert %}
+            <a class="btn btn-success mt-3 w-100" href="{{ cert.file.url }}" download>Descargar certificado</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-9" id="videoMainCol">
+        <div class="card shadow-sm rounded-4 p-4" id="videoMainCard">
+          <h4 class="fw-bold mb-2">Video introductorio</h4>
+          <p class="text-muted mb-3">Mira el contenido y después presiona <strong>Continuar</strong> para avanzar al memorama.</p>
+
+          {% if lesson %}
+            <div class="ratio ratio-16x9 rounded overflow-hidden bg-dark video-frame mb-3">
+              {% if lesson.video_url %}
+                <iframe
+                  src="{{ lesson.video_url }}"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen>
+                </iframe>
+              {% elif lesson.resource %}
+                <video controls>
+                  <source src="{{ lesson.resource.url }}" type="video/mp4" />
+                  Tu navegador no soporta video.
+                </video>
+              {% else %}
+                <div class="d-flex align-items-center justify-content-center text-white">
+                  Esta lección no tiene video configurado.
+                </div>
+              {% endif %}
+            </div>
+
+            <div id="videoError" class="alert alert-danger d-none" role="alert"></div>
+
+            <div class="d-flex gap-2 flex-wrap">
+              <button id="btnContinue" type="button" class="btn btn-success">Continuar</button>
+              <a class="btn btn-outline-secondary" href="{% url 'user_courses' %}">Volver a cursos</a>
+            </div>
+          {% else %}
+            <div class="alert alert-warning mb-3" role="alert">
+              No se encontró ninguna lección con <strong>video_url</strong> o recurso <strong>.mp4</strong> para este curso.
+            </div>
+            <a class="btn btn-outline-secondary" href="{% url 'user_courses' %}">Volver a cursos</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    ;(function () {
+      const root = document.querySelector('.page.valores-video')
+      if (!root) return
+
+      const doneUrl = root.getAttribute('data-video-done-url') || ''
+      const nextUrl = root.getAttribute('data-next-url') || ''
+
+      const tokenInput = document.querySelector('#csrfVideoForm input[name="csrfmiddlewaretoken"]')
+      const csrfToken = tokenInput ? tokenInput.value : ''
+
+      const routeCol = document.getElementById('videoRouteCol')
+      const routeCard = document.getElementById('videoRouteCard')
+      const mainCol = document.getElementById('videoMainCol')
+      const mainCard = document.getElementById('videoMainCard')
+      const routeLayout = document.getElementById('videoRouteLayout')
+      const btnToggleRoute = document.getElementById('btnToggleRoute')
+      const routeStorageKey = 'valores_route_collapsed'
+
+      function updateTogglePosition(collapsed) {
+        if (!routeLayout || !btnToggleRoute || !mainCol) return
+
+        const routeIsHidden = !routeCol || routeCol.classList.contains('d-none')
+        const useMainAnchor = collapsed || routeIsHidden
+        const anchorEl = useMainAnchor ? (mainCard || mainCol) : (routeCard || routeCol)
+        if (!anchorEl) return
+
+        const topBase = anchorEl.offsetTop + 24
+        const leftBase = useMainAnchor
+          ? anchorEl.offsetLeft - btnToggleRoute.offsetWidth + 1
+          : anchorEl.offsetLeft + anchorEl.offsetWidth - 1
+
+        btnToggleRoute.style.top = `${Math.max(0, topBase)}px`
+        btnToggleRoute.style.left = `${Math.max(0, leftBase)}px`
+      }
+
+      function setRouteCollapsed(collapsed) {
+        if (!routeCol || !mainCol) return
+
+        routeCol.classList.toggle('d-none', collapsed)
+        mainCol.classList.toggle('col-lg-9', !collapsed)
+        mainCol.classList.toggle('col-lg-12', collapsed)
+
+        if (btnToggleRoute) {
+          const label = collapsed ? 'Mostrar ruta' : 'Contraer ruta'
+          btnToggleRoute.setAttribute('aria-label', label)
+          btnToggleRoute.setAttribute('title', label)
+          btnToggleRoute.setAttribute('aria-expanded', String(!collapsed))
+          btnToggleRoute.classList.toggle('is-collapsed', collapsed)
+        }
+
+        window.requestAnimationFrame(function () {
+          updateTogglePosition(collapsed)
+        })
+      }
+
+      let routeCollapsed = false
+      try {
+        routeCollapsed = window.localStorage.getItem(routeStorageKey) === '1'
+      } catch (e) {
+      }
+      setRouteCollapsed(routeCollapsed)
+
+      if (btnToggleRoute) {
+        btnToggleRoute.addEventListener('click', function () {
+          routeCollapsed = !routeCol.classList.contains('d-none')
+          setRouteCollapsed(routeCollapsed)
+          try {
+            window.localStorage.setItem(routeStorageKey, routeCollapsed ? '1' : '0')
+          } catch (e) {
+          }
+        })
+      }
+
+      window.addEventListener('resize', function () {
+        updateTogglePosition(routeCol ? routeCol.classList.contains('d-none') : false)
+      })
+
+      const btn = document.getElementById('btnContinue')
+      const errorBox = document.getElementById('videoError')
+      if (!btn) return
+
+      btn.addEventListener('click', async function () {
+        if (!doneUrl) return
+        btn.disabled = true
+        if (errorBox) {
+          errorBox.classList.add('d-none')
+          errorBox.textContent = ''
+        }
+
+        try {
+          const res = await fetch(doneUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ done: true })
+          })
+
+          if (!res.ok) throw new Error('No se pudo marcar el video como completado.')
+
+          window.location.href = nextUrl || "{% url 'user_courses' %}"
+        } catch (e) {
+          btn.disabled = false
+          if (errorBox) {
+            errorBox.textContent = (e && e.message) ? e.message : 'Error al continuar.'
+            errorBox.classList.remove('d-none')
+          }
+        }
+      })
+    })()
+  </script>
+{% endblock %}

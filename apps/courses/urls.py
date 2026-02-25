@@ -23,12 +23,23 @@ urlpatterns = [
     path('eliminar_pregunta/<int:question_id>/', views.eliminar_pregunta, name='eliminar_pregunta'),
     path('obtener-preguntas/<int:course_id>/', views.obtener_preguntas_curso, name='obtener_preguntas'),
     path('submit_course_quiz/<int:course_id>/', views.submit_course_quiz, name='submit_course_quiz'),
+
+ # ✅ NUEVAS (para el flujo Video -> Memorama -> Quiz)
+    path('valores/<int:course_id>/video-complete/', views.valores_mark_video_done, name='valores_mark_video_done'),
+    path('valores/<int:course_id>/memorama-complete/', views.valores_mark_memorama_done, name='valores_mark_memorama_done'),
+    path('valores/<int:course_id>/quiz/', views.valores_quiz_view, name='valores_quiz'),
+
+    path("courses/valores/<int:course_id>/finalize/", views.valores_finalize_course, name="valores_finalize_course"),
+
+
     path("unread_count/", views.unread_course_count, name="unread_course_count"),
     path("mark_all_read/", views.mark_all_courses_read, name="mark_all_courses_read"),
     path('admin/courses/', views.admin_courses, name='admin_courses'),
     path('mark-lesson-complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
     path('get-employees-with-user/', views.get_employees_with_user, name='get_employees_with_user'),
     path('admin/resumen-cursos/', views.course_summary_view, name='course_summary'),
+
+
 
     # path('certificado/vista-previa/', views.vista_previa_certificado),
 

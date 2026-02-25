@@ -6,3 +6,4 @@ class CoursesConfig(AppConfig):
 
     def ready(self):
         from . import signals  # noqa
+        from . import signals_courses_seed  # noqa  ✅ crea el curso Valores
