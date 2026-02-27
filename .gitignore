@@ -17,6 +17,7 @@ HRMS-main/vhrms/pyvenv.cfg
 .env.*
 **/.env
 **/*.env
+static/template/videos/valores_intro.mp4
 
 # VS Code settings
 .vscode/

@@ -1,0 +1,417 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block styles %}
+  <style>
+    .valores-quiz .q {
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .valores-quiz .opt {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 1px solid #dee2e6;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .valores-quiz .opt:hover {
+      border-color: #0d6efd;
+      background: #f8fbff;
+    }
+
+    .valores-quiz .opt.is-selected {
+      border-color: #0d6efd;
+      background: #eef5ff;
+    }
+
+    .valores-quiz .opt.is-correct {
+      border-color: #198754;
+      background: #edf9f1;
+    }
+
+    .valores-quiz .opt.is-wrong {
+      border-color: #dc3545;
+      background: #fff1f3;
+    }
+
+    .valores-quiz .q.is-correct {
+      border-color: #198754;
+    }
+
+    .valores-quiz .q.is-partial {
+      border-color: #ffc107;
+      background: #fffbea;
+    }
+
+    .valores-quiz .q.is-wrong {
+      border-color: #dc3545;
+    }
+
+    .valores-quiz .quiz-confetti {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2000;
+      pointer-events: none;
+      display: none;
+    }
+
+    .valores-quiz .review-item {
+      border-bottom: 1px dashed #dee2e6;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    .valores-quiz .review-item:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .valores-quiz .route-map .list-group-item {
+      border-radius: 8px;
+    }
+
+    .valores-quiz .route-layout {
+      position: relative;
+    }
+
+    .valores-quiz .route-toggle {
+      position: absolute;
+      width: 32px;
+      height: 68px;
+      border-radius: 0 12px 12px 0;
+      border: 1px solid #d0d7e2;
+      border-left: 0;
+      background: linear-gradient(180deg, #fff 0%, #f3f6fb 100%);
+      color: #4f5d73;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+      z-index: 5;
+      transition: box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .valores-quiz .route-toggle:hover {
+      background: linear-gradient(180deg, #fff 0%, #eaf1ff 100%);
+      color: #0d6efd;
+      box-shadow: 0 10px 18px rgba(13, 110, 253, 0.2);
+    }
+
+    .valores-quiz .route-toggle:focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+
+    .valores-quiz .route-toggle .route-arrow {
+      width: 16px;
+      height: 16px;
+      transform-origin: center;
+      transition: transform 0.2s ease;
+    }
+
+    .valores-quiz .route-toggle .route-label {
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .valores-quiz .route-toggle.is-collapsed .route-arrow {
+      transform: rotate(180deg);
+    }
+
+    .valores-quiz .route-toggle.is-collapsed {
+      background: linear-gradient(180deg, #eaf1ff 0%, #dfe9ff 100%);
+      color: #0d6efd;
+    }
+
+    @media (max-width: 991.98px) {
+      .valores-quiz .route-toggle {
+        width: 30px;
+        height: 56px;
+      }
+
+      .valores-quiz .route-toggle .route-label {
+        display: none;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container py-4 page valores-quiz"
+       data-submit-url="{{ submit_url }}"
+       data-finalize-url="{{ finalize_url }}"
+       data-courses-url="{{ courses_url }}">
+
+    <canvas id="quizConfetti" class="quiz-confetti" aria-hidden="true"></canvas>
+
+    <div class="row g-4 route-layout" id="quizRouteLayout">
+      <button type="button" class="route-toggle" id="btnToggleRoute" aria-label="Contraer ruta" title="Contraer ruta">
+        <svg class="route-arrow bi bi-chevron-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M6.854 3.646a.5.5 0 0 0-.708.708L9.293 7.5 6.146 10.646a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708z"></path>
+        </svg>
+        <span class="route-label">Ruta</span>
+      </button>
+
+      <div class="col-lg-3" id="quizRouteCol">
+        <div class="card shadow-sm rounded-4 p-4 h-100" id="quizRouteCard">
+          <h3 class="fw-bold mb-1">{{ course.title }}</h3>
+          <p class="text-muted mb-3">Ruta del curso</p>
+
+          <span class="badge bg-primary mb-3">Paso 3 de 3</span>
+
+          <div class="progress mb-3" style="height: 24px; border-radius: 10px;">
+            <div class="progress-bar bg-success fw-semibold" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
+          </div>
+
+          <div class="list-group list-group-flush small route-map">
+            <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+               href="{{ video_step_url }}">
+              <span>1. Video</span>
+              <span class="badge bg-info">Disponible</span>
+            </a>
+            <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-center text-reset text-decoration-none"
+               href="{{ memorama_step_url }}">
+              <span>2. Memorama</span>
+              <span class="badge bg-info">Disponible</span>
+            </a>
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span>3. Quiz final</span>
+              <span class="badge bg-success">Actual</span>
+            </div>
+          </div>
+
+          {% if cert %}
+            <a class="btn btn-success mt-3 w-100" href="{{ cert.file.url }}" download>Descargar certificado</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-9" id="quizMainCol">
+        <div class="card shadow-sm rounded-4 p-4" id="quizMainCard">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h4 class="fw-bold mb-0">Evaluación final</h4>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnShowAll">Ver todas</button>
+          </div>
+
+          <p class="text-muted mb-2">
+            Necesitas al menos <strong>{{ min_correct_required }} de {{ total_questions_count }} respuestas correctas</strong> para finalizar el curso.
+          </p>
+          <div class="alert alert-info py-2 mb-3" role="alert">
+            Al enviar, podrás revisar claramente qué respuesta elegiste y cuál era la correcta.
+          </div>
+
+          {% if not quiz %}
+            <div class="alert alert-warning">Este curso todavía no tiene un quiz configurado.</div>
+            <div class="d-flex gap-2 flex-wrap">
+              <a class="btn btn-outline-secondary" href="{{ restart_url }}">Reiniciar curso</a>
+              <a class="btn btn-outline-secondary" href="{{ courses_url }}">Volver a cursos</a>
+            </div>
+          {% else %}
+            <div class="progress mb-2" style="height: 12px; border-radius: 10px;">
+              <div class="progress-bar" id="quizProgressBar" role="progressbar" style="width: 0%;"></div>
+            </div>
+            <small id="quizProgressText" class="text-muted d-block mb-3">Pregunta 1</small>
+
+            <form id="quizForm">
+              {% csrf_token %}
+
+              {% for q in questionnaire %}
+                <div class="q" data-qid="{{ q.id }}">
+                  <h6 class="fw-semibold mb-2">{{ forloop.counter }}. {{ q.question }}</h6>
+                  <p class="text-muted small mb-2"><strong>Situación:</strong> {{ q.prompt }}</p>
+
+                  {% if q.type == 'multiple' %}
+                    {% for opt in q.options %}
+                      <label class="opt" data-optid="{{ opt.id }}">
+                        <input
+                          class="form-check-input mt-1"
+                          type="checkbox"
+                          name="q_{{ q.id }}[]"
+                          value="{{ opt.id }}"
+                        />
+                        <span>{{ opt.text }}</span>
+                      </label>
+                    {% endfor %}
+                  {% else %}
+                    {% for opt in q.options %}
+                      <label class="opt" data-optid="{{ opt.id }}">
+                        <input
+                          class="form-check-input mt-1"
+                          type="radio"
+                          name="q_{{ q.id }}"
+                          value="{{ opt.id }}"
+                        />
+                        <span>{{ opt.text }}</span>
+                      </label>
+                    {% endfor %}
+                  {% endif %}
+                </div>
+              {% endfor %}
+
+              <div class="d-flex gap-2 flex-wrap mt-2">
+                <button id="btnPrev" type="button" class="btn btn-outline-primary">Anterior</button>
+                <button id="btnNext" type="button" class="btn btn-outline-primary">Siguiente</button>
+                <button id="btnSubmit" type="button" class="btn btn-success" style="display:none;">Enviar evaluación</button>
+
+                <a class="btn btn-outline-secondary" href="{{ restart_url }}">Reiniciar curso</a>
+                <a class="btn btn-link" href="{{ courses_url }}">Volver a cursos</a>
+              </div>
+
+              <div id="resultBox" class="alert alert-secondary mt-3 mb-0" style="display:none;"></div>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="quizResultModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="quizTitle">Resultado</h5>
+            <button type="button" class="btn-close" id="btnQuizClose" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p id="quizSubtitle" class="text-muted mb-3"></p>
+
+            <div class="d-flex gap-2 flex-wrap mb-3">
+              <span id="quizIconOk" class="badge bg-success" style="display:none;">Aprobado</span>
+              <span id="quizIconBad" class="badge bg-danger" style="display:none;">No aprobado</span>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-6 col-md-3">
+                <div class="border rounded-3 p-2 h-100">
+                  <div class="text-muted small">Puntaje</div>
+                  <div class="fw-bold" id="quizScoreLabel">0/0</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="border rounded-3 p-2 h-100">
+                  <div class="text-muted small">Porcentaje</div>
+                  <div class="fw-bold" id="quizPctLabel">0%</div>
+                </div>
+              </div>
+                  <div class="col-6 col-md-3">
+                    <div class="border rounded-3 p-2 h-100">
+                      <div class="text-muted small">Mínimo</div>
+                      <div class="fw-bold" id="quizMinLabel">{{ min_correct_required }}/{{ total_questions_count }}</div>
+                    </div>
+                  </div>
+              <div class="col-6 col-md-3">
+                <div class="border rounded-3 p-2 h-100">
+                  <div class="text-muted small">Estado</div>
+                  <div class="fw-bold" id="quizStateLabel">---</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="quizReview" class="border rounded-3 p-3 bg-light" style="display:none;"></div>
+            <p class="small text-muted mt-3 mb-0" id="quizFootnote"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-primary" id="btnTryAgain">Volver a intentar</button>
+            <button type="button" class="btn btn-primary" id="btnTry100" style="display:none;">Intentar 100%</button>
+            <button type="button" class="btn btn-success" id="btnFinishCourse" style="display:none;">Finalizar curso</button>
+            <a class="btn btn-link" href="{{ courses_url }}">Volver a cursos</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/valores_quiz.js' %}?v=20260224-2"></script>
+
+  <script>
+    ;(function () {
+      const root = document.querySelector('.page.valores-quiz')
+      if (!root) return
+
+      const routeCol = document.getElementById('quizRouteCol')
+      const routeCard = document.getElementById('quizRouteCard')
+      const mainCol = document.getElementById('quizMainCol')
+      const mainCard = document.getElementById('quizMainCard')
+      const routeLayout = document.getElementById('quizRouteLayout')
+      const btnToggleRoute = document.getElementById('btnToggleRoute')
+      const routeStorageKey = 'valores_route_collapsed'
+
+      function updateTogglePosition(collapsed) {
+        if (!routeLayout || !btnToggleRoute || !mainCol) return
+
+        const routeIsHidden = !routeCol || routeCol.classList.contains('d-none')
+        const useMainAnchor = collapsed || routeIsHidden
+        const anchorEl = useMainAnchor ? (mainCard || mainCol) : (routeCard || routeCol)
+        if (!anchorEl) return
+
+        const topBase = anchorEl.offsetTop + 24
+        const leftBase = useMainAnchor
+          ? anchorEl.offsetLeft - btnToggleRoute.offsetWidth + 1
+          : anchorEl.offsetLeft + anchorEl.offsetWidth - 1
+
+        btnToggleRoute.style.top = `${Math.max(0, topBase)}px`
+        btnToggleRoute.style.left = `${Math.max(0, leftBase)}px`
+      }
+
+      function setRouteCollapsed(collapsed) {
+        if (!routeCol || !mainCol) return
+
+        routeCol.classList.toggle('d-none', collapsed)
+        mainCol.classList.toggle('col-lg-9', !collapsed)
+        mainCol.classList.toggle('col-lg-12', collapsed)
+
+        if (btnToggleRoute) {
+          const label = collapsed ? 'Mostrar ruta' : 'Contraer ruta'
+          btnToggleRoute.setAttribute('aria-label', label)
+          btnToggleRoute.setAttribute('title', label)
+          btnToggleRoute.setAttribute('aria-expanded', String(!collapsed))
+          btnToggleRoute.classList.toggle('is-collapsed', collapsed)
+        }
+
+        window.requestAnimationFrame(function () {
+          updateTogglePosition(collapsed)
+        })
+      }
+
+      let routeCollapsed = false
+      try {
+        routeCollapsed = window.localStorage.getItem(routeStorageKey) === '1'
+      } catch (e) {
+      }
+      setRouteCollapsed(routeCollapsed)
+
+      if (btnToggleRoute) {
+        btnToggleRoute.addEventListener('click', function () {
+          routeCollapsed = !routeCol.classList.contains('d-none')
+          setRouteCollapsed(routeCollapsed)
+          try {
+            window.localStorage.setItem(routeStorageKey, routeCollapsed ? '1' : '0')
+          } catch (e) {
+          }
+        })
+      }
+
+      window.addEventListener('resize', function () {
+        updateTogglePosition(routeCol ? routeCol.classList.contains('d-none') : false)
+      })
+    })()
+  </script>
+{% endblock %}

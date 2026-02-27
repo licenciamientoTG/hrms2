@@ -99,7 +99,7 @@
         <div class="d-flex gap-2 flex-wrap mb-3">
             <input type="text" id="filtroResumenCursos" class="form-control w-auto" placeholder="Buscar por nombre...">
         </div>
-        {% for course in courses|dictsortreversed:"created_at" %}
+        {% for course in courses %}
             <div class="col-md-4 mb-4 course-card"
                 data-estado="
                     {% if course.id in assigned_course_ids %}asignado {% endif %}

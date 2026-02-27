@@ -1,0 +1,125 @@
+/* =========================================================
+   BASE (TotalGas) - tokens + layout base + utilidades mínimas
+   Objetivo: convivir con Bootstrap y otros css sin romper vistas.
+   ========================================================= */
+
+:root{
+  --blue:#014AA9;
+  --green:#9DC72E;
+  --muted:#64748b;
+
+  --radius:16px;
+  --shadow:0 10px 26px rgba(2, 20, 60, 0.10);
+  --card-bg:#ffffff;
+
+  /* layout */
+  --page-pad: 32px;
+  --canvas-max: 1240px;
+  --gap: 24px;
+}
+
+*{ box-sizing:border-box; }
+
+html, body{
+  height:100%;
+  max-width:100%;
+}
+
+body{
+  margin:0;
+  font-family: "Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  background: linear-gradient(#f7f7f7, #eef2f6);
+  color:#0f172a;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* Imágenes responsivas sin afectar logos dentro de cards */
+img{
+  max-width:100%;
+  height:auto;
+  display:block;
+}
+
+a{
+  color: var(--blue);
+  text-decoration:none;
+}
+a:hover{ color:#013e8a; }
+
+h1,h2,h3,h4,h5,h6{ margin:0; line-height:1.15; }
+p{ margin:0; line-height:1.6; color: var(--muted); }
+
+/* ---------- Layout base (neutral) ---------- */
+.page{
+  min-height:auto;
+  display:flex;
+  justify-content:center;
+  padding: var(--page-pad) 16px 48px;
+}
+
+.canvas{
+  width:100%;
+  max-width: var(--canvas-max);
+  display:flex;
+  flex-direction:column;
+  gap: var(--gap);
+}
+
+/* ---------- Hero ---------- */
+.hero{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.hero h1{
+  font-size: clamp(36px, 5vw, 48px);
+  letter-spacing:-0.02em;
+  line-height:1.05;
+  color:#0f172a;
+}
+
+.hero p{ max-width:720px; }
+
+/* ---------- Brand ---------- */
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.brand span{
+  font-weight:700;
+  color:#0f172a;
+  letter-spacing:.5px;
+}
+.brand img{
+  height:52px;
+  width:auto;
+  object-fit:contain;
+}
+
+/* ---------- Utilidades ---------- */
+.muted{ color: var(--muted); }
+
+/* IMPORTANTE:
+   No uses .card aquí porque Bootstrap ya usa .card y se pisan.
+   Si quieres cards propias usa .tg-card */
+.tg-card{
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(1, 74, 169, 0.06);
+  padding: 18px;
+}
+
+/* Responsive */
+@media (max-width: 900px){
+  :root{ --page-pad: 18px; }
+  .brand img{ height:46px; }
+}
+@media (max-width: 520px){
+  .brand img{ height:42px; }
+}
