@@ -1236,48 +1236,6 @@ def valores_video_view(request, course_id):
     )
 
 @login_required
-def valores_memorama_view(request, course_id=None):
-    """
-    Renderiza el memorama del curso "Valores".
-    course_id es opcional por si lo quieres llamar directo por URL o desde view_course_content.
-    """
-
-    values = [
-        {
-            "letter": "R",
-            "title": "Respeto y resiliencia",
-            "descriptions": [
-                "Tratamos a las personas con dignidad.",
-                "Nos adaptamos ante cambios sin perder el rumbo.",
-            ],
-        },
-        {
-            "letter": "I",
-            "title": "Integridad",
-            "description": "Actuamos con honestidad y coherencia en todo momento.",
-        },
-        {
-            "letter": "S",
-            "title": "Servicio",
-            "description": "Buscamos ayudar con actitud y enfoque al cliente.",
-        },
-        {
-            "letter": "C",
-            "title": "Compromiso",
-            "description": "Cumplimos lo que prometemos y cuidamos los resultados.",
-        },
-    ]
-
-    questionnaire_url = ""
-
-    return render(request, "courses/user/valores_memorama.html", {
-        "values": values,
-        "questionnaire_url": questionnaire_url,
-        "course_id": course_id,
-    })
-
-
-@login_required
 def view_course_content(request, course_id):
     course = get_object_or_404(CourseHeader, id=course_id)
 
@@ -1656,10 +1614,29 @@ def user_courses(request):
     # 8) Estadísticas de asignación
     assigned_ids = {c.id for c in assigned_courses}
     assigned_count = len(assigned_ids)
-
     pending_courses_count = len(all_courses) - len(completed_course_ids)
 
-    all_courses.sort(key=lambda x: x.created_at, reverse=True)
+    # --- LÓGICA DE FIJADO POR FECHA VIRTUAL (VERSIÓN DJANGO 5.0) ---
+    def get_sort_key(course):
+        title_clean = (course.title or "").strip().lower()
+        
+        # Usamos la zona horaria UTC de Python de forma segura
+        from datetime import timezone as py_timezone
+        utc_zone = py_timezone.utc
+
+        # Si es inducción, le damos una fecha del año 3000
+        if "inducción 1: presencia y valores" in title_clean:
+            return datetime(3000, 1, 1, tzinfo=utc_zone)
+        
+        # Para los demás, su fecha real. Si no tiene, una base antigua.
+        if course.created_at:
+            return course.created_at
+        return datetime(2000, 1, 1, tzinfo=utc_zone)
+
+    # Ordenamos la lista completa. reverse=True pone el año 3000 al principio.
+    all_courses.sort(key=get_sort_key, reverse=True)
+    # --------------------------------------------------------------------
+
     paginator = Paginator(all_courses, 6)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)

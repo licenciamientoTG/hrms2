@@ -494,7 +494,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-      pdfjsLib.getDocument(url).promise.then(pdf => {
+      const secureUrl = url.replace("http://", "https://");
+      pdfjsLib.getDocument(secureUrl).promise.then(pdf => {
         const totalPages = pdf.numPages;
 
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {

@@ -92,7 +92,7 @@ def _all_users_courses_qs():
 
     return CourseHeader.objects.filter(
         Q(id__in=cfg_ids) | Q(id__in=assign_ids)
-    ).distinct()
+    ).exclude(title__icontains="Inducción 1: Presencia y valores").distinct()
 
 def _course_url(course_id: int) -> str:
     try:

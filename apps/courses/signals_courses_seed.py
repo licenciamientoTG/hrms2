@@ -132,7 +132,7 @@ def ensure_valores_course(sender, **kwargs):
         return
 
     # ✅ Ajusta aquí la ruta donde pondrás el mp4
-    mp4_bytes, mp4_name = _read_static_file_bytes("template/videos/valores_intro.mp4")
+    mp4_bytes, mp4_name = _read_static_file_bytes("static/template/videos/valores_intro.mp4")
 
     if not mp4_bytes:
         log.warning("⚠️ No se encontró el MP4 en static/template/videos/valores_intro.mp4")
