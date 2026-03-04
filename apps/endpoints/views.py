@@ -64,6 +64,7 @@ def _diff_instance(current, incoming_dict, field_names):
     - changed_fields: lista de nombres a actualizar
     Nota: convierte tipos básicos para comparación segura.
     """
+    
     changes = []
     changed_fields = []
 
@@ -282,7 +283,7 @@ def recibir_datos1(request):
             job_position_id = puesto_obj.id
         else:
             job_position_id = None
-            
+
         telefono = _clean_phone(data.get('Telefono'))
         saldo_vacaciones = _as_decimal(data.get('SaldoVacaciones'), '0')
 
