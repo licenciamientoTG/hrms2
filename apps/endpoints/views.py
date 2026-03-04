@@ -255,16 +255,34 @@ def recibir_datos1(request):
                 first_name = ' '.join(partes[:-1])
                 last_name = partes[-1] if partes else ''
 
-        # Department (case-insensitive)
-        department_name = _safe_str(data.get('Departamento'))
-        department = Department.objects.filter(name__iexact=department_name).first()
-        department_id = department.id if department else None
+        # --- LOGICA MEJORADA PARA DEPARTAMENTO ---
+        department_name = _safe_str(data.get('Departamento')).strip()
 
-        # JobPosition (case-insensitive)
-        puesto_nombre = _safe_str(data.get('Puesto'))
-        puesto = JobPosition.objects.filter(title__iexact=puesto_nombre).first()
-        job_position_id = puesto.id if puesto else None
+        if department_name:
+            # get_or_create busca el nombre; si no lo halla, lo inserta en la tabla
+            department_obj, created = Department.objects.get_or_create(
+                name__iexact=department_name,
+                defaults={'name': department_name} # Si lo crea, usa el nombre tal cual viene
+            )
+            department_id = department_obj.id
+            
+            if created:
+                print(f"🆕 Nuevo departamento creado automáticamente: {department_name}")
+        else:
+            department_id = None
 
+        # --- LOGICA MEJORADA PARA PUESTO ---
+        puesto_nombre = _safe_str(data.get('Puesto')).strip()
+
+        if puesto_nombre:
+            puesto_obj, created = JobPosition.objects.get_or_create(
+                title__iexact=puesto_nombre,
+                defaults={'title': puesto_nombre}
+            )
+            job_position_id = puesto_obj.id
+        else:
+            job_position_id = None
+            
         telefono = _clean_phone(data.get('Telefono'))
         saldo_vacaciones = _as_decimal(data.get('SaldoVacaciones'), '0')
 
