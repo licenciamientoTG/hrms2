@@ -367,9 +367,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {% if es_lider %}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -388,19 +394,28 @@
                     <input type="hidden" name="logro_comunicacion" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_comunicacion" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {% endif %}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="competencia-card" id="row_trabajo_equipo">
             <div class="row align-items-start">
                 <div class="col-lg-4 mb-3 mb-lg-0">
@@ -412,9 +427,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -433,14 +454,24 @@
                     <input type="hidden" name="logro_trabajo_equipo" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_trabajo_equipo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {% endif %}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -457,9 +488,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -478,14 +515,24 @@
                     <input type="hidden" name="logro_resolucion_conflicto" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_resolucion_conflicto" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -502,9 +549,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -523,14 +576,24 @@
                     <input type="hidden" name="logro_gestion_tiempo" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_gestion_tiempo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -547,9 +610,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -568,14 +637,24 @@
                     <input type="hidden" name="logro_servicio_cliente" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_servicio_cliente" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -592,9 +671,15 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
                         <input type="hidden" class="valor-weight" value="11.25">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {% else %}
+                        <span class="badge-puntos">Ponderación: 15.00%</span>
+                        <input type="hidden" class="valor-weight" value="15.00">
+                        <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
+                        {%endif%}
                     </div>
                 </div>
 
@@ -613,14 +698,24 @@
                     <input type="hidden" name="logro_iniciativa" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe%}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_iniciativa" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -658,14 +753,24 @@
                     <input type="hidden" name="logro_asistencia" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_asistencia" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -703,14 +808,24 @@
                     <input type="hidden" name="logro_puntualidad" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_puntualidad" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}             
                     </div>
                 </div>
             </div>
@@ -749,14 +864,24 @@
                     <input type="hidden" name="logro_toma_decisiones" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_toma_decisiones" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -794,14 +919,24 @@
                     <input type="hidden" name="logro_desarrollo_colaboradores" class="logro-input" value="0">
 
                     <div class="row">
+                        {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe%}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluador</label>
+                            <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
                             <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if es_autoevaluacion %}
                         <div class="col-md-6">
-                            <label class="small fw-bold mb-1 text-muted">Comentarios de mejora del evaluado</label>
+                            <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
                             <textarea class="form-control comp-textarea" name="comp_desarrollo_colaboradores" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
                         </div>
+                        {%endif%}
+                        {% if evaluando_a_mi_jefe %}
+                        <div class="col-md-6">
+                            <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
+                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

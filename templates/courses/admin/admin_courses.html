@@ -96,7 +96,7 @@
         <div class="d-flex gap-2 flex-wrap mb-3">
             <input type="text" id="filtroResumenCursos" class="form-control w-auto" placeholder="Buscar por nombre...">
         </div>
-        {% for course in courses %}
+        {% for course in courses|dictsortreversed:"created_at" %}
             <div class="col-md-4 mb-4 course-card"
                 data-estado="{% if course.archived_at %}archivado{% elif course.deadline_date and course.deadline_date <= today %}inactivo{% else %}activo{% endif %}"
                 data-completado="{% if course.id in completed_course_ids_admin %}true{% else %}false{% endif %}"
@@ -105,7 +105,12 @@
                 <div class="card h-100 shadow-sm rounded-4 overflow-hidden curso-clickable">
                 <a href="{% url 'admin_course_stats' course.id %}" class="text-decoration-none text-dark">
                         {% if course.portrait %}
-                            <img src="{{ course.portrait.url }}" class="card-img-top" alt="Imagen del curso" style="height: 140px; object-fit: cover; object-position: center;">
+                            <div class="card-img-container" style="width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background-color: #f8f9fa;">
+                                <img src="{{ course.portrait.url }}" 
+                                    class="card-img-top" 
+                                    alt="Imagen del curso" 
+                                    style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+                            </div> 
                         {% else %}
                             <div class="bg-light d-flex align-items-center justify-content-center" style="height: 140px;">
                                 <i class="fa-solid fa-graduation-cap fa-3x text-secondary"></i>
