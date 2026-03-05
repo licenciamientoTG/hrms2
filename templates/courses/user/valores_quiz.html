@@ -235,7 +235,7 @@
               {% for q in questionnaire %}
                 <div class="q" data-qid="{{ q.id }}">
                   <h6 class="fw-semibold mb-2">{{ forloop.counter }}. {{ q.question }}</h6>
-                  <p class="text-muted small mb-2"><strong>Situación:</strong> {{ q.prompt }}</p>
+                  <p class=" mb-2"><strong>Situación:</strong> {{ q.prompt }}</p>
 
                   {% if q.type == 'multiple' %}
                     {% for opt in q.options %}

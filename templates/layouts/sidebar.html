@@ -101,7 +101,7 @@
                 </li>
             {% endif %}
             
-            {% if perms.courses.Modulo_cursos %}
+            {% if perms.news.Modulo_noticias %}
                 <li class="sidebar-item">
                 <a class="sidebar-link" href="{% url 'performance' %}">
                     <i class="fa-solid fa-list-check"></i>
@@ -117,8 +117,7 @@
                 </li>
             {% endif %}
 
-            {% comment %} {% if not user.is_staff or perms.courses.Modulo_cursos %} {% endcomment %}
-            {% if perms.courses.Modulo_cursos %}
+            {% if not user.is_staff or perms.courses.Modulo_cursos %}
                 <li class="sidebar-item {% if 'course' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i>

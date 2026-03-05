@@ -100,6 +100,35 @@
             color: #6c757d !important;
             opacity: 1;
         }
+        /* Estilo base para todos los identificadores */
+        .badge-rel {
+            display: inline-block;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 50px; /* Estilo píldora perfecta */
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+            min-width: 140px; /* Uniformidad de ancho */
+            text-align: center;
+        }
+
+        /* Paleta de colores Soft */
+        .badge-self { background-color: #e0e7ff; color: #4338ca; } /* Indigo */
+        .badge-sub  { background-color: #dcfce7; color: #15803d; } /* Verde */
+        .badge-boss { background-color: #f3e8ff; color: #7e22ce; } /* Morado */
+        .badge-peer { background-color: #fef3c7; color: #b45309; } /* Ámbar */
+        .badge-other { background-color: #f1f5f9; color: #475569; } /* Slate */
+
+        /* Estilo para el badge de "Pendiente" para que no compita */
+        .badge-status-pending {
+            background-color: transparent;
+            color: #94a3b8;
+            border: 1px solid #e2e8f0;
+            font-size: 0.7rem;
+            padding: 5px 12px;
+        }
     </style>
 {% endblock %}
 
@@ -115,15 +144,14 @@
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="icon-box"><i class="fas fa-clipboard-check"></i></div>
-                <p class="text-muted mb-1 small fw-bold">TOTAL REALIZADAS</p>
-                <h3 class="fw-bold mb-0">{{ total_evaluaciones }}</h3>
-            </div>
+                <p class="text-muted mb-1 small fw-bold">MIS RESULTADOS</p>
+                <h3 class="fw-bold mb-0">{{ total_evaluaciones }}</h3> </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="icon-box" style="background: #fff9e6; color: #f1c40f;"><i class="fas fa-award"></i></div>
                 <p class="text-muted mb-1 small fw-bold">ÚLTIMA PUNTUACIÓN</p>
-                <h3 class="fw-bold mb-0">%</h3>
+                <h3 class="fw-bold mb-0">{{ ultima_puntuacion|floatformat:0 }}%</h3> 
             </div>
         </div>
     </div>
@@ -176,7 +204,10 @@
                                         <h6 class="fw-bold mb-0">{{ review.employee.user.get_full_name }}</h6>
                                         <p class="text-muted small mb-0">No. Empleado: {{ review.employee.employee_number }}</p>
                                     </div>
-                                    <div class="col-md-auto text-end">
+                                    <div class="col-md-auto text-end d-flex align-items-center gap-2">
+                                        <span class="badge-rel {{ review.badge_class }}">
+                                            {{ review.relationship_label }}
+                                        </span>
                                         <span class="badge bg-light text-dark border me-3">Pendiente</span>
                                         <a href="{% url 'evaluate_person' review.id %}" class="btn btn-primary btn-sm rounded-pill px-4">
                                             Iniciar Evaluación
@@ -209,7 +240,7 @@
                         <div class="rating-display">{{ review.rating|floatformat:0 }}%</div>
                     </div>
                     <div class="card-body p-4">
-                        <h6 class="fw-bold mb-1">Evaluación {{ review.cycle.name }}</h6>
+                        <h6 class="fw-bold mb-1">{{ review.cycle.name }}</h6>
                         <p class="text-muted small mb-3"><i class="far fa-calendar-alt me-1"></i> Enviada el: {{ review.date_reviewed|date:"d/m/Y" }}</p>
                         
                         <div class="d-flex align-items-center mb-4">

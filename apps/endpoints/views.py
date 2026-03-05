@@ -64,6 +64,7 @@ def _diff_instance(current, incoming_dict, field_names):
     - changed_fields: lista de nombres a actualizar
     Nota: convierte tipos básicos para comparación segura.
     """
+    
     changes = []
     changed_fields = []
 
@@ -255,15 +256,46 @@ def recibir_datos1(request):
                 first_name = ' '.join(partes[:-1])
                 last_name = partes[-1] if partes else ''
 
-        # Department (case-insensitive)
-        department_name = _safe_str(data.get('Departamento'))
-        department = Department.objects.filter(name__iexact=department_name).first()
-        department_id = department.id if department else None
 
-        # JobPosition (case-insensitive)
-        puesto_nombre = _safe_str(data.get('Puesto'))
-        puesto = JobPosition.objects.filter(title__iexact=puesto_nombre).first()
-        job_position_id = puesto.id if puesto else None
+        # --- LOGICA MEJORADA PARA DEPARTAMENTO ---
+        department_name = _safe_str(data.get('Departamento')).strip()
+
+        if department_name:
+            # Agregamos es_corporativo True por defecto para tu nueva lógica
+            department_obj, created = Department.objects.get_or_create(
+                name__iexact=department_name,
+                defaults={
+                    'name': department_name,
+                    'es_corporativo': not (department_name.isdigit() or "ESTACION" in department_name.upper())
+                }
+            )
+            department_id = department_obj.id
+            
+            if created:
+                print(f"🆕 Nuevo departamento creado automáticamente: {department_name}")
+        else:
+            department_id = None
+
+
+        # --- LOGICA MEJORADA PARA PUESTO ---
+        puesto_nombre = _safe_str(data.get('Puesto')).strip()
+
+        if puesto_nombre:
+            # 1. Buscamos o creamos una categoría genérica para que no truene el INSERT
+            from apps.employee.models import JobCategory
+            cat_default, _ = JobCategory.objects.get_or_create(name="General")
+
+            puesto_obj, created = JobPosition.objects.get_or_create(
+                title__iexact=puesto_nombre,
+                defaults={
+                    'title': puesto_nombre,
+                    'job_category': cat_default, # Campo obligatorio en muchas estructuras HR
+                    'is_active': True
+                }
+            )
+            job_position_id = puesto_obj.id
+        else:
+            job_position_id = None
 
         telefono = _clean_phone(data.get('Telefono'))
         saldo_vacaciones = _as_decimal(data.get('SaldoVacaciones'), '0')

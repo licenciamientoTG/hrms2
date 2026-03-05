@@ -118,3 +118,18 @@ class PerformanceReview(models.Model):
         unique_together = ['cycle', 'employee', 'reviewer']
         verbose_name = "Evaluación de Desempeño"
         verbose_name_plural = "Evaluaciones de Desempeño"
+
+class PerformanceReviewAnswer(models.Model):
+    review = models.ForeignKey(
+        PerformanceReview, 
+        on_delete=models.CASCADE, 
+        related_name='details',
+        verbose_name="Evaluación"
+    )
+    competencia_key = models.CharField("Clave Competencia", max_length=50) # ej: 'comunicacion'
+    logro = models.IntegerField("Puntuación (1-3)", null=True, blank=True)
+    comentarios = models.TextField("Comentarios Líder", null=True, blank=True)
+    compromisos = models.TextField("Compromisos Empleado", null=True, blank=True)
+
+    class Meta:
+        unique_together = ['review', 'competencia_key']

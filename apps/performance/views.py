@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from apps.employee.models import Employee
-from apps.performance.models import PerformanceReviewCycle, PerformanceReview
+from apps.performance.models import PerformanceReviewCycle, PerformanceReview, PerformanceReviewAnswer
 from django.db.models import Q
 from django.utils import timezone
 import json
@@ -177,34 +177,64 @@ def performance_view_user(request):
 
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     
-    # 1. EVALUACIONES PENDIENTES (Solo ciclo activo y que no estén completadas)
+    # 1. EVALUACIONES PENDIENTES (Las que él debe hacer a otros)
     assignments = []
     if active_cycle:
-        assignments = PerformanceReview.objects.filter(
+        assignments_query = PerformanceReview.objects.filter(
             cycle=active_cycle,
             reviewer=current_employee
         ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
+        
+        nombre_revisor = f"{current_employee.last_name}, {current_employee.first_name}"
+        
+        for review in assignments_query:
+            target = review.employee
+            if target == current_employee:
+                review.relationship_label = "Autoevaluación"
+                review.badge_class = "badge-self"
+            elif target.responsible == nombre_revisor:
+                review.relationship_label = "Colaborador Directo"
+                review.badge_class = "badge-sub"
+            elif current_employee.responsible == f"{target.last_name}, {target.first_name}":
+                review.relationship_label = "Jefe Directo"
+                review.badge_class = "badge-boss"
+            elif target.responsible == current_employee.responsible:
+                review.relationship_label = "Colega (Par)"
+                review.badge_class = "badge-peer"
+            else:
+                review.relationship_label = "Colaborador"
+                review.badge_class = "badge-other"
+                    
+        assignments = assignments_query
         if not assignments.exists():
             active_cycle = None
 
-    # 2. HISTORIAL CON PAGINACIÓN
+    # 2. HISTORIAL (FILTRO PARA MOSTRAR SOLO MI RESULTADO PROPIO)
+    # Filtramos donde el usuario es el EVALUADO (employee) 
+    # y donde el REVISOR es él mismo (Autoevaluación) para tener 1 sola tarjeta por ciclo.
     evaluations_query = PerformanceReview.objects.filter(
-        reviewer=current_employee,
+        employee=current_employee,
+        reviewer=current_employee, # <--- Esto garantiza 1 sola tarjeta (mi autoevaluación terminada)
         status__in=['completed', 'closed']
-    ).select_related('employee', 'employee__user', 'cycle').order_by('-date_reviewed')
+    ).select_related('cycle').order_by('-date_reviewed')
 
-    total_evaluaciones = evaluations_query.count()
+    total_evaluaciones = evaluations_query.count() # Ahora dirá 1 si solo ha terminado su autoevaluación
 
-    # Configurar Paginador: 2 elementos por página
+    # Paginación
     paginator = Paginator(evaluations_query, 2)
-    page_number = request.GET.get('page') # Obtiene el número de página de la URL (?page=2)
+    page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # 3. ÚLTIMA PUNTUACIÓN
+    # Obtenemos la calificación de su última autoevaluación terminada
+    ultima_puntuacion = evaluations_query.first().rating if evaluations_query.exists() else 0
 
     context = {
         'active_cycle': active_cycle,
         'assignments': assignments,
         'my_finished_evaluations': page_obj,
         'total_evaluaciones': total_evaluaciones,
+        'ultima_puntuacion': ultima_puntuacion,
     }
     
     return render(request, 'performance/user/performance_view_user.html', context)
@@ -287,7 +317,10 @@ def create_cycle(request):
 
         # --- 3. GENERAR RELACIONES ---
         for emp in employees_to_evaluate:
-            # Identificar al líder (basado en el texto de 'responsible')
+            # A. Autoevaluación (Siempre se crea, sea 360 o no)
+            add_review(emp, emp)
+
+            # Identificar al líder directo
             evaluador_lider = None
             if emp.responsible and ',' in emp.responsible:
                 partes = emp.responsible.split(',')
@@ -295,25 +328,27 @@ def create_cycle(request):
                     last_name__icontains=partes[0].strip(),
                     first_name__icontains=partes[1].strip()
                 ).first()
-
-            if es_360:
-                # A. Autoevaluación
-                add_review(emp, emp)
-
-                if evaluador_lider:
-                    # B. Líder evalúa a Subordinado
-                    add_review(emp, evaluador_lider)
-                    # C. Subordinado evalúa a Líder
+            
+            # B. Relaciones con el Líder
+            if evaluador_lider:
+                # El Líder siempre evalúa al empleado (Descendente)
+                add_review(emp, evaluador_lider)
+                
+                # Si es 360, el empleado evalúa a su líder (Ascendente)
+                if es_360:
                     add_review(evaluador_lider, emp)
 
-                # D. Evaluación entre Pares (Mismo responsable)
-                companeros = employees_to_evaluate.filter(responsible=emp.responsible).exclude(id=emp.id)
+            # C. Relaciones entre Pares (Solo en 360)
+            if es_360:
+                # Buscamos a los que tienen el MISMO jefe que el empleado actual
+                # Excluimos al empleado mismo para no duplicar autoevaluación
+                companeros = employees_to_evaluate.filter(
+                    responsible=emp.responsible
+                ).exclude(id=emp.id)
+                
                 for comp in companeros:
-                    add_review(comp, emp)
-            else:
-                # Cualitativa normal
-                if evaluador_lider:
-                    add_review(emp, evaluador_lider)
+                    # El compañero evalúa al empleado actual
+                    add_review(emp, comp)
 
         # --- 4. GUARDADO ---
         if reviews_to_create:
@@ -328,70 +363,46 @@ def create_cycle(request):
         
 @login_required
 def evaluate_person(request, review_id):
-    # 1. Obtener la evaluación específica
     review = get_object_or_404(PerformanceReview, id=review_id)
 
-    # 2. SEGURIDAD: Verificar que el usuario logueado es el revisor asignado
-    # (Si es autoevaluación, el reviewer debe ser él mismo en la BD)
+    # 2. SEGURIDAD (Se mantiene igual)
     if review.reviewer.user != request.user:
         messages.error(request, "No tienes permiso para ver esta evaluación.")
         return redirect('performance_view_user')
 
-    # 3. PROCESAR EL GUARDADO (POST)
+    # 3. PROCESAR EL GUARDADO (Actualizado para usar la nueva tabla)
     if request.method == 'POST':
         try:
-            # Recopilamos los datos del formulario "Excel"
-            evaluation_data = {
-                'comunicacion': {
-                    'comentarios': request.POST.get('com_comunicacion'),
-                    'compromisos': request.POST.get('comp_comunicacion'),
-                    'logro': request.POST.get('logro_comunicacion') 
-                },
-                'equipo': {  # OJO: en el HTML usamos 'equipo', asegúrate que coincida
-                    'comentarios': request.POST.get('com_equipo'),
-                    'compromisos': request.POST.get('comp_equipo'),
-                    'logro': request.POST.get('logro_equipo')
-                },
-                'conflicto': {
-                    'comentarios': request.POST.get('com_conflicto'),
-                    'compromisos': request.POST.get('comp_conflicto'),
-                    'logro': request.POST.get('logro_conflicto')
-                },
-                'tiempo': {
-                    'comentarios': request.POST.get('com_tiempo'),
-                    'compromisos': request.POST.get('comp_tiempo'),
-                    'logro': request.POST.get('logro_tiempo')
-                },
-                'servicio': {
-                    'comentarios': request.POST.get('com_servicio'),
-                    'compromisos': request.POST.get('comp_servicio'),
-                    'logro': request.POST.get('logro_servicio')
-                },
-                'iniciativa': {
-                    'comentarios': request.POST.get('com_iniciativa'),
-                    'compromisos': request.POST.get('comp_iniciativa'),
-                    'logro': request.POST.get('logro_iniciativa')
-                },
-                'asistencia': {
-                    'comentarios': request.POST.get('com_asistencia'),
-                    'compromisos': request.POST.get('comp_asistencia'),
-                    'logro': request.POST.get('logro_asistencia')
-                },
-                'puntualidad': {
-                    'comentarios': request.POST.get('com_puntualidad'),
-                    'compromisos': request.POST.get('comp_puntualidad'),
-                    'logro': request.POST.get('logro_puntualidad')
-                }
-            }
+            # Lista de claves de competencias que esperas del HTML
+            competencias_keys = [
+                'comunicacion', 'trabajo_equipo', 'resolucion_conflicto', 'gestion_tiempo', 
+                'servicio_cliente', 'iniciativa', 'asistencia', 'puntualidad',
+                'toma_decisiones', 'desarrollo_colaboradores'
+            ]
 
-            # Guardamos el Gran Total calculado
+            for key in competencias_keys:
+                logro_val = request.POST.get(f'logro_{key}')
+                
+                # Guardamos o actualizamos cada fila en la tabla propia
+                PerformanceReviewAnswer.objects.update_or_create(
+                    review=review,
+                    competencia_key=key,
+                    defaults={
+                        'logro': int(logro_val) if logro_val and logro_val != '' else None,
+                        'comentarios': request.POST.get(f'com_{key}'),
+                        'compromisos': request.POST.get(f'comp_{key}'),
+                    }
+                )
+
+            # Guardamos el Gran Total en el modelo principal
             grand_total = request.POST.get('grand_total_input', '0')
-            
-            # Actualizamos el modelo
             review.rating = float(grand_total)
-            # Guardamos todo el detalle como JSON en el campo comments
-            review.comments = json.dumps(evaluation_data, ensure_ascii=False) 
-            review.status = 'completed' # O 'closed' si quieres cerrarlo directo
+            
+            # Opcional: Ya no necesitas guardar el JSON en review.comments, 
+            # pero puedes dejarlo vacío o guardar una nota general.
+            review.comments = "Detalles guardados en tabla relacional" 
+            
+            review.status = 'completed'
             review.date_reviewed = timezone.now()
             review.save()
 
@@ -401,16 +412,27 @@ def evaluate_person(request, review_id):
         except Exception as e:
             messages.error(request, f"Error al guardar: {str(e)}")
 
-    # 4. RENDERIZAR (GET)
-    # Convertimos los comentarios guardados de JSON a Dict para rellenar el formulario si ya existe
+    # 4. RENDERIZAR (Actualizado para leer de la tabla propia)
+    # Creamos un diccionario 'saved_data' compatible con tu HTML actual
+    answers = PerformanceReviewAnswer.objects.filter(review=review)
     saved_data = {}
-    if review.comments and review.comments.startswith('{'):
-        try:
-            saved_data = json.loads(review.comments)
-        except:
-            pass
+    for ans in answers:
+        saved_data[ans.competencia_key] = {
+            'logro': ans.logro,
+            'comentarios': ans.comentarios,
+            'compromisos': ans.compromisos
+        }
+    
+    
+    search_name_evaluado = f"{review.employee.last_name}, {review.employee.first_name}"
+    es_lider_evaluado = Employee.objects.filter(responsible__icontains=search_name_evaluado).exists()
 
-    es_lider = Employee.objects.filter(responsible=review.employee).exists()
+    revisor_empleado = request.user.employee
+    nombre_evaluado = f"{review.employee.last_name}, {review.employee.first_name}"
+    search_name_revisor = f"{revisor_empleado.last_name}, {revisor_empleado.first_name}"
+    yo_evaluador_soy_lider = Employee.objects.filter(responsible__icontains=search_name_revisor).exists()
+    evaluando_a_mi_jefe = revisor_empleado.responsible == nombre_evaluado
+
     periodo_texto = "N/A"
     fecha_ref = review.cycle.start_date
     if not fecha_ref:
@@ -433,7 +455,10 @@ def evaluate_person(request, review_id):
         'employee': review.employee, # El empleado a evaluar (puede ser uno mismo)
         'data': saved_data,
         'periodo_texto': periodo_texto,
-        'es_lider': es_lider,
+        'es_lider': es_lider_evaluado,
+        'es_autoevaluacion': review.reviewer == review.employee,
+        'evaluador_es_lider': yo_evaluador_soy_lider,
+        'evaluando_a_mi_jefe': evaluando_a_mi_jefe,
     }
     return render(request, 'performance/user/evaluation.html', context)
 
