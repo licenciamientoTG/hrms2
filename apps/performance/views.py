@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 import json
 from django.core.paginator import Paginator
+from django.db.models import Count
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -160,12 +161,47 @@ def performance_view(request):
     else:
         return redirect('performance_view_user')
 
+# --- EN views.py ---
+
 @login_required
 @user_passes_test(es_evaluador, login_url='performance_view_user')
 def performance_view_admin(request):
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     history_cycles = PerformanceReviewCycle.objects.filter(status='closed').order_by('-end_date')
-    context = {'active_cycle': active_cycle, 'history_cycles': history_cycles}
+    depts_progreso = {}
+
+    if active_cycle:
+        revisores = Employee.objects.filter(
+            reviews_given__cycle=active_cycle
+        ).distinct().select_related('user', 'department')
+
+        for revisor in revisores:
+            stats = PerformanceReview.objects.filter(
+                cycle=active_cycle, 
+                reviewer=revisor
+            ).aggregate(
+                total=Count('id'),
+                # CAMBIO: Filtramos por status='completed'
+                completadas=Count('id', filter=Q(status='completed'))
+            )
+            
+            dept_name = revisor.department.name if revisor.department else "General / Otros"
+            if dept_name not in depts_progreso:
+                depts_progreso[dept_name] = []
+
+            depts_progreso[dept_name].append({
+                'nombre': f"{revisor.first_name} {revisor.last_name}",
+                'total': stats['total'],
+                'completadas': stats['completadas'],
+                'porcentaje': round((stats['completadas'] / stats['total'] * 100), 1) if stats['total'] > 0 else 0,
+                'terminado': (stats['completadas'] == stats['total'] and stats['total'] > 0)
+            })
+
+    context = {
+        'active_cycle': active_cycle, 
+        'history_cycles': history_cycles,
+        'depts_progreso': depts_progreso
+    }
     return render(request, 'performance/admin/performance_view_admin.html', context)
 
 @login_required
@@ -177,16 +213,15 @@ def performance_view_user(request):
 
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     
-    # 1. EVALUACIONES PENDIENTES (Las que él debe hacer a otros)
+    # 1. EVALUACIONES ASIGNADAS (Ciclo activo: pendientes y realizadas para poder modificar)
     assignments = []
     if active_cycle:
         assignments_query = PerformanceReview.objects.filter(
             cycle=active_cycle,
             reviewer=current_employee
-        ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
+        ).select_related('employee', 'employee__user')
         
         nombre_revisor = f"{current_employee.last_name}, {current_employee.first_name}"
-        
         for review in assignments_query:
             target = review.employee
             if target == current_employee:
@@ -206,28 +241,24 @@ def performance_view_user(request):
                 review.badge_class = "badge-other"
                     
         assignments = assignments_query
-        if not assignments.exists():
-            active_cycle = None
 
-    # 2. HISTORIAL (FILTRO PARA MOSTRAR SOLO MI RESULTADO PROPIO)
-    # Filtramos donde el usuario es el EVALUADO (employee) 
-    # y donde el REVISOR es él mismo (Autoevaluación) para tener 1 sola tarjeta por ciclo.
+    # 2. HISTORIAL (Solo mostrar cuando mi autoevaluación está CERRADA Y el CICLO GLOBAL finalizó)
     evaluations_query = PerformanceReview.objects.filter(
         employee=current_employee,
-        reviewer=current_employee, # <--- Esto garantiza 1 sola tarjeta (mi autoevaluación terminada)
-        status__in=['completed', 'closed']
+        reviewer=current_employee, 
+        status='completed',        # Mi evaluación individual terminada
+        cycle__status='closed'  # Solo si el Administrador ya finalizó el ciclo global
     ).select_related('cycle').order_by('-date_reviewed')
 
-    total_evaluaciones = evaluations_query.count() # Ahora dirá 1 si solo ha terminado su autoevaluación
+    total_evaluaciones = evaluations_query.count() 
+
+    # 3. ÚLTIMA PUNTUACIÓN (De evaluaciones oficiales históricas)
+    ultima_puntuacion = evaluations_query.first().rating if evaluations_query.exists() else 0
 
     # Paginación
     paginator = Paginator(evaluations_query, 2)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-
-    # 3. ÚLTIMA PUNTUACIÓN
-    # Obtenemos la calificación de su última autoevaluación terminada
-    ultima_puntuacion = evaluations_query.first().rating if evaluations_query.exists() else 0
 
     context = {
         'active_cycle': active_cycle,
@@ -236,11 +267,9 @@ def performance_view_user(request):
         'total_evaluaciones': total_evaluaciones,
         'ultima_puntuacion': ultima_puntuacion,
     }
-    
     return render(request, 'performance/user/performance_view_user.html', context)
 
 # --- CREAR CICLO ---
-
 @login_required
 @user_passes_test(es_evaluador)
 @require_POST
@@ -402,8 +431,9 @@ def evaluate_person(request, review_id):
             # pero puedes dejarlo vacío o guardar una nota general.
             review.comments = "Detalles guardados en tabla relacional" 
             
-            review.status = 'completed'
+            review.status = 'completed' 
             review.date_reviewed = timezone.now()
+            review.rating = float(request.POST.get('grand_total_input', '0'))
             review.save()
 
             messages.success(request, f"Evaluación de {review.employee.user.first_name} guardada correctamente.")

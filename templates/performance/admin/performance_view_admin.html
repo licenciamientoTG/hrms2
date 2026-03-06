@@ -15,15 +15,11 @@
 
 <div class="container-fluid py-4 bg-light">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <p class="text-muted mb-0">Tablero de control del ciclo actual y gestión histórica.</p>
-        </div>
+    <div class="d-flex justify-content-end mb-4">
         <button class="btn btn-primary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#initEvalModal">
             <i class="fas fa-play me-2"></i>Iniciar Evaluación
         </button>
     </div>
-
     {# --- SECCIÓN 1: EVALUACIÓN ACTIVA --- #}
     {% if active_cycle %}
         <div class="card active-evaluation-card shadow mb-5">
@@ -51,7 +47,7 @@
                 <div class="d-flex gap-2">
                     {# Botón para ver estadísticas (el que ya tienes) #}
                     <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="collapse" data-bs-target="#collapseActive">
-                        ESTADÍSTICAS <i class="fas fa-chevron-down ms-1"></i>
+                        Avance <i class="fas fa-chevron-down ms-1"></i>
                     </button>
 
                     {# NUEVO: Botón para Finalizar el Ciclo #}
@@ -65,9 +61,78 @@
             </div>
             </div>
             <div id="collapseActive" class="collapse show">
-                 <div class="card-body bg-light bg-opacity-50 pt-4 pb-4">
-                     <p class="text-center text-muted">... Gráficas y KPIs del ciclo activo ...</p>
-                 </div>
+                <div class="card-body bg-white pt-4 pb-4 px-4">
+                    <h5 class="fw-bold text-dark mb-4"><i class="fas fa-sitemap me-2 text-primary"></i>Avance por Departamento</h5>
+                    
+                    <div class="accordion accordion-flush border rounded-3 overflow-hidden" id="accordionDepts">
+                        {% for dept, evaluadores in depts_progreso.items %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-3 bg-light bg-opacity-50" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#dept-{{ forloop.counter }}">
+                                    <div class="d-flex justify-content-between w-100 align-items-center me-3">
+                                        <div>
+                                            <span class="fw-bold text-dark">{{ dept }}</span>
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-2 rounded-pill">
+                                                {{ evaluadores|length }} Evaluadores
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="dept-{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#accordionDepts">
+                                <div class="accordion-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0">
+                                            <thead class="table-light small text-uppercase fw-bold text-muted">
+                                                <tr>
+                                                    <th class="ps-4">Evaluador</th>
+                                                    <th style="width: 45%;">Progreso Individual</th>
+                                                    <th class="text-center">Estatus</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in evaluadores %}
+                                                <tr>
+                                                    <td class="ps-4">
+                                                        <div class="fw-bold">{{ item.nombre }}</div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="progress flex-grow-1" style="height: 8px; border-radius: 4px; background-color: #eee;">
+                                                                <div class="progress-bar {% if item.terminado %}bg-success{% else %}bg-primary{% endif %}" 
+                                                                    role="progressbar" style="width: {{ item.porcentaje }}%"></div>
+                                                            </div>
+                                                            <span class="ms-3 small fw-bold text-muted">{{ item.completadas }}/{{ item.total }}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        {% if item.terminado %}
+                                                            <span class="badge bg-success-soft text-success px-3 rounded-pill">
+                                                                <i class="fas fa-check-circle"></i> Listo
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="badge bg-warning-soft text-warning px-3 rounded-pill">
+                                                                <i class="fas fa-clock"></i> Pendiente
+                                                            </span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-info-circle mb-2 fa-2x"></i><br>
+                            No hay asignaciones registradas en este ciclo.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     {% endif %}
