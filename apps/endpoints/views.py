@@ -261,18 +261,14 @@ def recibir_datos1(request):
         department_name = _safe_str(data.get('Departamento')).strip()
 
         if department_name:
-            # Agregamos es_corporativo True por defecto para tu nueva lógica
-            department_obj, created = Department.objects.get_or_create(
-                name__iexact=department_name,
-                defaults={
-                    'name': department_name,
-                    'es_corporativo': not (department_name.isdigit() or "ESTACION" in department_name.upper())
-                }
-            )
+            department_obj = Department.objects.filter(name__iexact=department_name).first()
+            if not department_obj:
+                department_obj = Department.objects.create(
+                    name=department_name,
+                    es_corporativo=not (department_name.isdigit() or "ESTACION" in department_name.upper())
+                )
+                print(f"Nuevo departamento creado automaticamente: {department_name}")
             department_id = department_obj.id
-            
-            if created:
-                print(f"🆕 Nuevo departamento creado automáticamente: {department_name}")
         else:
             department_id = None
 
@@ -281,18 +277,16 @@ def recibir_datos1(request):
         puesto_nombre = _safe_str(data.get('Puesto')).strip()
 
         if puesto_nombre:
-            # 1. Buscamos o creamos una categoría genérica para que no truene el INSERT
-            from apps.employee.models import JobCategory
-            cat_default, _ = JobCategory.objects.get_or_create(name="General")
-
-            puesto_obj, created = JobPosition.objects.get_or_create(
-                title__iexact=puesto_nombre,
-                defaults={
-                    'title': puesto_nombre,
-                    'job_category': cat_default, # Campo obligatorio en muchas estructuras HR
-                    'is_active': True
-                }
-            )
+            puesto_obj = JobPosition.objects.filter(title__iexact=puesto_nombre).first()
+            if not puesto_obj:
+                from apps.employee.models import JobCategory
+                cat_default, _ = JobCategory.objects.get_or_create(name="General")
+                puesto_obj = JobPosition.objects.create(
+                    title=puesto_nombre,
+                    job_category=cat_default,
+                    is_active=True
+                )
+                print(f"Nuevo puesto creado automaticamente: {puesto_nombre}")
             job_position_id = puesto_obj.id
         else:
             job_position_id = None

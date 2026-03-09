@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 import json
 from django.core.paginator import Paginator
-from django.db.models import Count
+from django.db.models import Count, Avg
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -242,21 +242,31 @@ def performance_view_user(request):
                     
         assignments = assignments_query
 
-    # 2. HISTORIAL (Solo mostrar cuando mi autoevaluación está CERRADA Y el CICLO GLOBAL finalizó)
-    evaluations_query = PerformanceReview.objects.filter(
-        employee=current_employee,
-        reviewer=current_employee, 
-        status='completed',        # Mi evaluación individual terminada
-        cycle__status='closed'  # Solo si el Administrador ya finalizó el ciclo global
-    ).select_related('cycle').order_by('-date_reviewed')
+    # 2. HISTORIAL - Un recuadro por ciclo cerrado donde fui evaluado
+    history_cycles_qs = PerformanceReviewCycle.objects.filter(
+        status='closed',
+        reviews__employee=current_employee
+    ).distinct().annotate(
+        reviews_received=Count(
+            'reviews',
+            filter=Q(reviews__employee=current_employee, reviews__status='completed')
+        )
+    ).order_by('-end_date')
 
-    total_evaluaciones = evaluations_query.count() 
+    total_evaluaciones = history_cycles_qs.count()
 
-    # 3. ÚLTIMA PUNTUACIÓN (De evaluaciones oficiales históricas)
-    ultima_puntuacion = evaluations_query.first().rating if evaluations_query.exists() else 0
+    # 3. ÚLTIMA PUNTUACIÓN (promedio del ciclo más reciente)
+    ultima_puntuacion = 0
+    if history_cycles_qs.exists():
+        avg_result = PerformanceReview.objects.filter(
+            cycle=history_cycles_qs.first(),
+            employee=current_employee,
+            status='completed'
+        ).aggregate(avg=Avg('rating'))
+        ultima_puntuacion = avg_result['avg'] or 0
 
     # Paginación
-    paginator = Paginator(evaluations_query, 2)
+    paginator = Paginator(history_cycles_qs, 2)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -462,6 +472,7 @@ def evaluate_person(request, review_id):
     search_name_revisor = f"{revisor_empleado.last_name}, {revisor_empleado.first_name}"
     yo_evaluador_soy_lider = Employee.objects.filter(responsible__icontains=search_name_revisor).exists()
     evaluando_a_mi_jefe = revisor_empleado.responsible == nombre_evaluado
+    evaluando_a_mi_subordinado = bool(review.employee.responsible) and search_name_revisor.lower() in review.employee.responsible.lower()
 
     periodo_texto = "N/A"
     fecha_ref = review.cycle.start_date
@@ -489,8 +500,51 @@ def evaluate_person(request, review_id):
         'es_autoevaluacion': review.reviewer == review.employee,
         'evaluador_es_lider': yo_evaluador_soy_lider,
         'evaluando_a_mi_jefe': evaluando_a_mi_jefe,
+        'evaluando_a_mi_subordinado': evaluando_a_mi_subordinado,
     }
     return render(request, 'performance/user/evaluation.html', context)
+
+@login_required
+def my_cycle_history_detail(request, cycle_id):
+    try:
+        current_employee = request.user.employee
+    except AttributeError:
+        return redirect('performance_view_user')
+
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+
+    reviews = PerformanceReview.objects.filter(
+        cycle=cycle,
+        employee=current_employee,
+    ).select_related('reviewer', 'reviewer__user').order_by('-status', 'reviewer__last_name')
+
+    nombre_revisor_empleado = f"{current_employee.last_name}, {current_employee.first_name}"
+    for review in reviews:
+        revisor = review.reviewer
+        nombre_revisor = f"{revisor.last_name}, {revisor.first_name}"
+        if revisor == current_employee:
+            review.relationship_label = "Autoevaluación"
+            review.badge_class = "badge-self"
+        elif current_employee.responsible == nombre_revisor:
+            review.relationship_label = "Jefe Directo"
+            review.badge_class = "badge-boss"
+        elif bool(revisor.responsible) and nombre_revisor_empleado.lower() in revisor.responsible.lower():
+            review.relationship_label = "Colaborador Directo"
+            review.badge_class = "badge-sub"
+        elif revisor.responsible == current_employee.responsible:
+            review.relationship_label = "Colega (Par)"
+            review.badge_class = "badge-peer"
+        else:
+            review.relationship_label = "Colaborador"
+            review.badge_class = "badge-other"
+
+    context = {
+        'cycle': cycle,
+        'reviews': reviews,
+        'current_employee': current_employee,
+    }
+    return render(request, 'performance/user/my_cycle_detail.html', context)
+
 
 @login_required
 @user_passes_test(es_evaluador)
