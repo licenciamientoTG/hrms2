@@ -548,6 +548,83 @@ def my_cycle_history_detail(request, cycle_id):
 
 @login_required
 @user_passes_test(es_evaluador)
+def admin_cycle_participants(request, cycle_id):
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+
+    employees = Employee.objects.filter(
+        my_performance_reviews__cycle=cycle
+    ).distinct().select_related('department').annotate(
+        total=Count('my_performance_reviews', filter=Q(my_performance_reviews__cycle=cycle)),
+        completadas=Count('my_performance_reviews', filter=Q(my_performance_reviews__cycle=cycle, my_performance_reviews__status='completed'))
+    ).order_by('last_name', 'first_name')
+
+    context = {
+        'cycle': cycle,
+        'employees': employees,
+    }
+    return render(request, 'performance/admin/cycle_participants.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+def admin_employee_cycle_reviews(request, cycle_id, employee_id):
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+    employee = get_object_or_404(Employee, id=employee_id)
+
+    COMPETENCIA_LABELS = {
+        'comunicacion': 'Comunicación',
+        'trabajo_equipo': 'Trabajo en Equipo',
+        'resolucion_conflicto': 'Resolución de Conflicto',
+        'gestion_tiempo': 'Gestión del Tiempo',
+        'servicio_cliente': 'Servicio al Cliente',
+        'iniciativa': 'Iniciativa',
+        'asistencia': 'Asistencia',
+        'puntualidad': 'Puntualidad',
+        'toma_decisiones': 'Toma de Decisiones',
+        'desarrollo_colaboradores': 'Desarrollo de Colaboradores',
+    }
+
+    reviews = PerformanceReview.objects.filter(
+        cycle=cycle,
+        employee=employee,
+    ).select_related('reviewer', 'reviewer__user').prefetch_related('details').order_by('-status', 'reviewer__last_name')
+
+    nombre_empleado = f"{employee.last_name}, {employee.first_name}"
+    for review in reviews:
+        revisor = review.reviewer
+        if revisor is None:
+            review.relationship_label = "Sin evaluador"
+            review.badge_class = "badge-other"
+        elif revisor == employee:
+            review.relationship_label = "Autoevaluación"
+            review.badge_class = "badge-self"
+        elif employee.responsible and f"{revisor.last_name}, {revisor.first_name}" == employee.responsible:
+            review.relationship_label = "Jefe Directo"
+            review.badge_class = "badge-boss"
+        elif revisor.responsible and nombre_empleado.lower() in revisor.responsible.lower():
+            review.relationship_label = "Colaborador Directo"
+            review.badge_class = "badge-sub"
+        elif revisor.responsible == employee.responsible:
+            review.relationship_label = "Colega (Par)"
+            review.badge_class = "badge-peer"
+        else:
+            review.relationship_label = "Colaborador"
+            review.badge_class = "badge-other"
+
+        # Enriquecer respuestas con la etiqueta legible de la competencia
+        for ans in review.details.all():
+            ans.competencia_label = COMPETENCIA_LABELS.get(ans.competencia_key, ans.competencia_key.replace('_', ' ').title())
+
+    context = {
+        'cycle': cycle,
+        'employee': employee,
+        'reviews': reviews,
+    }
+    return render(request, 'performance/admin/employee_cycle_reviews.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
 @require_POST
 def close_performance_cycle(request, cycle_id):
     cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id)

@@ -147,29 +147,34 @@
         <div class="row g-4">
             {% for cycle in history_cycles %}
             <div class="col-12 col-md-6 col-lg-4">
-                <div class="evaluation-card">
-                    <div class="card-banner bg-secondary bg-opacity-75">
-                        <span class="status-badge">Finalizada</span>
-                        <div class="text-white text-center">
-                            <i class="fas fa-archive fa-2x mb-1"></i>
-                            <div class="fw-bold">{{ cycle.year }}</div>
+                <a href="{% url 'admin_cycle_participants' cycle.id %}" class="text-decoration-none">
+                    <div class="evaluation-card h-100 history-card-{{ forloop.counter0|divisibleby:1|yesno:',' }}{% cycle 'card-indigo' 'card-teal' 'card-rose' 'card-amber' 'card-violet' 'card-cyan' %}" style="cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.18)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                        <div class="card-banner {% cycle 'banner-indigo' 'banner-teal' 'banner-rose' 'banner-amber' 'banner-violet' 'banner-cyan' %}">
+                            <span class="status-badge">Finalizada</span>
+                            <div class="text-white text-center">
+                                <i class="fas fa-trophy fa-2x mb-1" style="opacity:0.9;"></i>
+                                <div class="fw-bold fs-5">{{ cycle.year }}</div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="card-body p-4 d-flex flex-column">
-                        <h6 class="fw-bold mb-1">{{ cycle.name }}</h6>
-                        <p class="text-muted small mb-3">
-                            <i class="fas fa-list-ul me-1"></i> {{ cycle.get_type_display }}
-                        </p>
-                        
-                        <div class="mt-auto">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span class="text-muted small">Cerrado el:</span>
-                                <span class="small fw-bold">{{ cycle.end_date|date:"d/m/Y"|default:"Cerrada" }}</span>
+                        <div class="card-body p-4 d-flex flex-column">
+                            <h6 class="fw-bold mb-1 text-dark">{{ cycle.name }}</h6>
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-list-ul me-1"></i> {{ cycle.get_type_display }}
+                            </p>
+
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="text-muted small">Cerrado el:</span>
+                                    <span class="small fw-bold text-dark">{{ cycle.end_date|date:"d/m/Y"|default:"Cerrada" }}</span>
+                                </div>
+                                <div class="text-center border-top pt-2">
+                                    <span class="small fw-semibold" style="color: inherit; opacity: 0.75;"><i class="fas fa-users me-1"></i>Ver participantes</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
             {% endfor %}
         </div>

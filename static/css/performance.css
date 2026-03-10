@@ -164,13 +164,45 @@
     transform: translateY(-5px);
 }
 .card-banner {
-    height: 120px; 
+    height: 130px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     position: relative;
+    overflow: hidden;
 }
+.card-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    right: -20px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    pointer-events: none;
+}
+.card-banner::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    pointer-events: none;
+}
+
+/* Colores de banners para historial */
+.banner-indigo { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+.banner-teal   { background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%); }
+.banner-rose   { background: linear-gradient(135deg, #e11d48 0%, #db2777 100%); }
+.banner-amber  { background: linear-gradient(135deg, #d97706 0%, #dc2626 100%); }
+.banner-violet { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); }
+.banner-cyan   { background: linear-gradient(135deg, #0891b2 0%, #0d9488 100%); }
+
 .status-badge {
     position: absolute;
     top: 10px;
@@ -179,7 +211,9 @@
     font-weight: bold;
     padding: 4px 10px;
     border-radius: 5px;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0,0,0,0.25);
     color: white;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(4px);
 }
