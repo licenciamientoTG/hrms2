@@ -369,7 +369,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {% if es_lider %}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -435,7 +435,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -502,7 +502,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -569,7 +569,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -636,7 +636,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -703,7 +703,7 @@
                     <div class="d-flex align-items-center gap-2">
                         {%if es_lider%}
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                         {% else %}
                         <span class="badge-puntos">Ponderación: 15.00%</span>
@@ -768,8 +768,8 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Ponderación: 7.00%</span>
-                        <input type="hidden" class="valor-weight" value="7.00">
+                        <span class="badge-puntos">Ponderación: {% if es_lider %}7.00{% else %}9.03{% endif %}%</span>
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}7.00{% else %}9.03{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -829,8 +829,8 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Ponderación: 3.00%</span>
-                        <input type="hidden" class="valor-weight" value="3.00">
+                        <span class="badge-puntos">Ponderación: {% if es_lider %}3.00{% else %}3.85{% endif %}%</span>
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}3.00{% else %}3.85{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -892,7 +892,7 @@
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -953,7 +953,7 @@
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge-puntos">Ponderación: 11.25%</span>
-                        <input type="hidden" class="valor-weight" value="11.25">
+                        <input type="hidden" class="valor-weight" value="{% if es_lider %}11.25{% else %}14.52{% endif %}">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>

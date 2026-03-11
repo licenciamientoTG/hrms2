@@ -250,6 +250,10 @@ def performance_view_user(request):
         reviews_received=Count(
             'reviews',
             filter=Q(reviews__employee=current_employee, reviews__status='completed')
+        ),
+        avg_score=Avg(
+            'reviews__rating',
+            filter=Q(reviews__employee=current_employee, reviews__status='completed')
         )
     ).order_by('-end_date')
 
@@ -434,16 +438,15 @@ def evaluate_person(request, review_id):
                 )
 
             # Guardamos el Gran Total en el modelo principal
-            grand_total = request.POST.get('grand_total_input', '0')
-            review.rating = float(grand_total)
-            
-            # Opcional: Ya no necesitas guardar el JSON en review.comments, 
+            grand_total = request.POST.get('total_puntos', '0')
+            review.rating = float(grand_total) if grand_total else 0
+
+            # Opcional: Ya no necesitas guardar el JSON en review.comments,
             # pero puedes dejarlo vacío o guardar una nota general.
-            review.comments = "Detalles guardados en tabla relacional" 
-            
-            review.status = 'completed' 
+            review.comments = "Detalles guardados en tabla relacional"
+
+            review.status = 'completed'
             review.date_reviewed = timezone.now()
-            review.rating = float(request.POST.get('grand_total_input', '0'))
             review.save()
 
             messages.success(request, f"Evaluación de {review.employee.user.first_name} guardada correctamente.")

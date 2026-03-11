@@ -336,29 +336,6 @@ def recibir_datos1(request):
 
         incoming_is_active = _as_bool(data.get('Activo'))
 
-        # ------- Limpieza de datos antes de guardar (Prevenir Error 400) -------
-        # 1. Sexo: El modelo espera 'M' o 'F'
-        genero_raw = _safe_str(data.get('Genero', '')).upper()
-        if 'MAS' in genero_raw or genero_raw == 'H' or genero_raw == 'M':
-            gender = 'M'
-        elif 'FEM' in genero_raw or genero_raw == 'F' or genero_raw == 'W':
-            gender = 'F'
-        else:
-            gender = 'M'
-
-        # 2. Teléfono: Asegurar 10 dígitos para el validador
-        telefono = _clean_phone(data.get('Telefono'))
-        if len(telefono) != 10:
-            telefono = '0000000000'
-
-        # 3. Fechas
-        start_date = _as_date(data.get('FechaIngreso'))
-        termination_date = _as_date(data.get('FechaBaja'))
-        if termination_date and termination_date.year <= 1901:
-            termination_date = None
-
-        incoming_is_active = _as_bool(data.get('Activo'))
-
         # Defaults para el registro
         incoming_defaults = {
             "employee_number": employee_number,
