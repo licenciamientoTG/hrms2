@@ -2,6 +2,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import re
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -248,9 +249,11 @@ def performance_view_admin(request):
 
     # Aptos a evaluación: puesto en lista + más de 6 meses de antigüedad
     fecha_corte = timezone.now().date() - timedelta(days=183)
+    excluidos_sesion = request.session.get('aptos_excluidos', [])
     aptos = (
         Employee.objects
         .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+        .exclude(id__in=excluidos_sesion)
         .select_related('job_position', 'department')
         .order_by('department__name', 'first_name')
     )
@@ -683,6 +686,18 @@ def admin_employee_cycle_reviews(request, cycle_id, employee_id):
         'reviews': reviews,
     }
     return render(request, 'performance/admin/employee_cycle_reviews.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+@require_POST
+def excluir_apto(request, employee_id):
+    excluidos = request.session.get('aptos_excluidos', [])
+    if employee_id not in excluidos:
+        excluidos.append(employee_id)
+    request.session['aptos_excluidos'] = excluidos
+    request.session.modified = True
+    return JsonResponse({'ok': True})
 
 
 @login_required

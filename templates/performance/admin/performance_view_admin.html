@@ -323,6 +323,7 @@
                                 <th>Nombre</th>
                                 <th>Departamento</th>
                                 <th>Puesto</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody id="aptosTableBody">
@@ -332,10 +333,16 @@
                                 <td class="fw-bold">{{ emp.first_name }} {{ emp.last_name }}</td>
                                 <td class="text-muted small">{{ emp.department.name|default:"—" }}</td>
                                 <td class="text-muted small">{{ emp.job_position.title|default:"—" }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-excluir-apto"
+                                            data-url="{% url 'excluir_apto' emp.id %}" title="Quitar de la lista">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
+                                <td colspan="5" class="text-center py-5 text-muted">
                                     <i class="fas fa-user-slash fa-2x mb-2 d-block opacity-25"></i>
                                     No hay colaboradores aptos registrados aún.
                                 </td>
@@ -358,4 +365,32 @@
 
 {% block scripts %}
 <script src="{% static 'js/performance.js' %}"></script>
+<script>
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-excluir-apto');
+    if (!btn) return;
+
+    const url = btn.dataset.url;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                   || '{{ csrf_token }}';
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const row = btn.closest('tr');
+            row.remove();
+            // Actualizar contador del badge
+            const badge = document.querySelector('#aptosModal .badge.bg-success');
+            if (badge) {
+                const count = document.querySelectorAll('#aptosTableBody tr').length;
+                badge.textContent = count + ' encontrados';
+            }
+        }
+    });
+});
+</script>
 {% endblock %}
