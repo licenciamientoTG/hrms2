@@ -1,0 +1,231 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block page_title %}Todos los Comunicados{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <a href="{% url 'recognition_dashboard_admin' %}" class="text-muted text-decoration-none small">
+      <i class="fa fa-arrow-left me-1"></i> Comunicados
+    </a>
+    <h2 class="mb-0 mt-1">Todos los comunicados</h2>
+  </div>
+</div>
+
+<!-- Tarjetas de conteo -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <a href="?status=&q={{ q }}" class="text-decoration-none">
+      <div class="card text-center p-3 {% if not status_filter %}border-primary{% endif %}">
+        <div class="fs-3 fw-bold text-primary">{{ counts.total }}</div>
+        <div class="small text-muted">Total</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?status=published&q={{ q }}" class="text-decoration-none">
+      <div class="card text-center p-3 {% if status_filter == 'published' %}border-success{% endif %}">
+        <div class="fs-3 fw-bold text-success">{{ counts.published }}</div>
+        <div class="small text-muted">Publicados</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?status=scheduled&q={{ q }}" class="text-decoration-none">
+      <div class="card text-center p-3 {% if status_filter == 'scheduled' %}border-warning{% endif %}">
+        <div class="fs-3 fw-bold text-warning">{{ counts.scheduled }}</div>
+        <div class="small text-muted">Programados</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?status=draft&q={{ q }}" class="text-decoration-none">
+      <div class="card text-center p-3 {% if status_filter == 'draft' %}border-secondary{% endif %}">
+        <div class="fs-3 fw-bold text-secondary">{{ counts.draft }}</div>
+        <div class="small text-muted">Borradores</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="card p-3">
+  <!-- Buscador -->
+  <form class="mb-3" method="get">
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <div class="input-group">
+      <input type="text" name="q" value="{{ q }}" class="form-control"
+             placeholder="🔍 Buscar por mensaje, categoría o autor...">
+      <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+      {% if q or status_filter %}
+        <a href="{% url 'recognition_list_admin' %}" class="btn btn-outline-danger">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Tabla -->
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Estado</th>
+          <th>Categoría</th>
+          <th>Mensaje</th>
+          <th>Autor</th>
+          <th>Destinatarios</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in page_obj %}
+          <tr>
+            <!-- Estado -->
+            <td>
+              {% if rec.status == 'published' %}
+                <span class="badge bg-success">Publicado</span>
+              {% elif rec.status == 'scheduled' %}
+                <span class="badge bg-warning text-dark">Programado</span>
+              {% else %}
+                <span class="badge bg-secondary">Borrador</span>
+              {% endif %}
+              {% if rec.is_priority %}
+                <span class="badge bg-danger ms-1" title="Prioritario"><i class="fa fa-exclamation"></i></span>
+              {% endif %}
+            </td>
+
+            <!-- Categoría -->
+            <td>
+              <span class="d-inline-flex align-items-center gap-2">
+                <span class="rounded" style="display:inline-block;width:10px;height:10px;background:{{ rec.category.color_hex }};flex-shrink:0;"></span>
+                <span class="small fw-semibold">{{ rec.category.title }}</span>
+              </span>
+            </td>
+
+            <!-- Mensaje -->
+            <td class="text-muted small" style="max-width:260px;">
+              {% if rec.message %}
+                {{ rec.message|truncatechars:80 }}
+              {% else %}
+                <span class="text-danger fst-italic">Sin mensaje</span>
+              {% endif %}
+            </td>
+
+            <!-- Autor -->
+            <td class="small">{{ rec.author.get_full_name|default:rec.author.username }}</td>
+
+            <!-- Destinatarios -->
+            <td class="text-center">
+              {% if rec.is_public %}
+                <span class="badge bg-light text-dark border"><i class="fa fa-globe me-1"></i>Todos</span>
+              {% else %}
+                <span class="badge bg-light text-dark border">{{ rec.recipient_count }}</span>
+              {% endif %}
+            </td>
+
+            <!-- Fecha -->
+            <td class="small text-muted text-nowrap">
+              {% if rec.published_at %}
+                {{ rec.published_at|date:"d/m/Y H:i" }}
+              {% elif rec.publish_at %}
+                <span class="text-warning"><i class="fa fa-clock me-1"></i>{{ rec.publish_at|date:"d/m/Y H:i" }}</span>
+              {% else %}
+                {{ rec.created_at|date:"d/m/Y H:i" }}
+              {% endif %}
+            </td>
+
+            <!-- Acciones -->
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{% url 'recognition_edit_admin' rec.pk %}"
+                   class="btn btn-sm btn-outline-primary" title="Editar">
+                  <i class="fa fa-pen"></i>
+                </a>
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger js-delete-rec"
+                        data-pk="{{ rec.pk }}"
+                        data-url="{% url 'recognition_delete_any' rec.pk %}"
+                        data-msg="{{ rec.message|truncatechars:50|default:'Sin mensaje' }}"
+                        title="Eliminar">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-5">
+              <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+              No se encontraron comunicados.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginación -->
+  {% if is_paginated %}
+  <nav aria-label="Paginación" class="mt-3">
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}">« Anterior</a>
+        </li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      </li>
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}">Siguiente »</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.querySelectorAll('.js-delete-rec').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const pk  = this.dataset.pk;
+    const url = this.dataset.url;
+    const msg = this.dataset.msg;
+    const row = this.closest('tr');
+
+    Swal.fire({
+      title: '¿Eliminar comunicado?',
+      html: `<p class="text-muted small">"${msg}"</p><p>Esta acción no se puede deshacer.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Sí, eliminar',
+    }).then(result => {
+      if (!result.isConfirmed) return;
+
+      const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          row.style.transition = 'opacity .3s';
+          row.style.opacity = '0';
+          setTimeout(() => row.remove(), 300);
+          Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
+        }
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

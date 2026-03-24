@@ -19,6 +19,10 @@ from .views import (
     editar_miembros_grupo,
     check_priority_announcement,
     mark_priority_read,
+    recognition_list_admin,
+    recognition_edit_admin,
+    recognition_delete_any,
+    recognition_media_delete,
 )
 
 urlpatterns = [
@@ -43,4 +47,8 @@ urlpatterns = [
     path('comunicados/grupos/<int:group_id>/miembros/', editar_miembros_grupo, name='editar_miembros'),
     path('api/check-priority/', check_priority_announcement, name='check_priority'),
     path('api/mark-read/<int:pk>/', mark_priority_read, name='mark_priority_read'),
+    path('todos/', recognition_list_admin, name='recognition_list_admin'),
+    path('todos/<int:pk>/editar/', recognition_edit_admin, name='recognition_edit_admin'),
+    path('todos/<int:pk>/eliminar/', recognition_delete_any, name='recognition_delete_any'),
+    path('media/<int:pk>/eliminar/', recognition_media_delete, name='recognition_media_delete'),
 ]
