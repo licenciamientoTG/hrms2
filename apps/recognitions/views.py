@@ -617,6 +617,129 @@ def editar_miembros_grupo(request, group_id):
     return render(request, 'recognitions/admin/edit_members.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.is_staff)
+def recognition_list_admin(request):
+    q = (request.GET.get('q') or '').strip()
+    status_filter = request.GET.get('status', '')
+
+    qs = (
+        Recognition.objects
+        .select_related('author', 'category')
+        .annotate(recipient_count=Count('recipients', distinct=True))
+        .order_by('-created_at')
+    )
+
+    if q:
+        qs = qs.filter(
+            Q(message__icontains=q) |
+            Q(category__title__icontains=q) |
+            Q(author__first_name__icontains=q) |
+            Q(author__last_name__icontains=q)
+        )
+
+    if status_filter in ('draft', 'scheduled', 'published'):
+        qs = qs.filter(status=status_filter)
+
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    counts = {
+        'total':     Recognition.objects.count(),
+        'published': Recognition.objects.filter(status='published').count(),
+        'scheduled': Recognition.objects.filter(status='scheduled').count(),
+        'draft':     Recognition.objects.filter(status='draft').count(),
+    }
+
+    return render(request, 'recognitions/admin/recognition_list_admin.html', {
+        'page_obj':      page_obj,
+        'is_paginated':  page_obj.has_other_pages(),
+        'q':             q,
+        'status_filter': status_filter,
+        'counts':        counts,
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def recognition_edit_admin(request, pk):
+    rec        = get_object_or_404(Recognition, pk=pk)
+    categories = RecognitionCategory.objects.all().order_by('order', 'title')
+    people     = Employee.objects.filter(is_active=True)
+    all_groups = ['Corporativo', 'Estaciones', 'Estaciones Juárez', 'Aquacar']
+
+    if request.method == 'POST':
+        message       = (request.POST.get('message') or '').strip()
+        email_subject = (request.POST.get('email_subject') or '').strip()
+        category_id   = request.POST.get('category')
+        is_priority   = request.POST.get('is_priority') == 'on'
+        target_groups_input = request.POST.getlist('target_groups')
+        is_public     = 'todos' in target_groups_input or not target_groups_input
+        files         = request.FILES.getlist('media')
+
+        if not category_id:
+            messages.error(request, 'Selecciona una categoría.')
+            return redirect('recognition_edit_admin', pk=pk)
+
+        category      = get_object_or_404(RecognitionCategory, pk=category_id)
+        rec.message   = message
+        rec.email_subject = email_subject
+        rec.category  = category
+        rec.is_priority = is_priority
+        rec.is_public = is_public
+        rec.save()
+
+        if not is_public:
+            groups = Group.objects.filter(name__in=target_groups_input)
+            rec.target_groups.set(groups)
+        else:
+            rec.target_groups.clear()
+
+        if files:
+            for f in files[:MAX_IMAGES_PER_POST]:
+                if _is_file_allowed(f):
+                    RecognitionMedia.objects.create(recognition=rec, file=f)
+
+        messages.success(request, 'Comunicado actualizado correctamente.')
+        return redirect('recognition_list_admin')
+
+    current_groups = list(rec.target_groups.values_list('name', flat=True))
+
+    return render(request, 'recognitions/admin/recognition_edit_admin.html', {
+        'rec':            rec,
+        'categories':     categories,
+        'people':         people,
+        'all_groups':     all_groups,
+        'current_groups': current_groups,
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def recognition_media_delete(request, pk):
+    media = get_object_or_404(RecognitionMedia, pk=pk)
+    rec_pk = media.recognition_id
+    if media.file:
+        media.file.delete(save=False)
+    media.delete()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True})
+    return redirect('recognition_edit_admin', pk=rec_pk)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def recognition_delete_any(request, pk):
+    rec = get_object_or_404(Recognition, pk=pk)
+    rec.delete()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True})
+    messages.success(request, 'Comunicado eliminado.')
+    return redirect('recognition_list_admin')
+
+
+@login_required
 def check_priority_announcement(request):
     """Busca el comunicado prioritario de la última semana y garantiza devolver una imagen."""
     user_groups = request.user.groups.all()

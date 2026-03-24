@@ -12,13 +12,13 @@
   <h2 class="mb-0">Comunicados</h2>
   
   <div class="d-flex gap-2">
-    <button type="button" class="btn btn-warning text-white" data-bs-toggle="modal" data-bs-target="#scheduledModal">
-      <i class="fa fa-clock"></i> Agendados
-    </button>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRecognitionModal">
+    <a href="{% url 'recognition_list_admin' %}" class="btn btn-outline-secondary">
+      <i class="fa fa-list"></i> Ver todos
+    </a>
+<button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRecognitionModal">
       <i class="fa fa-plus"></i> Nuevo Comunicado
     </button>
-    
+
     <a href="{% url 'category_create' %}" class="btn btn-primary">
       <i class="fa fa-tags"></i> Nueva categoría
     </a>

@@ -2,6 +2,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import re
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -9,8 +10,10 @@ from apps.employee.models import Employee
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview, PerformanceReviewAnswer
 from django.db.models import Q
 from django.utils import timezone
+from datetime import timedelta
 import json
 from django.core.paginator import Paginator
+from django.db.models import Count, Avg
 
 class NativeXLSXReader:
     def __init__(self, file_obj):
@@ -160,12 +163,107 @@ def performance_view(request):
     else:
         return redirect('performance_view_user')
 
+# --- EN views.py ---
+
+PUESTOS_APTOS_EVALUACION = {
+    "Administrador General", "Analista de Finanzas y Presupuesto",
+    "Analista de Procesos Administrativos", "Analista Operativo",
+    "Asistente Administrativo", "Asistente De Direccion",
+    "Atencion A Clientes", "Auditor Interno", "Auxiliar Administrativo",
+    "Auxiliar Contable", "Auxiliar De Abasto", "Auxiliar De Cortes",
+    "Auxiliar De Credito Y Cobranza", "Auxiliar De Ctas Por Pagar",
+    "Auxiliar de facturación prepago", "Auxiliar De Ingresos",
+    "Auxiliar De Limpieza", "Auxiliar De Mantenimiento",
+    "Auxiliar De Mercadotecnia", "Auxiliar De Monederos Electronicos",
+    "Auxiliar De Nomina", "Auxiliar De Tesoreria",
+    "Business Finance Administrator", "Chofer Operador", "Contador Jr.",
+    "Coordinador Administrativo Bajio", "Coordinador Administrativo En Desarrollo",
+    "Coordinador de Desarrollo Organizacional", "Coordinador De Logistica Y Abasto",
+    "Coordinador De Mercadotecnia", "Creador de Contenido Digital y Diseño Grafico",
+    "Desarrollador De Software", "Director General",
+    "Directora de Administración Y Finanzas", "Ejecutivo de Atencion a Clientes",
+    "Ejecutivo De Ventas Empresarial", "Especialista Administrativo De Logistica y Abasto",
+    "Especialista de Atencion a Clientes", "Especialista de Capacitacion Operativa",
+    "Especialista De Compensaciones Y Beneficios", "Especialista En Mkt Digital",
+    "Especialista En Mkt Operativo", "Especialista En Reclutamiento",
+    "Especialista En Reclutamiento Senior", "Especialista En Reclutamiento Y Capacitacion Staff",
+    "Especialista Operativo De Logistica Y Abasto", "Generalista De Capital Humano",
+    "Gerente Comercial", "Gerente de Administracion y Nuevos Proyectos",
+    "Gerente De Auditoria", "Gerente De Capital Humano",
+    "Gerente de Finanzas y Normatividad", "Gerente De Operaciones",
+    "Gerente de Unidad de Negocio", "Ingeniero de Soporte",
+    "Jefe de Administracon e Ingresos", "Jefe De Contabilidad",
+    "Jefe De Jurídico", "Jefe De Mantenimiento",
+    "Jefe De Soporte e Infraestructura", "Jefe De Zona Bajio",
+    "Jefe de Zona Operaciones", "Lider De Aplicaciones Y Software",
+    "Mensajero", "Project Manager", "Psicologa",
+    "Responsable Tecnico Sasisopa", "Supervisor De Compras",
+    "Supervisor De Cortes", "Supervisor De Credito Y Cobranza",
+    "Supervisor De Cuentas Por Pagar", "Supervisor De Nóminas",
+    "Supervisor de Prepago", "Supervisor De Proyectos Comerciales",
+    "Supervisor de Relaciones Laborales", "Tecnico de Mantenimiento",
+    "Tecnico en Mantenimiento Bajio", "Auditor Y Verificador De Combustibles",
+    "Director de Ingenieria y Construccion", "Especialista en Arquitectura y Proyectos",
+    "Supervisor de Construccion", "Asesoras de servicio al cliente",
+    "Auxiliar de Seguridad y Mantenimiento Integral",
+    "Coord. de Importacion y abasto de combustible",
+    "Especialista en Mercadotecnia", "Gerente De Estación",
+    "Gerente de Ingenieria y Construccion", "Jefe de Administracion y Finanzas",
+    "Jefe De Sistemas", "Líder de equipo",
+    "Técnico de mantenimiento", "Técnico En Mantenimiento",
+}
+
 @login_required
 @user_passes_test(es_evaluador, login_url='performance_view_user')
 def performance_view_admin(request):
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     history_cycles = PerformanceReviewCycle.objects.filter(status='closed').order_by('-end_date')
-    context = {'active_cycle': active_cycle, 'history_cycles': history_cycles}
+    depts_progreso = {}
+
+    if active_cycle:
+        revisores = Employee.objects.filter(
+            reviews_given__cycle=active_cycle
+        ).distinct().select_related('user', 'department')
+
+        for revisor in revisores:
+            stats = PerformanceReview.objects.filter(
+                cycle=active_cycle, 
+                reviewer=revisor
+            ).aggregate(
+                total=Count('id'),
+                # CAMBIO: Filtramos por status='completed'
+                completadas=Count('id', filter=Q(status='completed'))
+            )
+            
+            dept_name = revisor.department.name if revisor.department else "General / Otros"
+            if dept_name not in depts_progreso:
+                depts_progreso[dept_name] = []
+
+            depts_progreso[dept_name].append({
+                'nombre': f"{revisor.first_name} {revisor.last_name}",
+                'total': stats['total'],
+                'completadas': stats['completadas'],
+                'porcentaje': round((stats['completadas'] / stats['total'] * 100), 1) if stats['total'] > 0 else 0,
+                'terminado': (stats['completadas'] == stats['total'] and stats['total'] > 0)
+            })
+
+    # Aptos a evaluación: puesto en lista + más de 6 meses de antigüedad
+    fecha_corte = timezone.now().date() - timedelta(days=183)
+    excluidos_sesion = request.session.get('aptos_excluidos', [])
+    aptos = (
+        Employee.objects
+        .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+        .exclude(id__in=excluidos_sesion)
+        .select_related('job_position', 'department')
+        .order_by('department__name', 'first_name')
+    )
+
+    context = {
+        'active_cycle': active_cycle,
+        'history_cycles': history_cycles,
+        'depts_progreso': depts_progreso,
+        'aptos': aptos,
+    }
     return render(request, 'performance/admin/performance_view_admin.html', context)
 
 @login_required
@@ -177,16 +275,15 @@ def performance_view_user(request):
 
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
     
-    # 1. EVALUACIONES PENDIENTES (Las que él debe hacer a otros)
+    # 1. EVALUACIONES ASIGNADAS (Ciclo activo: pendientes y realizadas para poder modificar)
     assignments = []
     if active_cycle:
         assignments_query = PerformanceReview.objects.filter(
             cycle=active_cycle,
             reviewer=current_employee
-        ).exclude(status__in=['completed', 'closed']).select_related('employee', 'employee__user')
+        ).select_related('employee', 'employee__user')
         
         nombre_revisor = f"{current_employee.last_name}, {current_employee.first_name}"
-        
         for review in assignments_query:
             target = review.employee
             if target == current_employee:
@@ -206,28 +303,38 @@ def performance_view_user(request):
                 review.badge_class = "badge-other"
                     
         assignments = assignments_query
-        if not assignments.exists():
-            active_cycle = None
 
-    # 2. HISTORIAL (FILTRO PARA MOSTRAR SOLO MI RESULTADO PROPIO)
-    # Filtramos donde el usuario es el EVALUADO (employee) 
-    # y donde el REVISOR es él mismo (Autoevaluación) para tener 1 sola tarjeta por ciclo.
-    evaluations_query = PerformanceReview.objects.filter(
-        employee=current_employee,
-        reviewer=current_employee, # <--- Esto garantiza 1 sola tarjeta (mi autoevaluación terminada)
-        status__in=['completed', 'closed']
-    ).select_related('cycle').order_by('-date_reviewed')
+    # 2. HISTORIAL - Un recuadro por ciclo cerrado donde fui evaluado
+    history_cycles_qs = PerformanceReviewCycle.objects.filter(
+        status='closed',
+        reviews__employee=current_employee
+    ).distinct().annotate(
+        reviews_received=Count(
+            'reviews',
+            filter=Q(reviews__employee=current_employee, reviews__status='completed')
+        ),
+        avg_score=Avg(
+            'reviews__rating',
+            filter=Q(reviews__employee=current_employee, reviews__status='completed')
+        )
+    ).order_by('-end_date')
 
-    total_evaluaciones = evaluations_query.count() # Ahora dirá 1 si solo ha terminado su autoevaluación
+    total_evaluaciones = history_cycles_qs.count()
+
+    # 3. ÚLTIMA PUNTUACIÓN (promedio del ciclo más reciente)
+    ultima_puntuacion = 0
+    if history_cycles_qs.exists():
+        avg_result = PerformanceReview.objects.filter(
+            cycle=history_cycles_qs.first(),
+            employee=current_employee,
+            status='completed'
+        ).aggregate(avg=Avg('rating'))
+        ultima_puntuacion = avg_result['avg'] or 0
 
     # Paginación
-    paginator = Paginator(evaluations_query, 2)
+    paginator = Paginator(history_cycles_qs, 2)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-
-    # 3. ÚLTIMA PUNTUACIÓN
-    # Obtenemos la calificación de su última autoevaluación terminada
-    ultima_puntuacion = evaluations_query.first().rating if evaluations_query.exists() else 0
 
     context = {
         'active_cycle': active_cycle,
@@ -236,11 +343,9 @@ def performance_view_user(request):
         'total_evaluaciones': total_evaluaciones,
         'ultima_puntuacion': ultima_puntuacion,
     }
-    
     return render(request, 'performance/user/performance_view_user.html', context)
 
 # --- CREAR CICLO ---
-
 @login_required
 @user_passes_test(es_evaluador)
 @require_POST
@@ -251,50 +356,23 @@ def create_cycle(request):
         tipo = request.POST.get('tipo_evaluacion')
         es_360 = request.POST.get('es_360') == 'on'
         
-        excel_file = request.FILES.get('excel_file')
-        if not excel_file:
-            messages.error(request, "Error: Sube el archivo Excel.")
-            return redirect('performance_view_admin')
+        # --- 1. OBTENER EMPLEADOS APTOS (Define 'employees_to_evaluate') ---
+        fecha_corte = timezone.now().date() - timedelta(days=183)
+        excluidos_sesion = request.session.get('aptos_excluidos', [])
+        employees_to_evaluate = (
+            Employee.objects
+            .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+            .exclude(id__in=excluidos_sesion)
+        )
 
-        # --- 1. LECTURA DEL EXCEL (Define 'employees_to_evaluate') ---
-        try:
-            reader = NativeXLSXReader(excel_file)
-            rows = reader.get_sheet_data("Empleados")
-            
-            if not rows:
-                messages.error(request, "No se encontró información en la pestaña 'Empleados'.")
-                return redirect('performance_view_admin')
-
-            columna_clave = 'número' if 'número' in rows[0] else 'numero'
-            lista_ids = []
-            for row in rows:
-                # Filtro de activos en el Excel
-                if 'activo' in row and str(row['activo']).strip().upper() != 'SI':
-                    continue
-                
-                emp_id = str(row.get(columna_clave, '')).strip()
-                if emp_id.endswith('.0'): emp_id = emp_id[:-2]
-                if emp_id and emp_id.isdigit():
-                    lista_ids.append(emp_id)
-
-            # ESTA ES LA VARIABLE QUE FALTABA
-            employees_to_evaluate = Employee.objects.filter(
-                employee_number__in=lista_ids, 
-                is_active=True
-            )
-
-            if not employees_to_evaluate.exists():
-                messages.warning(request, "No se encontraron empleados en la BD que coincidan con el Excel.")
-                return redirect('performance_view_admin')
-
-        except Exception as e:
-            messages.error(request, f"Error procesando Excel: {str(e)}")
+        if not employees_to_evaluate.exists():
+            messages.warning(request, "No hay colaboradores aptos para evaluar en este momento.")
             return redirect('performance_view_admin')
 
         # --- 2. CREACIÓN DEL CICLO ---
         ciclo = PerformanceReviewCycle.objects.create(
             name=nombre, year=anio, review_type=tipo, is_360=es_360,
-            status='active', scope_type='excel'
+            status='active', scope_type='aptos'
         )
         
         created_relations = set()
@@ -395,13 +473,13 @@ def evaluate_person(request, review_id):
                 )
 
             # Guardamos el Gran Total en el modelo principal
-            grand_total = request.POST.get('grand_total_input', '0')
-            review.rating = float(grand_total)
-            
-            # Opcional: Ya no necesitas guardar el JSON en review.comments, 
+            grand_total = request.POST.get('total_puntos', '0')
+            review.rating = float(grand_total) if grand_total else 0
+
+            # Opcional: Ya no necesitas guardar el JSON en review.comments,
             # pero puedes dejarlo vacío o guardar una nota general.
-            review.comments = "Detalles guardados en tabla relacional" 
-            
+            review.comments = "Detalles guardados en tabla relacional"
+
             review.status = 'completed'
             review.date_reviewed = timezone.now()
             review.save()
@@ -432,6 +510,7 @@ def evaluate_person(request, review_id):
     search_name_revisor = f"{revisor_empleado.last_name}, {revisor_empleado.first_name}"
     yo_evaluador_soy_lider = Employee.objects.filter(responsible__icontains=search_name_revisor).exists()
     evaluando_a_mi_jefe = revisor_empleado.responsible == nombre_evaluado
+    evaluando_a_mi_subordinado = bool(review.employee.responsible) and search_name_revisor.lower() in review.employee.responsible.lower()
 
     periodo_texto = "N/A"
     fecha_ref = review.cycle.start_date
@@ -459,8 +538,140 @@ def evaluate_person(request, review_id):
         'es_autoevaluacion': review.reviewer == review.employee,
         'evaluador_es_lider': yo_evaluador_soy_lider,
         'evaluando_a_mi_jefe': evaluando_a_mi_jefe,
+        'evaluando_a_mi_subordinado': evaluando_a_mi_subordinado,
     }
     return render(request, 'performance/user/evaluation.html', context)
+
+@login_required
+def my_cycle_history_detail(request, cycle_id):
+    try:
+        current_employee = request.user.employee
+    except AttributeError:
+        return redirect('performance_view_user')
+
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+
+    reviews = PerformanceReview.objects.filter(
+        cycle=cycle,
+        employee=current_employee,
+    ).select_related('reviewer', 'reviewer__user').order_by('-status', 'reviewer__last_name')
+
+    nombre_revisor_empleado = f"{current_employee.last_name}, {current_employee.first_name}"
+    for review in reviews:
+        revisor = review.reviewer
+        nombre_revisor = f"{revisor.last_name}, {revisor.first_name}"
+        if revisor == current_employee:
+            review.relationship_label = "Autoevaluación"
+            review.badge_class = "badge-self"
+        elif current_employee.responsible == nombre_revisor:
+            review.relationship_label = "Jefe Directo"
+            review.badge_class = "badge-boss"
+        elif bool(revisor.responsible) and nombre_revisor_empleado.lower() in revisor.responsible.lower():
+            review.relationship_label = "Colaborador Directo"
+            review.badge_class = "badge-sub"
+        elif revisor.responsible == current_employee.responsible:
+            review.relationship_label = "Colega (Par)"
+            review.badge_class = "badge-peer"
+        else:
+            review.relationship_label = "Colaborador"
+            review.badge_class = "badge-other"
+
+    context = {
+        'cycle': cycle,
+        'reviews': reviews,
+        'current_employee': current_employee,
+    }
+    return render(request, 'performance/user/my_cycle_detail.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+def admin_cycle_participants(request, cycle_id):
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+
+    employees = Employee.objects.filter(
+        my_performance_reviews__cycle=cycle
+    ).distinct().select_related('department').annotate(
+        total=Count('my_performance_reviews', filter=Q(my_performance_reviews__cycle=cycle)),
+        completadas=Count('my_performance_reviews', filter=Q(my_performance_reviews__cycle=cycle, my_performance_reviews__status='completed'))
+    ).order_by('last_name', 'first_name')
+
+    context = {
+        'cycle': cycle,
+        'employees': employees,
+    }
+    return render(request, 'performance/admin/cycle_participants.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+def admin_employee_cycle_reviews(request, cycle_id, employee_id):
+    cycle = get_object_or_404(PerformanceReviewCycle, id=cycle_id, status='closed')
+    employee = get_object_or_404(Employee, id=employee_id)
+
+    COMPETENCIA_LABELS = {
+        'comunicacion': 'Comunicación',
+        'trabajo_equipo': 'Trabajo en Equipo',
+        'resolucion_conflicto': 'Resolución de Conflicto',
+        'gestion_tiempo': 'Gestión del Tiempo',
+        'servicio_cliente': 'Servicio al Cliente',
+        'iniciativa': 'Iniciativa',
+        'asistencia': 'Asistencia',
+        'puntualidad': 'Puntualidad',
+        'toma_decisiones': 'Toma de Decisiones',
+        'desarrollo_colaboradores': 'Desarrollo de Colaboradores',
+    }
+
+    reviews = PerformanceReview.objects.filter(
+        cycle=cycle,
+        employee=employee,
+    ).select_related('reviewer', 'reviewer__user').prefetch_related('details').order_by('-status', 'reviewer__last_name')
+
+    nombre_empleado = f"{employee.last_name}, {employee.first_name}"
+    for review in reviews:
+        revisor = review.reviewer
+        if revisor is None:
+            review.relationship_label = "Sin evaluador"
+            review.badge_class = "badge-other"
+        elif revisor == employee:
+            review.relationship_label = "Autoevaluación"
+            review.badge_class = "badge-self"
+        elif employee.responsible and f"{revisor.last_name}, {revisor.first_name}" == employee.responsible:
+            review.relationship_label = "Jefe Directo"
+            review.badge_class = "badge-boss"
+        elif revisor.responsible and nombre_empleado.lower() in revisor.responsible.lower():
+            review.relationship_label = "Colaborador Directo"
+            review.badge_class = "badge-sub"
+        elif revisor.responsible == employee.responsible:
+            review.relationship_label = "Colega (Par)"
+            review.badge_class = "badge-peer"
+        else:
+            review.relationship_label = "Colaborador"
+            review.badge_class = "badge-other"
+
+        # Enriquecer respuestas con la etiqueta legible de la competencia
+        for ans in review.details.all():
+            ans.competencia_label = COMPETENCIA_LABELS.get(ans.competencia_key, ans.competencia_key.replace('_', ' ').title())
+
+    context = {
+        'cycle': cycle,
+        'employee': employee,
+        'reviews': reviews,
+    }
+    return render(request, 'performance/admin/employee_cycle_reviews.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+@require_POST
+def excluir_apto(request, employee_id):
+    excluidos = request.session.get('aptos_excluidos', [])
+    if employee_id not in excluidos:
+        excluidos.append(employee_id)
+    request.session['aptos_excluidos'] = excluidos
+    request.session.modified = True
+    return JsonResponse({'ok': True})
+
 
 @login_required
 @user_passes_test(es_evaluador)

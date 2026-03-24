@@ -1,0 +1,122 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block page_title %}Detalle del Ciclo - {{ cycle.name }}{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/performance.css' %}">
+    <style>
+        .badge-rel {
+            display: inline-block;
+            padding: 5px 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 130px;
+            text-align: center;
+        }
+        .badge-self  { background-color: #e0e7ff; color: #4338ca; }
+        .badge-sub   { background-color: #dcfce7; color: #15803d; }
+        .badge-boss  { background-color: #f3e8ff; color: #7e22ce; }
+        .badge-peer  { background-color: #fef3c7; color: #b45309; }
+        .badge-other { background-color: #f1f5f9; color: #475569; }
+
+        .rating-circle {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .review-row {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: transform 0.15s;
+        }
+        .review-row:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 bg-light min-vh-100">
+
+    <div class="mb-4 d-flex align-items-center gap-3">
+        <a href="{% url 'performance_view_user' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="fas fa-arrow-left me-1"></i> Regresar
+        </a>
+        <div>
+            <h2 class="fw-bold text-dark mb-0">{{ cycle.name }}</h2>
+            <p class="text-muted small mb-0">
+                Año {{ cycle.year }} &nbsp;|&nbsp; Cerrado el {{ cycle.end_date|date:"d/m/Y"|default:"—" }}
+            </p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4 border-start border-5 border-primary">
+            <h5 class="fw-bold mb-1">
+                {{ current_employee.first_name }} {{ current_employee.last_name }}
+            </h5>
+            <p class="text-muted small mb-0">
+                Evaluaciones recibidas en este ciclo
+            </p>
+        </div>
+    </div>
+
+    {% if reviews %}
+    <div class="d-flex flex-column gap-3">
+        {% for review in reviews %}
+        <div class="card review-row p-3">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="rating-circle
+                        {% if review.status == 'completed' %}bg-success text-white{% else %}bg-light text-muted{% endif %}">
+                        {% if review.status == 'completed' %}
+                            {{ review.rating|floatformat:0 }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col">
+                    <h6 class="fw-bold mb-0">
+                        {{ review.reviewer.user.get_full_name }}
+                    </h6>
+                    <p class="text-muted small mb-0">
+                        No. Empleado: {{ review.reviewer.employee_number }}
+                    </p>
+                </div>
+                <div class="col-md-auto text-end d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                    <span class="badge-rel {{ review.badge_class }}">{{ review.relationship_label }}</span>
+                    {% if review.status == 'completed' %}
+                        <span class="badge bg-success-soft text-success border border-success border-opacity-25 px-3 py-2">
+                            Completada
+                        </span>
+                    {% else %}
+                        <span class="badge bg-light text-secondary border px-3 py-2">
+                            No completada
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+        <i class="fas fa-clipboard-list fa-3x text-muted opacity-25 mb-3"></i>
+        <h6 class="text-muted fw-bold">No hay evaluaciones registradas para este ciclo</h6>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

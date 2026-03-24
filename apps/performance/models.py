@@ -64,6 +64,7 @@ class PerformanceReview(models.Model):
         ('pending_self', 'Pendiente Autoevaluación'),
         ('pending_manager', 'Pendiente Evaluación Jefe'),
         ('completed', 'Completada'),
+        ('closed', 'Cerrada por Sistema'),
     ]
 
     # Opciones de calificación (Lo que tú tenías)
