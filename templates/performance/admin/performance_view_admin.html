@@ -206,10 +206,10 @@
             </div>
 
             <div class="modal-body pt-4">
-                <form action="{% url 'create_cycle' %}" method="POST" id="evaluationForm" enctype="multipart/form-data"> 
+                <form action="{% url 'create_cycle' %}" method="POST" id="evaluationForm">
                     {% csrf_token %}
-                    
-                    <input type="hidden" name="selection_type" value="excel">
+
+                    <input type="hidden" name="selection_type" value="aptos">
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-9">
@@ -258,30 +258,18 @@
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-dark mb-2">Cargar Participantes</label>
-                        
-                        <div class="border rounded p-4 bg-white text-center">
-                            <div class="mb-3">
-                                <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
-                                <br>
-                                <label for="excelFile" class="form-label fw-bold text-dark">
-                                    Subir archivo filtrado (.xlsx)
-                                </label>
-                                <input class="form-control form-control-sm mx-auto" style="max-width: 400px;" type="file" id="excelFile" name="excel_file" accept=".xlsx, .xls, .csv">
-                            </div>
-                            
-                            <div class="alert alert-success bg-opacity-10 border-0 small text-start d-inline-block mx-auto mb-0" style="max-width: 90%;">
-                                <i class="fas fa-info-circle me-1"></i> <strong>Instrucciones:</strong>
-                                El sistema buscará la pestaña <code>Empleados</code> y la columna <code>Número</code> para inscribir automáticamente a las personas.
-                            </div>
+                    <div class="alert alert-success bg-opacity-10 border-0 d-flex align-items-start mt-2 mb-0" role="alert">
+                        <i class="fas fa-user-check text-success mt-1 me-3"></i>
+                        <div class="small text-muted">
+                            <strong>Participantes:</strong> Se utilizará automáticamente la lista de aptos a evaluación
+                            (<strong data-aptos-count>{{ aptos|length }}</strong> colaboradores). Puedes revisar o ajustar la lista antes de continuar.
                         </div>
                     </div>
 
-                    <div class="alert alert-warning bg-opacity-10 border-0 d-flex align-items-start mt-4 mb-0" role="alert">
+                    <div class="alert alert-warning bg-opacity-10 border-0 d-flex align-items-start mt-3 mb-0" role="alert">
                         <i class="fas fa-exclamation-circle text-warning mt-1 me-3"></i>
                         <div class="small text-muted">
-                            <strong>Importante:</strong> Al hacer clic en "Iniciar", la evaluación se activará inmediatamente para los colaboradores encontrados en el archivo.
+                            <strong>Importante:</strong> Al hacer clic en "Iniciar", la evaluación se activará inmediatamente para los colaboradores de la lista de aptos.
                         </div>
                     </div>
 
@@ -383,12 +371,13 @@ document.addEventListener('click', function(e) {
         if (data.ok) {
             const row = btn.closest('tr');
             row.remove();
-            // Actualizar contador del badge
+            const count = document.querySelectorAll('#aptosTableBody tr').length;
+            // Actualizar contador del badge en modal de aptos
             const badge = document.querySelector('#aptosModal .badge.bg-success');
-            if (badge) {
-                const count = document.querySelectorAll('#aptosTableBody tr').length;
-                badge.textContent = count + ' encontrados';
-            }
+            if (badge) badge.textContent = count + ' encontrados';
+            // Actualizar contador en modal de iniciar evaluación
+            const countInit = document.querySelector('#initEvalModal strong[data-aptos-count]');
+            if (countInit) countInit.textContent = count;
         }
     });
 });

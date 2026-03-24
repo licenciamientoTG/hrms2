@@ -7,6 +7,8 @@ from django.conf import settings
 from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from html import unescape
+import mimetypes
+import os
 
 def _unescape_recursive(s: str, rounds: int = 3) -> str:
     for _ in range(rounds):
@@ -128,5 +130,23 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
         to_addrs,
     )
     msg.attach_alternative(html_body, "text/html")
+
+    # Adjuntar solo documentos (PDF, Word, Excel) — las imágenes ya van como portada
+    DOCUMENT_EXTENSIONS = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx')
+    for media in recognition.media.all():
+        try:
+            file_path = media.file.path
+            if not os.path.exists(file_path):
+                continue
+            if not file_path.lower().endswith(DOCUMENT_EXTENSIONS):
+                continue
+            filename = os.path.basename(file_path)
+            mime_type, _ = mimetypes.guess_type(file_path)
+            mime_type = mime_type or 'application/octet-stream'
+            with open(file_path, 'rb') as f:
+                msg.attach(filename, f.read(), mime_type)
+        except Exception:
+            pass
+
     msg.send(fail_silently=False)
     return True

@@ -356,50 +356,23 @@ def create_cycle(request):
         tipo = request.POST.get('tipo_evaluacion')
         es_360 = request.POST.get('es_360') == 'on'
         
-        excel_file = request.FILES.get('excel_file')
-        if not excel_file:
-            messages.error(request, "Error: Sube el archivo Excel.")
-            return redirect('performance_view_admin')
+        # --- 1. OBTENER EMPLEADOS APTOS (Define 'employees_to_evaluate') ---
+        fecha_corte = timezone.now().date() - timedelta(days=183)
+        excluidos_sesion = request.session.get('aptos_excluidos', [])
+        employees_to_evaluate = (
+            Employee.objects
+            .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+            .exclude(id__in=excluidos_sesion)
+        )
 
-        # --- 1. LECTURA DEL EXCEL (Define 'employees_to_evaluate') ---
-        try:
-            reader = NativeXLSXReader(excel_file)
-            rows = reader.get_sheet_data("Empleados")
-            
-            if not rows:
-                messages.error(request, "No se encontró información en la pestaña 'Empleados'.")
-                return redirect('performance_view_admin')
-
-            columna_clave = 'número' if 'número' in rows[0] else 'numero'
-            lista_ids = []
-            for row in rows:
-                # Filtro de activos en el Excel
-                if 'activo' in row and str(row['activo']).strip().upper() != 'SI':
-                    continue
-                
-                emp_id = str(row.get(columna_clave, '')).strip()
-                if emp_id.endswith('.0'): emp_id = emp_id[:-2]
-                if emp_id and emp_id.isdigit():
-                    lista_ids.append(emp_id)
-
-            # ESTA ES LA VARIABLE QUE FALTABA
-            employees_to_evaluate = Employee.objects.filter(
-                employee_number__in=lista_ids, 
-                is_active=True
-            )
-
-            if not employees_to_evaluate.exists():
-                messages.warning(request, "No se encontraron empleados en la BD que coincidan con el Excel.")
-                return redirect('performance_view_admin')
-
-        except Exception as e:
-            messages.error(request, f"Error procesando Excel: {str(e)}")
+        if not employees_to_evaluate.exists():
+            messages.warning(request, "No hay colaboradores aptos para evaluar en este momento.")
             return redirect('performance_view_admin')
 
         # --- 2. CREACIÓN DEL CICLO ---
         ciclo = PerformanceReviewCycle.objects.create(
             name=nombre, year=anio, review_type=tipo, is_360=es_360,
-            status='active', scope_type='excel'
+            status='active', scope_type='aptos'
         )
         
         created_relations = set()
