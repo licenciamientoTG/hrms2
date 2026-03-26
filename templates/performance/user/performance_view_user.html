@@ -169,14 +169,21 @@
                     </div>
                     <div class="col-md-4 text-md-end mt-3 mt-md-0">
                         <p class="mb-2 small text-muted">Pendientes: <strong>{{ assignments|length }}</strong></p>
-                        <button class="btn btn-primary px-4 rounded-pill" 
-                                type="button" 
-                                data-bs-toggle="collapse" 
-                                data-bs-target="#collapsePendientes" 
-                                aria-expanded="false" 
+                        <button class="btn btn-primary px-4 rounded-pill"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapsePendientes"
+                                aria-expanded="false"
                                 aria-controls="collapsePendientes">
                             Gestionar ahora
                         </button>
+                        {% if completadas_count == total_asignaciones %}
+                            <span class="badge bg-success rounded-pill ms-2" title="Todas completadas">{{ completadas_count }}/{{ total_asignaciones }} ✓</span>
+                        {% elif completadas_count > 0 %}
+                            <span class="badge bg-warning text-dark rounded-pill ms-2" title="En progreso">{{ completadas_count }}/{{ total_asignaciones }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill ms-2" title="Sin completar">{{ completadas_count }}/{{ total_asignaciones }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>

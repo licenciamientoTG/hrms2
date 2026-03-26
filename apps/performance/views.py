@@ -304,6 +304,9 @@ def performance_view_user(request):
                     
         assignments = assignments_query
 
+    total_asignaciones = assignments_query.count() if active_cycle else 0
+    completadas_count = assignments_query.filter(status='completed').count() if active_cycle else 0
+
     # 2. HISTORIAL - Un recuadro por ciclo cerrado donde fui evaluado
     history_cycles_qs = PerformanceReviewCycle.objects.filter(
         status='closed',
@@ -339,6 +342,8 @@ def performance_view_user(request):
     context = {
         'active_cycle': active_cycle,
         'assignments': assignments,
+        'total_asignaciones': total_asignaciones,
+        'completadas_count': completadas_count,
         'my_finished_evaluations': page_obj,
         'total_evaluaciones': total_evaluaciones,
         'ultima_puntuacion': ultima_puntuacion,

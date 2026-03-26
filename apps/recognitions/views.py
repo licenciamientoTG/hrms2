@@ -624,6 +624,7 @@ def recognition_list_admin(request):
     qs = (
         Recognition.objects
         .select_related('author', 'category')
+        .prefetch_related('target_groups')
         .annotate(recipient_count=Count('recipients', distinct=True))
         .order_by('-created_at')
     )
