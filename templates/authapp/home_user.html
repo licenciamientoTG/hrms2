@@ -50,15 +50,15 @@
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Días de vacaciones disponibles</h6>
-        <p>próximamente</p>
-        <a class="btn btn-success btn-sm">Ir →</a>
+        <p><strong>{{ vacation_balance|floatformat:"-2" }}</strong> días</p>
+        {% comment %} <a  class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
       </div>
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Asistencia</h6>
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm">Ir →</a>
+        {% comment %} <a href="#" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
       </div>
     </div>
     <div class="col-md-3 mb-1">
@@ -66,7 +66,7 @@
         <h6>Cursos activos</h6>
         {% comment %} <h2>{{in_progress_courses_count}}</h2> {% endcomment %}
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm">Ir →</a>
+        {% comment %} <a href="#" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
         {% comment %} <a href="{% url 'course_wizard' %}" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
       </div>
     </div>
@@ -74,7 +74,7 @@
       <div class="quick-access-card">
         <h6>Tus datos</h6>
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm mt-2">Ir →</a>
+        {% comment %} <a href="#" class="btn btn-success btn-sm mt-2">Ir →</a> {% endcomment %}
       </div>
     </div>
   </div>

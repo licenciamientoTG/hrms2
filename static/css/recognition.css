@@ -116,3 +116,49 @@
 
 .modal { z-index: 100000 !important; }
 .modal-backdrop { z-index: 99999 !important; }
+/* ——— Reacciones ——— */
+.reaction-wrapper { display: inline-block; }
+
+.btn-reaction-main {
+  transition: transform .15s;
+}
+.btn-reaction-main:hover { transform: scale(1.08); }
+.btn-reaction-active {
+  background-color: #e8f4ff;
+  border-color: #4a90e2;
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+/* Picker flotante - oculto por defecto */
+.reaction-picker {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  z-index: 200;
+  white-space: nowrap;
+}
+
+.reaction-picker.open {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: transform .15s, background .15s;
+  line-height: 1;
+}
+.reaction-btn:hover {
+  transform: scale(1.35) translateY(-4px);
+  background: #f0f0f0;
+}

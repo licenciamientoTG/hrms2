@@ -441,7 +441,7 @@ document.addEventListener('click', async (e) => {
       }
 
       const data = await res.json();
-      likesTitle.textContent = data.title ? `Likes: ${data.title}` : 'Likes';
+      likesTitle.textContent = data.title ? `Reacciones: ${data.title}` : 'Reacciones';
       likesCount.textContent = data.count ?? 0;
 
       if (!Array.isArray(data.items) || data.items.length === 0) { show('empty'); return; }
@@ -450,11 +450,10 @@ document.addEventListener('click', async (e) => {
       for (const it of data.items) {
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex align-items-center gap-3';
-        const icon = document.createElement('span'); icon.className = 'fs-4'; icon.textContent = '👍';
+        const icon = document.createElement('span'); icon.className = 'fs-4'; icon.textContent = it.emoji || '👍';
         const wrap = document.createElement('div');
         const strong = document.createElement('strong'); strong.textContent = it.name || '—';
-        const small = document.createElement('small'); small.className = 'text-muted d-block'; small.textContent = it.liked_at || '';
-        wrap.appendChild(strong); wrap.appendChild(small);
+        wrap.appendChild(strong);
         li.appendChild(icon); li.appendChild(wrap);
         frag.appendChild(li);
       }

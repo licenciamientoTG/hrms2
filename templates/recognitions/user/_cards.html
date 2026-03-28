@@ -122,19 +122,40 @@
         </div>
       {% endwith %}
 
-      {# --- Botones de Acción (Like) --- #}
+      {# --- Botones de Acción (Reacciones) --- #}
       <div class="d-flex align-items-center gap-3 mt-3 pt-2 border-top">
-        <button type="button"
-                class="btn btn-sm rounded-3 btn-like {% if rec.my_liked %}btn-success{% else %}btn-outline-secondary{% endif %}"
-                data-url="{% url 'recognition_like_toggle' rec.id %}"
-                aria-pressed="{{ rec.my_liked|yesno:'true,false' }}">
-          👍 <span class="like-count">{{ rec.like_count }}</span>
-        </button>
+
+        {# Picker de reacciones #}
+        <div class="reaction-wrapper position-relative" data-rec-id="{{ rec.id }}"
+             data-url="{% url 'recognition_like_toggle' rec.id %}">
+
+          {# Botón principal #}
+          <button type="button" class="btn btn-sm rounded-3 btn-reaction-main
+                  {% if rec.my_reaction %}btn-reaction-active{% else %}btn-outline-secondary{% endif %}"
+                  title="{% if rec.my_reaction %}{{ rec.my_reaction }}{% else %}Reaccionar{% endif %}">
+            {% if rec.my_reaction %}
+              <span class="my-reaction-emoji">{{ rec.my_reaction_emoji }}</span>
+            {% else %}
+              <span class="my-reaction-emoji">👍</span>
+            {% endif %}
+            <span class="like-count">{{ rec.like_count }}</span>
+          </button>
+
+          {# Menú flotante con las reacciones #}
+          <div class="reaction-picker shadow rounded-pill px-2 py-1">
+            <button class="reaction-btn" data-reaction="like"  title="Me gusta">👍</button>
+            <button class="reaction-btn" data-reaction="love"  title="Me encanta">❤️</button>
+            <button class="reaction-btn" data-reaction="haha"  title="Haha">😂</button>
+            <button class="reaction-btn" data-reaction="wow"   title="Wow">😮</button>
+            <button class="reaction-btn" data-reaction="sad"   title="Tristeza">😢</button>
+            <button class="reaction-btn" data-reaction="angry" title="Enojo">😡</button>
+          </div>
+        </div>
 
         <a class="btn btn-sm btn-outline-primary btn-view-likes"
            data-url="{% url 'recognition_likes_list' rec.id %}"
            data-bs-toggle="offcanvas" data-bs-target="#likesOffcanvas">
-          Ver likes
+          Ver reacciones
         </a>
       </div>
     </div>
@@ -179,6 +200,74 @@
 </div>
 
 <script>
+// ——— Reacciones ———
+document.addEventListener('click', function(e) {
+  // Abrir/cerrar picker al hacer click en el botón principal
+  const mainBtn = e.target.closest('.btn-reaction-main');
+  if (mainBtn) {
+    const wrapper = mainBtn.closest('.reaction-wrapper');
+    const picker = wrapper.querySelector('.reaction-picker');
+    // Cerrar todos los demás pickers abiertos
+    document.querySelectorAll('.reaction-picker.open').forEach(p => {
+      if (p !== picker) p.classList.remove('open');
+    });
+    picker.classList.toggle('open');
+    return;
+  }
+
+  // Seleccionar una reacción
+  const reactionBtn = e.target.closest('.reaction-btn');
+  if (reactionBtn) {
+    const wrapper = reactionBtn.closest('.reaction-wrapper');
+    const reaction = reactionBtn.dataset.reaction;
+    const url = wrapper.dataset.url;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                   || getCookie('csrftoken');
+
+    // Cerrar picker inmediatamente
+    wrapper.querySelector('.reaction-picker').classList.remove('open');
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrfToken,
+      },
+      body: `reaction=${reaction}`,
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      const btn = wrapper.querySelector('.btn-reaction-main');
+      const emojiSpan = btn.querySelector('.my-reaction-emoji');
+      const countSpan = btn.querySelector('.like-count');
+
+      countSpan.textContent = data.total;
+
+      if (data.my_reaction) {
+        emojiSpan.textContent = data.my_emoji;
+        btn.classList.add('btn-reaction-active');
+        btn.classList.remove('btn-outline-secondary');
+      } else {
+        emojiSpan.textContent = '👍';
+        btn.classList.remove('btn-reaction-active');
+        btn.classList.add('btn-outline-secondary');
+      }
+    });
+    return;
+  }
+
+  // Click fuera → cerrar todos los pickers
+  if (!e.target.closest('.reaction-wrapper')) {
+    document.querySelectorAll('.reaction-picker.open').forEach(p => p.classList.remove('open'));
+  }
+});
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : null;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Corregir carruseles vacíos por culpa de PDFs/Docs
     document.querySelectorAll('.carousel').forEach(carousel => {

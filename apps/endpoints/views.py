@@ -265,7 +265,6 @@ def recibir_datos1(request):
             if not department_obj:
                 department_obj = Department.objects.create(
                     name=department_name,
-                    es_corporativo=not (department_name.isdigit() or "ESTACION" in department_name.upper())
                 )
                 print(f"Nuevo departamento creado automaticamente: {department_name}")
             department_id = department_obj.id
@@ -284,7 +283,9 @@ def recibir_datos1(request):
                 puesto_obj = JobPosition.objects.create(
                     title=puesto_nombre,
                     job_category=cat_default,
-                    is_active=True
+                    is_active=True,
+                    department_id=department_id,
+                    level=1
                 )
                 print(f"Nuevo puesto creado automaticamente: {puesto_nombre}")
             job_position_id = puesto_obj.id

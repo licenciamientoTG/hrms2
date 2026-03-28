@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_POST
-from apps.employee.models import Employee
+from apps.employee.models import Employee, JobPosition
 from apps.performance.models import PerformanceReviewCycle, PerformanceReview, PerformanceReviewAnswer
 from django.db.models import Q
 from django.utils import timezone
@@ -165,53 +165,6 @@ def performance_view(request):
 
 # --- EN views.py ---
 
-PUESTOS_APTOS_EVALUACION = {
-    "Administrador General", "Analista de Finanzas y Presupuesto",
-    "Analista de Procesos Administrativos", "Analista Operativo",
-    "Asistente Administrativo", "Asistente De Direccion",
-    "Atencion A Clientes", "Auditor Interno", "Auxiliar Administrativo",
-    "Auxiliar Contable", "Auxiliar De Abasto", "Auxiliar De Cortes",
-    "Auxiliar De Credito Y Cobranza", "Auxiliar De Ctas Por Pagar",
-    "Auxiliar de facturación prepago", "Auxiliar De Ingresos",
-    "Auxiliar De Limpieza", "Auxiliar De Mantenimiento",
-    "Auxiliar De Mercadotecnia", "Auxiliar De Monederos Electronicos",
-    "Auxiliar De Nomina", "Auxiliar De Tesoreria",
-    "Business Finance Administrator", "Chofer Operador", "Contador Jr.",
-    "Coordinador Administrativo Bajio", "Coordinador Administrativo En Desarrollo",
-    "Coordinador de Desarrollo Organizacional", "Coordinador De Logistica Y Abasto",
-    "Coordinador De Mercadotecnia", "Creador de Contenido Digital y Diseño Grafico",
-    "Desarrollador De Software", "Director General",
-    "Directora de Administración Y Finanzas", "Ejecutivo de Atencion a Clientes",
-    "Ejecutivo De Ventas Empresarial", "Especialista Administrativo De Logistica y Abasto",
-    "Especialista de Atencion a Clientes", "Especialista de Capacitacion Operativa",
-    "Especialista De Compensaciones Y Beneficios", "Especialista En Mkt Digital",
-    "Especialista En Mkt Operativo", "Especialista En Reclutamiento",
-    "Especialista En Reclutamiento Senior", "Especialista En Reclutamiento Y Capacitacion Staff",
-    "Especialista Operativo De Logistica Y Abasto", "Generalista De Capital Humano",
-    "Gerente Comercial", "Gerente de Administracion y Nuevos Proyectos",
-    "Gerente De Auditoria", "Gerente De Capital Humano",
-    "Gerente de Finanzas y Normatividad", "Gerente De Operaciones",
-    "Gerente de Unidad de Negocio", "Ingeniero de Soporte",
-    "Jefe de Administracon e Ingresos", "Jefe De Contabilidad",
-    "Jefe De Jurídico", "Jefe De Mantenimiento",
-    "Jefe De Soporte e Infraestructura", "Jefe De Zona Bajio",
-    "Jefe de Zona Operaciones", "Lider De Aplicaciones Y Software",
-    "Mensajero", "Project Manager", "Psicologa",
-    "Responsable Tecnico Sasisopa", "Supervisor De Compras",
-    "Supervisor De Cortes", "Supervisor De Credito Y Cobranza",
-    "Supervisor De Cuentas Por Pagar", "Supervisor De Nóminas",
-    "Supervisor de Prepago", "Supervisor De Proyectos Comerciales",
-    "Supervisor de Relaciones Laborales", "Tecnico de Mantenimiento",
-    "Tecnico en Mantenimiento Bajio", "Auditor Y Verificador De Combustibles",
-    "Director de Ingenieria y Construccion", "Especialista en Arquitectura y Proyectos",
-    "Supervisor de Construccion", "Asesoras de servicio al cliente",
-    "Auxiliar de Seguridad y Mantenimiento Integral",
-    "Coord. de Importacion y abasto de combustible",
-    "Especialista en Mercadotecnia", "Gerente De Estación",
-    "Gerente de Ingenieria y Construccion", "Jefe de Administracion y Finanzas",
-    "Jefe De Sistemas", "Líder de equipo",
-    "Técnico de mantenimiento", "Técnico En Mantenimiento",
-}
 
 @login_required
 @user_passes_test(es_evaluador, login_url='performance_view_user')
@@ -252,17 +205,20 @@ def performance_view_admin(request):
     excluidos_sesion = request.session.get('aptos_excluidos', [])
     aptos = (
         Employee.objects
-        .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+        .filter(is_active=True, start_date__lte=fecha_corte, job_position__is_evaluable=True)
         .exclude(id__in=excluidos_sesion)
         .select_related('job_position', 'department')
         .order_by('department__name', 'first_name')
     )
+
+    todos_puestos = JobPosition.objects.filter(is_active=True, employee__is_active=True).distinct().order_by('title')
 
     context = {
         'active_cycle': active_cycle,
         'history_cycles': history_cycles,
         'depts_progreso': depts_progreso,
         'aptos': aptos,
+        'todos_puestos': todos_puestos,
     }
     return render(request, 'performance/admin/performance_view_admin.html', context)
 
@@ -366,7 +322,7 @@ def create_cycle(request):
         excluidos_sesion = request.session.get('aptos_excluidos', [])
         employees_to_evaluate = (
             Employee.objects
-            .filter(is_active=True, start_date__lte=fecha_corte, job_position__title__in=PUESTOS_APTOS_EVALUACION)
+            .filter(is_active=True, start_date__lte=fecha_corte, job_position__is_evaluable=True)
             .exclude(id__in=excluidos_sesion)
         )
 
@@ -664,6 +620,24 @@ def admin_employee_cycle_reviews(request, cycle_id, employee_id):
         'reviews': reviews,
     }
     return render(request, 'performance/admin/employee_cycle_reviews.html', context)
+
+
+@login_required
+@user_passes_test(es_evaluador)
+@require_POST
+def toggle_puesto_evaluable(request, puesto_id):
+    puesto = get_object_or_404(JobPosition, id=puesto_id)
+    puesto.is_evaluable = not puesto.is_evaluable
+    puesto.save(update_fields=['is_evaluable'])
+    fecha_corte = timezone.now().date() - timedelta(days=183)
+    excluidos_sesion = request.session.get('aptos_excluidos', [])
+    aptos_count = (
+        Employee.objects
+        .filter(is_active=True, start_date__lte=fecha_corte, job_position__is_evaluable=True)
+        .exclude(id__in=excluidos_sesion)
+        .count()
+    )
+    return JsonResponse({'ok': True, 'is_evaluable': puesto.is_evaluable, 'aptos_count': aptos_count})
 
 
 @login_required

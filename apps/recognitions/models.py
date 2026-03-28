@@ -91,12 +91,21 @@ class Recognition(models.Model):
         return bool(self.published_at)
 
 class RecognitionLike(models.Model):
-    recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE, related_name='likes_rel')
-    user        = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at  = models.DateTimeField(auto_now_add=True)
+    REACTION_CHOICES = [
+        ('like',  '👍'),
+        ('love',  '❤️'),
+        ('haha',  '😂'),
+        ('wow',   '😮'),
+        ('sad',   '😢'),
+        ('angry', '😡'),
+    ]
+    recognition   = models.ForeignKey(Recognition, on_delete=models.CASCADE, related_name='likes_rel')
+    user          = models.ForeignKey(User, on_delete=models.CASCADE)
+    reaction_type = models.CharField(max_length=10, choices=REACTION_CHOICES, default='like')
+    created_at    = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = (('recognition', 'user'),)  # evita duplicados
+        unique_together = (('recognition', 'user'),)  # un usuario, una reacción por comunicado
 
 class RecognitionRecipient(models.Model):
     recognition = models.ForeignKey(Recognition, on_delete=models.CASCADE)
