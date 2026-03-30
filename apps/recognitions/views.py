@@ -271,6 +271,7 @@ def recognition_dashboard_user(request):
                 RecognitionLike.objects.filter(recognition=OuterRef('pk'), user=request.user)
             ),
         )
+        # my_reaction se añade en Python tras la query (ver abajo)
         .prefetch_related(
             'recipients', 'media',
             Prefetch(
@@ -284,13 +285,24 @@ def recognition_dashboard_user(request):
     paginator = Paginator(base_qs, PAGE_SIZE)
     page_obj  = paginator.get_page(page)
 
+    # Adjuntar reacción propia a cada post del feed
+    feed_items = list(page_obj.object_list)
+    rec_ids = [r.id for r in feed_items]
+    my_reactions = {
+        rl.recognition_id: rl.reaction_type
+        for rl in RecognitionLike.objects.filter(recognition_id__in=rec_ids, user=request.user)
+    }
+    for item in feed_items:
+        item.my_reaction = my_reactions.get(item.id)
+        item.my_reaction_emoji = REACTION_EMOJIS.get(item.my_reaction, '') if item.my_reaction else ''
+
     ctx = {
         "people": User.objects.filter(is_active=True)
                               .exclude(id=request.user.id)
                               .order_by('first_name', 'last_name', 'username'),
         "categories": RecognitionCategory.objects.filter(is_active=True)
                                                 .order_by('order', 'title'),
-        "feed": page_obj.object_list,
+        "feed": feed_items,
         "has_next": page_obj.has_next(),
         "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
     }
@@ -472,16 +484,52 @@ def recognition_comment_delete(request, pk, cid):
 
 
 # toggle
+REACTION_EMOJIS = {
+    'like':  '👍',
+    'love':  '❤️',
+    'haha':  '😂',
+    'wow':   '😮',
+    'sad':   '😢',
+    'angry': '😡',
+}
+
 @login_required
 @require_POST
 def recognition_like_toggle(request, pk):
     rec = get_object_or_404(Recognition, pk=pk)
-    obj, created = RecognitionLike.objects.get_or_create(recognition=rec, user=request.user)
-    liked = created
-    if not created:
-        obj.delete()
-    count = RecognitionLike.objects.filter(recognition=rec).count()
-    return JsonResponse({'ok': True, 'liked': liked, 'count': count})
+    reaction = request.POST.get('reaction', 'like')
+    if reaction not in REACTION_EMOJIS:
+        reaction = 'like'
+
+    existing = RecognitionLike.objects.filter(recognition=rec, user=request.user).first()
+
+    if existing:
+        if existing.reaction_type == reaction:
+            # misma reacción → quitar
+            existing.delete()
+            my_reaction = None
+        else:
+            # distinta reacción → cambiar
+            existing.reaction_type = reaction
+            existing.save(update_fields=['reaction_type'])
+            my_reaction = reaction
+    else:
+        RecognitionLike.objects.create(recognition=rec, user=request.user, reaction_type=reaction)
+        my_reaction = reaction
+
+    # conteos por tipo
+    counts = {}
+    for r in RecognitionLike.objects.filter(recognition=rec).values('reaction_type'):
+        counts[r['reaction_type']] = counts.get(r['reaction_type'], 0) + 1
+    total = sum(counts.values())
+
+    return JsonResponse({
+        'ok': True,
+        'my_reaction': my_reaction,
+        'my_emoji': REACTION_EMOJIS.get(my_reaction, '') if my_reaction else '',
+        'counts': counts,
+        'total': total,
+    })
 
 # lista
 # helpers
@@ -500,7 +548,6 @@ def _display_name(user) -> str:
 def recognition_likes_list(request, pk):
     rec = get_object_or_404(Recognition, pk=pk)
 
-    # Usamos el modelo intermedio RecognitionLike
     qs = (RecognitionLike.objects
           .filter(recognition=rec)
           .select_related("user")
@@ -508,7 +555,8 @@ def recognition_likes_list(request, pk):
 
     items = [{
         "name": _display_name(like.user),
-        "liked_at": "",
+        "reaction": like.reaction_type,
+        "emoji": REACTION_EMOJIS.get(like.reaction_type, '👍'),
     } for like in qs]
 
     return JsonResponse({
@@ -625,6 +673,7 @@ def recognition_list_admin(request):
     qs = (
         Recognition.objects
         .select_related('author', 'category')
+        .prefetch_related('target_groups')
         .annotate(recipient_count=Count('recipients', distinct=True))
         .order_by('-created_at')
     )

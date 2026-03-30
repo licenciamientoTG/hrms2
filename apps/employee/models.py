@@ -342,6 +342,12 @@ class JobPosition(models.Model):
         help_text=_("Indica si el puesto está activo en la organización")
     )
 
+    is_evaluable = models.BooleanField(
+        default=False,
+        verbose_name=_("Apto para evaluación"),
+        help_text=_("Indica si el puesto participa en las evaluaciones de desempeño")
+    )
+
     headcount = models.PositiveSmallIntegerField(
         default=1,
         verbose_name=_("Plazas disponibles"),

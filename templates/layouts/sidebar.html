@@ -102,7 +102,7 @@
             {% endif %}
             
             {% if perms.news.Modulo_noticias %}
-                <li class="sidebar-item">
+                <li class="sidebar-item {% if 'performance' in request.resolver_match.url_name %}active{% endif %}">
                 <a class="sidebar-link" href="{% url 'performance' %}">
                     <i class="fa-solid fa-list-check"></i>
                     <span class="align-middle">

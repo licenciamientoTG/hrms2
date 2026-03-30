@@ -169,14 +169,21 @@
                     </div>
                     <div class="col-md-4 text-md-end mt-3 mt-md-0">
                         <p class="mb-2 small text-muted">Pendientes: <strong>{{ assignments|length }}</strong></p>
-                        <button class="btn btn-primary px-4 rounded-pill" 
-                                type="button" 
-                                data-bs-toggle="collapse" 
-                                data-bs-target="#collapsePendientes" 
-                                aria-expanded="false" 
+                        <button class="btn btn-primary px-4 rounded-pill"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapsePendientes"
+                                aria-expanded="false"
                                 aria-controls="collapsePendientes">
                             Gestionar ahora
                         </button>
+                        {% if completadas_count == total_asignaciones %}
+                            <span class="badge bg-success rounded-pill ms-2" title="Todas completadas">{{ completadas_count }}/{{ total_asignaciones }} ✓</span>
+                        {% elif completadas_count > 0 %}
+                            <span class="badge bg-warning text-dark rounded-pill ms-2" title="En progreso">{{ completadas_count }}/{{ total_asignaciones }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill ms-2" title="Sin completar">{{ completadas_count }}/{{ total_asignaciones }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -240,38 +247,66 @@
         {% if my_finished_evaluations %}
             {% for cycle in my_finished_evaluations %}
             <div class="col-12 col-sm-6 col-lg-6">
-                <div class="evaluation-card">
-                    <div class="card-banner {% cycle 'bg-info' 'bg-success' 'bg-primary' 'bg-secondary' %}" style="opacity: 0.8;">
-                        <span class="status-badge">Finalizado</span>
-                        <div class="rating-display text-center">
-                            {% if cycle.avg_score is not None %}
-                                <div style="font-size: 2.8rem; font-weight: 900; line-height: 1; text-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+
+                    {# Banner superior con color variado #}
+                    <div class="rounded-top-4 p-4 {% cycle 'banner-teal' 'banner-indigo' 'banner-violet' 'banner-cyan' %}" style="min-height: 160px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        
+                        {# Badge FINALIZADO arriba a la derecha #}
+                        <span class="badge rounded-pill px-3 py-1"
+                            style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.25); color: white; font-size: 0.7rem; letter-spacing: 0.5px;">
+                            FINALIZADO
+                        </span>
+
+                        {# Promedio #}
+                        {% if cycle.avg_score is not None %}
+                            <div class="text-white text-center">
+                                <div class="text-uppercase mb-1" style="font-size: 0.65rem; font-weight: 600; opacity: 0.85; letter-spacing: 0.1em;">Promedio obtenido</div>
+                                <div style="font-size: 3rem; font-weight: 900; line-height: 1;">
                                     {{ cycle.avg_score|floatformat:0 }}<span style="font-size: 1.4rem; font-weight: 600;">%</span>
                                 </div>
-                                <div style="font-size: 0.7rem; font-weight: 600; opacity: 0.85; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px;">Promedio obtenido</div>
-                            {% else %}
-                                <i class="fas fa-history" style="font-size:2rem; opacity:0.7;"></i>
-                                <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">Sin calificación</div>
-                            {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="text-white text-center">
+                                <i class="fas fa-history fa-2x mb-2" style="opacity: 0.7;"></i>
+                                <div style="font-size: 0.75rem; opacity: 0.8;">Sin calificación</div>
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+                    {# Cuerpo #}
+                    <div class="card-body p-4 d-flex flex-column">
+                        <h6 class="fw-bold text-dark mb-3">{{ cycle.name }}</h6>
+
+                        <div class="d-flex align-items-center text-muted small mb-2">
+                            <i class="far fa-calendar-alt me-2"></i>
+                            <div>
+                                <div style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600;">Año</div>
+                                <div class="fw-bold text-dark">{{ cycle.year }}</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center text-muted small mb-3">
+                            <i class="fas fa-flag-checkered me-2"></i>
+                            <div>
+                                <div style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600;">Cerrado el</div>
+                                <div class="fw-bold text-dark">{{ cycle.end_date|date:"d/m/Y"|default:"—" }}</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center text-muted small mb-4">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <span>{{ cycle.reviews_received }} evaluación{{ cycle.reviews_received|pluralize:"es" }} completada{{ cycle.reviews_received|pluralize:"s" }}</span>
+                        </div>
+
+                        <div class="mt-auto">
+                            <a href="{% url 'my_cycle_history_detail' cycle.id %}" class="btn btn-dark w-100 rounded-3 py-2">
+                                Ver Detalle <i class="fas fa-external-link-alt ms-2 small"></i>
+                            </a>
                         </div>
                     </div>
-                    <div class="card-body p-4">
-                        <h6 class="fw-bold mb-1">{{ cycle.name }}</h6>
-                        <p class="text-muted small mb-1">
-                            <i class="far fa-calendar-alt me-1"></i> Año: {{ cycle.year }}
-                        </p>
-                        <p class="text-muted small mb-3">
-                            <i class="fas fa-flag-checkered me-1"></i> Cerrado el: {{ cycle.end_date|date:"d/m/Y"|default:"—" }}
-                        </p>
-                        <p class="small mb-4">
-                            <span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill">
-                                {{ cycle.reviews_received }} evaluación{{ cycle.reviews_received|pluralize:"es" }} completada{{ cycle.reviews_received|pluralize:"s" }}
-                            </span>
-                        </p>
-                        <a href="{% url 'my_cycle_history_detail' cycle.id %}" class="btn btn-dark w-100 rounded-3 py-2">
-                            Ver Detalle <i class="fas fa-external-link-alt ms-2 small"></i>
-                        </a>
-                    </div>
+
                 </div>
             </div>
             {% endfor %}

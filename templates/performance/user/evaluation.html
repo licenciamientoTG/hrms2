@@ -114,6 +114,16 @@
         box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
     }
 
+    .comp-textarea.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
+    }
+
+    .comp-textarea.is-invalid + .invalid-feedback,
+    .comp-textarea.is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+
     /* Footer Flotante */
     .sticky-footer {
         position: sticky;
@@ -253,6 +263,22 @@
         text-transform: uppercase;
         margin-left: 8px;
     }    
+    /* Error en competencia sin calificar */
+    .competencia-card.error-rating {
+        border: 2px solid #dc3545 !important;
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
+    }
+
+    .competencia-card.error-rating .rating-container::after {
+        content: "⚠ Debes seleccionar una calificación";
+        display: block;
+        width: 100%;
+        color: #dc3545;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 6px;
+    }
+
     /* Botones */
     .botones {
         display: flex;
@@ -391,31 +417,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_comunicacion" class="logro-input" value="0">
+                    <input type="hidden" name="logro_comunicacion" class="logro-input" value="{{ data.comunicacion.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones...">{{ data.comunicacion.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_comunicacion" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_comunicacion" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.comunicacion.compromisos|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones...">{{ data.comunicacion.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_comunicacion" rows="2" placeholder="Observaciones...">{{ data.comunicacion.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -457,31 +483,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_trabajo_equipo" class="logro-input" value="0">
+                    <input type="hidden" name="logro_trabajo_equipo" class="logro-input" value="{{ data.trabajo_equipo.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones...">{{ data.trabajo_equipo.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_trabajo_equipo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_trabajo_equipo" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.trabajo_equipo.compromisos|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones...">{{ data.trabajo_equipo.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_trabajo_equipo" rows="2" placeholder="Observaciones...">{{ data.trabajo_equipo.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -524,31 +550,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_resolucion_conflicto" class="logro-input" value="0">
+                    <input type="hidden" name="logro_resolucion_conflicto" class="logro-input" value="{{ data.resolucion_conflicto.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones...">{{ data.resolucion_conflicto.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_resolucion_conflicto" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_resolucion_conflicto" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.resolucion_conflicto.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones...">{{ data.resolucion_conflicto.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_resolucion_conflicto" rows="2" placeholder="Observaciones...">{{ data.resolucion_conflicto.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -591,31 +617,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_gestion_tiempo" class="logro-input" value="0">
+                    <input type="hidden" name="logro_gestion_tiempo" class="logro-input" value="{{ data.gestion_tiempo.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones...">{{ data.gestion_tiempo.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_gestion_tiempo" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_gestion_tiempo" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.gestion_tiempo.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones...">{{ data.gestion_tiempo.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_gestion_tiempo" rows="2" placeholder="Observaciones...">{{ data.gestion_tiempo.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -658,31 +684,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_servicio_cliente" class="logro-input" value="0">
+                    <input type="hidden" name="logro_servicio_cliente" class="logro-input" value="{{ data.servicio_cliente.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones...">{{ data.servicio_cliente.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_servicio_cliente" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_servicio_cliente" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.servicio_cliente.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones...">{{ data.servicio_cliente.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_servicio_cliente" rows="2" placeholder="Observaciones...">{{ data.servicio_cliente.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -725,31 +751,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_iniciativa" class="logro-input" value="0">
+                    <input type="hidden" name="logro_iniciativa" class="logro-input" value="{{ data.iniciativa.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones...">{{ data.iniciativa.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_iniciativa" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_iniciativa" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.iniciativa.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones...">{{ data.iniciativa.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_iniciativa" rows="2" placeholder="Observaciones...">{{ data.iniciativa.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -768,8 +794,8 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Ponderación: {% if es_lider %}7.00{% else %}9.03{% endif %}%</span>
-                        <input type="hidden" class="valor-weight" value="{% if es_lider %}7.00{% else %}9.03{% endif %}">
+                        <span class="badge-puntos">Ponderación: 7.00%</span>
+                        <input type="hidden" class="valor-weight" value="7.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -786,31 +812,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_asistencia" class="logro-input" value="0">
+                    <input type="hidden" name="logro_asistencia" class="logro-input" value="{{ data.asistencia.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones...">{{ data.asistencia.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_asistencia" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_asistencia" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.asistencia.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones...">{{ data.asistencia.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_asistencia" rows="2" placeholder="Observaciones...">{{ data.asistencia.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -829,8 +855,8 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge-puntos">Ponderación: {% if es_lider %}3.00{% else %}3.85{% endif %}%</span>
-                        <input type="hidden" class="valor-weight" value="{% if es_lider %}3.00{% else %}3.85{% endif %}">
+                        <span class="badge-puntos">Ponderación: 3.00%</span>
+                        <input type="hidden" class="valor-weight" value="3.00">
                         <span class="small text-muted">Impacto real: <strong class="puntos-reales text-primary">0.00</strong>%</span>
                     </div>
                 </div>
@@ -847,31 +873,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_puntualidad" class="logro-input" value="0">
+                    <input type="hidden" name="logro_puntualidad" class="logro-input" value="{{ data.puntualidad.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones...">{{ data.puntualidad.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_puntualidad" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_puntualidad" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.puntualidad.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones...">{{ data.puntualidad.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_puntualidad" rows="2" placeholder="Observaciones...">{{ data.puntualidad.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -909,31 +935,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_toma_decisiones" class="logro-input" value="0">
+                    <input type="hidden" name="logro_toma_decisiones" class="logro-input" value="{{ data.toma_decisiones.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones...">{{ data.toma_decisiones.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_toma_decisiones" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_toma_decisiones" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.toma_decisiones.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones...">{{ data.toma_decisiones.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_toma_decisiones" rows="2" placeholder="Observaciones...">{{ data.toma_decisiones.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -970,31 +996,31 @@
                             <h6>Excelente</h6>
                         </div>
                     </div>
-                    <input type="hidden" name="logro_desarrollo_colaboradores" class="logro-input" value="0">
+                    <input type="hidden" name="logro_desarrollo_colaboradores" class="logro-input" value="{{ data.desarrollo_colaboradores.logro|default:0 }}">
 
                     <div class="row">
                         {% if evaluador_es_lider and not es_autoevaluacion and not evaluando_a_mi_jefe and evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios del líder del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones...">{{ data.desarrollo_colaboradores.comentarios|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if es_autoevaluacion %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Compromisos de mejora del evaluado</label>
-                            <textarea class="form-control comp-textarea" name="comp_desarrollo_colaboradores" rows="2" placeholder="Acciones para el próximo ciclo..."></textarea>
+                            <textarea class="form-control comp-textarea" name="comp_desarrollo_colaboradores" rows="2" placeholder="Acciones para el próximo ciclo...">{{ data.desarrollo_colaboradores.compromisos|default:'' }}</textarea>
                         </div>
                         {%endif%}
                         {% if evaluando_a_mi_jefe %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi líder</label>
-                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones...">{{ data.desarrollo_colaboradores.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                         {% if not evaluando_a_mi_jefe and not es_autoevaluacion and not evaluando_a_mi_subordinado %}
                         <div class="col-md-6">
                             <label class="small fw-bold mb-1 text-muted">Comentarios hacia mi colega</label>
-                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones..."></textarea>
+                            <textarea class="form-control comp-textarea" name="com_desarrollo_colaboradores" rows="2" placeholder="Observaciones...">{{ data.desarrollo_colaboradores.comentarios|default:'' }}</textarea>
                         </div>
                         {% endif %}
                     </div>
@@ -1062,7 +1088,73 @@
         // Call immediately and after a delay to ensure layout is settled
         updateFooterPosition();
         setTimeout(updateFooterPosition, 500);
+
+        // Limpiar error de textarea al escribir
+        document.querySelectorAll('.comp-textarea').forEach(function(ta) {
+            ta.addEventListener('input', function() {
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                }
+            });
+        });
     });
+
+    /**
+     * Valida que todas las competencias visibles tengan calificación y comentario
+     */
+    document.getElementById('evalForm').addEventListener('submit', function(e) {
+        const cards = this.querySelectorAll('.competencia-card');
+        let primerError = null;
+
+        cards.forEach(function(card) {
+            let tieneError = false;
+
+            // Validar calificación
+            const logro = card.querySelector('.logro-input');
+            if (logro && logro.value === '0') {
+                card.classList.add('error-rating');
+                tieneError = true;
+            } else {
+                card.classList.remove('error-rating');
+            }
+
+            // Validar textarea(s) del card
+            card.querySelectorAll('.comp-textarea').forEach(function(ta) {
+                if (ta.value.trim() === '') {
+                    ta.classList.add('is-invalid');
+                    tieneError = true;
+                } else {
+                    ta.classList.remove('is-invalid');
+                }
+            });
+
+            if (tieneError && !primerError) primerError = card;
+        });
+
+        if (primerError) {
+            e.preventDefault();
+            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+
+    // Restaurar estado visual y cálculos si hay datos guardados
+    const savedLogros = {
+        comunicacion: {{ data.comunicacion.logro|default:'null' }},
+        trabajo_equipo: {{ data.trabajo_equipo.logro|default:'null' }},
+        resolucion_conflicto: {{ data.resolucion_conflicto.logro|default:'null' }},
+        gestion_tiempo: {{ data.gestion_tiempo.logro|default:'null' }},
+        servicio_cliente: {{ data.servicio_cliente.logro|default:'null' }},
+        iniciativa: {{ data.iniciativa.logro|default:'null' }},
+        asistencia: {{ data.asistencia.logro|default:'null' }},
+        puntualidad: {{ data.puntualidad.logro|default:'null' }},
+        toma_decisiones: {{ data.toma_decisiones.logro|default:'null' }},
+        desarrollo_colaboradores: {{ data.desarrollo_colaboradores.logro|default:'null' }},
+    };
+    for (const [key, logro] of Object.entries(savedLogros)) {
+        if (logro && logro > 0) {
+            selectRating(key, logro);
+        }
+    }
 
     /**
      * Selecciona la calificación y actualiza visualmente y matemáticamente
@@ -1086,12 +1178,15 @@
 
         selectedBox.classList.add(activeClass);
 
-        // 3. Actualizar inputs ocultos y cálculos
+        // 3. Actualizar inputs ocultos y cálculos, limpiar error si existía
+        row.classList.remove('error-rating');
         row.querySelector('.logro-input').value = value;
         const peso = parseFloat(row.querySelector('.valor-weight').value);
         const puntosReales = peso * factor;
-        
-        row.querySelector('.puntos-reales').innerText = puntosReales.toFixed(2);
+
+        const span = row.querySelector('.puntos-reales');
+        span.dataset.raw = puntosReales;
+        span.innerText = puntosReales.toFixed(2);
 
         // 4. Recalcular todo el formulario
         calcularTotalGeneral();
@@ -1103,7 +1198,7 @@
     function calcularTotalGeneral() {
         let total = 0;
         document.querySelectorAll('.puntos-reales').forEach(span => {
-            total += parseFloat(span.innerText);
+            total += parseFloat(span.dataset.raw || span.innerText);
         });
         
         // Actualizar visualizaciones

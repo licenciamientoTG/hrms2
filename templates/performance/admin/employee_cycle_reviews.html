@@ -154,7 +154,19 @@
                                         <th style="width:30%">Competencia</th>
                                         <th class="text-center" style="width:8%">Logro</th>
                                         <th>Comentarios del evaluador</th>
-                                        <th>Compromisos del empleado</th>
+                                        <th>
+                                            {% if review.badge_class == 'badge-self' %}
+                                                Compromisos del empleado
+                                            {% elif review.badge_class == 'badge-boss' %}
+                                                Comentarios de tu líder
+                                            {% elif review.badge_class == 'badge-peer' %}
+                                                Compromisos / Comentarios del par
+                                            {% elif review.badge_class == 'badge-sub' %}
+                                                Compromisos / Comentarios del colaborador
+                                            {% else %}
+                                                Compromisos / Comentarios
+                                            {% endif %}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>

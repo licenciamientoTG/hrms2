@@ -16,6 +16,9 @@
 <div class="container-fluid py-4 bg-light">
 
     <div class="d-flex justify-content-end mb-4 gap-2">
+        <button class="btn btn-outline-secondary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#puestosModal">
+            <i class="fas fa-briefcase me-2"></i>Puestos aptos
+        </button>
         <button class="btn btn-outline-success shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#aptosModal">
             <i class="fas fa-user-check me-2"></i>Aptos a Evaluación
         </button>
@@ -151,31 +154,42 @@
             {% for cycle in history_cycles %}
             <div class="col-12 col-md-6 col-lg-4">
                 <a href="{% url 'admin_cycle_participants' cycle.id %}" class="text-decoration-none">
-                    <div class="evaluation-card h-100 history-card-{{ forloop.counter0|divisibleby:1|yesno:',' }}{% cycle 'card-indigo' 'card-teal' 'card-rose' 'card-amber' 'card-violet' 'card-cyan' %}" style="cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.18)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-                        <div class="card-banner {% cycle 'banner-indigo' 'banner-teal' 'banner-rose' 'banner-amber' 'banner-violet' 'banner-cyan' %}">
-                            <span class="status-badge">Finalizada</span>
-                            <div class="text-white text-center">
-                                <i class="fas fa-trophy fa-2x mb-1" style="opacity:0.9;"></i>
-                                <div class="fw-bold fs-5">{{ cycle.year }}</div>
+                    <div class="card border-0 shadow-sm rounded-4 h-100" 
+                        style="cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                        onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'"
+                        onmouseout="this.style.transform='';this.style.boxShadow=''">
+
+                        {# Banner superior con color variado #}
+                        <div class="rounded-top-4 p-4 d-flex justify-content-between align-items-start {% cycle 'banner-indigo' 'banner-teal' 'banner-rose' 'banner-amber' 'banner-violet' 'banner-cyan' %}">
+                            
+                            {# Izquierda: trofeo, año y badge FINALIZADA abajo #}
+                            <div class="d-flex flex-column">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="fas fa-trophy text-white fs-4"></i>
+                                    <span class="text-white fw-bold fs-4">{{ cycle.year }}</span>
+                                </div>
+                                <span class="badge rounded-pill px-3 py-1 align-self-start"
+                                    style="background: rgba(255,255,255,0.25); color: white; font-size: 0.7rem; letter-spacing: 0.5px;">
+                                    FINALIZADA
+                                </span>
                             </div>
                         </div>
 
+                        {# Cuerpo de la tarjeta #}
                         <div class="card-body p-4 d-flex flex-column">
-                            <h6 class="fw-bold mb-1 text-dark">{{ cycle.name }}</h6>
-                            <p class="text-muted small mb-3">
-                                <i class="fas fa-list-ul me-1"></i> {{ cycle.get_type_display }}
-                            </p>
+                            <h6 class="fw-bold text-dark mb-2">{{ cycle.name }}</h6>
 
-                            <div class="mt-auto">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="text-muted small">Cerrado el:</span>
-                                    <span class="small fw-bold text-dark">{{ cycle.end_date|date:"d/m/Y"|default:"Cerrada" }}</span>
-                                </div>
-                                <div class="text-center border-top pt-2">
-                                    <span class="small fw-semibold" style="color: inherit; opacity: 0.75;"><i class="fas fa-users me-1"></i>Ver participantes</span>
-                                </div>
+                            <div class="d-flex align-items-center text-muted small mb-3">
+                                <i class="far fa-calendar me-2"></i>
+                                <span>Cerrado el: <strong class="text-dark">{{ cycle.end_date|date:"d/m/Y"|default:"—" }}</strong></span>
+                            </div>
+
+                            <div class="mt-auto pt-3 border-top d-flex align-items-center text-muted small">
+                                <i class="fas fa-users me-2 text-muted"></i>
+                                <span class="fw-semibold text-muted">Ver participantes</span>
                             </div>
                         </div>
+
                     </div>
                 </a>
             </div>
@@ -381,5 +395,65 @@ document.addEventListener('click', function(e) {
         }
     });
 });
+</script>
+
+{# --- MODAL PUESTOS APTOS --- #}
+<div class="modal fade" id="puestosModal" tabindex="-1" aria-labelledby="puestosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark" id="puestosModalLabel">
+                        <i class="fas fa-briefcase me-2 text-secondary"></i>Puestos Aptos para Evaluación
+                    </h5>
+                    <p class="text-muted small mb-0">Selecciona los puestos que participarán en las evaluaciones de desempeño.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <div class="list-group list-group-flush">
+                    {% for puesto in todos_puestos %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-1 puesto-item"
+                         data-nombre="{{ puesto.title|lower }}">
+                        <span class="small">{{ puesto.title }}</span>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input toggle-puesto" type="checkbox"
+                                   data-url="{% url 'toggle_puesto_evaluable' puesto.id %}"
+                                   {% if puesto.is_evaluable %}checked{% endif %}>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small text-center py-3">No hay puestos registrados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    document.addEventListener('change', function (e) {
+        const chk = e.target.closest('.toggle-puesto');
+        if (!chk) return;
+        const url = chk.dataset.url;
+        const checked = chk.checked;
+        fetch(url, {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        }).then(r => r.json()).then(function (data) {
+            if (!data.ok) {
+                chk.checked = !checked;
+            } else {
+                const badge = document.querySelector('#aptosModal .badge.bg-success');
+                if (badge) badge.textContent = data.aptos_count + ' encontrados';
+                const countInit = document.querySelector('#initEvalModal strong[data-aptos-count]');
+                if (countInit) countInit.textContent = data.aptos_count;
+            }
+        });
+    });
 </script>
 {% endblock %}

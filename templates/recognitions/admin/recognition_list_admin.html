@@ -117,6 +117,10 @@
             <td class="text-center">
               {% if rec.is_public %}
                 <span class="badge bg-light text-dark border"><i class="fa fa-globe me-1"></i>Todos</span>
+              {% elif rec.target_groups.all %}
+                {% for g in rec.target_groups.all %}
+                  <span class="badge bg-light text-dark border">{{ g.name }}</span>
+                {% endfor %}
               {% else %}
                 <span class="badge bg-light text-dark border">{{ rec.recipient_count }}</span>
               {% endif %}
