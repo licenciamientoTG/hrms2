@@ -171,6 +171,7 @@
                                 </thead>
                                 <tbody>
                                     {% for ans in answers %}
+                                    {% if ans.logro or ans.comentarios or ans.compromisos %}
                                     <tr>
                                         <td class="fw-semibold text-dark small">{{ ans.competencia_label }}</td>
                                         <td class="text-center">
@@ -187,6 +188,7 @@
                                         <td class="small text-muted">{{ ans.comentarios|default:"—" }}</td>
                                         <td class="small text-muted">{{ ans.compromisos|default:"—" }}</td>
                                     </tr>
+                                    {% endif %}
                                     {% endfor %}
                                 </tbody>
                             </table>

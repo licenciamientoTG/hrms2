@@ -145,9 +145,11 @@
       </div>
 
       <div class="card-footer bg-white border-0 text-center pb-4">
+         {% if not active_loan %}
          <button id="btn-enviar-solicitud" class="btn btn-success px-4" style="display: none;">
            Enviar solicitud
          </button>
+         {% endif %}
       </div>
     </div>
   </div>
