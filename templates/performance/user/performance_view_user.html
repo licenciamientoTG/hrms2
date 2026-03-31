@@ -6,337 +6,384 @@
 {% block styles %}
     <link rel="stylesheet" href="{% static 'css/performance.css' %}">
     <style>
-        /* Estilos rápidos para lograr el diseño de la imagen */
-        .stat-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            height: 100%;
-        }
-        .stat-card .icon-box {
-            width: 50px;
-            height: 50px;
-            background: #f0f7ff;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            color: #0d6efd;
-        }
-        .evaluation-card {
-            border: none;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-            transition: transform 0.2s;
-            background: white;
-            /* --- CAMBIO: Altura mínima para hacerla más larga --- */
-            min-height: 600px; 
-            display: flex;
-            flex-direction: column;
-        }
-        .evaluation-card:hover {
-            transform: translateY(-5px);
-        }
-        .card-banner {
-        height: 180px; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-        .card-body {
-        /* --- CAMBIO: Flex-grow hace que el cuerpo ocupe el espacio restante --- */
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between; /* Empuja el botón hacia abajo */
-        padding: 2rem !important; /* Más aire interno */
-    }
-        .status-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 0.65rem;
-            font-weight: bold;
-            padding: 4px 10px;
-            border-radius: 5px;
-            background: rgba(0,0,0,0.2);
-            color: white;
-            text-transform: uppercase;
-        }
-        .rating-display {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: white;
-        }
-        /* Contenedor principal de la paginación */
-        .pagination-container {
-            display: inline-block;
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .pagination-container .btn {
-            border: none;
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
-        /* Efecto hover para el enlace "Siguiente" */
-        .pagination-container a.btn:hover {
-            background-color: #f0f7ff;
-            color: #0056b3;
-        }
-
-        /* El botón de texto gris (Página X de Y) */
-        .pagination-container .text-muted {
-            color: #6c757d !important;
-            opacity: 1;
-        }
-        /* Estilo base para todos los identificadores */
         .badge-rel {
             display: inline-block;
-            padding: 6px 14px;
-            font-size: 0.75rem;
+            padding: 4px 12px;
+            font-size: 0.72rem;
             font-weight: 600;
-            border-radius: 50px; /* Estilo píldora perfecta */
+            border-radius: 50px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border: 1px solid transparent;
-            min-width: 140px; /* Uniformidad de ancho */
+            min-width: 120px;
             text-align: center;
         }
+        .badge-self  { background-color: #e0e7ff; color: #4338ca; }
+        .badge-sub   { background-color: #dcfce7; color: #15803d; }
+        .badge-boss  { background-color: #f3e8ff; color: #7e22ce; }
+        .badge-peer  { background-color: #fef3c7; color: #b45309; }
+        .badge-other { background-color: #f1f5f9; color: #475569; }
 
-        /* Paleta de colores Soft */
-        .badge-self { background-color: #e0e7ff; color: #4338ca; } /* Indigo */
-        .badge-sub  { background-color: #dcfce7; color: #15803d; } /* Verde */
-        .badge-boss { background-color: #f3e8ff; color: #7e22ce; } /* Morado */
-        .badge-peer { background-color: #fef3c7; color: #b45309; } /* Ámbar */
-        .badge-other { background-color: #f1f5f9; color: #475569; } /* Slate */
-
-        /* Estilo para el badge de "Pendiente" para que no compita */
-        .badge-status-pending {
-            background-color: transparent;
-            color: #94a3b8;
-            border: 1px solid #e2e8f0;
-            font-size: 0.7rem;
-            padding: 5px 12px;
+        .panel-col {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
+        .panel-header {
+            padding: 1.25rem 1.5rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .panel-body {
+            padding: 1rem 1.25rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .eval-row {
+            border-radius: 10px;
+            border: 1px solid #f1f5f9;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.6rem;
+            transition: background 0.15s;
+        }
+        .eval-row:hover { background: #f8faff; }
+        .cycle-history-card {
+            border-radius: 12px;
+            border: 1px solid #f1f5f9;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+            transition: box-shadow 0.2s;
+        }
+        .cycle-history-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+        .cycle-banner {
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .cycle-chevron { transition: transform 0.25s; }
     </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4 bg-light min-vh-100">
-    
+
     <div class="mb-4">
-        <h2 class="fw-bold text-dark">Mis Evaluaciones</h2>
-        <p class="text-muted">Consulta y descarga el historial de tu desempeño profesional.</p>
+        <h2 class="fw-bold text-dark">Evaluaciones de desempeño</h2>
+        <p class="text-muted small mb-0">Gestiona tus evaluaciones en curso y consulta tu historial de desempeño.</p>
     </div>
 
-    <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="icon-box"><i class="fas fa-clipboard-check"></i></div>
-                <p class="text-muted mb-1 small fw-bold">MIS RESULTADOS</p>
-                <h3 class="fw-bold mb-0">{{ total_evaluaciones }}</h3> </div>
-        </div>
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="icon-box" style="background: #fff9e6; color: #f1c40f;"><i class="fas fa-award"></i></div>
-                <p class="text-muted mb-1 small fw-bold">ÚLTIMA PUNTUACIÓN</p>
-                <h3 class="fw-bold mb-0">{{ ultima_puntuacion|floatformat:0 }}%</h3> 
+    {# ── TIRA SUPERIOR: Evaluación activa ── #}
+    {% if active_cycle and assignments %}
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-body p-4 border-start border-5 border-success">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <span class="badge bg-success-soft text-success mb-2">EN CURSO</span>
+                    <h4 class="fw-bold mb-1">{{ active_cycle.name }}</h4>
+                    <p class="text-muted mb-0 small">Año Fiscal: {{ active_cycle.year }} &nbsp;|&nbsp; Cierre: {{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}</p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0 d-flex align-items-center justify-content-md-end gap-3">
+                    {% if completadas_count == total_asignaciones %}
+                        <span class="badge bg-success rounded-pill px-3">{{ completadas_count }}/{{ total_asignaciones }} completadas ✓</span>
+                    {% elif completadas_count > 0 %}
+                        <span class="badge bg-warning text-dark rounded-pill px-3">{{ completadas_count }}/{{ total_asignaciones }} en progreso</span>
+                    {% else %}
+                        <span class="badge bg-secondary rounded-pill px-3">{{ completadas_count }}/{{ total_asignaciones }} completadas</span>
+                    {% endif %}
+                    <button class="btn btn-primary px-4 rounded-pill"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapseActivos"
+                            aria-expanded="false">
+                        Gestionar <i class="fas fa-chevron-down ms-1 small" id="chevronActivos"></i>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-
-    {% if active_cycle and assignments %}
-    <div class="mb-5">
-        <h5 class="fw-bold mb-3"><i class="fas fa-clock text-warning me-2"></i>Evaluación en curso</h5>
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-body p-4 border-start border-5 border-success">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <span class="badge bg-success-soft text-success mb-2">EN CURSO</span>
-                        <h4 class="fw-bold">{{ active_cycle.name }}</h4>
-                        <p class="text-muted mb-0 small">Año Fiscal: {{ active_cycle.year }} | Cierre: {{ active_cycle.end_date|date:"d M Y"|default:"Por definir" }}</p>
-                    </div>
-                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                        <p class="mb-2 small text-muted">Pendientes: <strong>{{ assignments|length }}</strong></p>
-                        <button class="btn btn-primary px-4 rounded-pill"
-                                type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#collapsePendientes"
-                                aria-expanded="false"
-                                aria-controls="collapsePendientes">
-                            Gestionar ahora
-                        </button>
-                        {% if completadas_count == total_asignaciones %}
-                            <span class="badge bg-success rounded-pill ms-2" title="Todas completadas">{{ completadas_count }}/{{ total_asignaciones }} ✓</span>
-                        {% elif completadas_count > 0 %}
-                            <span class="badge bg-warning text-dark rounded-pill ms-2" title="En progreso">{{ completadas_count }}/{{ total_asignaciones }}</span>
+        <div class="collapse" id="collapseActivos">
+            <div class="border-top px-4 pt-4 pb-3 bg-light">
+                <div class="row g-3">
+                {% for review in assignments %}
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="bg-white rounded-3 border p-3 d-flex align-items-center gap-3 h-100"
+                         style="transition: box-shadow 0.15s;"
+                         onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.08)'"
+                         onmouseout="this.style.boxShadow=''">
+                        <div class="{% if review.status == 'completed' %}bg-success text-white{% else %}bg-primary text-white{% endif %} rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:44px; height:44px; min-width:44px;">
+                            <i class="fas {% if review.status == 'completed' %}fa-check{% else %}fa-user{% endif %}" style="font-size:0.85rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="fw-semibold text-dark mb-1" style="font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                {{ review.employee.user.get_full_name }}
+                            </div>
+                            <span class="badge-rel {{ review.badge_class }}">{{ review.relationship_label }}</span>
+                        </div>
+                        {% if review.status == 'completed' %}
+                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-outline-success btn-sm rounded-pill px-3 flex-shrink-0" style="font-size:0.78rem;">Modificar</a>
                         {% else %}
-                            <span class="badge bg-secondary rounded-pill ms-2" title="Sin completar">{{ completadas_count }}/{{ total_asignaciones }}</span>
+                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-primary btn-sm rounded-pill px-3 flex-shrink-0" style="font-size:0.78rem;">Iniciar</a>
                         {% endif %}
                     </div>
                 </div>
+                {% endfor %}
+                </div>
             </div>
+        </div>
+    </div>
+    {% elif active_cycle %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4 border-start border-5 border-success">
+            <span class="badge bg-success-soft text-success mb-2">EN CURSO</span>
+            <h4 class="fw-bold mb-1">{{ active_cycle.name }}</h4>
+            <p class="text-muted mb-0 small">No tienes evaluaciones asignadas en este ciclo.</p>
         </div>
     </div>
     {% endif %}
-    <div class="collapse mb-5" id="collapsePendientes">
-        <div class="pt-3"> 
-            <h5 class="fw-bold mb-3">
-                <i class="fas fa-tasks text-primary me-2"></i>Personas por evaluar
-            </h5>
-            
-            <div class="row g-3">
-                {% if assignments %}
-                    {% for review in assignments %}
-                    <div class="col-12">
-                        <div class="card border-0 shadow-sm rounded-4 hover-shadow">
-                            <div class="card-body p-3">
-                                <div class="row align-items-center">
-                                    <div class="col-auto">
-                                        <div class="{% if review.status == 'completed' %}bg-success-soft text-success{% else %}bg-primary-soft text-primary{% endif %} rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                            <i class="fas {% if review.status == 'completed' %}fa-check-double{% else %}fa-user{% endif %}"></i>
+
+    {# ── DOS COLUMNAS: Historial dado | Mis resultados ── #}
+    <div class="row g-4">
+
+        {# ── IZQUIERDA: Evaluaciones que YO hice a otros ── #}
+        <div class="col-12 col-lg-6">
+            <div class="panel-col">
+                <div class="panel-header">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-pencil-alt text-primary me-2"></i>Evaluaciones realizadas por mi
+                    </h6>
+                    <p class="text-muted small mb-0 mt-1">Historial de evaluaciones realizadas a otros en ciclos cerrados</p>
+                </div>
+                <div class="panel-body">
+                    {% if given_cycles %}
+                        {% for cycle in given_cycles %}
+                        <div class="cycle-history-card">
+                            <div class="cycle-banner {{ cycle.banner_color }}">
+                                <div class="text-white">
+                                    <div style="font-size:0.65rem; font-weight:600; opacity:0.85; text-transform:uppercase; letter-spacing:0.1em;">{{ cycle.name }}</div>
+                                    <div style="font-size:0.75rem; opacity:0.75;">{{ cycle.year }} · Cerrado {{ cycle.end_date|date:"d/m/Y"|default:"—" }}</div>
+                                </div>
+                                <div class="text-white text-end">
+                                    <div style="font-size:0.6rem; font-weight:600; opacity:0.8; text-transform:uppercase;">Realizadas</div>
+                                    <div style="font-size:1.8rem; font-weight:900; line-height:1.1;">
+                                        {{ cycle.given_completed }}<span style="font-size:0.9rem;">/{{ cycle.given_total }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-3 py-2 d-flex align-items-center justify-content-between bg-white pair-toggle"
+                                 style="cursor:pointer;"
+                                 data-pair-index="{{ forloop.counter0 }}">
+                                <span class="text-muted small">
+                                    <i class="fas fa-users text-primary me-1"></i>
+                                    {{ cycle.given_total }} persona{{ cycle.given_total|pluralize:"s" }} evaluada{{ cycle.given_total|pluralize:"s" }}
+                                </span>
+                                <span class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    Ver detalle <i class="fas fa-chevron-down ms-1 small cycle-chevron"></i>
+                                </span>
+                            </div>
+                            <div class="collapse pair-collapse-left" data-pair-index="{{ forloop.counter0 }}" id="given-cycle-{{ cycle.id }}">
+                                <div class="px-3 pb-3 pt-1 bg-white border-top">
+                                    {% for rev in cycle.given_reviews %}
+                                    <div class="d-flex align-items-center gap-2 py-2 border-bottom border-light">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold small
+                                            {% if rev.status == 'completed' %}bg-success text-white{% else %}bg-light text-muted{% endif %}"
+                                             style="width:36px; height:36px; font-size:0.7rem;">
+                                            {% if rev.status == 'completed' %}<i class="fas fa-check"></i>{% else %}—{% endif %}
                                         </div>
-                                    </div>
-                                    <div class="col">
-                                        <h6 class="fw-bold mb-0">{{ review.employee.user.get_full_name }}</h6>
-                                        <p class="text-muted small mb-0">No. Empleado: {{ review.employee.employee_number }}</p>
-                                    </div>
-                                    <div class="col-md-auto text-end d-flex align-items-center gap-2">
-                                        <span class="badge-rel {{ review.badge_class }}">
-                                            {{ review.relationship_label }}
-                                        </span>
-                                        
-                                        {% if review.status == 'completed' %}
-                                            <span class="badge bg-success-soft text-success border border-success border-opacity-25 me-3 px-3">Realizado</span>
-                                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-outline-success btn-sm rounded-pill px-4">
-                                                Modificar <i class="fas fa-edit ms-1 small"></i>
-                                            </a>
+                                        <div class="flex-grow-1 min-width-0">
+                                            <div class="fw-semibold text-dark small">
+                                                {% if rev.employee %}{{ rev.employee.first_name }} {{ rev.employee.last_name }}{% else %}—{% endif %}
+                                            </div>
+                                        </div>
+                                        <span class="badge-rel {{ rev.badge_class }}">{{ rev.relationship_label }}</span>
+                                        {% if rev.status == 'completed' %}
+                                            <span class="badge bg-success-soft text-success border border-success border-opacity-25 px-2" style="font-size:0.65rem;">Completada</span>
                                         {% else %}
-                                            <span class="badge bg-light text-dark border me-3 px-3">Pendiente</span>
-                                            <a href="{% url 'evaluate_person' review.id %}" class="btn btn-primary btn-sm rounded-pill px-4">
-                                                Iniciar Evaluación
-                                            </a>
+                                            <span class="badge bg-light text-secondary border px-2" style="font-size:0.65rem;">No completada</span>
                                         {% endif %}
                                     </div>
+                                    {% empty %}
+                                    <p class="text-muted small text-center py-2 mb-0">Sin registros.</p>
+                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="col-12 text-center py-4">
-                        <p class="text-muted italic">No hay evaluaciones asignadas para este ciclo.</p>
-                    </div>
-                {% endif %}
+                        {% endfor %}
+
+                    {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-clipboard fa-2x mb-2 opacity-25"></i>
+                            <p class="small mb-0">Aún no has participado como evaluador en ciclos cerrados.</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="row g-4">
-        {% if my_finished_evaluations %}
-            {% for cycle in my_finished_evaluations %}
-            <div class="col-12 col-sm-6 col-lg-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-
-                    {# Banner superior con color variado #}
-                    <div class="rounded-top-4 p-4 {% cycle 'banner-teal' 'banner-indigo' 'banner-violet' 'banner-cyan' %}" style="min-height: 160px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        
-                        {# Badge FINALIZADO arriba a la derecha #}
-                        <span class="badge rounded-pill px-3 py-1"
-                            style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.25); color: white; font-size: 0.7rem; letter-spacing: 0.5px;">
-                            FINALIZADO
-                        </span>
-
-                        {# Promedio #}
-                        {% if cycle.avg_score is not None %}
-                            <div class="text-white text-center">
-                                <div class="text-uppercase mb-1" style="font-size: 0.65rem; font-weight: 600; opacity: 0.85; letter-spacing: 0.1em;">Promedio obtenido</div>
-                                <div style="font-size: 3rem; font-weight: 900; line-height: 1;">
-                                    {{ cycle.avg_score|floatformat:0 }}<span style="font-size: 1.4rem; font-weight: 600;">%</span>
+        {# ── DERECHA: Mis resultados (evaluaciones recibidas) ── #}
+        <div class="col-12 col-lg-6">
+            <div class="panel-col">
+                <div class="panel-header">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-star text-warning me-2"></i>Mis resultados
+                    </h6>
+                    <p class="text-muted small mb-0 mt-1">
+                        {{ total_evaluaciones }} ciclo{{ total_evaluaciones|pluralize:"s" }} finalizado{{ total_evaluaciones|pluralize:"s" }}
+                        {% if ultima_puntuacion %}
+                            &nbsp;·&nbsp; Última puntuación: <strong>{{ ultima_puntuacion|floatformat:0 }}%</strong>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="panel-body">
+                    {% if my_finished_evaluations %}
+                        {% for cycle in my_finished_evaluations %}
+                        <div class="cycle-history-card">
+                            <div class="cycle-banner {{ cycle.banner_color }}">
+                                <div class="text-white">
+                                    <div style="font-size:0.65rem; font-weight:600; opacity:0.85; text-transform:uppercase; letter-spacing:0.1em;">{{ cycle.name }}</div>
+                                    <div style="font-size:0.75rem; opacity:0.75;">{{ cycle.year }} · Cerrado {{ cycle.end_date|date:"d/m/Y"|default:"—" }}</div>
+                                </div>
+                                {% if cycle.avg_score is not None %}
+                                <div class="text-white text-end">
+                                    <div style="font-size:0.6rem; font-weight:600; opacity:0.8; text-transform:uppercase;">Promedio</div>
+                                    <div style="font-size:1.8rem; font-weight:900; line-height:1.1;">
+                                        {{ cycle.avg_score|floatformat:0 }}<span style="font-size:0.9rem;">%</span>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="text-white text-end">
+                                    <div style="font-size:0.6rem; font-weight:600; opacity:0.8; text-transform:uppercase;">Promedio</div>
+                                    <div style="font-size:1.8rem; font-weight:900; line-height:1.1;">
+                                        0<span style="font-size:0.9rem;">%</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="px-3 py-2 d-flex align-items-center justify-content-between bg-white pair-toggle"
+                                 style="cursor:pointer;"
+                                 data-pair-index="{{ forloop.counter0 }}">
+                                <span class="text-muted small">
+                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                    {{ cycle.reviews_received }} evaluación{{ cycle.reviews_received|pluralize:"es" }} recibida{{ cycle.reviews_received|pluralize:"s" }}
+                                </span>
+                                <span class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                                    Ver detalle <i class="fas fa-chevron-down ms-1 small cycle-chevron"></i>
+                                </span>
+                            </div>
+                            <div class="collapse pair-collapse-right" data-pair-index="{{ forloop.counter0 }}" id="reviews-cycle-{{ cycle.id }}">
+                                <div class="px-3 pb-3 pt-1 bg-white border-top">
+                                    {% for rev in cycle.inline_reviews %}
+                                    <div class="d-flex align-items-center gap-2 py-2 border-bottom border-light">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold small
+                                            {% if rev.status == 'completed' %}bg-success text-white{% else %}bg-light text-muted{% endif %}"
+                                             style="width:38px; height:38px; font-size:0.75rem;">
+                                            {% if rev.status == 'completed' and rev.rating %}{{ rev.rating|floatformat:0 }}%{% else %}—{% endif %}
+                                        </div>
+                                        <div class="flex-grow-1 min-width-0">
+                                            <div class="fw-semibold text-dark small">
+                                                {% if rev.reviewer %}{{ rev.reviewer.first_name }} {{ rev.reviewer.last_name }}{% else %}Sin evaluador{% endif %}
+                                            </div>
+                                        </div>
+                                        <span class="badge-rel {{ rev.badge_class }}">{{ rev.relationship_label }}</span>
+                                        {% if rev.status == 'completed' %}
+                                            <span class="badge bg-success-soft text-success border border-success border-opacity-25 px-2" style="font-size:0.65rem;">Completada</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-secondary border px-2" style="font-size:0.65rem;">No completada</span>
+                                        {% endif %}
+                                    </div>
+                                    {% empty %}
+                                    <p class="text-muted small text-center py-2 mb-0">Sin evaluaciones registradas.</p>
+                                    {% endfor %}
                                 </div>
                             </div>
-                        {% else %}
-                            <div class="text-white text-center">
-                                <i class="fas fa-history fa-2x mb-2" style="opacity: 0.7;"></i>
-                                <div style="font-size: 0.75rem; opacity: 0.8;">Sin calificación</div>
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-                    {# Cuerpo #}
-                    <div class="card-body p-4 d-flex flex-column">
-                        <h6 class="fw-bold text-dark mb-3">{{ cycle.name }}</h6>
-
-                        <div class="d-flex align-items-center text-muted small mb-2">
-                            <i class="far fa-calendar-alt me-2"></i>
-                            <div>
-                                <div style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600;">Año</div>
-                                <div class="fw-bold text-dark">{{ cycle.year }}</div>
-                            </div>
                         </div>
+                        {% endfor %}
 
-                        <div class="d-flex align-items-center text-muted small mb-3">
-                            <i class="fas fa-flag-checkered me-2"></i>
-                            <div>
-                                <div style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600;">Cerrado el</div>
-                                <div class="fw-bold text-dark">{{ cycle.end_date|date:"d/m/Y"|default:"—" }}</div>
-                            </div>
+
+                    {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-clipboard-list fa-2x mb-2 opacity-25"></i>
+                            <p class="small mb-0">Aún no tienes evaluaciones finalizadas.</p>
                         </div>
-
-                        <div class="d-flex align-items-center text-muted small mb-4">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <span>{{ cycle.reviews_received }} evaluación{{ cycle.reviews_received|pluralize:"es" }} completada{{ cycle.reviews_received|pluralize:"s" }}</span>
-                        </div>
-
-                        <div class="mt-auto">
-                            <a href="{% url 'my_cycle_history_detail' cycle.id %}" class="btn btn-dark w-100 rounded-3 py-2">
-                                Ver Detalle <i class="fas fa-external-link-alt ms-2 small"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-            {% endfor %}
-            {% if my_finished_evaluations.has_other_pages %}
-            <div class="d-flex justify-content-start mt-4">
-                <div class="btn-group pagination-custom shadow-sm" role="group">
-                    {% if my_finished_evaluations.has_previous %}
-                        <a href="?page={{ my_finished_evaluations.previous_page_number }}" class="btn btn-outline-secondary btn-pag">
-                            « Anterior
-                        </a>
-                    {% endif %}
-                    <span class="btn btn-light btn-pag-info disabled">
-                        Página {{ my_finished_evaluations.number }} de {{ my_finished_evaluations.paginator.num_pages }}
-                    </span>
-                    {% if my_finished_evaluations.has_next %}
-                        <a href="?page={{ my_finished_evaluations.next_page_number }}" class="btn btn-outline-secondary btn-pag">
-                            Siguiente »
-                        </a>
                     {% endif %}
                 </div>
             </div>
-            {% endif %}
-        {% else %}
-            <div class="col-12">
-                <div class="text-center py-5 bg-white rounded-4 shadow-sm">
-                    <i class="fas fa-clipboard-list fa-3x text-muted opacity-25 mb-3"></i>
-                    <h6 class="text-muted fw-bold">No hay evaluaciones registradas</h6>
-                </div>
-            </div>
+        </div>
+
+    </div>
+
+    {# ── Paginación compartida ── #}
+    {% if my_finished_evaluations.has_other_pages or given_cycles.has_other_pages %}
+    <div class="d-flex justify-content-center mt-4 gap-2">
+        {% if my_finished_evaluations.has_previous %}
+            <a href="?page={{ my_finished_evaluations.previous_page_number }}" class="btn btn-sm btn-outline-secondary rounded-pill">« Anterior</a>
+        {% endif %}
+        <span class="btn btn-sm btn-light disabled">
+            Página {{ my_finished_evaluations.number }} de {{ my_finished_evaluations.paginator.num_pages }}
+        </span>
+        {% if my_finished_evaluations.has_next %}
+            <a href="?page={{ my_finished_evaluations.next_page_number }}" class="btn btn-sm btn-outline-secondary rounded-pill">Siguiente »</a>
         {% endif %}
     </div>
+    {% endif %}
+
 </div>
+
+<script>
+    // Chevron de la tira activa
+    var collapseActivos = document.getElementById('collapseActivos');
+    var chevronActivos = document.getElementById('chevronActivos');
+    if (collapseActivos && chevronActivos) {
+        collapseActivos.addEventListener('show.bs.collapse', function() {
+            chevronActivos.style.transform = 'rotate(180deg)';
+            chevronActivos.style.transition = 'transform 0.25s';
+        });
+        collapseActivos.addEventListener('hide.bs.collapse', function() {
+            chevronActivos.style.transform = 'rotate(0deg)';
+        });
+    }
+
+    // Accordion sincronizado: abrir par izq+der, cerrar el anterior
+    var currentOpen = null;
+
+    document.querySelectorAll('.pair-toggle').forEach(function(toggle) {
+        toggle.addEventListener('click', function() {
+            var idx = this.getAttribute('data-pair-index');
+            var leftEl  = document.querySelector('.pair-collapse-left[data-pair-index="'  + idx + '"]');
+            var rightEl = document.querySelector('.pair-collapse-right[data-pair-index="' + idx + '"]');
+            var leftToggle  = document.querySelector('.pair-toggle[data-pair-index="' + idx + '"]:first-of-type');
+
+            if (currentOpen === idx) {
+                // Cerrar el par abierto
+                bootstrap.Collapse.getOrCreateInstance(leftEl,  {toggle: false}).hide();
+                bootstrap.Collapse.getOrCreateInstance(rightEl, {toggle: false}).hide();
+                // Rotar chevrons hacia abajo
+                document.querySelectorAll('.pair-toggle[data-pair-index="' + idx + '"] .cycle-chevron').forEach(function(ch) {
+                    ch.style.transform = 'rotate(0deg)';
+                });
+                currentOpen = null;
+            } else {
+                // Cerrar el par anterior
+                if (currentOpen !== null) {
+                    var prevLeft  = document.querySelector('.pair-collapse-left[data-pair-index="'  + currentOpen + '"]');
+                    var prevRight = document.querySelector('.pair-collapse-right[data-pair-index="' + currentOpen + '"]');
+                    if (prevLeft)  bootstrap.Collapse.getOrCreateInstance(prevLeft,  {toggle: false}).hide();
+                    if (prevRight) bootstrap.Collapse.getOrCreateInstance(prevRight, {toggle: false}).hide();
+                    document.querySelectorAll('.pair-toggle[data-pair-index="' + currentOpen + '"] .cycle-chevron').forEach(function(ch) {
+                        ch.style.transform = 'rotate(0deg)';
+                    });
+                }
+                // Abrir el nuevo par
+                bootstrap.Collapse.getOrCreateInstance(leftEl,  {toggle: false}).show();
+                bootstrap.Collapse.getOrCreateInstance(rightEl, {toggle: false}).show();
+                document.querySelectorAll('.pair-toggle[data-pair-index="' + idx + '"] .cycle-chevron').forEach(function(ch) {
+                    ch.style.transition = 'transform 0.25s';
+                    ch.style.transform = 'rotate(180deg)';
+                });
+                currentOpen = idx;
+            }
+        });
+    });
+</script>
 {% endblock %}

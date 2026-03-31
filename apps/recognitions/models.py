@@ -1,8 +1,35 @@
+import unicodedata
+import re
+import os
+
 from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.contrib.auth.models import Group
+
+
+def _sanitize_upload(subdir, instance, filename):
+    """Reemplaza caracteres no-ASCII del nombre de archivo antes de guardarlo."""
+    name, ext = os.path.splitext(filename)
+    # Normaliza unicode (ej. á → a, ñ → n) y elimina lo que queda no-ASCII
+    name = unicodedata.normalize('NFKD', name)
+    name = name.encode('ascii', 'ignore').decode('ascii')
+    name = re.sub(r'[^\w\s.-]', '', name).strip().replace(' ', '_')
+    name = name or 'archivo'
+    return f"{subdir}/{name}{ext}"
+
+
+def recognition_image_upload(instance, filename):
+    return _sanitize_upload('recognitions', instance, filename)
+
+
+def recognition_media_upload(instance, filename):
+    return _sanitize_upload('recognitions', instance, filename)
+
+
+def recognition_cover_upload(instance, filename):
+    return _sanitize_upload('recognitions/covers', instance, filename)
 
 HEX_VALIDATOR = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
@@ -20,7 +47,7 @@ class RecognitionCategory(models.Model):
 
     # Imagen de portada opcional
     cover_image = models.ImageField(
-        _("Imagen de portada"), upload_to="recognitions/covers/", null=True, blank=True
+        _("Imagen de portada"), upload_to=recognition_cover_upload, null=True, blank=True
     )
 
     # Switches para la portada
@@ -46,7 +73,7 @@ class Recognition(models.Model):
     author      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recognitions_sent')
     category    = models.ForeignKey('RecognitionCategory', on_delete=models.PROTECT)
     message     = models.TextField(blank=True)
-    image       = models.ImageField(upload_to='recognitions/', blank=True, null=True)
+    image       = models.ImageField(upload_to=recognition_image_upload, blank=True, null=True)
     created_at  = models.DateTimeField(auto_now_add=True)
     email_subject = models.CharField(max_length=255, blank=True, null=True)
     target_groups = models.ManyToManyField(Group, blank=True, related_name='visible_recognitions')
@@ -133,7 +160,7 @@ class RecognitionMedia(models.Model):
         on_delete=models.CASCADE,
         related_name='media'
     )
-    file = models.ImageField(upload_to='recognitions/')
+    file = models.ImageField(upload_to=recognition_media_upload)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
