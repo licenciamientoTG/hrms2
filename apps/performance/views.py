@@ -170,7 +170,9 @@ def performance_view(request):
 @user_passes_test(es_evaluador, login_url='performance_view_user')
 def performance_view_admin(request):
     active_cycle = PerformanceReviewCycle.objects.filter(status='active').first()
-    history_cycles = PerformanceReviewCycle.objects.filter(status='closed').order_by('-end_date')
+    history_cycles_qs = PerformanceReviewCycle.objects.filter(status='closed').order_by('-start_date', '-id')
+    paginator_admin = Paginator(history_cycles_qs, 6)
+    history_cycles = paginator_admin.get_page(request.GET.get('page'))
     depts_progreso = {}
 
     if active_cycle:
@@ -180,25 +182,36 @@ def performance_view_admin(request):
 
         for revisor in revisores:
             stats = PerformanceReview.objects.filter(
-                cycle=active_cycle, 
+                cycle=active_cycle,
                 reviewer=revisor
             ).aggregate(
                 total=Count('id'),
-                # CAMBIO: Filtramos por status='completed'
                 completadas=Count('id', filter=Q(status='completed'))
             )
-            
+
             dept_name = revisor.department.name if revisor.department else "General / Otros"
             if dept_name not in depts_progreso:
-                depts_progreso[dept_name] = []
+                depts_progreso[dept_name] = {
+                    'evaluadores': [],
+                    'completados': 0,
+                    'total': 0,
+                    'evaluaciones_completadas': 0,
+                    'evaluaciones_totales': 0,
+                }
 
-            depts_progreso[dept_name].append({
+            terminado = (stats['completadas'] == stats['total'] and stats['total'] > 0)
+            depts_progreso[dept_name]['evaluadores'].append({
                 'nombre': f"{revisor.first_name} {revisor.last_name}",
                 'total': stats['total'],
                 'completadas': stats['completadas'],
                 'porcentaje': round((stats['completadas'] / stats['total'] * 100), 1) if stats['total'] > 0 else 0,
-                'terminado': (stats['completadas'] == stats['total'] and stats['total'] > 0)
+                'terminado': terminado,
             })
+            depts_progreso[dept_name]['total'] += 1
+            depts_progreso[dept_name]['evaluaciones_totales'] += stats['total']
+            depts_progreso[dept_name]['evaluaciones_completadas'] += stats['completadas']
+            if terminado:
+                depts_progreso[dept_name]['completados'] += 1
 
     # Aptos a evaluación: puesto en lista + más de 6 meses de antigüedad
     fecha_corte = timezone.now().date() - timedelta(days=183)
@@ -290,10 +303,79 @@ def performance_view_user(request):
         ).aggregate(avg=Avg('rating'))
         ultima_puntuacion = avg_result['avg'] or 0
 
-    # Paginación
-    paginator = Paginator(history_cycles_qs, 2)
+    # Paginación - Mis resultados (evaluaciones recibidas)
+    paginator = Paginator(history_cycles_qs, 6)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    BANNER_COLORS = ['banner-teal', 'banner-rose', 'banner-amber', 'banner-emerald', 'banner-sky', 'banner-pink']
+
+    # Adjuntar reviews a cada ciclo de la página para el collapse inline
+    nombre_empleado = f"{current_employee.last_name}, {current_employee.first_name}"
+    for i, cycle in enumerate(page_obj):
+        cycle_reviews = PerformanceReview.objects.filter(
+            cycle=cycle,
+            employee=current_employee,
+        ).select_related('reviewer', 'reviewer__user').order_by('-status', 'reviewer__last_name')
+        for rev in cycle_reviews:
+            revisor = rev.reviewer
+            if revisor is None:
+                rev.relationship_label = "Sin evaluador"
+                rev.badge_class = "badge-other"
+            elif revisor == current_employee:
+                rev.relationship_label = "Autoevaluación"
+                rev.badge_class = "badge-self"
+            elif current_employee.responsible and f"{revisor.last_name}, {revisor.first_name}" == current_employee.responsible:
+                rev.relationship_label = "Jefe Directo"
+                rev.badge_class = "badge-boss"
+            elif revisor.responsible and nombre_empleado.lower() in revisor.responsible.lower():
+                rev.relationship_label = "Colaborador Directo"
+                rev.badge_class = "badge-sub"
+            elif revisor.responsible == current_employee.responsible:
+                rev.relationship_label = "Colega (Par)"
+                rev.badge_class = "badge-peer"
+            else:
+                rev.relationship_label = "Colaborador"
+                rev.badge_class = "badge-other"
+        cycle.inline_reviews = cycle_reviews
+        cycle.banner_color = BANNER_COLORS[i % len(BANNER_COLORS)]
+
+    # 4. HISTORIAL DE EVALUACIONES QUE YO HICE (ciclos cerrados donde fui revisor)
+    given_cycles_qs = PerformanceReviewCycle.objects.filter(
+        status='closed',
+        reviews__reviewer=current_employee
+    ).distinct().annotate(
+        given_total=Count('reviews', filter=Q(reviews__reviewer=current_employee)),
+        given_completed=Count('reviews', filter=Q(reviews__reviewer=current_employee, reviews__status='completed')),
+    ).order_by('-start_date', '-id')
+
+    paginator_given = Paginator(given_cycles_qs, 6)
+    page_given_obj = paginator_given.get_page(page_number)
+
+    for i, cycle in enumerate(page_given_obj):
+        given_reviews = PerformanceReview.objects.filter(
+            cycle=cycle,
+            reviewer=current_employee,
+        ).select_related('employee', 'employee__user').order_by('-status', 'employee__last_name')
+        for rev in given_reviews:
+            target = rev.employee
+            if target == current_employee:
+                rev.relationship_label = "Autoevaluación"
+                rev.badge_class = "badge-self"
+            elif target.responsible == nombre_empleado:
+                rev.relationship_label = "Colaborador Directo"
+                rev.badge_class = "badge-sub"
+            elif current_employee.responsible == f"{target.last_name}, {target.first_name}":
+                rev.relationship_label = "Jefe Directo"
+                rev.badge_class = "badge-boss"
+            elif target.responsible == current_employee.responsible:
+                rev.relationship_label = "Colega (Par)"
+                rev.badge_class = "badge-peer"
+            else:
+                rev.relationship_label = "Colaborador"
+                rev.badge_class = "badge-other"
+        cycle.given_reviews = given_reviews
+        cycle.banner_color = BANNER_COLORS[i % len(BANNER_COLORS)]
 
     context = {
         'active_cycle': active_cycle,
@@ -303,6 +385,7 @@ def performance_view_user(request):
         'my_finished_evaluations': page_obj,
         'total_evaluaciones': total_evaluaciones,
         'ultima_puntuacion': ultima_puntuacion,
+        'given_cycles': page_given_obj,
     }
     return render(request, 'performance/user/performance_view_user.html', context)
 

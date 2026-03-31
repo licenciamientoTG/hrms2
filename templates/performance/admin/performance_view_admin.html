@@ -22,26 +22,22 @@
         <button class="btn btn-outline-success shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#aptosModal">
             <i class="fas fa-user-check me-2"></i>Aptos a Evaluación
         </button>
+        {% if not active_cycle %}
         <button class="btn btn-primary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#initEvalModal">
             <i class="fas fa-play me-2"></i>Iniciar Evaluación
         </button>
+        {% endif %}
     </div>
     {# --- SECCIÓN 1: EVALUACIÓN ACTIVA --- #}
     {% if active_cycle %}
         <div class="card active-evaluation-card shadow mb-5">
-            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between" 
-                 data-bs-toggle="collapse" 
-                 data-bs-target="#collapseActive">
-                
-                <div class="d-flex align-items-center">
-                    <div class="me-4 text-center">
-                        <span class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-1 rounded-pill mb-1">
-                            <i class="fas fa-sync fa-spin me-1"></i> EN CURSO
-                        </span>
-                        <div class="small text-muted mt-1">Activa</div>
-                    </div>
-                    <div>
-                        <h4 class="m-0 font-weight-bold text-dark mb-1">{{ active_cycle.name|default:"Evaluación Actual" }}</h4>
+            <div class="card-header active-evaluation-header py-3 px-4 d-flex flex-wrap align-items-center gap-3">
+                <div class="d-flex align-items-center flex-grow-1 gap-3">
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-1 rounded-pill flex-shrink-0">
+                        <i class="fas fa-sync fa-spin me-1"></i> EN CURSO
+                    </span>
+                    <div class="min-width-0">
+                        <h5 class="m-0 fw-bold text-dark text-truncate">{{ active_cycle.name|default:"Evaluación Actual" }}</h5>
                         <p class="text-muted mb-0 small">
                             <i class="fas fa-list-ul me-1"></i> {{ active_cycle.get_type_display|default:"Cualitativa" }}
                             <span class="mx-2">|</span>
@@ -49,14 +45,10 @@
                         </p>
                     </div>
                 </div>
-            <div class="card-header active-evaluation-header py-4 d-flex align-items-center justify-content-between">
-                <div class="d-flex gap-2">
-                    {# Botón para ver estadísticas (el que ya tienes) #}
+                <div class="d-flex gap-2 flex-shrink-0">
                     <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="collapse" data-bs-target="#collapseActive">
                         Avance <i class="fas fa-chevron-down ms-1"></i>
                     </button>
-
-                    {# NUEVO: Botón para Finalizar el Ciclo #}
                     <form action="{% url 'close_performance_cycle' active_cycle.id %}" method="POST" class="d-inline js-confirm-close">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-danger shadow-sm px-3">
@@ -65,81 +57,144 @@
                     </form>
                 </div>
             </div>
-            </div>
-            <div id="collapseActive" class="collapse show">
-                <div class="card-body bg-white pt-4 pb-4 px-4">
-                    <h5 class="fw-bold text-dark mb-4"><i class="fas fa-sitemap me-2 text-primary"></i>Avance por Departamento</h5>
-                    
-                    <div class="accordion accordion-flush border rounded-3 overflow-hidden" id="accordionDepts">
-                        {% for dept, evaluadores in depts_progreso.items %}
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed py-3 bg-light bg-opacity-50" type="button" 
-                                        data-bs-toggle="collapse" data-bs-target="#dept-{{ forloop.counter }}">
-                                    <div class="d-flex justify-content-between w-100 align-items-center me-3">
-                                        <div>
-                                            <span class="fw-bold text-dark">{{ dept }}</span>
-                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-2 rounded-pill">
-                                                {{ evaluadores|length }} Evaluadores
-                                            </span>
-                                        </div>
-                                    </div>
-                                </button>
-                            </h2>
-                            <div id="dept-{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#accordionDepts">
-                                <div class="accordion-body p-0">
-                                    <div class="table-responsive">
-                                        <table class="table table-hover align-middle mb-0">
-                                            <thead class="table-light small text-uppercase fw-bold text-muted">
-                                                <tr>
-                                                    <th class="ps-4">Evaluador</th>
-                                                    <th style="width: 45%;">Progreso Individual</th>
-                                                    <th class="text-center">Estatus</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for item in evaluadores %}
-                                                <tr>
-                                                    <td class="ps-4">
-                                                        <div class="fw-bold">{{ item.nombre }}</div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="d-flex align-items-center">
-                                                            <div class="progress flex-grow-1" style="height: 8px; border-radius: 4px; background-color: #eee;">
-                                                                <div class="progress-bar {% if item.terminado %}bg-success{% else %}bg-primary{% endif %}" 
-                                                                    role="progressbar" style="width: {{ item.porcentaje }}%"></div>
-                                                            </div>
-                                                            <span class="ms-3 small fw-bold text-muted">{{ item.completadas }}/{{ item.total }}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td class="text-center">
-                                                        {% if item.terminado %}
-                                                            <span class="badge bg-success-soft text-success px-3 rounded-pill">
-                                                                <i class="fas fa-check-circle"></i> Listo
-                                                            </span>
-                                                        {% else %}
-                                                            <span class="badge bg-warning-soft text-warning px-3 rounded-pill">
-                                                                <i class="fas fa-clock"></i> Pendiente
-                                                            </span>
-                                                        {% endif %}
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
+            <div id="collapseActive" class="collapse">
+            <div class="card-body bg-white pt-4 pb-4 px-4">
+                <h5 class="fw-bold text-dark mb-3">
+                <i class="fas fa-sitemap me-2 text-primary"></i>Avance por Departamento
+                </h5>
+
+                <!-- Buscador + filtros -->
+                <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                <div class="input-group" style="max-width: 280px;">
+                    <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted small"></i>
+                    </span>
+                    <input type="text" id="deptSearch" class="form-control border-start-0"
+                        placeholder="Buscar departamento..." oninput="filtrarDepts()">
+                </div>
+                <button class="btn btn-sm btn-outline-secondary active" id="f-all"
+                        onclick="setFiltro('all')">Todos</button>
+                <button class="btn btn-sm btn-outline-success" id="f-done"
+                        onclick="setFiltro('done')">Listos</button>
+                <button class="btn btn-sm btn-outline-warning" id="f-pend"
+                        onclick="setFiltro('pend')">Pendientes</button>
+                </div>
+
+                <!-- Grid de tarjetas -->
+                <div class="row g-4" id="deptGrid">
+                {% for dept, data in depts_progreso.items %}
+                <div class="col-12 col-md-6 col-xl-4 dept-col"
+                    data-dept="{{ dept|lower }}"
+                    data-done="{% if data.completados == data.total %}1{% else %}0{% endif %}">
+                    <div class="card h-100 border-0 shadow-sm rounded-3 dept-card"
+                         style="cursor:pointer; transition: transform 0.15s, box-shadow 0.15s;"
+                         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.1)'"
+                         onmouseout="this.style.transform='';this.style.boxShadow=''"
+                         data-bs-toggle="modal" data-bs-target="#modalDept{{ forloop.counter }}">
+
+                        {# Franja superior de color #}
+                        <div class="rounded-top-3 px-4 pt-3 pb-2
+                            {% if data.completados == data.total %}bg-success{% else %}bg-primary{% endif %}
+                            bg-opacity-10">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="fw-bold text-dark" style="font-size:0.9rem;">{{ dept }}</span>
+                                {% if data.completados == data.total %}
+                                    <span class="badge bg-success rounded-pill px-2 py-1" style="font-size:0.7rem;">
+                                        <i class="fas fa-check me-1"></i>Listo
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-2 py-1" style="font-size:0.7rem;">
+                                        <i class="fas fa-clock me-1"></i>Pendiente
+                                    </span>
+                                {% endif %}
                             </div>
                         </div>
-                        {% empty %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fas fa-info-circle mb-2 fa-2x"></i><br>
-                            No hay asignaciones registradas en este ciclo.
+
+                        <div class="card-body px-4 pt-3 pb-4">
+                            <div class="text-muted mb-3" style="font-size:0.8rem;">
+                                <i class="fas fa-users me-1"></i>
+                                {{ data.total }} evaluador{{ data.total|pluralize:"es" }}
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <div class="progress flex-grow-1" style="height:8px; border-radius:4px;">
+                                    {% if data.evaluaciones_totales > 0 %}
+                                    <div class="progress-bar rounded-pill
+                                        {% if data.evaluaciones_completadas == data.evaluaciones_totales %}bg-success{% else %}bg-primary{% endif %}"
+                                        role="progressbar"
+                                        style="width: {% widthratio data.evaluaciones_completadas data.evaluaciones_totales 100 %}%">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <span class="fw-bold text-muted" style="font-size:0.8rem; min-width:46px; text-align:right;">
+                                    {{ data.evaluaciones_completadas }}/{{ data.evaluaciones_totales }}
+                                </span>
+                            </div>
+                            <div class="text-muted mt-2" style="font-size:0.75rem;">
+                                <i class="fas fa-mouse-pointer me-1 opacity-50"></i>Clic para ver detalle
+                            </div>
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
+
+                <!-- Modal detalle -->
+                <div class="modal fade" id="modalDept{{ forloop.counter }}" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                        <h5 class="modal-title fw-bold">{{ dept }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase fw-bold text-muted">
+                            <tr>
+                                <th class="ps-4">Evaluador</th>
+                                <th style="width:45%">Progreso</th>
+                                <th class="text-center">Estatus</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for item in data.evaluadores %}
+                            <tr>
+                                <td class="ps-4"><div class="fw-bold">{{ item.nombre }}</div></td>
+                                <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1" style="height:8px;">
+                                    <div class="progress-bar {% if item.terminado %}bg-success{% else %}bg-primary{% endif %}"
+                                        style="width:{{ item.porcentaje }}%"></div>
+                                    </div>
+                                    <span class="ms-3 small fw-bold text-muted">{{ item.completadas }}/{{ item.total }}</span>
+                                </div>
+                                </td>
+                                <td class="text-center">
+                                {% if item.terminado %}
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">
+                                    <i class="fas fa-check-circle"></i> Listo
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3">
+                                    <i class="fas fa-clock"></i> Pendiente
+                                    </span>
+                                {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i><br>
+                    No hay asignaciones registradas en este ciclo.
+                </div>
+                {% endfor %}
+                </div>
             </div>
+            </div>
+
         </div>
     {% endif %}
 
@@ -195,6 +250,22 @@
             </div>
             {% endfor %}
         </div>
+
+        {# Paginación #}
+        {% if history_cycles.has_other_pages %}
+        <div class="d-flex justify-content-center mt-4 gap-2">
+            {% if history_cycles.has_previous %}
+                <a href="?page={{ history_cycles.previous_page_number }}" class="btn btn-sm btn-outline-secondary rounded-pill">« Anterior</a>
+            {% endif %}
+            <span class="btn btn-sm btn-light disabled">
+                Página {{ history_cycles.number }} de {{ history_cycles.paginator.num_pages }}
+            </span>
+            {% if history_cycles.has_next %}
+                <a href="?page={{ history_cycles.next_page_number }}" class="btn btn-sm btn-outline-secondary rounded-pill">Siguiente »</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
     {% else %}
         <div class="text-center py-5 border rounded-3 bg-white shadow-sm" style="border-style: dashed !important;">
             <div class="mb-3">
@@ -365,37 +436,7 @@
 
 {% endblock %}
 
-{% block scripts %}
-<script src="{% static 'js/performance.js' %}"></script>
-<script>
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('.btn-excluir-apto');
-    if (!btn) return;
 
-    const url = btn.dataset.url;
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
-                   || '{{ csrf_token }}';
-
-    fetch(url, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrfToken },
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-            const row = btn.closest('tr');
-            row.remove();
-            const count = document.querySelectorAll('#aptosTableBody tr').length;
-            // Actualizar contador del badge en modal de aptos
-            const badge = document.querySelector('#aptosModal .badge.bg-success');
-            if (badge) badge.textContent = count + ' encontrados';
-            // Actualizar contador en modal de iniciar evaluación
-            const countInit = document.querySelector('#initEvalModal strong[data-aptos-count]');
-            if (countInit) countInit.textContent = count;
-        }
-    });
-});
-</script>
 
 {# --- MODAL PUESTOS APTOS --- #}
 <div class="modal fade" id="puestosModal" tabindex="-1" aria-labelledby="puestosModalLabel" aria-hidden="true">
@@ -436,30 +477,6 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<script>
-
-    document.addEventListener('change', function (e) {
-        const chk = e.target.closest('.toggle-puesto');
-        if (!chk) return;
-        const url = chk.dataset.url;
-        const checked = chk.checked;
-        fetch(url, {
-            method: 'POST',
-            headers: {'X-CSRFToken': '{{ csrf_token }}'},
-        }).then(r => r.json()).then(function (data) {
-            if (!data.ok) {
-                chk.checked = !checked;
-            } else {
-                const row = chk.closest('.puesto-item');
-                const label = row.querySelector('span.small');
-                const item = chk.closest('.puesto-item');
-                item.style.borderLeftColor = checked ? '#0d6efd' : 'transparent';
-                const badge = document.querySelector('#aptosModal .badge.bg-success');
-                if (badge) badge.textContent = data.aptos_count + ' encontrados';
-                const countInit = document.querySelector('#initEvalModal strong[data-aptos-count]');
-                if (countInit) countInit.textContent = data.aptos_count;
-            }
-        });
-    });
-</script>
+{% block scripts %}
+<script src="{% static 'js/performance.js' %}"></script>
 {% endblock %}
