@@ -309,6 +309,7 @@ def recibir_datos1(request):
         fondo_ahorro = _as_decimal(data.get('FondoAhorro'), '0')
         salario_diario = _as_decimal(data.get('SalarioDiario'), '0')
         responsable = _safe_str(data.get('Responsable'))
+        # Lider = _safe_str(data.get('Lider'))
 
         grat_separacion = _as_decimal(data.get('Grat.Separacion'), '0')
         indemnizacion = _as_decimal(data.get('Indemnizacion'), '0')
@@ -366,6 +367,7 @@ def recibir_datos1(request):
             "saving_fund": fondo_ahorro,
             "daily_salary": salario_diario,
             "responsible": responsable,
+            # "leader": _safe_str(data.get('Lider')),
             "separation_gratuity": grat_separacion,
             "indemnification": indemnizacion,
             "seniority_bonus": prima_antig, 

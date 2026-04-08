@@ -64,14 +64,19 @@
         </thead>
         <tbody>
           {% for s in page_obj.object_list %}
-          <tr data-id="{{ s.id }}" 
-              data-empleado="{{ s.user.get_full_name|default:s.user.username }}" 
-              data-tipo="{{ s.tipo_solicitud }}" 
-              data-dias="{{ s.total_days }}" 
+          <tr data-id="{{ s.id }}"
+              data-empleado="{{ s.user.get_full_name|default:s.user.username }}"
+              data-tipo="{{ s.tipo_solicitud }}"
+              data-dias="{{ s.total_days }}"
               data-inicio="{{ s.start_date|date:'d/m/Y' }}"
               data-fin="{{ s.end_date|date:'d/m/Y' }}"
-              data-razon="{{ s.reason|default:''|escapejs }}"
-              data-estado="{{ s.status }}">
+              data-razon="{{ s.reason|default:'' }}"
+              data-lider="{{ s.manager_approver.get_full_name|default:'' }}"
+              data-comentario-lider="{{ s.comentario_lider|default:'' }}"
+              data-comentario-rh="{{ s.comentario_rh|default:'' }}"
+              data-estado="{{ s.status }}"
+              data-documento="{% if s.documento %}{{ s.documento.url }}{% endif %}"
+              data-documento-lider="{% if s.documento_lider %}{{ s.documento_lider.url }}{% endif %}">
             
             <td>{{ s.id }}</td>
             <td>{{ s.user.get_full_name|default:s.user.username }}</td>
@@ -186,8 +191,21 @@
             <p class="mb-1"><strong>Estado:</strong> <span id="det-estado" class="badge bg-secondary"></span></p>
           </div>
           <div class="col-12">
-            <p class="mb-1"><strong>Motivo/Observaciones:</strong></p>
-            <div id="det-razon" class="p-2 bg-light rounded text-muted"></div>
+            <p class="mb-1 fw-semibold">Comentarios:</p>
+            <div class="mb-2">
+              <small class="text-muted text-uppercase fw-semibold">Colaborador <span id="det-nombre-colab" class="text-muted fw-normal"></span></small>
+              <div id="det-razon-colab" class="p-2 bg-light rounded text-muted small mt-1">—</div>
+              <div class="mt-2" id="det-documento"></div>
+            </div>
+            <div class="mb-2">
+              <small class="text-muted text-uppercase fw-semibold">Líder / Responsable <span id="det-nombre-lider" class="text-muted fw-normal"></span></small>
+              <div id="det-razon-lider" class="p-2 bg-light rounded text-muted small mt-1">—</div>
+              <div class="mt-2" id="det-documento-lider"></div>
+            </div>
+            <div class="mb-2" id="det-razon-rh-wrap">
+              <small class="text-muted text-uppercase fw-semibold">Capital Humano</small>
+              <div id="det-razon-rh" class="p-2 bg-light rounded text-muted small mt-1">—</div>
+            </div>
           </div>
         </div>
       </div>
@@ -198,7 +216,7 @@
   </div>
 </div>
 
-<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true" data-role="{{ role }}">
   <div class="modal-dialog">
     <form class="modal-content" id="formAtender" enctype="multipart/form-data" method="post">
       {% csrf_token %}
@@ -217,9 +235,24 @@
             {% endif %}
         </div>
 
+        <!-- Datos de la solicitud (solo lectura) -->
+        <div class="mb-3 p-3 border rounded bg-light">
+          <p class="mb-1 fw-semibold">Comentarios de la solicitud:</p>
+          <div class="mb-2">
+            <small class="text-muted text-uppercase fw-semibold">Colaborador <span id="att-nombre-colab" class="text-muted fw-normal"></span></small>
+            <div id="att-razon-colab" class="text-muted small mt-1">—</div>
+            <div class="mt-2" id="att-documento-empleado"></div>
+          </div>
+          <div class="mb-2 d-none" id="att-seccion-lider">
+            <small class="text-muted text-uppercase fw-semibold">Líder / Responsable <span id="att-nombre-lider" class="text-muted fw-normal"></span></small>
+            <div id="att-razon-lider" class="text-muted small mt-1">—</div>
+            <div class="mt-2" id="att-documento-lider"></div>
+          </div>
+        </div>
+
         <div class="mb-3">
-          <label class="form-label">Comprobante (PDF, opcional)</label>
-          <input type="file" name="pdf_respuesta" accept="application/pdf" class="form-control">
+          <label class="form-label">Comprobante (PDF o imagen, opcional)</label>
+          <input type="file" name="pdf_respuesta" accept="application/pdf,image/jpeg,image/png,image/jpg" class="form-control">
         </div>
         <div class="mb-3">
           <label class="form-label">Comentario (opcional)</label>
@@ -245,45 +278,80 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Manejar botones "Atender"
+
+    // Helper: genera el enlace al documento
+    function docLink(url) {
+        if (!url) return '<span class="text-muted small">Sin documento adjunto.</span>';
+        const isImg = /\.(jpg|jpeg|png)$/i.test(url);
+        const icon  = isImg ? 'bi-file-earmark-image' : 'bi-file-earmark-pdf';
+        const label = isImg ? 'Ver imagen adjunta' : 'Ver documento adjunto';
+        return `<a href="${url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi ${icon} me-1"></i> ${label}
+                </a>`;
+    }
+
+    // 1. Modal Atender (jefe y RH)
     const modalAtender = document.getElementById('modalAtender');
     if (modalAtender) {
+        const esRH = modalAtender.getAttribute('data-role') === 'rh';
+        const seccionLider = document.getElementById('att-seccion-lider');
+
+        if (esRH) {
+            seccionLider.classList.remove('d-none');
+        }
+
         modalAtender.addEventListener('show.bs.modal', function(event) {
-            const btn = event.relatedTarget;
-            const tr = btn.closest('tr');
-            
-            // Llenar datos
-            const id = tr.getAttribute('data-id');
-            document.getElementById('att-id').value = id;
-            document.getElementById('att-id-label').textContent = '#' + id;
+            const tr = event.relatedTarget.closest('tr');
+
+            document.getElementById('att-id').value = tr.getAttribute('data-id');
+            document.getElementById('att-id-label').textContent = '#' + tr.getAttribute('data-id');
+
+            const nombreColab = tr.getAttribute('data-empleado') || '';
+            const nombreLider = tr.getAttribute('data-lider') || '';
+            document.getElementById('att-nombre-colab').textContent = nombreColab ? `(${nombreColab})` : '';
+            document.getElementById('att-razon-colab').textContent = tr.getAttribute('data-razon') || 'Sin comentarios.';
+            document.getElementById('att-documento-empleado').innerHTML = docLink(tr.getAttribute('data-documento'));
+
+            if (esRH) {
+                document.getElementById('att-nombre-lider').textContent = nombreLider ? `(${nombreLider})` : '';
+                document.getElementById('att-razon-lider').textContent = tr.getAttribute('data-comentario-lider') || '—';
+                document.getElementById('att-documento-lider').innerHTML = docLink(tr.getAttribute('data-documento-lider'));
+            }
         });
     }
 
-    // 2. Manejar botones "Ver Detalle"
+    // 2. Modal Ver Detalle
     const modalDetalle = document.getElementById('modalDetalleVac');
     if (modalDetalle) {
         modalDetalle.addEventListener('show.bs.modal', function(event) {
-            const btn = event.relatedTarget;
-            const tr = btn.closest('tr');
+            const tr = event.relatedTarget.closest('tr');
 
-            // Extraer data attributes
-            document.getElementById('det-id').textContent = '#' + tr.getAttribute('data-id');
+            document.getElementById('det-id').textContent       = '#' + tr.getAttribute('data-id');
             document.getElementById('det-empleado').textContent = tr.getAttribute('data-empleado');
-            document.getElementById('det-tipo').textContent = tr.getAttribute('data-tipo');
-            document.getElementById('det-dias').textContent = tr.getAttribute('data-dias');
-            document.getElementById('det-inicio').textContent = tr.getAttribute('data-inicio');
-            document.getElementById('det-fin').textContent = tr.getAttribute('data-fin');
-            document.getElementById('det-razon').textContent = tr.getAttribute('data-razon') || 'Sin comentarios.';
-            
-            // Estado
+            document.getElementById('det-tipo').textContent     = tr.getAttribute('data-tipo');
+            document.getElementById('det-dias').textContent     = tr.getAttribute('data-dias');
+            document.getElementById('det-inicio').textContent   = tr.getAttribute('data-inicio');
+            document.getElementById('det-fin').textContent      = tr.getAttribute('data-fin');
+
+            const detNombreColab = tr.getAttribute('data-empleado') || '';
+            const detNombreLider = tr.getAttribute('data-lider') || '';
+            document.getElementById('det-nombre-colab').textContent = detNombreColab ? `(${detNombreColab})` : '';
+            document.getElementById('det-nombre-lider').textContent = detNombreLider ? `(${detNombreLider})` : '';
+            document.getElementById('det-razon-colab').textContent = tr.getAttribute('data-razon') || '—';
+            document.getElementById('det-razon-lider').textContent = tr.getAttribute('data-comentario-lider') || '—';
+            document.getElementById('det-razon-rh').textContent    = tr.getAttribute('data-comentario-rh') || '—';
+
+            document.getElementById('det-documento').innerHTML = docLink(tr.getAttribute('data-documento'));
+            document.getElementById('det-documento-lider').innerHTML = docLink(tr.getAttribute('data-documento-lider'));
+
+            // Estado badge
             const st = tr.getAttribute('data-estado');
             const badge = document.getElementById('det-estado');
-            badge.textContent = st;
-            
-            // Resetear clases y poner la correcta
-            badge.className = 'badge'; 
-            if (st === 'approved') badge.classList.add('bg-success');
-            else if (st === 'rejected') badge.classList.add('bg-danger');
+            const labels = { approved: 'Finalizada', authorized: 'Autorizada por Jefe', rejected: 'Rechazada', pending: 'Pendiente de Jefe' };
+            badge.textContent = labels[st] || st;
+            badge.className = 'badge';
+            if (st === 'approved')    badge.classList.add('bg-success');
+            else if (st === 'rejected')   badge.classList.add('bg-danger');
             else if (st === 'authorized') badge.classList.add('bg-info', 'text-dark');
             else badge.classList.add('bg-warning', 'text-dark');
         });

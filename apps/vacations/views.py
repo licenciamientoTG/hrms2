@@ -5,9 +5,10 @@ from .models import VacationRequest
 from django.contrib import messages
 from datetime import datetime
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Value
+from django.db.models.functions import Concat
 from django.contrib.auth.models import User
-from apps.notifications.models import Notification  
+from apps.notifications.models import Notification
 
 # ==========================================
 # HELPER: Obtener nombre real del Manager
@@ -18,15 +19,11 @@ def get_manager_name(user):
     """
     try:
         emp = Employee.objects.get(user=user)
-        # Construye "PRUEBA USER"
-        return f"{emp.first_name} {emp.last_name}".strip() 
+        # Formato igual al campo responsible: "Apellidos, Nombres"
+        return f"{emp.last_name}, {emp.first_name}".strip()
     except Employee.DoesNotExist:
         pass
 
-    full_name = f"{user.first_name} {user.last_name}".strip()
-    if full_name:
-        return full_name
-        
     return user.username
 
 def is_manager(user):
@@ -91,6 +88,23 @@ def vacation_form_user(request):
             messages.error(request, 'La fecha fin no puede ser menor a la fecha inicio.')
             return redirect('vacation_form_user')
 
+        # Validar que no se traslapen con solicitudes ya activas
+        traslape = VacationRequest.objects.filter(
+            user=request.user,
+            status__in=['pending', 'authorized', 'approved'],
+            start_date__lte=end_date,
+            end_date__gte=start_date,
+        ).first()
+
+        if traslape:
+            messages.error(
+                request,
+                f'Ya tienes una solicitud ({traslape.tipo_solicitud}) del '
+                f'{traslape.start_date.strftime("%d/%m/%Y")} al '
+                f'{traslape.end_date.strftime("%d/%m/%Y")} que se traslapa con las fechas seleccionadas.'
+            )
+            return redirect('vacation_form_user')
+
         if tipo == 'Vacaciones':
             dias_solicitados = (end_date - start_date).days + 1
             try:
@@ -118,27 +132,27 @@ def vacation_form_user(request):
         # ---------------------------------------------------------
         try:
             emp_profile = Employee.objects.get(user=request.user)
-            nombre_responsable = emp_profile.responsible.strip()
+            nombre_responsable = (emp_profile.responsible or '').strip()
 
             if nombre_responsable:
-                responsable_user = None
-                # Buscar usuario que coincida con el nombre del responsable
-                all_users = User.objects.filter(is_active=True)
-                for u in all_users:
-                    full_name = f"{u.first_name} {u.last_name}".strip()
-                    if full_name.lower() == nombre_responsable.lower() or u.username.lower() == nombre_responsable.lower():
-                        responsable_user = u
-                        break
-                
-                if responsable_user:
+                # Buscar al jefe en Employee por nombre en formato "Apellidos, Nombres"
+                jefe_emp = Employee.objects.annotate(
+                    full_name=Concat('last_name', Value(', '), 'first_name')
+                ).filter(
+                    full_name__iexact=nombre_responsable,
+                    user__isnull=False
+                ).select_related('user').first()
+
+                if jefe_emp:
                     Notification.objects.create(
-                        user=responsable_user,
+                        user=jefe_emp.user,
                         title="Nueva Solicitud de Vacaciones",
-                        body=f"{request.user.get_full_name()} ha solicitado {tipo}.",
-                        url="/vacations/gestion/", 
+                        body=f"{emp_profile.first_name} {emp_profile.last_name} ha solicitado {tipo}.",
+                        url="/vacations/gestion/",
                         module="vacaciones"
                     )
-                    # print(f"DEBUG: Notificación enviada a {responsable_user.username}")
+                else:
+                    print(f"[Vacaciones] No se encontró usuario para el responsable: '{nombre_responsable}'")
         except Exception as e:
             print(f"Error al enviar notificación: {e}")
         # ---------------------------------------------------------
@@ -185,6 +199,7 @@ def vacation_form_manager(request):
         req_id = request.POST.get('req_id')
         accion = request.POST.get('accion')
         comentario = request.POST.get('comentario', '').strip()
+        pdf_lider = request.FILES.get('pdf_respuesta')
 
         req = get_object_or_404(VacationRequest, pk=req_id)
 
@@ -198,9 +213,9 @@ def vacation_form_manager(request):
 
         if accion == 'aprobar':
             req.status = 'authorized'
-            req.manager_approver = request.user 
+            req.manager_approver = request.user
             msg = 'autorizada. Se envió a Capital Humano.'
-            
+
             # Datos para la notificación
             notif_titulo = "Solicitud Autorizada por Jefe"
             notif_verbo = "autorizado"
@@ -208,40 +223,57 @@ def vacation_form_manager(request):
         elif accion == 'rechazar':
             req.status = 'rejected'
             msg = 'rechazada.'
-            
+
             # Datos para la notificación
             notif_titulo = "Solicitud Rechazada por Jefe"
             notif_verbo = "rechazado"
         else:
             return redirect('vacation_form_manager')
-        
+
         if comentario:
-            req.reason = f"{req.reason or ''}\n\n[Responsable]: {comentario}"
-        
+            req.comentario_lider = comentario
+        if pdf_lider:
+            req.documento_lider = pdf_lider
+
         req.save()
 
         # ---------------------------------------------------------
-        # NOTIFICACIÓN AL ADMINISTRADOR (RH)
+        # NOTIFICACIONES SEGÚN ACCIÓN
         # ---------------------------------------------------------
         try:
-            # Buscamos a todos los usuarios administradores (RH)
-            rh_users = User.objects.filter(is_staff=True, is_active=True)
+            nombre_jefe = get_manager_name(request.user)
 
-            nombre_jefe = request.user.get_full_name() or request.user.username
-            nombre_empleado = req.user.get_full_name() or req.user.username
+            if accion == 'aprobar':
+                # Notificar a RH para que procese la solicitud
+                rh_users = User.objects.filter(is_staff=True, is_active=True)
+                nombre_empleado = req.user.get_full_name() or req.user.username
+                for rh in rh_users:
+                    Notification.objects.create(
+                        user=rh,
+                        title="Solicitud Autorizada por Jefe",
+                        body=f"{nombre_jefe} autorizó la solicitud de {nombre_empleado}.",
+                        url="/vacations/capital-humano/",
+                        module="vacaciones"
+                    )
 
-            for rh in rh_users:
+            elif accion == 'rechazar':
+                # Notificar al empleado que su solicitud fue rechazada
+                try:
+                    emp_jefe = Employee.objects.get(user=request.user)
+                    nombre_jefe_display = f"{emp_jefe.first_name} {emp_jefe.last_name}"
+                except Employee.DoesNotExist:
+                    nombre_jefe_display = request.user.get_full_name() or request.user.username
+
                 Notification.objects.create(
-                    user=rh,  # Destinatario (Cada admin)
-                    title=notif_titulo,
-                    body=f"El jefe {nombre_jefe} ha {notif_verbo} la solicitud de {nombre_empleado}.",
-                    url="/vacations/capital-humano/", # Link directo a la bandeja de RH
+                    user=req.user,
+                    title="Solicitud Rechazada",
+                    body=f"Tu solicitud de {req.tipo_solicitud} fue rechazada por {nombre_jefe_display}.",
+                    url="/vacations/mis-solicitudes/?tab=completados",
                     module="vacaciones"
                 )
-            print(f"DEBUG: Notificación enviada a {rh_users.count()} administradores.")
 
         except Exception as e:
-            print(f"Error enviando notificación a RH: {e}")
+            print(f"Error enviando notificación: {e}")
         # ---------------------------------------------------------
 
         messages.success(request, f'Solicitud #{req.id} {msg}')
@@ -309,7 +341,7 @@ def vacation_form_rh(request):
             notif_cuerpo = f"Tu solicitud de {req.tipo_solicitud} ha sido RECHAZADA por Capital Humano."
         
         if pdf: req.documento = pdf
-        if comentario: req.reason = f"{req.reason or ''}\n\n[RH]: {comentario}"
+        if comentario: req.comentario_rh = comentario
 
         req.save()
 
@@ -318,10 +350,10 @@ def vacation_form_rh(request):
         # ---------------------------------------------------------
         try:
             Notification.objects.create(
-                user=req.user,  # El dueño de la solicitud
+                user=req.user,
                 title=notif_titulo,
                 body=notif_cuerpo,
-                url="/vacations/mis-solicitudes/", # Link a su historial
+                url="/vacations/mis-solicitudes/?tab=completados",
                 module="vacaciones"
             )
             print(f"DEBUG: Notificación final enviada al usuario {req.user.username}")
