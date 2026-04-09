@@ -86,31 +86,33 @@
             
             <td>
                 {% with st=s.status %}
-                <span class="badge 
+                <span class="badge
                     {% if st == 'approved' %} bg-success
                     {% elif st == 'rejected' %} bg-danger
-                    {% elif st == 'authorized' %} bg-info text-dark
+                    {% elif st == 'authorized' %}
+                        {% if s.manager_approver %} bg-info text-dark
+                        {% else %} text-dark" style="background-color:#f0c4f0
+                        {% endif %}
                     {% elif st == 'pending' %} bg-warning text-dark
                     {% else %} bg-secondary {% endif %}">
-                    
+
                     {% if st == 'approved' %}
-                        Finalizada 
+                        Finalizada
                         {% if s.manager_approver %}
                             <br><small style="font-size:0.75em">(Aut: {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }})</small>
                         {% endif %}
-                    
-                    {% elif st == 'rejected' %} 
+
+                    {% elif st == 'rejected' %}
                         Rechazada
 
                     {% elif st == 'authorized' %}
-                        Autorizada por 
                         {% if s.manager_approver %}
-                            {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }}
+                            Autorizada por {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }}
                         {% else %}
-                            Jefe
+                            Sin líder asignado
                         {% endif %}
 
-                    {% elif st == 'pending' %} 
+                    {% elif st == 'pending' %}
                         Pendiente de Jefe
                     {% endif %}
                 </span>
@@ -347,13 +349,18 @@ document.addEventListener('DOMContentLoaded', function() {
             // Estado badge
             const st = tr.getAttribute('data-estado');
             const badge = document.getElementById('det-estado');
-            const labels = { approved: 'Finalizada', authorized: 'Autorizada por Jefe', rejected: 'Rechazada', pending: 'Pendiente de Jefe' };
+            const tieneLider = tr.getAttribute('data-lider') && tr.getAttribute('data-lider').trim() !== '';
+            const labels = { approved: 'Finalizada', authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado', rejected: 'Rechazada', pending: 'Pendiente de Jefe' };
             badge.textContent = labels[st] || st;
-            badge.className = 'badge';
-            if (st === 'approved')    badge.classList.add('bg-success');
-            else if (st === 'rejected')   badge.classList.add('bg-danger');
-            else if (st === 'authorized') badge.classList.add('bg-info', 'text-dark');
-            else badge.classList.add('bg-warning', 'text-dark');
+            badge.className = 'badge text-dark';
+            badge.style.backgroundColor = '';
+            if (st === 'approved')         badge.classList.add('bg-success');
+            else if (st === 'rejected')    badge.classList.add('bg-danger');
+            else if (st === 'authorized')  {
+                if (tieneLider) badge.classList.add('bg-info');
+                else badge.style.backgroundColor = '#f0c4f0';
+            }
+            else badge.classList.add('bg-warning');
         });
     }
 });

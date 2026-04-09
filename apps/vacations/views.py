@@ -5,32 +5,139 @@ from .models import VacationRequest
 from django.contrib import messages
 from datetime import datetime
 from django.core.paginator import Paginator
-from django.db.models import Q, Value
-from django.db.models.functions import Concat
+from django.db.models import Q
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
+import re
 
 # ==========================================
-# HELPER: Obtener nombre real del Manager
+# HELPERS: Lógica de líder (campo leader)
 # ==========================================
-def get_manager_name(user):
+
+def _extract_leader_name(leader_raw):
     """
-    Intenta obtener el nombre exacto que se usaría en el campo 'responsible'.
+    Quita el prefijo de código/estación del campo leader y retorna solo el nombre.
+    Maneja formatos como:
+      '1149 - Montes Guillermo, Jose'  -> 'Montes Guillermo, Jose'
+      'ADMONFIN - Luis Miguel Franco'  -> 'Luis Miguel Franco'
+      '1376-Joel Briseño'              -> 'Joel Briseño'
+      'Luis Ivan Meraz Reyes'          -> 'Luis Ivan Meraz Reyes'
+    """
+    if not leader_raw:
+        return ''
+    cleaned = re.sub(r'^[\w]+\s*-\s*', '', leader_raw.strip())
+    if cleaned.lower() in ('no aplica', 'desconocido', ''):
+        return ''
+    return cleaned.strip()
+
+
+def _find_leader_employee(leader_raw):
+    """
+    A partir del valor crudo del campo leader, encuentra el Employee con usuario
+    que corresponde a ese líder. Maneja nombres truncados y ambos formatos
+    (con coma 'Apellidos, Nombres' y sin coma 'Nombres Apellidos').
+    Retorna None si no lo encuentra.
+    """
+    name = _extract_leader_name(leader_raw)
+    if not name:
+        return None
+
+    if ',' in name:
+        # Formato "Apellidos, Nombres" — posiblemente truncado
+        left, right = name.split(',', 1)
+        apellidos = left.strip()
+        nombres = right.strip()
+        qs = Employee.objects.filter(
+            last_name__istartswith=apellidos,
+            user__isnull=False,
+            user__is_active=True
+        )
+        if nombres:
+            qs = qs.filter(first_name__istartswith=nombres)
+    else:
+        tokens = name.split()
+        if len(tokens) >= 2:
+            base = dict(user__isnull=False, user__is_active=True)
+            # Intento 1: primer token = first_name, último token en last_name
+            qs = Employee.objects.filter(
+                first_name__istartswith=tokens[0],
+                last_name__icontains=tokens[-1],
+                **base
+            )
+            # Intento 2: primer token = last_name, último token en first_name
+            if not qs.exists():
+                qs = Employee.objects.filter(
+                    last_name__istartswith=tokens[0],
+                    first_name__icontains=tokens[-1],
+                    **base
+                )
+            # Intento 3 (3+ tokens): el último puede estar truncado,
+            # usar el token del medio como apellido
+            if not qs.exists() and len(tokens) >= 3:
+                qs = Employee.objects.filter(
+                    first_name__istartswith=tokens[0],
+                    last_name__icontains=tokens[1],
+                    **base
+                )
+            # Intento 4: primer token = last_name, segundo token en first_name
+            if not qs.exists() and len(tokens) >= 3:
+                qs = Employee.objects.filter(
+                    last_name__istartswith=tokens[0],
+                    first_name__icontains=tokens[1],
+                    **base
+                )
+        else:
+            qs = Employee.objects.filter(
+                Q(first_name__istartswith=name) | Q(last_name__istartswith=name),
+                user__isnull=False,
+                user__is_active=True
+            )
+
+    return qs.select_related('user').first()
+
+
+def _employees_of_leader(user):
+    """
+    Retorna queryset de Employee cuyos registros apuntan a este usuario
+    en el campo leader, usando búsqueda flexible por nombre (maneja
+    los distintos formatos y truncados del campo).
     """
     try:
         emp = Employee.objects.get(user=user)
-        # Formato igual al campo responsible: "Apellidos, Nombres"
-        return f"{emp.last_name}, {emp.first_name}".strip()
+        last = emp.last_name.strip()
+        first = emp.first_name.strip()
     except Employee.DoesNotExist:
-        pass
+        return Employee.objects.none()
 
-    return user.username
+    if not last and not first:
+        return Employee.objects.none()
+
+    # Usar solo el primer token del apellido y primeros chars del nombre
+    # para tolerar truncados en el campo leader (el sistema origen corta el texto)
+    last_prefix = last.split()[0][:7] if last else ''
+    first_prefix = first[:4] if first else ''
+
+    q = Q()
+    if last_prefix:
+        q &= Q(leader__icontains=last_prefix)
+    if first_prefix:
+        q &= Q(leader__icontains=first_prefix)
+
+    return Employee.objects.filter(q)
+
+
+def get_manager_name(user):
+    """Retorna el nombre para mostrar del usuario (usado en notificaciones)."""
+    try:
+        emp = Employee.objects.get(user=user)
+        return f"{emp.first_name} {emp.last_name}".strip()
+    except Employee.DoesNotExist:
+        return user.get_full_name() or user.username
+
 
 def is_manager(user):
-    """ Verifica si el usuario aparece como responsable de alguien """
-    name_to_search = get_manager_name(user)
-    # print(f"DEBUG: Buscando responsable: '{name_to_search}'")
-    return Employee.objects.filter(responsible__iexact=name_to_search).exists()
+    """Verifica si el usuario es líder de algún empleado."""
+    return _employees_of_leader(user).exists()
 
 # ==========================================
 # 1. ROUTER (Dashboard)
@@ -41,10 +148,9 @@ def vacation_dashboard(request):
         return redirect('vacation_form_rh')
     
     elif is_manager(request.user):
-        nombre_jefe = get_manager_name(request.user)
         tiene_pendientes = VacationRequest.objects.filter(
             status='pending',
-            user__employee__responsible__iexact=nombre_jefe
+            user__employee__in=_employees_of_leader(request.user)
         ).exists()
 
         if tiene_pendientes:
@@ -128,36 +234,50 @@ def vacation_form_user(request):
         )
 
         # ---------------------------------------------------------
-        # ENVIAR NOTIFICACIÓN AL RESPONSABLE
+        # ENVIAR NOTIFICACIÓN AL LÍDER (con fallback a RH)
         # ---------------------------------------------------------
         try:
             emp_profile = Employee.objects.get(user=request.user)
-            nombre_responsable = (emp_profile.responsible or '').strip()
+            leader_raw = (emp_profile.leader or '').strip()
+            nombre_emp = f"{emp_profile.first_name} {emp_profile.last_name}"
 
-            if nombre_responsable:
-                # Buscar al jefe en Employee por nombre en formato "Apellidos, Nombres"
-                jefe_emp = Employee.objects.annotate(
-                    full_name=Concat('last_name', Value(', '), 'first_name')
-                ).filter(
-                    full_name__iexact=nombre_responsable,
-                    user__isnull=False
-                ).select_related('user').first()
+            lider_emp = _find_leader_employee(leader_raw) if leader_raw else None
 
-                if jefe_emp:
+            if lider_emp:
+                Notification.objects.create(
+                    user=lider_emp.user,
+                    title="Nueva Solicitud de Vacaciones",
+                    body=f"{nombre_emp} ha solicitado {tipo}.",
+                    url="/vacations/gestion/",
+                    module="vacaciones"
+                )
+            else:
+                # Sin líder, líder sin cuenta o líder inactivo → saltar al flujo de RH
+                motivo = "sin líder asignado" if not leader_raw else f"líder '{leader_raw}' no encontrado o inactivo"
+                print(f"[Vacaciones] Fallback a RH para {nombre_emp}: {motivo}")
+
+                # Marcar como autorizada para que RH la vea en su bandeja normal
+                nueva_solicitud.status = 'authorized'
+                nueva_solicitud.save()
+
+                rh_users = User.objects.filter(is_active=True).filter(
+                    Q(is_superuser=True) |
+                    Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
+                    Q(is_staff=True, groups__permissions__codename='Modulo_vacaciones')
+                ).distinct()
+                for rh in rh_users:
                     Notification.objects.create(
-                        user=jefe_emp.user,
-                        title="Nueva Solicitud de Vacaciones",
-                        body=f"{emp_profile.first_name} {emp_profile.last_name} ha solicitado {tipo}.",
-                        url="/vacations/gestion/",
+                        user=rh,
+                        title="Nueva Solicitud de Vacaciones (sin líder)",
+                        body=f"{nombre_emp} ha solicitado {tipo}. No tiene líder activo asignado, revisar directamente.",
+                        url="/vacations/capital-humano/",
                         module="vacaciones"
                     )
-                else:
-                    print(f"[Vacaciones] No se encontró usuario para el responsable: '{nombre_responsable}'")
         except Exception as e:
             print(f"Error al enviar notificación: {e}")
         # ---------------------------------------------------------
 
-        messages.success(request, 'Solicitud enviada a tu responsable.')
+        messages.success(request, 'Solicitud enviada correctamente.')
         return redirect('vacation_form_user')
 
     # GET
@@ -172,16 +292,28 @@ def vacation_form_user(request):
     try:
         emp = Employee.objects.get(user=request.user)
         saldo_total = float(emp.vacation_balance or 0)
+        # Resolver a quién fue enviada cada solicitud pendiente
+        leader_raw = (emp.leader or '').strip()
+        lider_emp = _find_leader_employee(leader_raw) if leader_raw else None
+        if lider_emp:
+            enviada_a = f"{lider_emp.first_name} {lider_emp.last_name}"
+        elif leader_raw:
+            # Tiene líder en el campo pero no tiene usuario activo
+            enviada_a = f"Capital Humano (líder sin acceso al sistema)"
+        else:
+            enviada_a = "Capital Humano (sin líder asignado)"
     except Employee.DoesNotExist:
         saldo_total = 0
+        enviada_a = "Capital Humano"
 
-    soy_jefe = is_manager(request.user) 
+    soy_jefe = is_manager(request.user)
 
     context = {
         'pending_requests': pending_requests,
         'finished_requests': finished_requests,
         'saldo_total': saldo_total,
         'is_manager': soy_jefe,
+        'enviada_a': enviada_a,
     }
     return render(request, 'vacations/user/vacation_form_user.html', context)
 
@@ -244,8 +376,12 @@ def vacation_form_manager(request):
             nombre_jefe = get_manager_name(request.user)
 
             if accion == 'aprobar':
-                # Notificar a RH para que procese la solicitud
-                rh_users = User.objects.filter(is_staff=True, is_active=True)
+                # Notificar a superusers y staff con acceso al módulo de vacaciones
+                rh_users = User.objects.filter(is_active=True).filter(
+                    Q(is_superuser=True) |
+                    Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
+                    Q(is_staff=True, groups__permissions__codename='Modulo_vacaciones')
+                ).distinct()
                 nombre_empleado = req.user.get_full_name() or req.user.username
                 for rh in rh_users:
                     Notification.objects.create(
@@ -280,12 +416,11 @@ def vacation_form_manager(request):
         return redirect('vacation_form_manager')
 
     # --- GET: Listar Historial ---
-    nombre_jefe = get_manager_name(request.user)
     estado = request.GET.get('estado', 'pending')
     q = request.GET.get('q', '').strip()
 
     qs = VacationRequest.objects.filter(
-        user__employee__responsible__iexact=nombre_jefe
+        user__employee__in=_employees_of_leader(request.user)
     ).select_related('user', 'manager_approver').order_by('-created_at')
 
     if estado and estado != 'todos':
