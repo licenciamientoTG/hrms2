@@ -79,6 +79,20 @@ document.addEventListener('DOMContentLoaded', () => {
         contComp.style.display = '';
     };
 
+    // ====== Abrir tab según parámetro ?tab= en la URL ======
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam === 'completados') {
+        activate(tabCompletados);
+        contDisp.style.display = 'none';
+        contProc.style.display = 'none';
+        contComp.style.display = 'block';
+    } else if (tabParam === 'proceso') {
+        activate(tabProceso);
+        contDisp.style.display = 'none';
+        contProc.style.display = 'block';
+        contComp.style.display = 'none';
+    }
+
     // ====== Buscador (solamente en Disponibles) ======
     const search = document.getElementById('vacSearch');
     const items  = document.querySelectorAll('#list-disponibles .form-item');
@@ -168,6 +182,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Opcional: ocultar el alert de Bootstrap para que no se vea doble
     alert.style.display = 'none';
   });
+});
+
+// ====== Sincronizar fecha_fin >= fecha_inicio en todos los modales ======
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.modal').forEach(modal => {
+        const inicio = modal.querySelector('input[name="fecha_inicio"]');
+        const fin    = modal.querySelector('input[name="fecha_fin"]');
+        if (!inicio || !fin) return;
+
+        inicio.addEventListener('change', () => {
+            if (inicio.value) {
+                fin.min = inicio.value;
+                if (fin.value && fin.value < inicio.value) {
+                    fin.value = inicio.value;
+                }
+            }
+        });
+    });
 });
 
 document.addEventListener('DOMContentLoaded', function() {

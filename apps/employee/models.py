@@ -229,6 +229,12 @@ class Employee(models.Model):
         blank=True,
         help_text="Nombre del responsable / jefe inmediato"
     )
+    leader = models.CharField(  # Líder
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Nombre del líder"
+    )
     separation_gratuity = models.DecimalField(  # Grat. Separación
         max_digits=12,
         decimal_places=2,

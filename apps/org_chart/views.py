@@ -4,6 +4,17 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from collections import defaultdict
+import re
+
+
+def _extract_leader_name_org(leader_raw):
+    """Quita el prefijo de código/estación del campo leader."""
+    if not leader_raw:
+        return ''
+    cleaned = re.sub(r'^[\w]+\s*-\s*', '', (leader_raw or '').strip())
+    if cleaned.lower() in ('no aplica', 'desconocido', 'vacante', 'vacant', 'sin jefe', '-', ''):
+        return ''
+    return cleaned.strip()
 
 
 # esta vista te redirige a las vistas de usuario y administrador
@@ -74,6 +85,34 @@ def org_chart_data_1(request):
             if k:
                 name_to_id[k] = emp.id
 
+    def find_parent_id(leader_raw, self_id):
+        """
+        Resuelve el ID del líder a partir del campo leader.
+        Soporta nombres con código de estación, truncados y ambos formatos.
+        """
+        name = _extract_leader_name_org(leader_raw)
+        if not name:
+            return None
+
+        key = normalize_text(name)
+
+        # 1. Match exacto
+        found = name_to_id.get(key)
+        if not found and "," in name:
+            # Voltear "Apellidos, Nombres" -> "Nombres Apellidos"
+            last_part, first_part = name.split(",", 1)
+            flipped = normalize_text(f"{first_part.strip()} {last_part.strip()}")
+            found = name_to_id.get(flipped)
+
+        # 2. Match por prefijo (maneja nombres truncados en el campo leader)
+        if not found:
+            for full_key, emp_id in name_to_id.items():
+                if full_key.startswith(key) and emp_id != self_id:
+                    found = emp_id
+                    break
+
+        return found if found and found != self_id else None
+
     nodes = {}
     for emp in employees:
         first, last = get_first_last(emp)
@@ -87,23 +126,8 @@ def org_chart_data_1(request):
         job_title = emp.job_position.title if getattr(emp, "job_position", None) else ""
         department = emp.department.name if getattr(emp, "department", None) else ""
 
-        resp_raw = (getattr(emp, "responsible", "") or "").strip()
-        parent_id = None
-
-        if resp_raw and resp_raw.lower() not in ("vacante", "vacant", "sin jefe", "-"):
-            key = normalize_text(resp_raw)
-            if "," in resp_raw and key not in name_to_id:
-                last_part, first_part = resp_raw.split(",", 1)
-                flipped = f"{first_part.strip()} {last_part.strip()}"
-                key = normalize_text(flipped)
-
-            found_id = name_to_id.get(key)
-
-            # 🔴 si el responsable soy yo mismo, lo tomamos como "sin jefe"
-            if found_id and found_id != emp.id:
-                parent_id = found_id
-            else:
-                parent_id = None
+        leader_raw = (getattr(emp, "leader", "") or "").strip()
+        parent_id = find_parent_id(leader_raw, emp.id)
 
         nodes[emp.id] = {
             "id": emp.id,
@@ -114,7 +138,7 @@ def org_chart_data_1(request):
             "is_vacant": False,
             "parent_id": parent_id,
             "team": getattr(emp, "team", "") or "",
-            "responsible": resp_raw or "",
+            "responsible": leader_raw or "",
             "employee_number": emp.employee_number or "",
         }
 
@@ -182,17 +206,17 @@ def api_move_position(request):
                 else:
                     first = full
 
-            # Guardamos como "Apellido, Nombre" para ser consistente
+            # Guardamos como "Nombres Apellidos" sin prefijo de código
             if first or last:
-                boss_name = f"{last}, {first}".strip().strip(",")
+                boss_name = f"{first} {last}".strip()
             else:
                 boss_name = boss.user.get_full_name() or boss.user.username
 
-            moved_employee.responsible = boss_name
+            moved_employee.leader = boss_name
         else:
-            moved_employee.responsible = "Vacante"
+            moved_employee.leader = ""
 
-        moved_employee.save(update_fields=['responsible'])
+        moved_employee.save(update_fields=['leader'])
 
         return JsonResponse({'status': 'success', 'message': 'Jefe actualizado correctamente'})
 

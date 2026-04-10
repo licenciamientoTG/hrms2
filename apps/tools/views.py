@@ -291,13 +291,16 @@ def export_loans_excel(request):
     # --- FILTRAR ---
     qs = qs.filter(created_at__range=(start_aware, end_aware))
 
+    if request.user.username == 'Carlos_Pecina':
+        qs = qs.filter(company__iexact='AQUA CAR CLUB')
+
     if q:
         qs = qs.filter(
             Q(id__icontains=q) |
             Q(full_name__icontains=q) |
             Q(employee_number__icontains=q)
         )
-    
+
     total_prestamos = qs.aggregate(Sum('amount'))['amount__sum'] or 0
 
     # 2. Configurar Excel
