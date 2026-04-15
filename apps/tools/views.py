@@ -283,10 +283,17 @@ def export_loans_excel(request):
 
     if not start_aware or not end_aware:
         now = timezone.localtime(timezone.now())
-        lunes = now.date() - timedelta(days=now.weekday())
-        domingo = lunes + timedelta(days=6)
-        start_aware = timezone.make_aware(datetime.combine(lunes, time.min))
-        end_aware = timezone.make_aware(datetime.combine(domingo, time.max))
+
+        dias_al_miercoles = (now.weekday() - 2) % 7
+        fecha_miercoles = now.date() - timedelta(days=dias_al_miercoles)
+
+        start_naive = datetime.combine(fecha_miercoles, time(17, 0))
+        start_aware = timezone.make_aware(start_naive)
+
+        if now < start_aware:
+            start_aware -= timedelta(days=7)
+
+        end_aware = start_aware + timedelta(days=6, hours=23, minutes=59)
     
     # --- FILTRAR ---
     qs = qs.filter(created_at__range=(start_aware, end_aware))
