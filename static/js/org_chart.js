@@ -16,13 +16,6 @@ $(function () {
   const nodeMap   = {};
   const parentMap = {};
 
-  // Inyectar botón "Mostrar todo" en la barra de búsqueda (oculto por defecto)
-  $('<button id="oc-show-all" type="button" ' +
-    'style="display:none; padding:6px 12px; margin-left:8px; border-radius:4px; ' +
-    'border:1px solid #6c757d; background:#6c757d; color:white;">' +
-    '<i class="fas fa-list"></i> Mostrar todo</button>'
-  ).insertAfter('#orgchart-search-btn');
-
   // =====================================================
   //  Construye los mapas planos recorriendo el árbol
   // =====================================================
@@ -122,13 +115,6 @@ $(function () {
     $container.empty();
     oc = $container.orgchart(getOrgChartOptions(data));
     $container.orgchart('expandAll');
-
-    if (isFiltered) {
-      $('#oc-show-all').show();
-    } else {
-      $('#oc-show-all').hide();
-      $('#orgchart-search-result').text('');
-    }
 
     // Centrar el nodo indicado (o la raíz) después de que el DOM se pinte
     setTimeout(function () {
@@ -243,15 +229,6 @@ $(function () {
       $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
       $me.addClass('orgchart-highlight');
       scrollToNode($me);
-    });
-
-    // =========================
-    //  BOTÓN "MOSTRAR TODO"
-    // =========================
-    $('#oc-show-all').on('click', function () {
-      $('#orgchart-search-input').val('');
-      renderChart(datasource, false, null);
-      currentScale = 1;
     });
 
     // =========================
