@@ -69,6 +69,7 @@
         <tr>
           <th>Estado</th>
           <th>Categoría</th>
+          <th>Asunto del correo</th>
           <th>Mensaje</th>
           <th>Autor</th>
           <th>Destinatarios</th>
@@ -99,6 +100,15 @@
                 <span class="rounded" style="display:inline-block;width:10px;height:10px;background:{{ rec.category.color_hex }};flex-shrink:0;"></span>
                 <span class="small fw-semibold">{{ rec.category.title }}</span>
               </span>
+            </td>
+
+            <!-- Asunto del correo -->
+            <td class="small" style="max-width:200px;">
+              {% if rec.email_subject %}
+                {{ rec.email_subject|truncatechars:60 }}
+              {% else %}
+                <span class="text-muted fst-italic">—</span>
+              {% endif %}
             </td>
 
             <!-- Mensaje -->
@@ -157,7 +167,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-5">
+            <td colspan="8" class="text-center text-muted py-5">
               <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
               No se encontraron comunicados.
             </td>
