@@ -6,6 +6,23 @@
 {% block styles %}
   {# Reutilizamos el mismo CSS que usas en constancias para que se vea idéntico #}
   <link rel="stylesheet" href="{% static 'css/forms.css' %}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    .flatpickr-day.selected,
+    .flatpickr-day.selected:hover {
+      background: #0d6efd;
+      border-color: #0d6efd;
+    }
+    #contador-dias-vac {
+      font-size: .85rem;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+    #contador-dias-vac.tiene-dias {
+      color: #0d6efd;
+      font-weight: 600;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -94,9 +111,14 @@
           <div class="d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">
               {{ r.tipo_solicitud|title }} ·
-              <small class="text-muted">
-                {{ r.start_date|date:"d/m/Y" }} — {{ r.end_date|date:"d/m/Y" }}
-              </small>
+              {% if r.selected_dates %}
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-ver-fechas ms-1"
+                        data-dates="{{ r.selected_dates }}" data-total="{{ r.total_days }}">
+                  📅 {{ r.total_days }} día(s)
+                </button>
+              {% else %}
+                <small class="text-muted">{{ r.dates_display }}</small>
+              {% endif %}
             </h5>
             <span class="badge bg-warning text-dark">Pendiente</span>
           </div>
@@ -146,9 +168,16 @@
                 {{ r.tipo_solicitud }}
               </td>
 
-              <!-- Rango de fechas -->
-              <td class="text-start text-nowrap">
-                {{ r.start_date|date:"d/m/Y" }} — {{ r.end_date|date:"d/m/Y" }}
+              <!-- Fechas -->
+              <td class="text-start">
+                {% if r.selected_dates %}
+                  <button type="button" class="btn btn-sm btn-outline-secondary btn-ver-fechas"
+                          data-dates="{{ r.selected_dates }}" data-total="{{ r.total_days }}">
+                    📅 {{ r.total_days }} día(s)
+                  </button>
+                {% else %}
+                  {{ r.dates_display }}
+                {% endif %}
               </td>
 
               <!-- Días -->
@@ -204,6 +233,24 @@
 
 </div>
 
+<!-- Modal Ver Fechas (calendario preview) -->
+<div class="modal fade" id="modalVerFechas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0">
+          Días seleccionados
+          <span id="mfechas-count" class="badge bg-primary ms-1"></span>
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-2 d-flex justify-content-center">
+        <div id="calendario-preview-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Vacaciones -->
 <div class="modal fade" id="modalVacacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -216,26 +263,21 @@
       </div>
 
       <div class="modal-body">
-        <div>
-          Días disponibles: {{ saldo_total|floatformat:"-2" }}
+        <div class="alert alert-info py-2 mb-3">
+          Días disponibles: <strong>{{ saldo_total|floatformat:"-2" }}</strong>
         </div>
-        <br>
-        <div class="row g-2">
-          {% now "Y-m-d" as hoy %}
-
-          <div class="col-6">
-            <label class="form-label">Fecha inicio</label>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-semibold">Selecciona los días que vas a tomar</label>
             <input
-              type="date"
+              type="text"
+              id="calendario-vacaciones"
               class="form-control"
-              name="fecha_inicio"
-              required
-              min="{{ hoy }}"
+              placeholder="Haz clic para abrir el calendario…"
+              readonly
             >
-          </div>
-          <div class="col-6">
-            <label class="form-label">Fecha fin</label>
-            <input type="date" class="form-control" name="fecha_fin" required min="{{ hoy}}">
+            <input type="hidden" name="dias_seleccionados" id="dias-seleccionados-input">
+            <div id="contador-dias-vac">0 días seleccionados</div>
           </div>
           <div class="col-12">
             <label class="form-label">Motivo/observaciones</label>
@@ -333,5 +375,108 @@
 {% endblock %}
 
 {% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
   <script src="{% static 'js/vacations.js' %}"></script>
+  <style>
+    /* Calendario preview: solo navegar meses, no clicar días */
+    #calendario-preview-container .flatpickr-days,
+    #calendario-preview-container .flatpickr-day { pointer-events: none; }
+    #calendario-preview-container .flatpickr-prev-month,
+    #calendario-preview-container .flatpickr-next-month { pointer-events: auto; }
+  </style>
+  <script>
+  // ====== Preview de fechas seleccionadas ======
+  (function () {
+    let previewFp = null;
+
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.btn-ver-fechas');
+      if (!btn) return;
+
+      const dates = (btn.dataset.dates || '').split(',').map(d => d.trim()).filter(Boolean);
+      const total = btn.dataset.total || dates.length;
+
+      document.getElementById('mfechas-count').textContent = total + ' días';
+
+      const modalEl = document.getElementById('modalVerFechas');
+      const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+      modalEl.addEventListener('hide.bs.modal', function () {
+        if (document.activeElement && modalEl.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+      });
+
+      modalEl.addEventListener('shown.bs.modal', function init() {
+        if (previewFp) { previewFp.destroy(); previewFp = null; }
+        document.getElementById('calendario-preview-container').innerHTML = '';
+
+        previewFp = flatpickr('#calendario-preview-container', {
+          inline: true,
+          mode: 'multiple',
+          defaultDate: dates,
+          dateFormat: 'Y-m-d',
+          locale: 'es',
+          onChange: (_, __, fp) => fp.setDate(dates, false),
+        });
+      }, { once: true });
+
+      modal.show();
+    });
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const input      = document.getElementById('calendario-vacaciones');
+    const hidden     = document.getElementById('dias-seleccionados-input');
+    const contador   = document.getElementById('contador-dias-vac');
+    const btnEnviar  = document.querySelector('#modalVacacion button[type="submit"]');
+    const saldo      = {{ saldo_total|floatformat:"-2" }};
+
+    if (!input) return;
+
+    flatpickr(input, {
+      mode: 'multiple',
+      dateFormat: 'Y-m-d',
+      minDate: 'today',
+      locale: 'es',
+      disableMobile: true,
+      onChange: function (selectedDates) {
+        const fechas = selectedDates
+          .map(d => d.toISOString().split('T')[0])
+          .sort();
+
+        hidden.value = fechas.join(',');
+
+        const n = fechas.length;
+        contador.textContent = n === 0
+          ? '0 días seleccionados'
+          : `${n} día(s) seleccionado(s)`;
+
+        contador.classList.toggle('tiene-dias', n > 0);
+
+        // Advertir si supera el saldo
+        if (n > saldo) {
+          contador.textContent += ` — ⚠️ supera tu saldo (${saldo} días)`;
+          contador.style.color = '#dc3545';
+        } else {
+          contador.style.color = '';
+        }
+
+        if (btnEnviar) btnEnviar.disabled = n === 0;
+      }
+    });
+
+    // Deshabilitar envío si no hay días al abrir el modal
+    if (btnEnviar) btnEnviar.disabled = true;
+    document.getElementById('modalVacacion').addEventListener('hidden.bs.modal', function () {
+      // Limpiar al cerrar
+      input._flatpickr && input._flatpickr.clear();
+      hidden.value = '';
+      contador.textContent = '0 días seleccionados';
+      contador.style.color = '';
+      if (btnEnviar) btnEnviar.disabled = true;
+    });
+  });
+  </script>
 {% endblock %}

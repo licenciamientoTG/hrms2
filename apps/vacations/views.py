@@ -169,10 +169,49 @@ def vacation_dashboard(request):
 def vacation_form_user(request):
     if request.method == 'POST':
         tipo = request.POST.get('tipo_solicitud')
-        fecha_inicio = request.POST.get('fecha_inicio')
-        fecha_fin    = request.POST.get('fecha_fin')
         observaciones = request.POST.get('observaciones', '').strip()
         documento = request.FILES.get('documento')
+
+        # Soporte para días individuales (modal Vacaciones) y rango clásico (otros modales)
+        dias_seleccionados_raw = request.POST.get('dias_seleccionados', '').strip()
+        fecha_inicio = request.POST.get('fecha_inicio')
+        fecha_fin    = request.POST.get('fecha_fin')
+
+        selected_dates_csv = None
+
+        if dias_seleccionados_raw:
+            # Parsear lista de fechas individuales
+            try:
+                fechas = sorted([
+                    datetime.strptime(d.strip(), '%Y-%m-%d').date()
+                    for d in dias_seleccionados_raw.split(',') if d.strip()
+                ])
+            except ValueError:
+                messages.error(request, 'Las fechas seleccionadas no son válidas.')
+                return redirect('vacation_form_user')
+
+            if not fechas:
+                messages.error(request, 'Debes seleccionar al menos un día.')
+                return redirect('vacation_form_user')
+
+            start_date = fechas[0]
+            end_date   = fechas[-1]
+            selected_dates_csv = ','.join(d.strftime('%Y-%m-%d') for d in fechas)
+            dias_solicitados = len(fechas)
+        else:
+            # Flujo clásico (rango) para otros tipos de solicitud
+            try:
+                start_date = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                end_date   = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+            except (TypeError, ValueError):
+                messages.error(request, 'Las fechas no son válidas.')
+                return redirect('vacation_form_user')
+
+            if end_date < start_date:
+                messages.error(request, 'La fecha fin no puede ser menor a la fecha inicio.')
+                return redirect('vacation_form_user')
+
+            dias_solicitados = (end_date - start_date).days + 1
 
         # Validaciones
         ya_pendiente = VacationRequest.objects.filter(
@@ -183,36 +222,43 @@ def vacation_form_user(request):
             messages.error(request, f'Ya tienes una solicitud de "{tipo}" en proceso.')
             return redirect('vacation_form_user')
 
-        try:
-            start_date = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-            end_date   = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-        except (TypeError, ValueError):
-            messages.error(request, 'Las fechas no son válidas.')
-            return redirect('vacation_form_user')
-
-        if end_date < start_date:
-            messages.error(request, 'La fecha fin no puede ser menor a la fecha inicio.')
-            return redirect('vacation_form_user')
-
         # Validar que no se traslapen con solicitudes ya activas
-        traslape = VacationRequest.objects.filter(
+        solicitudes_activas = VacationRequest.objects.filter(
             user=request.user,
             status__in=['pending', 'authorized', 'approved'],
             start_date__lte=end_date,
             end_date__gte=start_date,
-        ).first()
+        )
+
+        traslape = None
+        nuevos_dias = set(fechas) if dias_seleccionados_raw else None
+
+        for sol in solicitudes_activas:
+            dias_existentes = sol.selected_dates_list
+            if nuevos_dias and dias_existentes:
+                # Comparación exacta por días individuales
+                if nuevos_dias & set(dias_existentes):
+                    traslape = sol
+                    break
+            elif nuevos_dias and not dias_existentes:
+                # Existente es rango clásico: ver si algún día nuevo cae en ese rango
+                if any(sol.start_date <= d <= sol.end_date for d in nuevos_dias):
+                    traslape = sol
+                    break
+            else:
+                # Ambos son rango: traslape por rango
+                traslape = sol
+                break
 
         if traslape:
             messages.error(
                 request,
-                f'Ya tienes una solicitud ({traslape.tipo_solicitud}) del '
-                f'{traslape.start_date.strftime("%d/%m/%Y")} al '
-                f'{traslape.end_date.strftime("%d/%m/%Y")} que se traslapa con las fechas seleccionadas.'
+                f'Ya tienes una solicitud ({traslape.tipo_solicitud}) '
+                f'({traslape.dates_display}) que se traslapa con los días seleccionados.'
             )
             return redirect('vacation_form_user')
 
         if tipo == 'Vacaciones':
-            dias_solicitados = (end_date - start_date).days + 1
             try:
                 emp = Employee.objects.get(user=request.user)
                 saldo = float(emp.vacation_balance or 0)
@@ -229,6 +275,7 @@ def vacation_form_user(request):
             tipo_solicitud=tipo,
             start_date=start_date,
             end_date=end_date,
+            selected_dates=selected_dates_csv,
             reason=observaciones,
             documento=documento,
         )
