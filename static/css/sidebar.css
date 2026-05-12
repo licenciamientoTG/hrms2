@@ -103,9 +103,27 @@ transform: scale(1.05);   /* crece parejo a ambos lados */
 
 
 
-/* 1) Sidebar siempre al alto de la pantalla */
-#sidebar{
-  height: auto !important;
+/* 1) Contenedor principal fijo al viewport */
+.wrapper {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+/* 2) Sidebar ocupa todo el alto y no desborda */
+#sidebar {
+  height: 100vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-shrink: 0 !important;
+}
+
+/* 3) El contenido principal scrollea independientemente */
+.main {
+  height: 100vh !important;
+  min-height: unset !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
 
