@@ -869,6 +869,10 @@ def take_survey(request, survey_id):
     survey = get_object_or_404(Survey, pk=survey_id, is_active=True)
     sections = _sections_for_template(survey)
 
+    # Validar que el usuario esté autenticado (prevenir AnonymousUser por sesión expirada)
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Sesión expirada. Por favor, recarga la página e inicia sesión nuevamente."}, status=401)
+
     # Crear una nueva entrada de respuesta para la encuesta
     resp = SurveyResponse.objects.create(
         survey=survey,
