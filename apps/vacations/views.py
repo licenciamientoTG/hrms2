@@ -139,6 +139,35 @@ def is_manager(user):
     """Verifica si el usuario es líder de algún empleado."""
     return _employees_of_leader(user).exists()
 
+
+def _needs_zona_approval(emp):
+    """Retorna True si el puesto del empleado es Oficial de Servicio al Cliente."""
+    if not emp.job_position:
+        return False
+    return 'oficial de servicio al cliente' in (emp.job_position.title or '').lower()
+
+
+def _has_zona_pending(user):
+    """Retorna True si hay solicitudes zona_pending asignadas a este usuario como jefe de zona."""
+    return VacationRequest.objects.filter(status='zona_pending', zona_approver=user).exists()
+
+
+def _notificar_rh(req, nombre_actor, nombre_empleado):
+    """Envía notificación a usuarios de RH cuando una solicitud llega a 'authorized'."""
+    rh_users = User.objects.filter(is_active=True).filter(
+        Q(is_superuser=True) |
+        Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
+        Q(is_staff=True, groups__permissions__codename='Modulo_vacaciones')
+    ).distinct()
+    for rh in rh_users:
+        Notification.objects.create(
+            user=rh,
+            title="Solicitud Autorizada por Jefe",
+            body=f"{nombre_actor} autorizó la solicitud de {nombre_empleado}.",
+            url="/vacations/capital-humano/",
+            module="vacaciones"
+        )
+
 # ==========================================
 # 1. ROUTER (Dashboard)
 # ==========================================
@@ -146,20 +175,17 @@ def is_manager(user):
 def vacation_dashboard(request):
     if request.user.is_staff:
         return redirect('vacation_form_rh')
-    
-    elif is_manager(request.user):
-        tiene_pendientes = VacationRequest.objects.filter(
-            status='pending',
-            user__employee__in=_employees_of_leader(request.user)
-        ).exists()
 
-        if tiene_pendientes:
-            return redirect('vacation_form_manager')
-        else:
-            return redirect('vacation_form_user')
-        
-    else:
-        return redirect('vacation_form_user')
+    tiene_pendientes = is_manager(request.user) and VacationRequest.objects.filter(
+        status='pending',
+        user__employee__in=_employees_of_leader(request.user)
+    ).exists()
+    tiene_zona = _has_zona_pending(request.user)
+
+    if tiene_pendientes or tiene_zona:
+        return redirect('vacation_form_manager')
+
+    return redirect('vacation_form_user')
 
 
 # ==========================================
@@ -215,7 +241,7 @@ def vacation_form_user(request):
 
         # Validaciones
         ya_pendiente = VacationRequest.objects.filter(
-            user=request.user, tipo_solicitud=tipo, status__in=['pending', 'authorized']
+            user=request.user, tipo_solicitud=tipo, status__in=['pending', 'zona_pending', 'authorized']
         ).exists()
 
         if ya_pendiente:
@@ -225,7 +251,7 @@ def vacation_form_user(request):
         # Validar que no se traslapen con solicitudes ya activas
         solicitudes_activas = VacationRequest.objects.filter(
             user=request.user,
-            status__in=['pending', 'authorized', 'approved'],
+            status__in=['pending', 'zona_pending', 'authorized', 'approved'],
             start_date__lte=end_date,
             end_date__gte=start_date,
         )
@@ -329,7 +355,7 @@ def vacation_form_user(request):
 
     # GET
     pending_requests = VacationRequest.objects.filter(
-        user=request.user, status__in=['pending', 'authorized']
+        user=request.user, status__in=['pending', 'zona_pending', 'authorized']
     ).order_by('-created_at')
 
     finished_requests = VacationRequest.objects.filter(
@@ -370,8 +396,8 @@ def vacation_form_user(request):
 # ==========================================
 @login_required
 def vacation_form_manager(request):
-    # Seguridad
-    if not is_manager(request.user) and not request.user.is_staff:
+    # Seguridad: gerentes, staff, o jefes de zona con solicitudes asignadas
+    if not is_manager(request.user) and not request.user.is_staff and not _has_zona_pending(request.user):
         return redirect('vacation_form_user')
 
     if request.method == 'POST':
@@ -382,31 +408,16 @@ def vacation_form_manager(request):
 
         req = get_object_or_404(VacationRequest, pk=req_id)
 
-        if req.status != 'pending':
+        if req.status not in ('pending', 'zona_pending'):
             messages.error(request, 'Esta solicitud ya no está pendiente.')
             return redirect('vacation_form_manager')
 
-        # Variables para la notificación
-        notif_titulo = ""
-        notif_verbo = ""
+        if accion not in ('aprobar', 'rechazar'):
+            return redirect('vacation_form_manager')
 
-        if accion == 'aprobar':
-            req.status = 'authorized'
-            req.manager_approver = request.user
-            msg = 'autorizada. Se envió a Capital Humano.'
-
-            # Datos para la notificación
-            notif_titulo = "Solicitud Autorizada por Jefe"
-            notif_verbo = "autorizado"
-
-        elif accion == 'rechazar':
-            req.status = 'rejected'
-            msg = 'rechazada.'
-
-            # Datos para la notificación
-            notif_titulo = "Solicitud Rechazada por Jefe"
-            notif_verbo = "rechazado"
-        else:
+        # Solo el jefe de zona asignado puede actuar sobre solicitudes zona_pending
+        if req.status == 'zona_pending' and req.zona_approver != request.user:
+            messages.error(request, 'No tienes permiso para actuar sobre esta solicitud.')
             return redirect('vacation_form_manager')
 
         if comentario:
@@ -414,63 +425,114 @@ def vacation_form_manager(request):
         if pdf_lider:
             req.documento_lider = pdf_lider
 
-        req.save()
+        nombre_actor = get_manager_name(request.user)
+        nombre_empleado = req.user.get_full_name() or req.user.username
 
-        # ---------------------------------------------------------
-        # NOTIFICACIONES SEGÚN ACCIÓN
-        # ---------------------------------------------------------
-        try:
-            nombre_jefe = get_manager_name(request.user)
-
-            if accion == 'aprobar':
-                # Notificar a superusers y staff con acceso al módulo de vacaciones
-                rh_users = User.objects.filter(is_active=True).filter(
-                    Q(is_superuser=True) |
-                    Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
-                    Q(is_staff=True, groups__permissions__codename='Modulo_vacaciones')
-                ).distinct()
-                nombre_empleado = req.user.get_full_name() or req.user.username
-                for rh in rh_users:
-                    Notification.objects.create(
-                        user=rh,
-                        title="Solicitud Autorizada por Jefe",
-                        body=f"{nombre_jefe} autorizó la solicitud de {nombre_empleado}.",
-                        url="/vacations/capital-humano/",
-                        module="vacaciones"
-                    )
-
-            elif accion == 'rechazar':
-                # Notificar al empleado que su solicitud fue rechazada
-                try:
-                    emp_jefe = Employee.objects.get(user=request.user)
-                    nombre_jefe_display = f"{emp_jefe.first_name} {emp_jefe.last_name}"
-                except Employee.DoesNotExist:
-                    nombre_jefe_display = request.user.get_full_name() or request.user.username
-
+        # ------------------------------------------------------------------
+        # LÓGICA DE FLUJO
+        # ------------------------------------------------------------------
+        if accion == 'rechazar':
+            req.status = 'rejected'
+            req.save()
+            msg = 'rechazada.'
+            try:
                 Notification.objects.create(
                     user=req.user,
                     title="Solicitud Rechazada",
-                    body=f"Tu solicitud de {req.tipo_solicitud} fue rechazada por {nombre_jefe_display}.",
+                    body=f"Tu solicitud de {req.tipo_solicitud} fue rechazada por {nombre_actor}.",
                     url="/vacations/mis-solicitudes/?tab=completados",
                     module="vacaciones"
                 )
+            except Exception as e:
+                print(f"Error enviando notificación: {e}")
 
-        except Exception as e:
-            print(f"Error enviando notificación: {e}")
-        # ---------------------------------------------------------
+        elif accion == 'aprobar':
+            if req.status == 'zona_pending':
+                # Jefe de Zona aprueba → va a RH
+                req.status = 'authorized'
+                req.save()
+                msg = 'autorizada por Jefe de Zona. Se envió a Capital Humano.'
+                try:
+                    rh_users = User.objects.filter(is_active=True).filter(
+                        Q(is_superuser=True) |
+                        Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
+                        Q(is_staff=True, groups__permissions__codename='Modulo_vacaciones')
+                    ).distinct()
+                    for rh in rh_users:
+                        Notification.objects.create(
+                            user=rh,
+                            title="Solicitud Autorizada por Jefe de Zona",
+                            body=f"{nombre_actor} (Jefe de Zona) autorizó la solicitud de {nombre_empleado}.",
+                            url="/vacations/capital-humano/",
+                            module="vacaciones"
+                        )
+                except Exception as e:
+                    print(f"Error enviando notificación a RH: {e}")
+
+            else:
+                # Gerente aprueba (pending) — verificar si el OSC necesita paso por jefe de zona
+                req.manager_approver = request.user
+                try:
+                    emp_sol = Employee.objects.get(user=req.user)
+                    necesita_zona = _needs_zona_approval(emp_sol)
+                except Employee.DoesNotExist:
+                    necesita_zona = False
+
+                if necesita_zona:
+                    # Buscar jefe de zona (líder del gerente)
+                    zona_emp = None
+                    try:
+                        emp_mgr = Employee.objects.get(user=request.user)
+                        zona_raw = (emp_mgr.leader or '').strip()
+                        zona_emp = _find_leader_employee(zona_raw) if zona_raw else None
+                    except Employee.DoesNotExist:
+                        pass
+
+                    if zona_emp:
+                        req.status = 'zona_pending'
+                        req.zona_approver = zona_emp.user
+                        req.save()
+                        msg = 'enviada al Jefe de Zona para su autorización.'
+                        try:
+                            Notification.objects.create(
+                                user=zona_emp.user,
+                                title="Solicitud Pendiente de Autorización (Jefe de Zona)",
+                                body=f"{nombre_empleado} tiene una solicitud de {req.tipo_solicitud} autorizada por su gerente. Requiere tu autorización.",
+                                url="/vacations/gestion/",
+                                module="vacaciones"
+                            )
+                        except Exception as e:
+                            print(f"Error notificando jefe de zona: {e}")
+                    else:
+                        # No se encontró jefe de zona → ir directo a RH
+                        req.status = 'authorized'
+                        req.save()
+                        msg = 'autorizada. Se envió a Capital Humano (jefe de zona no encontrado).'
+                        print(f"[Vacaciones] OSC sin jefe de zona para gerente {request.user.username}, enviando directo a RH.")
+                        _notificar_rh(req, nombre_actor, nombre_empleado)
+                else:
+                    # Flujo normal: gerente → RH
+                    req.status = 'authorized'
+                    req.save()
+                    msg = 'autorizada. Se envió a Capital Humano.'
+                    _notificar_rh(req, nombre_actor, nombre_empleado)
+        # ------------------------------------------------------------------
 
         messages.success(request, f'Solicitud #{req.id} {msg}')
         return redirect('vacation_form_manager')
 
     # --- GET: Listar Historial ---
-    estado = request.GET.get('estado', 'pending')
+    estado = request.GET.get('estado', 'activos')
     q = request.GET.get('q', '').strip()
 
     qs = VacationRequest.objects.filter(
-        user__employee__in=_employees_of_leader(request.user)
-    ).select_related('user', 'manager_approver').order_by('-created_at')
+        Q(user__employee__in=_employees_of_leader(request.user)) |
+        Q(zona_approver=request.user)
+    ).select_related('user', 'manager_approver', 'zona_approver').order_by('-created_at')
 
-    if estado and estado != 'todos':
+    if estado == 'activos':
+        qs = qs.filter(status__in=['pending', 'zona_pending'])
+    elif estado and estado != 'todos':
         qs = qs.filter(status=estado)
 
     if q:
@@ -480,7 +542,7 @@ def vacation_form_manager(request):
         'page_obj': Paginator(qs, 20).get_page(request.GET.get('page')),
         'role': 'manager',
         'q': q,
-        'estado': estado 
+        'estado': estado,
     }
     return render(request, 'vacations/admin/vacation_form_admin.html', context)
 

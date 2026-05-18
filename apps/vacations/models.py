@@ -3,10 +3,11 @@ from django.contrib.auth.models import User
 
 class VacationRequest(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pendiente de Responsable'), 
-        ('authorized', 'Pendiente de RH'),       
-        ('approved', 'Aprobada / Finalizada'),   
-        ('rejected', 'Rechazada'),              
+        ('pending', 'Pendiente de Responsable'),
+        ('zona_pending', 'Pendiente de Jefe de Zona'),
+        ('authorized', 'Pendiente de RH'),
+        ('approved', 'Aprobada / Finalizada'),
+        ('rejected', 'Rechazada'),
     ]
 
     SOLICITUD_CHOICES = [
@@ -19,11 +20,19 @@ class VacationRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     
     manager_approver = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='vacations_authorized'
+    )
+
+    zona_approver = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vacations_zona_authorized'
     )
 
     tipo_solicitud = models.CharField(

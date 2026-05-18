@@ -33,11 +33,14 @@
                 {% if role == 'rh' %}
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Autorizadas)</option>
                     <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de Jefe</option>
+                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes de Jefe de Zona</option>
                 {% else %}
-                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de aprobar</option>
+                    <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Pendientes de aprobar</option>
+                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes (Gerente)</option>
+                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes (Jefe de Zona)</option>
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>
                 {% endif %}
-                
+
                 <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Finalizadas</option>
                 <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
                 <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todas</option>
@@ -72,7 +75,8 @@
               data-dates-csv="{{ s.selected_dates|default:'' }}"
               data-fin=""
               data-razon="{{ s.reason|default:'' }}"
-              data-lider="{{ s.manager_approver.get_full_name|default:'' }}"
+              data-lider="{% if s.zona_approver %}{{ s.zona_approver.get_full_name|default:'' }}{% else %}{{ s.manager_approver.get_full_name|default:'' }}{% endif %}"
+              data-zona-approver="{{ s.zona_approver.get_full_name|default:'' }}"
               data-comentario-lider="{{ s.comentario_lider|default:'' }}"
               data-comentario-rh="{{ s.comentario_rh|default:'' }}"
               data-estado="{{ s.status }}"
@@ -103,12 +107,15 @@
                         {% if s.manager_approver %} bg-info text-dark
                         {% else %} text-dark" style="background-color:#f0c4f0
                         {% endif %}
+                    {% elif st == 'zona_pending' %} bg-warning text-dark
                     {% elif st == 'pending' %} bg-warning text-dark
                     {% else %} bg-secondary {% endif %}">
 
                     {% if st == 'approved' %}
                         Finalizada
-                        {% if s.manager_approver %}
+                        {% if s.zona_approver %}
+                            <br><small style="font-size:0.75em">(Aut: {{ s.zona_approver.first_name }} {{ s.zona_approver.last_name }})</small>
+                        {% elif s.manager_approver %}
                             <br><small style="font-size:0.75em">(Aut: {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }})</small>
                         {% endif %}
 
@@ -116,10 +123,18 @@
                         Rechazada
 
                     {% elif st == 'authorized' %}
-                        {% if s.manager_approver %}
+                        {% if s.zona_approver %}
+                            Autorizada por {{ s.zona_approver.first_name }} {{ s.zona_approver.last_name }}
+                        {% elif s.manager_approver %}
                             Autorizada por {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }}
                         {% else %}
                             Sin líder asignado
+                        {% endif %}
+
+                    {% elif st == 'zona_pending' %}
+                        Pend. Jefe de Zona
+                        {% if s.zona_approver %}
+                            <br><small style="font-size:0.75em">({{ s.zona_approver.first_name }} {{ s.zona_approver.last_name }})</small>
                         {% endif %}
 
                     {% elif st == 'pending' %}
@@ -132,13 +147,13 @@
             <td>
               <div class="btn-group">
                 {% if role == 'manager' %}
-                    {% if s.status == 'pending' %}
+                    {% if s.status == 'pending' or s.status == 'zona_pending' and s.zona_approver == request.user %}
                         <button type="button" class="btn btn-sm btn-primary btn-atender"
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
                             Autorizar / Rechazar
                         </button>
                     {% else %}
-                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle"
                                 data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
                     {% endif %}
 
@@ -148,10 +163,10 @@
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
                             Finalizar / Subir
                         </button>
-                    {% elif s.status == 'pending' %}
+                    {% elif s.status == 'pending' or s.status == 'zona_pending' %}
                         <span class="badge bg-light text-muted border">Esperando Jefe</span>
                     {% else %}
-                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle"
                                 data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
                     {% endif %}
                 {% endif %}
@@ -244,9 +259,9 @@
       <div class="modal-body">
         <input type="hidden" name="req_id" id="att-id">
         
-        <div class="alert alert-info py-2">
+        <div class="alert alert-info py-2" id="att-alerta-texto">
             {% if role == 'manager' %}
-                Estás a punto de <strong>Autorizar</strong> esta solicitud para enviarla a RH.
+                Estás a punto de <strong>Autorizar</strong> esta solicitud.
             {% else %}
                 Estás a punto de <strong>Finalizar</strong> esta solicitud (subirla al sistema).
             {% endif %}
@@ -401,6 +416,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('att-razon-lider').textContent = tr.getAttribute('data-comentario-lider') || '—';
                 document.getElementById('att-documento-lider').innerHTML = docLink(tr.getAttribute('data-documento-lider'));
             }
+
+            // Actualizar texto del alert según el flujo
+            if (!esRH) {
+                const estado = tr.getAttribute('data-estado');
+                const alertaEl = document.getElementById('att-alerta-texto');
+                if (alertaEl) {
+                    if (estado === 'zona_pending') {
+                        alertaEl.innerHTML = 'Estás a punto de <strong>Autorizar</strong> esta solicitud como Jefe de Zona para enviarla a Capital Humano.';
+                    } else {
+                        alertaEl.innerHTML = 'Estás a punto de <strong>Autorizar</strong> esta solicitud.';
+                    }
+                }
+            }
         });
     }
 
@@ -443,7 +471,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const st = tr.getAttribute('data-estado');
             const badge = document.getElementById('det-estado');
             const tieneLider = tr.getAttribute('data-lider') && tr.getAttribute('data-lider').trim() !== '';
-            const labels = { approved: 'Finalizada', authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado', rejected: 'Rechazada', pending: 'Pendiente de Jefe' };
+            const zonaApprover = tr.getAttribute('data-zona-approver') || '';
+            const labels = {
+                approved: 'Finalizada',
+                authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado',
+                rejected: 'Rechazada',
+                pending: 'Pendiente de Jefe',
+                zona_pending: zonaApprover ? `Pend. Jefe de Zona (${zonaApprover})` : 'Pendiente de Jefe de Zona'
+            };
             badge.textContent = labels[st] || st;
             badge.className = 'badge text-dark';
             badge.style.backgroundColor = '';

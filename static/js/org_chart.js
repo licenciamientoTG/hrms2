@@ -56,6 +56,34 @@ $(function () {
   }
 
   // =====================================================
+  //  Tarjeta de perfil (debe estar en el scope externo
+  //  para que el click handler de createNode la encuentre)
+  // =====================================================
+  function showProfile(data) {
+    if (!data) return;
+    var photo = data.photo || '/static/template/img/logos/logo_sencillo.png';
+
+    $('#profile-name').text(data.name || '');
+    $('#profile-photo').attr('src', photo);
+    $('#profile-title').text(data.title || '—');
+    $('#profile-dept').text(data.department || '—');
+    $('#profile-team').text(data.team || '—');
+    $('#profile-responsible').text(data.responsible || '—');
+
+    var email = data.email || '';
+    if (email) {
+      $('#profile-email').text(email).attr('href', 'mailto:' + email);
+    } else {
+      $('#profile-email').text('').attr('href', '#');
+    }
+    $('#profile-phone').text(data.phone_number || '');
+    $('#profile-empno').text(data.employee_number || '');
+
+    currentProfileId = data.id;
+    $('#profile-panel').fadeIn(200);
+  }
+
+  // =====================================================
   //  Opciones del orgchart (reutilizadas en renderChart)
   // =====================================================
   function getOrgChartOptions(data) {
@@ -230,33 +258,6 @@ $(function () {
       $me.addClass('orgchart-highlight');
       scrollToNode($me);
     });
-
-    // =========================
-    //  TARJETA DE PERFIL
-    // =========================
-    function showProfile(data) {
-      if (!data) return;
-      var photo = data.photo || '/static/template/img/logos/logo_sencillo.png';
-
-      $('#profile-name').text(data.name || '');
-      $('#profile-photo').attr('src', photo);
-      $('#profile-title').text(data.title || '—');
-      $('#profile-dept').text(data.department || '—');
-      $('#profile-team').text(data.team || '—');
-      $('#profile-responsible').text(data.responsible || '—');
-
-      var email = data.email || '';
-      if (email) {
-        $('#profile-email').text(email).attr('href', 'mailto:' + email);
-      } else {
-        $('#profile-email').text('').attr('href', '#');
-      }
-      $('#profile-phone').text(data.phone_number || '');
-      $('#profile-empno').text(data.employee_number || '');
-
-      currentProfileId = data.id;
-      $('#profile-panel').fadeIn(200);
-    }
 
     $('#profile-close').on('click', function () {
       $('#profile-panel').fadeOut(200);

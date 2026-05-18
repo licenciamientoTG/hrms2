@@ -120,7 +120,13 @@
                 <small class="text-muted">{{ r.dates_display }}</small>
               {% endif %}
             </h5>
-            <span class="badge bg-warning text-dark">Pendiente</span>
+            {% if r.status == 'zona_pending' %}
+              <span class="badge bg-warning text-dark">Pend. Jefe de Zona</span>
+            {% elif r.status == 'authorized' %}
+              <span class="badge bg-info text-dark">Pend. Capital Humano</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Pendiente de Jefe</span>
+            {% endif %}
           </div>
 
           <div class="row mt-3 text-start">
