@@ -132,7 +132,7 @@ User = settings.AUTH_USER_MODEL
 
 class SurveyResponse(models.Model):
     """Una “sesión” de respuesta a una encuesta."""
-    survey = models.ForeignKey('surveys.Survey', on_delete=models.PROTECT, related_name='responses')
+    survey = models.ForeignKey('surveys.Survey', on_delete=models.CASCADE, related_name='responses')
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='survey_responses')
     # Si la encuesta es anónima, guarda user=None
     started_at = models.DateTimeField(default=timezone.now)
@@ -154,7 +154,7 @@ class SurveyAnswer(models.Model):
     Usamos columnas “union” para cada tipo de dato y un JSON para extras.
     """
     response = models.ForeignKey(SurveyResponse, on_delete=models.CASCADE, related_name='answers')
-    question = models.ForeignKey('surveys.SurveyQuestion', on_delete=models.PROTECT, related_name='answers')
+    question = models.ForeignKey('surveys.SurveyQuestion', on_delete=models.CASCADE, related_name='answers')
 
     # Guardamos el tipo/título como snapshot para robustez si editas la encuesta después
     q_type = models.CharField(max_length=20)               # single/multiple/text/integer/decimal/rating/assessment/frecuency
