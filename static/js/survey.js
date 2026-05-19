@@ -1726,17 +1726,51 @@ document.getElementById("btnCancelSurvey")?.addEventListener("click", function (
 
     e.preventDefault();
 
+    const numResponses = parseInt(btn.dataset.responses || '0', 10);
+    const surveyTitle  = btn.dataset.title || 'esta encuesta';
+
     // Confirmación
-    const ask = window.Swal
-      ? await Swal.fire({
+    let ask;
+    if (window.Swal) {
+      if (numResponses > 0) {
+        // Encuesta con respuestas: mostrar advertencia fuerte con input de confirmación
+        ask = await Swal.fire({
+          icon: 'warning',
+          title: 'Eliminar encuesta con respuestas',
+          html: `<p>La encuesta <strong>"${surveyTitle}"</strong> tiene <strong>${numResponses}</strong> respuesta${numResponses !== 1 ? 's' : ''}.</p>
+                 <p class="text-danger">Se eliminarán permanentemente la encuesta y todas sus respuestas.</p>
+                 <p>Escribe <strong>ELIMINAR</strong> para confirmar:</p>`,
+          input: 'text',
+          inputPlaceholder: 'ELIMINAR',
+          showCancelButton: true,
+          confirmButtonText: 'Eliminar',
+          confirmButtonColor: '#dc3545',
+          cancelButtonText: 'Cancelar',
+          preConfirm: (val) => {
+            if (val !== 'ELIMINAR') {
+              Swal.showValidationMessage('Escribe ELIMINAR para confirmar');
+              return false;
+            }
+            return true;
+          }
+        });
+      } else {
+        ask = await Swal.fire({
           icon: 'warning',
           title: 'Eliminar encuesta',
           text: 'Esta acción no se puede deshacer.',
           showCancelButton: true,
           confirmButtonText: 'Eliminar',
+          confirmButtonColor: '#dc3545',
           cancelButtonText: 'Cancelar'
-        })
-      : { isConfirmed: confirm('¿Eliminar encuesta?') };
+        });
+      }
+    } else {
+      const msg = numResponses > 0
+        ? `La encuesta "${surveyTitle}" tiene ${numResponses} respuesta(s).\nSe eliminarán permanentemente. ¿Continuar?`
+        : '¿Eliminar encuesta? Esta acción no se puede deshacer.';
+      ask = { isConfirmed: confirm(msg) };
+    }
 
     if (!ask.isConfirmed) return;
 

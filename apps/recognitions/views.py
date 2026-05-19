@@ -292,9 +292,26 @@ def recognition_dashboard_user(request):
         rl.recognition_id: rl.reaction_type
         for rl in RecognitionLike.objects.filter(recognition_id__in=rec_ids, user=request.user)
     }
+    # Conteos por tipo de reacción para cada post
+    all_rx_counts = (
+        RecognitionLike.objects
+        .filter(recognition_id__in=rec_ids)
+        .values('recognition_id', 'reaction_type')
+        .annotate(cnt=Count('id'))
+    )
+    rx_map = {}
+    for row in all_rx_counts:
+        rx_map.setdefault(row['recognition_id'], {})[row['reaction_type']] = row['cnt']
+
     for item in feed_items:
         item.my_reaction = my_reactions.get(item.id)
         item.my_reaction_emoji = REACTION_EMOJIS.get(item.my_reaction, '') if item.my_reaction else ''
+        counts = rx_map.get(item.id, {})
+        item.reaction_counts_list = [
+            (rt, REACTION_EMOJIS[rt], counts[rt])
+            for rt in REACTION_EMOJIS
+            if rt in counts and counts[rt] > 0
+        ]
 
     ctx = {
         "people": User.objects.filter(is_active=True)

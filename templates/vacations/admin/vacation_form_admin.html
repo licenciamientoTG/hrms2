@@ -33,11 +33,14 @@
                 {% if role == 'rh' %}
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Autorizadas)</option>
                     <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de Jefe</option>
+                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes de Jefe de Zona</option>
                 {% else %}
-                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de aprobar</option>
+                    <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Pendientes de aprobar</option>
+                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes (Gerente)</option>
+                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes (Jefe de Zona)</option>
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>
                 {% endif %}
-                
+
                 <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Finalizadas</option>
                 <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
                 <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todas</option>
@@ -68,10 +71,12 @@
               data-empleado="{{ s.user.get_full_name|default:s.user.username }}"
               data-tipo="{{ s.tipo_solicitud }}"
               data-dias="{{ s.total_days }}"
-              data-inicio="{{ s.start_date|date:'d/m/Y' }}"
-              data-fin="{{ s.end_date|date:'d/m/Y' }}"
+              data-inicio="{{ s.dates_display }}"
+              data-dates-csv="{{ s.selected_dates|default:'' }}"
+              data-fin=""
               data-razon="{{ s.reason|default:'' }}"
-              data-lider="{{ s.manager_approver.get_full_name|default:'' }}"
+              data-lider="{{ s.user.employee.get_leader_full_name }}"
+              data-zona-approver="{{ s.zona_approver.get_full_name|default:'' }}"
               data-comentario-lider="{{ s.comentario_lider|default:'' }}"
               data-comentario-rh="{{ s.comentario_rh|default:'' }}"
               data-estado="{{ s.status }}"
@@ -81,7 +86,16 @@
             <td>{{ s.id }}</td>
             <td>{{ s.user.get_full_name|default:s.user.username }}</td>
             <td>{{ s.tipo_solicitud }}</td>
-            <td>{{ s.start_date|date:"d/m/Y" }} - {{ s.end_date|date:"d/m/Y" }}</td>
+            <td>
+              {% if s.selected_dates %}
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-ver-fechas"
+                        data-dates="{{ s.selected_dates }}" data-total="{{ s.total_days }}">
+                  📅 {{ s.total_days }} día(s)
+                </button>
+              {% else %}
+                {{ s.dates_display }}
+              {% endif %}
+            </td>
             <td class="text-center">{{ s.total_days|default:"-" }}</td>
             
             <td>
@@ -93,12 +107,15 @@
                         {% if s.manager_approver %} bg-info text-dark
                         {% else %} text-dark" style="background-color:#f0c4f0
                         {% endif %}
+                    {% elif st == 'zona_pending' %} bg-warning text-dark
                     {% elif st == 'pending' %} bg-warning text-dark
                     {% else %} bg-secondary {% endif %}">
 
                     {% if st == 'approved' %}
                         Finalizada
-                        {% if s.manager_approver %}
+                        {% if s.zona_approver %}
+                            <br><small style="font-size:0.75em">(Aut: {{ s.zona_approver.first_name }} {{ s.zona_approver.last_name }})</small>
+                        {% elif s.manager_approver %}
                             <br><small style="font-size:0.75em">(Aut: {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }})</small>
                         {% endif %}
 
@@ -106,14 +123,19 @@
                         Rechazada
 
                     {% elif st == 'authorized' %}
-                        {% if s.manager_approver %}
-                            Autorizada por {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }}
-                        {% else %}
-                            Sin líder asignado
-                        {% endif %}
+                        {% with puesto=s.get_approver_job_position %}
+                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Capital Humano{% endif %}
+                        {% endwith %}
+
+                    {% elif st == 'zona_pending' %}
+                        {% with puesto=s.get_approver_job_position %}
+                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe de Zona{% endif %}
+                        {% endwith %}
 
                     {% elif st == 'pending' %}
-                        Pendiente de Jefe
+                        {% with puesto=s.get_approver_job_position %}
+                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe{% endif %}
+                        {% endwith %}
                     {% endif %}
                 </span>
                 {% endwith %}
@@ -122,13 +144,13 @@
             <td>
               <div class="btn-group">
                 {% if role == 'manager' %}
-                    {% if s.status == 'pending' %}
+                    {% if s.status == 'pending' or s.status == 'zona_pending' and s.zona_approver == request.user %}
                         <button type="button" class="btn btn-sm btn-primary btn-atender"
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
                             Autorizar / Rechazar
                         </button>
                     {% else %}
-                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle"
                                 data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
                     {% endif %}
 
@@ -138,10 +160,10 @@
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
                             Finalizar / Subir
                         </button>
-                    {% elif s.status == 'pending' %}
+                    {% elif s.status == 'pending' or s.status == 'zona_pending' %}
                         <span class="badge bg-light text-muted border">Esperando Jefe</span>
                     {% else %}
-                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle" 
+                        <button class="btn btn-sm btn-outline-secondary btn-ver-detalle"
                                 data-bs-toggle="modal" data-bs-target="#modalDetalleVac">Ver</button>
                     {% endif %}
                 {% endif %}
@@ -186,10 +208,15 @@
             <p class="mb-1"><strong>Empleado:</strong> <span id="det-empleado"></span></p>
             <p class="mb-1"><strong>Tipo:</strong> <span id="det-tipo"></span></p>
             <p class="mb-1"><strong>Días:</strong> <span id="det-dias"></span></p>
+            <p class="mb-1"><strong>Fechas:</strong>
+              <button type="button" id="det-btn-fechas"
+                      class="btn btn-sm btn-outline-secondary btn-ver-fechas ms-1" style="display:none">
+                📅 Ver días
+              </button>
+              <span id="det-fechas-texto" class="text-muted small"></span>
+            </p>
           </div>
           <div class="col-md-6">
-            <p class="mb-1"><strong>Inicio:</strong> <span id="det-inicio"></span></p>
-            <p class="mb-1"><strong>Fin:</strong> <span id="det-fin"></span></p>
             <p class="mb-1"><strong>Estado:</strong> <span id="det-estado" class="badge bg-secondary"></span></p>
           </div>
           <div class="col-12">
@@ -229,9 +256,9 @@
       <div class="modal-body">
         <input type="hidden" name="req_id" id="att-id">
         
-        <div class="alert alert-info py-2">
+        <div class="alert alert-info py-2" id="att-alerta-texto">
             {% if role == 'manager' %}
-                Estás a punto de <strong>Autorizar</strong> esta solicitud para enviarla a RH.
+                Estás a punto de <strong>Autorizar</strong> esta solicitud.
             {% else %}
                 Estás a punto de <strong>Finalizar</strong> esta solicitud (subirla al sistema).
             {% endif %}
@@ -275,9 +302,76 @@
   </div>
 </div>
 
+<!-- Modal Ver Fechas (calendario preview) -->
+<div class="modal fade" id="modalVerFechas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0">
+          Días seleccionados
+          <span id="mfechas-count" class="badge bg-primary ms-1"></span>
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-2 d-flex justify-content-center">
+        <div id="calendario-preview-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+<style>
+  #calendario-preview-container .flatpickr-days,
+  #calendario-preview-container .flatpickr-day { pointer-events: none; }
+  #calendario-preview-container .flatpickr-prev-month,
+  #calendario-preview-container .flatpickr-next-month { pointer-events: auto; }
+</style>
+<script>
+(function () {
+  let previewFp = null;
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-ver-fechas');
+    if (!btn) return;
+
+    const dates = (btn.dataset.dates || '').split(',').map(d => d.trim()).filter(Boolean);
+    const total = btn.dataset.total || dates.length;
+
+    document.getElementById('mfechas-count').textContent = total + ' días';
+
+    const modalEl = document.getElementById('modalVerFechas');
+    const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    modalEl.addEventListener('hide.bs.modal', function () {
+      if (document.activeElement && modalEl.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+    });
+
+    modalEl.addEventListener('shown.bs.modal', function init() {
+      if (previewFp) { previewFp.destroy(); previewFp = null; }
+      document.getElementById('calendario-preview-container').innerHTML = '';
+
+      previewFp = flatpickr('#calendario-preview-container', {
+        inline: true,
+        mode: 'multiple',
+        defaultDate: dates,
+        dateFormat: 'Y-m-d',
+        locale: 'es',
+        onChange: (_, __, fp) => fp.setDate(dates, false),
+      });
+    }, { once: true });
+
+    modal.show();
+  });
+})();
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -319,6 +413,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('att-razon-lider').textContent = tr.getAttribute('data-comentario-lider') || '—';
                 document.getElementById('att-documento-lider').innerHTML = docLink(tr.getAttribute('data-documento-lider'));
             }
+
+            // Actualizar texto del alert según el flujo
+            if (!esRH) {
+                const estado = tr.getAttribute('data-estado');
+                const alertaEl = document.getElementById('att-alerta-texto');
+                if (alertaEl) {
+                    if (estado === 'zona_pending') {
+                        alertaEl.innerHTML = 'Estás a punto de <strong>Autorizar</strong> esta solicitud como Jefe de Zona para enviarla a Capital Humano.';
+                    } else {
+                        alertaEl.innerHTML = 'Estás a punto de <strong>Autorizar</strong> esta solicitud.';
+                    }
+                }
+            }
         });
     }
 
@@ -332,8 +439,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('det-empleado').textContent = tr.getAttribute('data-empleado');
             document.getElementById('det-tipo').textContent     = tr.getAttribute('data-tipo');
             document.getElementById('det-dias').textContent     = tr.getAttribute('data-dias');
-            document.getElementById('det-inicio').textContent   = tr.getAttribute('data-inicio');
-            document.getElementById('det-fin').textContent      = tr.getAttribute('data-fin');
+
+            const datesCsv = tr.getAttribute('data-dates-csv') || '';
+            const btnFechas = document.getElementById('det-btn-fechas');
+            const textoFechas = document.getElementById('det-fechas-texto');
+            if (datesCsv) {
+              btnFechas.style.display = '';
+              btnFechas.dataset.dates = datesCsv;
+              btnFechas.dataset.total = tr.getAttribute('data-dias');
+              textoFechas.textContent = '';
+            } else {
+              btnFechas.style.display = 'none';
+              textoFechas.textContent = tr.getAttribute('data-inicio') || '—';
+            }
 
             const detNombreColab = tr.getAttribute('data-empleado') || '';
             const detNombreLider = tr.getAttribute('data-lider') || '';
@@ -350,7 +468,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const st = tr.getAttribute('data-estado');
             const badge = document.getElementById('det-estado');
             const tieneLider = tr.getAttribute('data-lider') && tr.getAttribute('data-lider').trim() !== '';
-            const labels = { approved: 'Finalizada', authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado', rejected: 'Rechazada', pending: 'Pendiente de Jefe' };
+            const zonaApprover = tr.getAttribute('data-zona-approver') || '';
+            const labels = {
+                approved: 'Finalizada',
+                authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado',
+                rejected: 'Rechazada',
+                pending: 'Pendiente de Jefe',
+                zona_pending: zonaApprover ? `Pend. Jefe de Zona (${zonaApprover})` : 'Pendiente de Jefe de Zona'
+            };
             badge.textContent = labels[st] || st;
             badge.className = 'badge text-dark';
             badge.style.backgroundColor = '';

@@ -27,6 +27,8 @@ from django.urls import reverse
 from apps.notifications.utils import notify
 from django.contrib.contenttypes.models import ContentType
 from itertools import islice
+import unicodedata
+import re
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
 from django.views.decorators.http import require_GET
@@ -692,6 +694,17 @@ def guarderia_detalle(request, pk):
     }
     return JsonResponse({"ok": True, "solicitud": data})
 
+def _sanitizar_nombre_archivo(nombre):
+    """Normaliza un nombre de archivo eliminando caracteres especiales."""
+    nombre_sin_ext, ext = os.path.splitext(nombre)
+    # Descompone caracteres Unicode y descarta marcas diacríticas (acentos, etc.)
+    nombre_ascii = unicodedata.normalize('NFKD', nombre_sin_ext)
+    nombre_ascii = nombre_ascii.encode('ascii', 'ignore').decode('ascii')
+    # Reemplaza espacios y caracteres no válidos por guión bajo
+    nombre_limpio = re.sub(r'[^\w\-.]', '_', nombre_ascii).strip('_') or 'archivo'
+    return nombre_limpio + ext.lower()
+
+
 # vista para responder la constancia de guardería
 @login_required
 @permission_required('forms_requests.Modulo_constancias', raise_exception=True)
@@ -707,6 +720,7 @@ def responder_guarderia(request, pk: int):
     if not f.name.lower().endswith('.pdf'):
         return JsonResponse({"ok": False, "error": "El archivo debe ser PDF."}, status=400)
 
+    f.name = _sanitizar_nombre_archivo(f.name)
     obj.pdf_respuesta = f
     obj.respondido_por = request.user
     obj.respondido_at = timezone.now()

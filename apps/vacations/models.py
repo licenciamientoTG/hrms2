@@ -3,10 +3,11 @@ from django.contrib.auth.models import User
 
 class VacationRequest(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pendiente de Responsable'), 
-        ('authorized', 'Pendiente de RH'),       
-        ('approved', 'Aprobada / Finalizada'),   
-        ('rejected', 'Rechazada'),              
+        ('pending', 'Pendiente de Responsable'),
+        ('zona_pending', 'Pendiente de Jefe de Zona'),
+        ('authorized', 'Pendiente de RH'),
+        ('approved', 'Aprobada / Finalizada'),
+        ('rejected', 'Rechazada'),
     ]
 
     SOLICITUD_CHOICES = [
@@ -19,11 +20,19 @@ class VacationRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     
     manager_approver = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='vacations_authorized'
+    )
+
+    zona_approver = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vacations_zona_authorized'
     )
 
     tipo_solicitud = models.CharField(
@@ -33,6 +42,7 @@ class VacationRequest(models.Model):
     )
     start_date = models.DateField()
     end_date = models.DateField()
+    selected_dates = models.TextField(blank=True, null=True)  # CSV de fechas YYYY-MM-DD
     reason = models.TextField(blank=True)
     comentario_lider = models.TextField(blank=True, null=True)
     comentario_rh = models.TextField(blank=True, null=True)
@@ -46,11 +56,61 @@ class VacationRequest(models.Model):
 
     @property
     def total_days(self):
+        if self.selected_dates:
+            return len([d for d in self.selected_dates.split(',') if d.strip()])
         if self.start_date and self.end_date:
             return (self.end_date - self.start_date).days + 1
         return None
 
-        
+    @property
+    def selected_dates_list(self):
+        """Retorna lista de objetos date de los días seleccionados."""
+        if not self.selected_dates:
+            return []
+        from datetime import datetime
+        return sorted([
+            datetime.strptime(d.strip(), '%Y-%m-%d').date()
+            for d in self.selected_dates.split(',') if d.strip()
+        ])
+
+    @property
+    def dates_display(self):
+        """Texto legible de las fechas para mostrar en templates."""
+        dates = self.selected_dates_list
+        if dates:
+            if len(dates) == 1:
+                return dates[0].strftime('%d/%m/%Y')
+            if len(dates) <= 6:
+                return ', '.join(d.strftime('%d/%m/%Y') for d in dates)
+            return f"{dates[0].strftime('%d/%m/%Y')} … {dates[-1].strftime('%d/%m/%Y')} ({len(dates)} días)"
+        if self.start_date and self.end_date:
+            return f"{self.start_date.strftime('%d/%m/%Y')} — {self.end_date.strftime('%d/%m/%Y')}"
+        return '—'
+
+    def get_approver_job_position(self):
+        """Retorna el puesto de la persona que debe aprobar según el status."""
+        if self.status == 'zona_pending' and self.zona_approver:
+            try:
+                return self.zona_approver.employee.job_position.title if self.zona_approver.employee.job_position else ""
+            except:
+                return ""
+        elif self.status == 'pending':
+            try:
+                emp = self.user.employee
+                leader_raw = (emp.leader or '').strip()
+                if leader_raw:
+                    # Usar la función _find_leader_employee del views
+                    from apps.vacations.views import _find_leader_employee
+                    lider_emp = _find_leader_employee(leader_raw)
+                    if lider_emp and lider_emp.job_position:
+                        return lider_emp.job_position.title
+            except:
+                pass
+            return ""
+        elif self.status == 'authorized':
+            return "Capital Humano"
+        return ""
+
     class Meta:
         permissions = [
             ("Modulo_vacaciones", "Acceso al Módulo de Vacaciones"),

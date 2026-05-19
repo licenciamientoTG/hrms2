@@ -106,7 +106,9 @@
                 <a class="dropdown-item text-danger"
                    href="#"
                    data-action="delete"
-                   data-url="{% url 'survey_delete' s.id %}">
+                   data-url="{% url 'survey_delete' s.id %}"
+                   data-responses="{{ s.responses_count }}"
+                   data-title="{{ s.title|escapejs }}">
                   Eliminar
                 </a>
               </li>
