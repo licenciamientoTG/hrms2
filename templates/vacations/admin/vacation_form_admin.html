@@ -75,7 +75,7 @@
               data-dates-csv="{{ s.selected_dates|default:'' }}"
               data-fin=""
               data-razon="{{ s.reason|default:'' }}"
-              data-lider="{% if s.zona_approver %}{{ s.zona_approver.get_full_name|default:'' }}{% else %}{{ s.manager_approver.get_full_name|default:'' }}{% endif %}"
+              data-lider="{{ s.user.employee.get_leader_full_name }}"
               data-zona-approver="{{ s.zona_approver.get_full_name|default:'' }}"
               data-comentario-lider="{{ s.comentario_lider|default:'' }}"
               data-comentario-rh="{{ s.comentario_rh|default:'' }}"

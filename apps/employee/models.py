@@ -268,9 +268,23 @@ class Employee(models.Model):
             )
         ]
     
+    def get_leader_full_name(self):
+        """Retorna el nombre completo del líder resuelto desde el campo leader/responsible."""
+        raw = (self.leader or self.responsible or '').strip()
+        if not raw:
+            return ''
+        try:
+            from apps.vacations.views import _find_leader_employee
+            lider_emp = _find_leader_employee(raw)
+            if lider_emp and lider_emp.user:
+                return lider_emp.user.get_full_name() or raw
+        except Exception:
+            pass
+        return raw
+
     def __str__(self):
-        return f"{self.first_name} ({self.employee_number})" 
-       
+        return f"{self.first_name} ({self.employee_number})"
+
 class JobPosition(models.Model):
     """
     Modelo para almacenar los puestos de trabajo dentro de la empresa.
