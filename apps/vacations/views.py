@@ -58,21 +58,27 @@ def _find_leader_employee(leader_raw):
         tokens = name.split()
         if len(tokens) >= 2:
             base = dict(user__isnull=False, user__is_active=True)
-            # Intento 1: primer token = first_name, último token en last_name
+
+            # Si el último token es una inicial truncada (1-2 chars),
+            # usar el penúltimo token como apellido para no hacer icontains de 1 letra.
+            # Ej: "Jonathan Gomez A" → apellido="Gomez", no "A"
+            last_token = tokens[-1]
+            apellido_token = tokens[-2] if (len(last_token) <= 2 and len(tokens) >= 3) else last_token
+
+            # Intento 1: primer token = first_name, apellido_token en last_name
             qs = Employee.objects.filter(
                 first_name__istartswith=tokens[0],
-                last_name__icontains=tokens[-1],
+                last_name__icontains=apellido_token,
                 **base
             )
-            # Intento 2: primer token = last_name, último token en first_name
+            # Intento 2: primer token = last_name, apellido_token en first_name
             if not qs.exists():
                 qs = Employee.objects.filter(
                     last_name__istartswith=tokens[0],
-                    first_name__icontains=tokens[-1],
+                    first_name__icontains=apellido_token,
                     **base
                 )
-            # Intento 3 (3+ tokens): el último puede estar truncado,
-            # usar el token del medio como apellido
+            # Intento 3 (3+ tokens): usar el segundo token como apellido
             if not qs.exists() and len(tokens) >= 3:
                 qs = Employee.objects.filter(
                     first_name__istartswith=tokens[0],
@@ -112,18 +118,30 @@ def _employees_of_leader(user):
     if not last and not first:
         return Employee.objects.none()
 
-    # Usar solo el primer token del apellido y primeros chars del nombre
-    # para tolerar truncados en el campo leader (el sistema origen corta el texto)
-    last_prefix = last.split()[0][:7] if last else ''
     first_prefix = first[:4] if first else ''
+    last_word = last.split()[0] if last else ''
 
-    q = Q()
-    if last_prefix:
-        q &= Q(leader__icontains=last_prefix)
-    if first_prefix:
-        q &= Q(leader__icontains=first_prefix)
+    def _build_qs(last_prefix):
+        q = Q()
+        if last_prefix:
+            q &= Q(leader__icontains=last_prefix)
+        if first_prefix:
+            q &= Q(leader__icontains=first_prefix)
+        return Employee.objects.filter(q)
 
-    return Employee.objects.filter(q)
+    # Intento 1: prefijo largo (7 chars) — menos falsos positivos
+    qs = _build_qs(last_word[:7])
+    if qs.exists():
+        return qs
+
+    # Intento 2: prefijo corto (3 chars) — cubre campos leader truncados
+    # ej: "Villahumada - Lorenzo Ivan Flo" donde "Flores" quedó como "Flo"
+    if len(last_word) > 3:
+        qs = _build_qs(last_word[:3])
+        if qs.exists():
+            return qs
+
+    return Employee.objects.none()
 
 
 def get_manager_name(user):
@@ -370,14 +388,18 @@ def vacation_form_user(request):
         lider_emp = _find_leader_employee(leader_raw) if leader_raw else None
         if lider_emp:
             enviada_a = f"{lider_emp.first_name} {lider_emp.last_name}"
+            puesto_lider = lider_emp.job_position.title if lider_emp.job_position else ""
         elif leader_raw:
             # Tiene líder en el campo pero no tiene usuario activo
             enviada_a = f"Capital Humano (líder sin acceso al sistema)"
+            puesto_lider = ""
         else:
             enviada_a = "Capital Humano (sin líder asignado)"
+            puesto_lider = ""
     except Employee.DoesNotExist:
         saldo_total = 0
         enviada_a = "Capital Humano"
+        puesto_lider = ""
 
     soy_jefe = is_manager(request.user)
 
@@ -387,6 +409,7 @@ def vacation_form_user(request):
         'saldo_total': saldo_total,
         'is_manager': soy_jefe,
         'enviada_a': enviada_a,
+        'puesto_lider': puesto_lider,
     }
     return render(request, 'vacations/user/vacation_form_user.html', context)
 
@@ -528,7 +551,7 @@ def vacation_form_manager(request):
     qs = VacationRequest.objects.filter(
         Q(user__employee__in=_employees_of_leader(request.user)) |
         Q(zona_approver=request.user)
-    ).select_related('user', 'manager_approver', 'zona_approver').order_by('-created_at')
+    ).select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('-created_at')
 
     if estado == 'activos':
         qs = qs.filter(status__in=['pending', 'zona_pending'])
@@ -613,7 +636,7 @@ def vacation_form_rh(request):
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
 
-    qs = VacationRequest.objects.select_related('user').order_by('-created_at')
+    qs = VacationRequest.objects.select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('-created_at')
 
     if estado and estado != 'todos':
         qs = qs.filter(status=estado)

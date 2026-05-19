@@ -121,11 +121,13 @@
               {% endif %}
             </h5>
             {% if r.status == 'zona_pending' %}
-              <span class="badge bg-warning text-dark">Pend. Jefe de Zona</span>
+              {% with puesto=r.zona_approver.employee.job_position.title %}
+                <span class="badge bg-warning text-dark">Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe de Zona{% endif %}</span>
+              {% endwith %}
             {% elif r.status == 'authorized' %}
-              <span class="badge bg-info text-dark">Pend. Capital Humano</span>
+              <span class="badge bg-info text-dark">Pendiente: Capital Humano</span>
             {% else %}
-              <span class="badge bg-warning text-dark">Pendiente de Jefe</span>
+              <span class="badge bg-warning text-dark">Pendiente: {% if puesto_lider %}{{ puesto_lider }}{% else %}Jefe{% endif %}</span>
             {% endif %}
           </div>
 
@@ -134,6 +136,7 @@
               <p class="mb-1"><strong>Días:</strong> {{ r.total_days|default:"—" }}</p>
               <p class="mb-1"><strong>Creado:</strong> {{ r.created_at|date:"d/m/Y H:i" }}</p>
               <p class="mb-1"><strong>Enviada a:</strong> <span class="text-muted">{{ enviada_a }}</span></p>
+              {% if puesto_lider %}<p class="mb-1"><strong>Puesto:</strong> <span class="text-muted">{{ puesto_lider }}</span></p>{% endif %}
             </div>
             <div class="col-md-6">
               <p class="mb-1"><strong>Comentario:</strong></p>

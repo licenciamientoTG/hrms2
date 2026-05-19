@@ -87,7 +87,30 @@ class VacationRequest(models.Model):
             return f"{self.start_date.strftime('%d/%m/%Y')} — {self.end_date.strftime('%d/%m/%Y')}"
         return '—'
 
-        
+    def get_approver_job_position(self):
+        """Retorna el puesto de la persona que debe aprobar según el status."""
+        if self.status == 'zona_pending' and self.zona_approver:
+            try:
+                return self.zona_approver.employee.job_position.title if self.zona_approver.employee.job_position else ""
+            except:
+                return ""
+        elif self.status == 'pending':
+            try:
+                emp = self.user.employee
+                leader_raw = (emp.leader or '').strip()
+                if leader_raw:
+                    # Usar la función _find_leader_employee del views
+                    from apps.vacations.views import _find_leader_employee
+                    lider_emp = _find_leader_employee(leader_raw)
+                    if lider_emp and lider_emp.job_position:
+                        return lider_emp.job_position.title
+            except:
+                pass
+            return ""
+        elif self.status == 'authorized':
+            return "Capital Humano"
+        return ""
+
     class Meta:
         permissions = [
             ("Modulo_vacaciones", "Acceso al Módulo de Vacaciones"),
