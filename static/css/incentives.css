@@ -1,0 +1,52 @@
+/* Styles for incentives / cierre de nómina panel */
+.incentives-table th { font-weight: 600; }
+.incentives-table td, .incentives-table th { vertical-align: middle; }
+
+.summary-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  min-height: 90px;
+}
+.summary-card .summary-icon {
+  font-size: 28px;
+}
+
+/* Make primary action stand out similar to mock */
+#btn-close-period {
+  background: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* Gerente / Subgerente de estación highlight */
+.emp-manager-row {
+  background-color: #e8f0fe !important;
+}
+.emp-manager-row td {
+  font-weight: 600;
+}
+
+/* Station detail expand row */
+.incentives-detail-container {
+  background: #f8f9fa;
+  border-top: 2px solid #0d6efd22;
+}
+.incentives-detail-table th { font-size: 12px; }
+.station-row.expanded > td:first-child .toggle-icon {
+  transform: rotate(90deg);
+}
+.incentives-detail-row td {
+  padding: 0 !important;
+}
+.incentives-detail-container {
+  animation: slideDown .15s ease-out;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive tweaks */
+@media (max-width: 767px) {
+  .card .d-flex.justify-content-between { flex-direction: column; gap: 8px; }
+}

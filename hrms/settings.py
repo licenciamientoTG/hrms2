@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "apps.courses.apps.CoursesConfig",
     "apps.monitoring.apps.MonitoringConfig",
     'apps.tools',
+    'apps.incentives',
 ]
 
 MIDDLEWARE = [

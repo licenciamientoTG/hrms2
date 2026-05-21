@@ -39,6 +39,7 @@ urlpatterns = [
     path("policies/", include("apps.policies.urls")),
     path("career_plan/", include("apps.career_plan.urls")),
     path("tools/", include("apps.tools.urls")),
+    path("incentives/", include("apps.incentives.urls")),
 
     # Password change forzado
     path("change-password/", force_password_change, name="force_password_change"),
