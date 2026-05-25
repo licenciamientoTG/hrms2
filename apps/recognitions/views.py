@@ -275,7 +275,7 @@ def recognition_dashboard_user(request):
             'recipients', 'media',
             Prefetch(
                 'comments',
-                queryset=RecognitionComment.objects.select_related('author').order_by('created_at')
+                queryset=RecognitionComment.objects.select_related('author', 'author__employee').order_by('created_at')
             )
         )
         .order_by('-published_at')
@@ -463,6 +463,7 @@ def recognition_comment_create(request, pk):
         author=request.user,
         body=body
     )
+    c = RecognitionComment.objects.select_related('author', 'author__employee').get(pk=c.pk)
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html = render_to_string(

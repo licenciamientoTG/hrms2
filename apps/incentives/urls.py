@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import incentives_dashboard, incentives_dashboard_admin, incentives_dashboard_user
+from .views import incentives_dashboard, incentives_dashboard_admin, incentives_dashboard_user, incentives_dashboard_manager
 
 urlpatterns = [
     path('', incentives_dashboard, name='incentives_dashboard'),
     path('admin/', incentives_dashboard_admin, name='incentives_dashboard_admin'),
+    path('manager/', incentives_dashboard_manager, name='incentives_dashboard_manager'),
     path('user/', incentives_dashboard_user, name='incentives_dashboard_user'),
 ]

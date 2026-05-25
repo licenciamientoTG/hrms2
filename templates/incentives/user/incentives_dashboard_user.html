@@ -4,11 +4,212 @@
 <link rel="stylesheet" href="{% static 'css/incentives.css' %}">
 {% endblock %}
 
-{% block page_title %}Panel de Incentivos{% endblock %}
-{% block title %}Panel de Incentivos{% endblock %}
+{% block page_title %}Mis Incentivos{% endblock %}
+{% block title %}Mis Incentivos{% endblock %}
 
 {% block content %}
-Aquí va a ir el módulo de incentivos. user
+
+{# ── Encabezado con navegación de semana ── #}
+<div class="card mb-4">
+  <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">Mis Incentivos</h4>
+      <small class="text-muted">Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="?delta={{ delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Semana anterior">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% if delta != 0 %}
+      <a href="?reset=1" class="btn btn-outline-primary btn-sm px-3">Semana actual</a>
+      {% else %}
+      <span class="btn btn-outline-primary btn-sm px-3 disabled">Semana actual</span>
+      {% endif %}
+      {% if delta < 0 %}
+      <a href="?delta={{ delta|add:"1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Semana siguiente">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="btn btn-outline-secondary btn-sm week-nav-btn disabled">
+        <i class="fas fa-chevron-right"></i>
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Tabla matricial ── #}
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Incentivos de la semana</h5>
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle incentives-week-table">
+        <thead>
+          <tr>
+            <th style="min-width:160px;">TIPO DE INCENTIVO</th>
+            {% for day in days %}
+            <th class="text-center {% if day == today %}day-today{% endif %}" style="min-width:100px;">
+              <div class="day-name">{{ day|date:"D"|slice:":3"|upper }}</div>
+              <div class="day-date">{{ day|date:"d/m/y" }}</div>
+            </th>
+            {% endfor %}
+            <th class="text-center" style="min-width:100px;">TOTAL</th>
+            <th style="min-width:160px;">COMENTARIOS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {# ── DATOS DE EJEMPLO — reemplazar con loop real cuando existan modelos ── #}
+          <tr>
+            <td class="fw-semibold">Diesel</td>
+            <td class="text-center cell-aprobado">$250.00<br><span class="badge-mini bg-aprobado">Aprobado</span></td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">$250.00</td>
+            <td class="text-muted" style="font-size:13px;">Lunes sin novedad</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Encargado</td>
+            <td class="text-center cell-aprobado">$300.00<br><span class="badge-mini bg-aprobado">Aprobado</span></td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">$300.00</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Mistery</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center cell-aprobado">$500.00<br><span class="badge-mini bg-aprobado">Aprobado</span></td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">$500.00</td>
+            <td class="text-muted" style="font-size:13px;">Evaluación miércoles</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Venta</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center cell-aprobado">$300.00<br><span class="badge-mini bg-aprobado">Aprobado</span></td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">$300.00</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">ECU</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center cell-aprobado">$300.00<br><span class="badge-mini bg-aprobado">Aprobado</span></td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">$300.00</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Auditoría</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">—</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Rotación</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">—</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Inventario</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold">—</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Otros</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-center text-muted">—</td>
+            <td class="text-muted" style="font-size:13px;">—</td>
+          </tr>
+          {# ── FIN DATOS DE EJEMPLO ── #}
+        </tbody>
+        <tfoot>
+          <tr class="table-light fw-semibold">
+            <td>TOTAL DEL DÍA</td>
+            <td class="text-center">$550.00</td>
+            <td class="text-center">—</td>
+            <td class="text-center">$500.00</td>
+            <td class="text-center">$300.00</td>
+            <td class="text-center">$300.00</td>
+            <td class="text-center">—</td>
+            <td class="text-center">—</td>
+            <td class="text-center text-primary">$1,650.00</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Cards de resumen ── #}
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="total-card p-3">
+      <small class="d-block mb-1 opacity-75">TOTAL APROBADO</small>
+      <div class="h4 mb-0">$1,650.00</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="summary-card p-3">
+      <small class="text-muted d-block mb-1">PENDIENTE DE APROBACIÓN</small>
+      <div class="h4 mb-0">$0.00</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="summary-card p-3">
+      <small class="text-muted d-block mb-1">TOTAL SEMANA</small>
+      <div class="h4 mb-0">$1,650.00</div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
   <script src="{% static 'js/incentives.js' %}"></script>

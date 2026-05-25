@@ -9,19 +9,29 @@
 
 {% block content %}
 <div class="card mb-4">
-  <div class="card-body p-3 d-flex justify-content-between align-items-center">
+  <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
       <h4 class="mb-0">Panel de Cierre de Nómina</h4>
-      <small class="text-muted">Control Global</small>
     </div>
-    <div class="d-flex gap-2 align-items-center">
-      <div class="me-2">
-        <label class="mb-0">Periodo:</label>
-        <div class="btn-group">
-          <button class="btn btn-outline-secondary btn-sm">-</button>
-        </div>
-      </div>
-      <button id="btn-close-period" class="btn btn-primary btn-sm">REALIZAR CIERRE DEFINITIVO DEL PERIODO</button>
+    <div class="d-flex align-items-center gap-2">
+      <a href="?delta={{ delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Semana anterior">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% if delta != 0 %}
+      <a href="?reset=1" class="btn btn-outline-primary btn-sm px-3">Semana actual</a>
+      {% else %}
+      <span class="btn btn-outline-primary btn-sm px-3 disabled">Semana actual</span>
+      {% endif %}
+      {% if delta < 0 %}
+      <a href="?delta={{ delta|add:"1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Semana siguiente">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="btn btn-outline-secondary btn-sm week-nav-btn disabled">
+        <i class="fas fa-chevron-right"></i>
+      </span>
+      {% endif %}
+      <button id="btn-close-period" class="btn btn-primary btn-sm ms-2">REALIZAR CIERRE DEFINITIVO DEL PERIODO</button>
     </div>
   </div>
 </div>
@@ -29,7 +39,10 @@
 <div class="card mb-4">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="card-title mb-0">Resumen de Estaciones para Cierre</h5>
+      <div>
+        <h5 class="card-title mb-0">Resumen de Estaciones para Cierre</h5>
+        <small class="text-muted">Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
+      </div>
       <div class="input-group" style="max-width: 300px;">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
         <input type="text" id="incentives-search" class="form-control form-control-sm" placeholder="Buscar estación, gerente...">
@@ -47,17 +60,17 @@
         </thead>
         <tbody>
           {% for item in dept_data %}
-          <tr class="station-row" style="cursor:pointer;" data-dept-id="{{ item.dept.id }}">
+          <tr class="station-row" style="cursor:pointer;" data-dept-id="{{ forloop.counter }}">
             <td class="text-center">
               <i class="fas fa-chevron-right toggle-icon" style="font-size:11px; color:#888; transition:transform .2s;"></i>
             </td>
-            <td>{{ item.dept.name }}</td>
+            <td>{{ item.team }}</td>
             <td>{{ item.gerente|default:"-" }}</td>
           </tr>
-          <tr class="incentives-detail-row d-none" data-dept-id="{{ item.dept.id }}">
+          <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}">
             <td colspan="3" class="p-0">
               <div class="incentives-detail-container px-4 py-3">
-                <h6 class="mb-2 text-muted">Incentivos registrados — <strong>{{ item.dept.name }}</strong></h6>
+                <h6 class="mb-2 text-muted">Incentivos registrados — <strong>{{ item.team }}</strong></h6>
                 <table class="table table-sm table-bordered mb-0 incentives-detail-table">
                   <thead class="table-light">
                     <tr>
@@ -97,7 +110,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-center text-muted">No hay departamentos registrados</td>
+            <td colspan="3" class="text-center text-muted">No hay equipos registrados</td>
           </tr>
           {% endfor %}
         </tbody>
