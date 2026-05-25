@@ -193,7 +193,7 @@ def news_detail_admin(request, pk):
 
     # GET ...
     comments = (NewsComment.objects.filter(news=news)
-                .select_related('user').order_by('-created_at'))
+                .select_related('user', 'user__employee').order_by('-created_at'))
     for c in comments:
         c.display_text = (c.body or '').strip()
 
@@ -208,7 +208,7 @@ def news_detail_user(request, pk):
         NewsLike.objects.filter(news=OuterRef('pk'), user=request.user)
     )
 
-    comments_qs = NewsComment.objects.select_related('user').order_by('-created_at')
+    comments_qs = NewsComment.objects.select_related('user', 'user__employee').order_by('-created_at')
 
     qs = (News.objects
           .select_related('author')
@@ -332,6 +332,7 @@ def news_comment_create(request, pk):
         return JsonResponse({'ok': False, 'error': 'empty'}, status=400)
 
     c = NewsComment.objects.create(news=news, user=request.user, body=body)
+    c = NewsComment.objects.select_related('user', 'user__employee').get(pk=c.pk)
 
     # Render del comentario como HTML (partial)
     html = render_to_string('news/user/_comment.html', {'c': c, 'request': request}, request=request)

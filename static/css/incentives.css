@@ -1,0 +1,108 @@
+/* Styles for incentives / cierre de nómina panel */
+.incentives-table th { font-weight: 600; }
+.incentives-table td, .incentives-table th { vertical-align: middle; }
+
+.summary-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  min-height: 90px;
+}
+.summary-card .summary-icon {
+  font-size: 28px;
+}
+
+/* Make primary action stand out similar to mock */
+#btn-close-period {
+  background: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* Gerente / Subgerente de estación highlight */
+.emp-manager-row {
+  background-color: #e8f0fe !important;
+}
+.emp-manager-row td {
+  font-weight: 600;
+}
+
+/* Station detail expand row */
+.incentives-detail-container {
+  background: #f8f9fa;
+  border-top: 2px solid #0d6efd22;
+}
+.incentives-detail-table th { font-size: 12px; }
+.station-row.expanded > td:first-child .toggle-icon {
+  transform: rotate(90deg);
+}
+.incentives-detail-row td {
+  padding: 0 !important;
+}
+.incentives-detail-container {
+  animation: slideDown .15s ease-out;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive tweaks */
+@media (max-width: 767px) {
+  .card .d-flex.justify-content-between { flex-direction: column; gap: 8px; }
+}
+
+/* User dashboard — week matrix table */
+.incentives-week-table th { font-size: 12px; font-weight: 600; }
+.incentives-week-table td { font-size: 13px; }
+.incentives-week-table .day-name { font-weight: 700; font-size: 11px; color: #6c757d; }
+.incentives-week-table .day-date { font-size: 13px; font-weight: 600; }
+.incentives-week-table th.day-today { background: #e8f0fe; color: #0d6efd; border-bottom: 2px solid #0d6efd; }
+.incentives-week-table td.day-today { background: #f0f5ff; }
+
+.cell-aprobado   { background: #d1e7dd; }
+.cell-pendiente  { background: #fff3cd; }
+.cell-rechazado  { background: #f8d7da; }
+
+.badge-mini {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  margin-top: 2px;
+}
+.bg-aprobado  { background: #0a3622; color: #d1e7dd; }
+.bg-pendiente { background: #856404; color: #fff3cd; }
+.bg-rechazado { background: #58151c; color: #f8d7da; }
+
+/* User dashboard — week navigation */
+.week-nav-btn {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+}
+
+/* User dashboard — total card */
+.total-card {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  border-radius: 10px;
+  color: #fff;
+}
+
+/* User dashboard — empty state */
+.empty-state { padding: 60px 0; }
+
+/* Avatar en el encabezado de la tabla */
+.emp-avatar-header {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d6efd, #0a58ca);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: .5px;
+}

@@ -65,6 +65,41 @@ def user_dashboard(request):
     })
 
 
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def upload_user_photo(request, user_id):
+    import os
+    import traceback
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+
+    try:
+        user = get_object_or_404(User, id=user_id)
+        employee = getattr(user, 'employee', None)
+        if not employee:
+            return JsonResponse({'status': 'error', 'message': 'El usuario no tiene empleado asociado'}, status=400)
+        photo = request.FILES.get('photo')
+        if not photo:
+            return JsonResponse({'status': 'error', 'message': 'No se recibió ninguna foto'}, status=400)
+
+        ext = os.path.splitext(photo.name)[1].lower()
+        filename = f'collaborators/{user_id}{ext}'
+
+        # Asegurar que la carpeta existe con permisos correctos
+        folder = os.path.join(default_storage.location, 'collaborators')
+        os.makedirs(folder, mode=0o775, exist_ok=True)
+
+        if default_storage.exists(filename):
+            default_storage.delete(filename)
+        saved_path = default_storage.save(filename, ContentFile(photo.read()))
+        employee.photo = saved_path
+        employee.save(update_fields=['photo'])
+        return JsonResponse({'status': 'ok', 'url': employee.photo.url})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': traceback.format_exc()}, status=500)
+
+
 @user_passes_test(lambda u: u.is_staff)
 @require_POST
 def toggle_user_status(request):

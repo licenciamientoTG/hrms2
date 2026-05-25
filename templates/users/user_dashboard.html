@@ -42,6 +42,7 @@
       <thead>
         <tr>
           <th>Nombre</th>
+          <th style="width:180px;">Foto</th>
           <th>Usuario</th>
           <th>Estado</th>
           <th style="width:220px;">Acciones</th>
@@ -66,6 +67,27 @@
               </div>
             </td>
             
+            {# ── Foto del colaborador ── #}
+            <td>
+              {% with emp=u.employee %}
+              <div class="user-photo-wrapper" title="Cambiar foto">
+                {% if emp and emp.photo %}
+                  <img src="{{ emp.photo.url }}" class="user-avatar-img" alt="foto">
+                {% else %}
+                  <div class="user-avatar-initials">
+                    {{ u.first_name|slice:":1"|upper }}{{ u.last_name|slice:":1"|upper }}
+                  </div>
+                {% endif %}
+                <div class="user-avatar-overlay"><i class="fas fa-camera"></i></div>
+                {% if emp %}
+                <input type="file" class="user-photo-input d-none" accept="image/*"
+                       data-user-id="{{ u.id }}"
+                       data-upload-url="{% url 'upload_user_photo' u.id %}">
+                {% endif %}
+              </div>
+              {% endwith %}
+            </td>
+
             <td>{{ u.username }}</td>
             
             <td>
@@ -92,7 +114,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="text-center">Sin resultados</td></tr>
+          <tr><td colspan="5" class="text-center">Sin resultados</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -138,4 +160,50 @@
 
 {% block scripts %}
   <script src="{% static 'js/users.js' %}"></script>
+  <script>
+    document.querySelectorAll('.user-photo-wrapper').forEach(function (wrapper) {
+      var input = wrapper.querySelector('.user-photo-input');
+      if (!input) return;
+
+      // Evitar que el click en el input suba al wrapper (doble disparo)
+      input.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      wrapper.addEventListener('click', function () { input.click(); });
+
+      input.addEventListener('change', function () {
+        if (!this.files.length) return;
+        var url = this.dataset.uploadUrl;
+        var formData = new FormData();
+        formData.append('photo', this.files[0]);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(url, { method: 'POST', body: formData })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.status === 'ok') {
+              var img = wrapper.querySelector('.user-avatar-img');
+              var initials = wrapper.querySelector('.user-avatar-initials');
+              if (img) {
+                img.src = data.url + '?t=' + Date.now();
+              } else {
+                var newImg = document.createElement('img');
+                newImg.src = data.url + '?t=' + Date.now();
+                newImg.className = 'user-avatar-img';
+                newImg.alt = 'foto';
+                newImg.style.cssText = 'width:44px;height:44px;border-radius:50%;object-fit:cover;display:block;';
+                if (initials) initials.replaceWith(newImg);
+              }
+            } else {
+              alert('Error al subir foto: ' + (data.message || 'Error desconocido'));
+            }
+          })
+          .catch(function (err) {
+            alert('Error al subir foto: ' + err.message);
+          });
+      });
+    });
+  </script>
 {% endblock %}
