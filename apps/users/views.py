@@ -129,10 +129,14 @@ def manage_user_permissions(request, user_id):
         messages.success(request, f"Permisos de {user_obj.username} actualizados correctamente.")
         return redirect('manage_user_permissions', user_id=user_id)
 
+    permisos_efectivos = set(user_obj.user_permissions.values_list('id', flat=True)) | \
+        set(Permission.objects.filter(group__user=user_obj).values_list('id', flat=True))
+
     return render(request, 'users/manage_permissions.html', {
         'user_obj': user_obj,
         'groups': grupos,
         'permissions': permisos,
+        'permisos_efectivos': permisos_efectivos,
     })
 
 @user_passes_test(lambda u: u.is_staff)

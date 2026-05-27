@@ -52,12 +52,13 @@
 
             <!-- Menú del usuario -->
             <li class="nav-item dropdown">
-                <a class="nav-icon dropdown-toggle d-inline-block d-sm-none" href="#" data-bs-toggle="dropdown">
-                    <i class="align-middle" data-feather="user"></i>
-                </a>
-
-                <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-                    <span class="text-dark">
+                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+                    {% if user.employee.photo %}
+                        <img src="{{ user.employee.photo.url }}" alt="Foto" class="rounded-circle" style="width:32px;height:32px;object-fit:cover;">
+                    {% else %}
+                        <i class="align-middle" data-feather="user"></i>
+                    {% endif %}
+                    <span class="text-dark d-none d-sm-inline">
                         {% if user.is_staff %}
                             {{ user.username }}
                         {% else %}

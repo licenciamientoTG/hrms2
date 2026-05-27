@@ -2,14 +2,17 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
+from apps.incentives.constants import STATION_TEAMS
 
 
 @login_required
 def incentives_dashboard(request):
-    if request.user.is_staff or request.user.is_superuser:
+    if not request.user.has_perm('incentives.Modulo_incentivos'):
+        return redirect('home')
+
+    if request.user.is_superuser or request.user.is_staff:
         return redirect('incentives_dashboard_admin')
 
-    # Verificar si el usuario es gerente o subgerente de estación
     try:
         emp = Employee.objects.select_related('job_position').get(user=request.user)
         titulo = (emp.job_position.title if emp.job_position else '').lower()
@@ -23,7 +26,7 @@ def incentives_dashboard(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff or u.is_superuser)
+@user_passes_test(lambda u: u.has_perm('incentives.Modulo_incentivos'))
 def incentives_dashboard_admin(request):
     from datetime import date, timedelta
     today = date.today()
@@ -37,48 +40,6 @@ def incentives_dashboard_admin(request):
 
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=delta)
     week_end = week_start + timedelta(days=6)
-
-    # Diccionario fijo de estaciones: team (campo BD) → nombre para mostrar
-    STATION_TEAMS = {
-        '4188': 'Gemela Grande',
-        '11007': 'Aguascalientes',
-        '1149': 'Lerdo',
-        '2526': 'Lopez Mateos',
-        '4179': 'Gemela Chica',
-        '5317': 'Municipio Libre',
-        '5465': 'Aztecas',
-        '6410': 'Misiones',
-        '6947': 'Puerto de Palos',
-        '7167': 'Miguel de la Madrid',
-        '8244': 'Permuta',
-        '9191': 'Electrolux',
-        '9235': 'Aeronáutica',
-        '9885': 'Custodia',
-        '9893': 'Anapra',
-        '2172': 'Parral',
-        '1376': 'Delicias',
-        '5170': 'Plutarco',
-        '1163': 'Tecnológico',
-        '23214': 'Hermanos Escobar',
-        '12900': 'El Castaño',
-        'Ejercito': 'Ejército Nacional',
-        'Satelite': 'Satélite',
-        'Fuentes': 'Las Fuentes',
-        'Clara': 'Clara',
-        'Solis': 'Solis',
-        'Santiago': 'Santiago Troncoso',
-        'Jarudo': 'Jarudo',
-        'Villahumada': 'Villa Ahumada',
-        'Travel Center': 'Travel Center',
-        'Picachos': 'Picachos',
-        'Ventanas': 'Ventanas',
-        'San Rafael': 'San Rafael',
-        'Puertecito': 'Puertecito',
-        'Jesus Maria': 'Jesús María',
-        'Gabriela Mistral': 'Gabriela Mistral',
-        'Praxedis': 'PRAXEDIS',
-        'Colosio': 'Colosio',
-    }
 
     # Inicializar todas las estaciones vacías
     teams = {
