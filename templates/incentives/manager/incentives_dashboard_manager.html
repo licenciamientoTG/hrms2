@@ -89,6 +89,7 @@
         </thead>
         <tbody>
           {% for tipo in tipos %}
+          {% if tipo == "Diesel" %}
           <tr>
             <td class="fw-semibold">{{ tipo }}</td>
             {% for day in days %}
@@ -104,16 +105,28 @@
               >
             </td>
             {% endfor %}
-            <td>
-              <input
-                type="text"
-                class="form-control form-control-sm incentivo-comment"
-                placeholder="Comentario..."
+            <td onclick="event.stopPropagation()">
+              <textarea
+                class="comentario-semana form-control form-control-sm"
                 data-emp=""
                 data-tipo="{{ tipo }}"
-              >
+                rows="2"
+                placeholder="Comentario de la semana…"
+                style="font-size:12px; resize:none;"
+              ></textarea>
             </td>
           </tr>
+          {% else %}
+          <tr class="text-muted">
+            <td class="fw-semibold">{{ tipo }}</td>
+            {% for day in days %}
+            <td class="text-center {% if day == today %}day-today{% endif %}">
+              <input type="checkbox" class="form-check-input" disabled>
+            </td>
+            {% endfor %}
+            <td>—</td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -134,24 +147,111 @@
 {% block scripts %}
   <script src="{% static 'js/incentives.js' %}"></script>
   <script>
+    var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
+
+    function getCsrf() {
+      return document.cookie.split(';').map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+    }
+
+    function cargarSemana(empId) {
+      if (!empId) return;
+      fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) return;
+          // Limpia checkboxes
+          document.querySelectorAll('.incentivo-check').forEach(function(cb) {
+            cb.checked = false;
+          });
+          // Limpia comentarios semanales
+          document.querySelectorAll('.comentario-semana').forEach(function(ta) {
+            ta.value = '';
+          });
+          // Marca los registros
+          data.registros.forEach(function(reg) {
+            var cb = document.querySelector(
+              '.incentivo-check[data-tipo="' + reg.tipo + '"][data-fecha="' + reg.fecha + '"]'
+            );
+            if (cb) cb.checked = true;
+          });
+          // Rellena comentarios semanales
+          if (data.comentarios) {
+            Object.keys(data.comentarios).forEach(function(tipo) {
+              var ta = document.querySelector('.comentario-semana[data-tipo="' + tipo + '"]');
+              if (ta) ta.value = data.comentarios[tipo] || '';
+            });
+          }
+        });
+    }
+
     function actualizarTabla(select) {
-      var opt      = select.options[select.selectedIndex];
-      var empId    = opt.value;
+      var opt       = select.options[select.selectedIndex];
+      var empId     = opt.value;
       var iniciales = opt.dataset.iniciales || '';
 
       document.getElementById('emp-nombre').textContent = opt.dataset.nombre;
       document.getElementById('emp-puesto').textContent = opt.dataset.puesto;
       document.getElementById('emp-num').textContent = empId ? 'No. ' + opt.dataset.num : '';
+      document.getElementById('emp-avatar-header').textContent = iniciales;
 
-      var avatarHeader = document.getElementById('emp-avatar-header');
-      avatarHeader.textContent = iniciales;
-
-      document.querySelectorAll('.incentivo-check, .incentivo-comment').forEach(function (el) {
+      document.querySelectorAll('.incentivo-check').forEach(function(el) {
         el.dataset.emp = empId;
-        if (el.type === 'checkbox') el.checked = false;
-        if (el.type === 'text') el.value = '';
+        el.checked = false;
       });
+      document.querySelectorAll('.comentario-semana').forEach(function(ta) {
+        ta.dataset.emp = empId;
+        ta.value = '';
+      });
+
+      cargarSemana(empId);
     }
+
+    // Toggle al marcar/desmarcar
+    document.querySelectorAll('.incentivo-check').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var empId = this.dataset.emp;
+        var tipo  = this.dataset.tipo;
+        var fecha = this.dataset.fecha;
+        if (!empId) return;
+
+        var cbRef = this;
+        fetch('/incentives/toggle/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrf(),
+          },
+          body: JSON.stringify({ emp: empId, tipo: tipo, fecha: fecha }),
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) {
+            cbRef.checked = !cbRef.checked;
+          }
+        })
+        .catch(function() {
+          cbRef.checked = !cbRef.checked;
+        });
+      });
+    });
+
+    // Guardar comentario semanal al salir del textarea
+    document.querySelectorAll('.comentario-semana').forEach(function(ta) {
+      ta.addEventListener('blur', function() {
+        var empId = this.dataset.emp;
+        var tipo  = this.dataset.tipo;
+        if (!empId) return;
+        fetch('/incentives/comentario/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrf(),
+          },
+          body: JSON.stringify({ emp: empId, tipo: tipo, week_start: SEMANA_INICIO, comentario: this.value }),
+        });
+      });
+    });
 
     var selector = document.getElementById('selector-colaborador');
     if (selector) {

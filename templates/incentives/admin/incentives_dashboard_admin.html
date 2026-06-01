@@ -31,7 +31,15 @@
         <i class="fas fa-chevron-right"></i>
       </span>
       {% endif %}
-      <button id="btn-close-period" class="btn btn-primary btn-sm ms-2">REALIZAR CIERRE DEFINITIVO DEL PERIODO</button>
+      {% if periodo_cerrado %}
+      <button id="btn-close-period" class="btn btn-sm ms-2 p-0 border-0 bg-transparent" title="Periodo CERRADO — click para reabrir" style="line-height:1;">
+        <i class="fas fa-lock" style="font-size:1.6rem; color:#dc3545;"></i>
+      </button>
+      {% else %}
+      <button id="btn-close-period" class="btn btn-sm ms-2 p-0 border-0 bg-transparent" title="Periodo ABIERTO — click para cerrar definitivamente" style="line-height:1;">
+        <i class="fas fa-lock-open" style="font-size:1.6rem; color:#28a745;"></i>
+      </button>
+      {% endif %}
     </div>
   </div>
 </div>
