@@ -53,6 +53,7 @@ def incentives_dashboard(request):
 @user_passes_test(lambda u: u.has_perm('incentives.Modulo_incentivos'))
 def incentives_dashboard_admin(request):
     from datetime import date, timedelta
+    from django.db.models import Count
     today = date.today()
 
     if 'reset' in request.GET:
@@ -64,25 +65,36 @@ def incentives_dashboard_admin(request):
 
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=delta)
     week_end = week_start + timedelta(days=6)
+    days = [week_start + timedelta(days=i) for i in range(7)]
 
-    # Inicializar todas las estaciones vacías
+    TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+
     teams = {
         team_key: {'display': display_name, 'employees': [], 'gerente': None}
         for team_key, display_name in STATION_TEAMS.items()
     }
 
-    # Llenar con empleados activos que pertenezcan a una estación del diccionario
-    employees = (
+    employees = list(
         Employee.objects
         .filter(is_active=True, team__in=STATION_TEAMS.keys())
         .select_related('job_position')
         .order_by('last_name', 'first_name')
     )
 
+    emp_ids = [emp.id for emp in employees]
+    incentivo_counts = {
+        row['employee_id']: row['total']
+        for row in IncentivoRegistro.objects.filter(
+            employee_id__in=emp_ids,
+            fecha__range=(week_start, week_end),
+        ).values('employee_id').annotate(total=Count('id'))
+    }
+
     for emp in employees:
         team_key = emp.team.strip()
         if team_key not in teams:
             continue
+        emp.incentivo_count = incentivo_counts.get(emp.id, 0)
         teams[team_key]['employees'].append(emp)
         titulo = (emp.job_position.title if emp.job_position else '').lower()
         if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
@@ -102,12 +114,16 @@ def incentives_dashboard_admin(request):
         'week_end': week_end,
         'today': today,
         'delta': delta,
+        'days': days,
+        'tipos': TIPOS,
+        'periodo_cerrado': False,
     })
 
 
 @login_required
 def incentives_dashboard_zona(request):
     from datetime import date, timedelta
+    from django.db.models import Count
     today = date.today()
 
     if 'reset' in request.GET:
@@ -119,14 +135,15 @@ def incentives_dashboard_zona(request):
 
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=delta)
     week_end = week_start + timedelta(days=6)
+    days = [week_start + timedelta(days=i) for i in range(7)]
+
+    TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
     try:
         jefe = Employee.objects.select_related('job_position').get(user=request.user)
-        # Buscar con nombre + primer apellido para tolerar truncado en el campo leader
         primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
         busqueda = f"{jefe.first_name} {primer_apellido}".strip()
 
-        # Teams de estaciones cuyos gerentes tienen a este jefe como leader
         teams_del_jefe = set(
             Employee.objects.filter(
                 team__in=STATION_TEAMS.keys(),
@@ -137,23 +154,33 @@ def incentives_dashboard_zona(request):
     except Employee.DoesNotExist:
         teams_del_jefe = set()
 
-    # Construir datos igual que admin pero solo para las estaciones del jefe
     teams = {
         team_key: {'display': STATION_TEAMS[team_key], 'employees': [], 'gerente': None}
         for team_key in teams_del_jefe
     }
 
-    employees = (
+    employees = list(
         Employee.objects
         .filter(is_active=True, team__in=teams_del_jefe)
         .select_related('job_position')
         .order_by('last_name', 'first_name')
     )
 
+    # Conteo de incentivos por empleado para la semana actual
+    emp_ids = [emp.id for emp in employees]
+    incentivo_counts = {
+        row['employee_id']: row['total']
+        for row in IncentivoRegistro.objects.filter(
+            employee_id__in=emp_ids,
+            fecha__range=(week_start, week_end),
+        ).values('employee_id').annotate(total=Count('id'))
+    }
+
     for emp in employees:
         team_key = emp.team.strip()
         if team_key not in teams:
             continue
+        emp.incentivo_count = incentivo_counts.get(emp.id, 0)
         teams[team_key]['employees'].append(emp)
         titulo = (emp.job_position.title if emp.job_position else '').lower()
         if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
@@ -167,12 +194,14 @@ def incentives_dashboard_zona(request):
         key=lambda x: x['team']
     )
 
-    return render(request, 'incentives/admin/incentives_dashboard_admin.html', {
+    return render(request, 'incentives/zona/incentives_dashboard_zona.html', {
         'dept_data': dept_data,
         'week_start': week_start,
         'week_end': week_end,
         'today': today,
         'delta': delta,
+        'days': days,
+        'tipos': TIPOS,
     })
 
 

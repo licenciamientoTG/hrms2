@@ -91,6 +91,20 @@
 /* User dashboard — empty state */
 .empty-state { padding: 60px 0; }
 
+/* Zona — tabla de empleados dentro de la estación */
+.zona-emp-table th { font-size: 12px; }
+.zona-emp-row:hover { background: #f0f5ff; }
+.zona-emp-row.zona-expanded { background: #e8f0fe; }
+.zona-emp-row.zona-expanded .zona-emp-toggle { transform: rotate(90deg); }
+
+/* Zona — detalle semanal del empleado */
+.zona-emp-detail-row td { padding: 0 !important; }
+.zona-emp-detail-container {
+  background: #fff;
+  border-top: 2px solid #0d6efd33;
+  animation: slideDown .15s ease-out;
+}
+
 /* Avatar en el encabezado de la tabla */
 .emp-avatar-header {
   width: 44px;
