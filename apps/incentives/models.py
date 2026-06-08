@@ -48,6 +48,26 @@ class IncentivoRegistro(models.Model):
         return f"{self.employee} — {self.tipo} — {self.fecha}"
 
 
+class SemanaCerrada(models.Model):
+    """Semana bloqueada para edición — solo admin/nóminas puede abrir/cerrar."""
+    week_start = models.DateField(unique=True, verbose_name='Inicio de semana')
+    cerrada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='semanas_cerradas',
+        verbose_name='Cerrada por',
+    )
+    cerrada_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Semana cerrada'
+        verbose_name_plural = 'Semanas cerradas'
+
+    def __str__(self):
+        return f"Semana {self.week_start} (cerrada)"
+
+
 class ComentarioSemana(models.Model):
     """Comentario del gerente para un tipo de incentivo en una semana."""
     employee = models.ForeignKey(

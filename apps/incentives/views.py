@@ -6,7 +6,28 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada
+
+
+def _deduplicar_por_tsa(employees):
+    """Si un CURP aparece en dos empresas, conserva solo el registro de TSA."""
+    seen = {}   # curp -> índice en result
+    result = []
+    for emp in employees:
+        curp = (emp.curp or '').strip().upper()
+        is_tsa = 'tsa' in (emp.company or '').lower()
+        if not curp:
+            result.append(emp)
+            continue
+        if curp not in seen:
+            seen[curp] = len(result)
+            result.append(emp)
+        else:
+            idx = seen[curp]
+            existing_is_tsa = 'tsa' in (result[idx].company or '').lower()
+            if is_tsa and not existing_is_tsa:
+                result[idx] = emp  # reemplazar con el de TSA
+    return result
 
 
 def _otorgar_permiso_incentivos(user):
@@ -54,6 +75,7 @@ def incentives_dashboard(request):
 def incentives_dashboard_admin(request):
     from datetime import date, timedelta
     from django.db.models import Count
+    import json
     today = date.today()
 
     if 'reset' in request.GET:
@@ -74,12 +96,12 @@ def incentives_dashboard_admin(request):
         for team_key, display_name in STATION_TEAMS.items()
     }
 
-    employees = list(
+    employees = _deduplicar_por_tsa(list(
         Employee.objects
         .filter(is_active=True, team__in=STATION_TEAMS.keys())
         .select_related('job_position')
         .order_by('last_name', 'first_name')
-    )
+    ))
 
     emp_ids = [emp.id for emp in employees]
     incentivo_counts = {
@@ -108,6 +130,8 @@ def incentives_dashboard_admin(request):
         key=lambda x: x['team']
     )
 
+    periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
+
     return render(request, 'incentives/admin/incentives_dashboard_admin.html', {
         'dept_data': dept_data,
         'week_start': week_start,
@@ -115,8 +139,8 @@ def incentives_dashboard_admin(request):
         'today': today,
         'delta': delta,
         'days': days,
-        'tipos': TIPOS,
-        'periodo_cerrado': False,
+        'tipos': json.dumps(TIPOS),
+        'periodo_cerrado': periodo_cerrado,
     })
 
 
@@ -124,6 +148,7 @@ def incentives_dashboard_admin(request):
 def incentives_dashboard_zona(request):
     from datetime import date, timedelta
     from django.db.models import Count
+    import json
     today = date.today()
 
     if 'reset' in request.GET:
@@ -159,12 +184,12 @@ def incentives_dashboard_zona(request):
         for team_key in teams_del_jefe
     }
 
-    employees = list(
+    employees = _deduplicar_por_tsa(list(
         Employee.objects
         .filter(is_active=True, team__in=teams_del_jefe)
         .select_related('job_position')
         .order_by('last_name', 'first_name')
-    )
+    ))
 
     # Conteo de incentivos por empleado para la semana actual
     emp_ids = [emp.id for emp in employees]
@@ -194,6 +219,8 @@ def incentives_dashboard_zona(request):
         key=lambda x: x['team']
     )
 
+    periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
+
     return render(request, 'incentives/zona/incentives_dashboard_zona.html', {
         'dept_data': dept_data,
         'week_start': week_start,
@@ -201,7 +228,8 @@ def incentives_dashboard_zona(request):
         'today': today,
         'delta': delta,
         'days': days,
-        'tipos': TIPOS,
+        'tipos': json.dumps(TIPOS),
+        'periodo_cerrado': periodo_cerrado,
     })
 
 
@@ -224,18 +252,20 @@ def incentives_dashboard_manager(request):
     try:
         gerente_emp = Employee.objects.select_related('department').get(user=request.user)
         department = gerente_emp.department
-        colaboradores = (
+        colaboradores = _deduplicar_por_tsa(list(
             Employee.objects
             .filter(department=department, is_active=True)
             .exclude(user=request.user)
             .select_related('job_position')
             .order_by('last_name', 'first_name')
-        )
+        ))
     except Employee.DoesNotExist:
         department = None
         colaboradores = Employee.objects.none()
 
     TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+
+    periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
     return render(request, 'incentives/manager/incentives_dashboard_manager.html', {
         'week_start': week_start,
@@ -246,6 +276,7 @@ def incentives_dashboard_manager(request):
         'department': department,
         'colaboradores': colaboradores,
         'tipos': TIPOS,
+        'periodo_cerrado': periodo_cerrado,
     })
 
 
@@ -295,8 +326,31 @@ def incentives_dashboard_user(request):
 
 @login_required
 @require_POST
+def toggle_semana_cerrada(request):
+    """Abre o cierra una semana para edición. Solo admin/superuser."""
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        week_start = data['week_start']
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    cerrada = SemanaCerrada.objects.filter(week_start=week_start).first()
+    if cerrada:
+        cerrada.delete()
+        return JsonResponse({'ok': True, 'estado': 'abierta'})
+    else:
+        SemanaCerrada.objects.create(week_start=week_start, cerrada_por=request.user)
+        return JsonResponse({'ok': True, 'estado': 'cerrada'})
+
+
+@login_required
+@require_POST
 def toggle_incentivo(request):
     """Marca o desmarca un incentivo (crea o elimina el registro)."""
+    from datetime import date, timedelta
     try:
         data = json.loads(request.body)
         emp_id = int(data['emp'])
@@ -304,6 +358,12 @@ def toggle_incentivo(request):
         fecha = data['fecha']  # 'YYYY-MM-DD'
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    # Verificar si la semana está cerrada
+    fecha_date = date.fromisoformat(fecha)
+    week_start = fecha_date - timedelta(days=fecha_date.weekday())
+    if SemanaCerrada.objects.filter(week_start=week_start).exists():
+        return JsonResponse({'ok': False, 'error': 'Semana cerrada', 'cerrada': True}, status=403)
 
     try:
         emp = Employee.objects.get(pk=emp_id)
@@ -364,6 +424,7 @@ def semana_data(request):
 @require_POST
 def guardar_comentario(request):
     """Guarda o actualiza el comentario semanal de un tipo de incentivo."""
+    from datetime import date, timedelta
     try:
         data = json.loads(request.body)
         emp_id = int(data['emp'])
@@ -372,6 +433,11 @@ def guardar_comentario(request):
         comentario = data.get('comentario', '').strip()
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    # Verificar si la semana está cerrada
+    week_start_date = date.fromisoformat(week_start)
+    if SemanaCerrada.objects.filter(week_start=week_start_date).exists():
+        return JsonResponse({'ok': False, 'error': 'Semana cerrada', 'cerrada': True}, status=403)
 
     try:
         emp = Employee.objects.get(pk=emp_id)

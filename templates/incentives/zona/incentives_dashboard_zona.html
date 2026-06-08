@@ -36,9 +36,21 @@
         <i class="fas fa-chevron-right"></i>
       </span>
       {% endif %}
+      {% if periodo_cerrado %}
+      <span class="ms-2" title="Semana cerrada — solo lectura">
+        <i class="fas fa-lock" style="font-size:1.6rem; color:#dc3545;"></i>
+      </span>
+      {% endif %}
     </div>
   </div>
 </div>
+
+{% if periodo_cerrado %}
+<div class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+  <i class="fas fa-lock"></i>
+  <span>Semana cerrada por nóminas — no se pueden realizar modificaciones.</span>
+</div>
+{% endif %}
 
 <div class="card mb-4">
   <div class="card-body">
@@ -105,52 +117,8 @@
                     </tr>
                     <tr class="zona-emp-detail-row d-none" data-emp-id="{{ emp.id }}">
                       <td colspan="4" class="p-0">
-                        <div class="zona-emp-detail-container px-4 py-3">
-                          <div class="table-responsive">
-                            <table class="table table-bordered align-middle incentives-week-table mb-0">
-                              <thead>
-                                <tr>
-                                  <th style="min-width:120px;">INCENTIVO</th>
-                                  {% for day in days %}
-                                  <th class="text-center {% if day == today %}day-today{% endif %}" style="min-width:68px;">
-                                    <div class="day-name">{{ day|date:"D"|slice:":3"|upper }}</div>
-                                    <div class="day-date">{{ day|date:"d/m" }}</div>
-                                  </th>
-                                  {% endfor %}
-                                  <th style="min-width:130px;">COMENTARIOS</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {% for tipo in tipos %}
-                                <tr>
-                                  <td class="fw-semibold" style="font-size:13px;">{{ tipo }}</td>
-                                  {% for day in days %}
-                                  <td class="text-center {% if day == today %}day-today{% endif %} incentivo-cell-zona" data-emp="{{ emp.id }}" data-tipo="{{ tipo }}" data-fecha="{{ day|date:'Y-m-d' }}">
-                                    <input
-                                      type="checkbox"
-                                      class="incentivo-check form-check-input"
-                                      data-emp="{{ emp.id }}"
-                                      data-tipo="{{ tipo }}"
-                                      data-fecha="{{ day|date:'Y-m-d' }}"
-                                      onclick="event.stopPropagation()"
-                                    >
-                                  </td>
-                                  {% endfor %}
-                                  <td onclick="event.stopPropagation()">
-                                    <textarea
-                                      class="comentario-semana form-control form-control-sm"
-                                      data-emp="{{ emp.id }}"
-                                      data-tipo="{{ tipo }}"
-                                      rows="2"
-                                      placeholder="Comentario…"
-                                      style="font-size:12px; resize:none;"
-                                    ></textarea>
-                                  </td>
-                                </tr>
-                                {% endfor %}
-                              </tbody>
-                            </table>
-                          </div>
+                        <div class="zona-emp-detail-container px-4 py-3" id="emp-detail-{{ emp.id }}">
+                          {# La tabla se inyecta dinámicamente al abrir #}
                         </div>
                       </td>
                     </tr>
@@ -183,13 +151,76 @@
   <script src="{% static 'js/incentives.js' %}"></script>
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
+    var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
+    var DIAS = [
+      {% for day in days %}
+      {"fecha":"{{ day|date:'Y-m-d' }}","nombre":"{{ day|date:'D'|slice:':3'|upper }}","display":"{{ day|date:'d/m' }}","esHoy":{% if day == today %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+    var TIPOS = {{ tipos|safe }};
 
     function getCsrf() {
       return document.cookie.split(';').map(c => c.trim())
         .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
     }
 
-    // ── Accordion de empleado ──────────────────────────────────────────────
+    // ── Construye e inyecta la tabla semanal de un empleado ───────────────
+    function buildEmpTable(empId) {
+      var container = document.getElementById('emp-detail-' + empId);
+      if (!container || container.dataset.built === '1') return;
+      container.dataset.built = '1';
+
+      var html = '<div class="table-responsive"><table class="table table-bordered align-middle incentives-week-table mb-0">';
+      html += '<thead><tr><th style="min-width:120px;">INCENTIVO</th>';
+      DIAS.forEach(function(dia) {
+        html += '<th class="text-center' + (dia.esHoy ? ' day-today' : '') + '" style="min-width:68px;">';
+        html += '<div class="day-name">' + dia.nombre + '</div>';
+        html += '<div class="day-date">' + dia.display + '</div>';
+        html += '</th>';
+      });
+      html += '<th style="min-width:130px;">COMENTARIOS</th></tr></thead><tbody>';
+
+      TIPOS.forEach(function(tipo) {
+        html += '<tr><td class="fw-semibold" style="font-size:13px;">' + tipo + '</td>';
+        DIAS.forEach(function(dia) {
+          html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
+                + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
+          html += '<input type="checkbox" class="incentivo-check form-check-input"'
+                + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
+                + (PERIODO_CERRADO ? ' disabled' : '')
+                + ' onclick="event.stopPropagation()">';
+          html += '</td>';
+        });
+        html += '<td onclick="event.stopPropagation()">'
+              + '<textarea class="comentario-semana form-control form-control-sm"'
+              + ' data-emp="' + empId + '" data-tipo="' + tipo + '"'
+              + ' rows="2" placeholder="Comentario…" style="font-size:12px;resize:none;"'
+              + (PERIODO_CERRADO ? ' readonly' : '') + '></textarea>'
+              + '</td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+
+      if (!PERIODO_CERRADO) {
+        container.querySelectorAll('.incentivo-check').forEach(function(cb) {
+          cb.addEventListener('change', function() { onToggle(cb); });
+        });
+        container.querySelectorAll('.comentario-semana').forEach(function(ta) {
+          ta.addEventListener('blur', function() { onComentario(ta); });
+        });
+        container.querySelectorAll('.incentivo-cell-zona').forEach(function(td) {
+          td.style.cursor = 'pointer';
+          td.addEventListener('click', function() {
+            var cb = td.querySelector('.incentivo-check');
+            if (cb) cb.click();
+          });
+        });
+      }
+    }
+
+    // ── Accordion de empleado ─────────────────────────────────────────────
     document.querySelectorAll('.zona-emp-row').forEach(function(row) {
       row.addEventListener('click', function() {
         var empId = row.dataset.empId;
@@ -205,8 +236,7 @@
           other.classList.remove('zona-expanded');
           var otherIcon = other.querySelector('.zona-emp-toggle');
           if (otherIcon) otherIcon.style.transform = '';
-          var otherId = other.dataset.empId;
-          var otherDetail = document.querySelector('.zona-emp-detail-row[data-emp-id="' + otherId + '"]');
+          var otherDetail = document.querySelector('.zona-emp-detail-row[data-emp-id="' + other.dataset.empId + '"]');
           if (otherDetail) otherDetail.classList.add('d-none');
         });
 
@@ -219,29 +249,27 @@
           if (icon) icon.style.transform = 'rotate(90deg)';
           detailRow.classList.remove('d-none');
 
-          // Solo carga datos la primera vez que se abre
           if (row.dataset.loaded === '0') {
             row.dataset.loaded = '1';
-            cargarSemanaZona(empId);
+            buildEmpTable(empId);
+            cargarSemana(empId);
           }
         }
       });
     });
 
-    // ── Carga incentivos del empleado vía AJAX ─────────────────────────────
-    function cargarSemanaZona(empId) {
+    // ── Carga datos del empleado vía AJAX ─────────────────────────────────
+    function cargarSemana(empId) {
       fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!data.ok) return;
-
           data.registros.forEach(function(reg) {
             var cb = document.querySelector(
               '.incentivo-check[data-emp="' + empId + '"][data-tipo="' + reg.tipo + '"][data-fecha="' + reg.fecha + '"]'
             );
             if (cb) cb.checked = true;
           });
-
           if (data.comentarios) {
             Object.keys(data.comentarios).forEach(function(tipo) {
               var ta = document.querySelector(
@@ -253,83 +281,43 @@
         });
     }
 
-    // ── Toggle al marcar/desmarcar checkbox ───────────────────────────────
-    document.querySelectorAll('.incentivo-check').forEach(function(cb) {
-      cb.addEventListener('change', function() {
-        var empId = this.dataset.emp;
-        var tipo  = this.dataset.tipo;
-        var fecha = this.dataset.fecha;
-        var cbRef = this;
+    // ── Toggle checkbox ───────────────────────────────────────────────────
+    function onToggle(cb) {
+      var empId = cb.dataset.emp;
+      var cbRef = cb;
+      fetch('/incentives/toggle/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ emp: empId, tipo: cb.dataset.tipo, fecha: cb.dataset.fecha }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) cbRef.checked = !cbRef.checked;
+        else actualizarBadge(empId);
+      })
+      .catch(function() { cbRef.checked = !cbRef.checked; });
+    }
 
-        fetch('/incentives/toggle/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrf(),
-          },
-          body: JSON.stringify({ emp: empId, tipo: tipo, fecha: fecha }),
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (!data.ok) {
-            cbRef.checked = !cbRef.checked;
-          } else {
-            actualizarBadge(empId);
-          }
-        })
-        .catch(function() {
-          cbRef.checked = !cbRef.checked;
-        });
+    // ── Guardar comentario ────────────────────────────────────────────────
+    function onComentario(ta) {
+      var empId = ta.dataset.emp;
+      if (!empId) return;
+      fetch('/incentives/comentario/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ emp: empId, tipo: ta.dataset.tipo, week_start: SEMANA_INICIO, comentario: ta.value }),
       });
-    });
+    }
 
-    // ── Guardar comentario al perder el foco ──────────────────────────────
-    document.querySelectorAll('.comentario-semana').forEach(function(ta) {
-      ta.addEventListener('blur', function() {
-        var empId = this.dataset.emp;
-        var tipo  = this.dataset.tipo;
-        if (!empId) return;
-        fetch('/incentives/comentario/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrf(),
-          },
-          body: JSON.stringify({
-            emp: empId,
-            tipo: tipo,
-            week_start: SEMANA_INICIO,
-            comentario: this.value
-          }),
-        });
-      });
-    });
-
-    // ── Actualiza el badge de conteo al marcar/desmarcar ─────────────────
+    // ── Actualiza badge de conteo ─────────────────────────────────────────
     function actualizarBadge(empId) {
-      var total = document.querySelectorAll(
-        '.incentivo-check[data-emp="' + empId + '"]:checked'
-      ).length;
+      var total = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"]:checked').length;
       var empRow = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
       if (!empRow) return;
       var badge = empRow.querySelector('.zona-emp-badge');
       if (!badge) return;
-      if (total > 0) {
-        badge.className = 'badge bg-primary zona-emp-badge';
-        badge.textContent = total;
-      } else {
-        badge.className = 'badge bg-secondary zona-emp-badge';
-        badge.textContent = 'Sin registro';
-      }
+      badge.className = total > 0 ? 'badge bg-primary zona-emp-badge' : 'badge bg-secondary zona-emp-badge';
+      badge.textContent = total > 0 ? total : 'Sin registro';
     }
-
-    // ── Clic en celda dispara el checkbox ────────────────────────────────
-    document.querySelectorAll('.incentivo-cell-zona').forEach(function(td) {
-      td.style.cursor = 'pointer';
-      td.addEventListener('click', function() {
-        var cb = td.querySelector('.incentivo-check');
-        if (cb) cb.click();
-      });
-    });
   </script>
 {% endblock %}

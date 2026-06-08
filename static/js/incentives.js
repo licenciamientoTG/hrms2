@@ -72,22 +72,33 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnClosePeriod = document.getElementById('btn-close-period');
   if (btnClosePeriod) {
     btnClosePeriod.addEventListener('click', function () {
-      if (window.Swal) {
-        Swal.fire({
-          title: 'Realizar cierre definitivo?',
-          text: 'Esta acción cerrará el periodo para todas las estaciones. ¿Deseas continuar?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: 'Sí, cerrar periodo',
-          cancelButtonText: 'Cancelar'
-        }).then(result => {
-          if (result.isConfirmed) {
-            Swal.fire('Periodo cerrado', 'El periodo ha sido cerrado. (simulado)', 'success');
-          }
-        });
-      } else {
-        if (confirm('Cerrar periodo?')) alert('Periodo cerrado (simulado)');
-      }
+      const cerrado = window.PERIODO_CERRADO;
+      const accion = cerrado ? 'reabrir' : 'cerrar';
+      const mensaje = cerrado ? 'Se permitirá la edición nuevamente.' : 'Nadie podrá modificar incentivos hasta que lo reabras.';
+      Swal.fire({
+        title: '¿Deseas ' + accion + ' la semana?',
+        text: mensaje,
+        icon: cerrado ? 'question' : 'warning',
+        showCancelButton: true,
+        confirmButtonText: accion.charAt(0).toUpperCase() + accion.slice(1),
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: cerrado ? '#28a745' : '#dc3545',
+      }).then(result => {
+        if (!result.isConfirmed) return;
+        const csrf = document.cookie.split(';').map(c => c.trim())
+          .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+        fetch('/incentives/cerrar-semana/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ week_start: window.SEMANA_INICIO }),
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) { Swal.fire('Error', data.error || 'desconocido', 'error'); return; }
+          window.location.reload();
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
+      });
     });
   }
 });

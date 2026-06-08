@@ -6,6 +6,7 @@ from .views import (
     incentives_dashboard_user,
     incentives_dashboard_manager,
     toggle_incentivo,
+    toggle_semana_cerrada,
     semana_data,
     guardar_comentario,
 )
@@ -17,6 +18,7 @@ urlpatterns = [
     path('manager/', incentives_dashboard_manager, name='incentives_dashboard_manager'),
     path('user/', incentives_dashboard_user, name='incentives_dashboard_user'),
     path('toggle/', toggle_incentivo, name='toggle_incentivo'),
+    path('cerrar-semana/', toggle_semana_cerrada, name='toggle_semana_cerrada'),
     path('semana/', semana_data, name='semana_data'),
     path('comentario/', guardar_comentario, name='guardar_comentario'),
 ]

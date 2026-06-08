@@ -34,9 +34,21 @@
         <i class="fas fa-chevron-right"></i>
       </span>
       {% endif %}
+      {% if periodo_cerrado %}
+      <span class="ms-2" title="Semana cerrada — solo lectura">
+        <i class="fas fa-lock" style="font-size:1.6rem; color:#dc3545;"></i>
+      </span>
+      {% endif %}
     </div>
   </div>
 </div>
+
+{% if periodo_cerrado %}
+<div class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+  <i class="fas fa-lock"></i>
+  <span>Semana cerrada por nóminas — no se pueden realizar modificaciones.</span>
+</div>
+{% endif %}
 
 {% if colaboradores %}
 
@@ -93,7 +105,8 @@
           <tr>
             <td class="fw-semibold">{{ tipo }}</td>
             {% for day in days %}
-            <td class="text-center incentivo-cell {% if day == today %}day-today{% endif %}" style="cursor:pointer;" onclick="this.querySelector('.incentivo-check').click()">
+            <td class="text-center incentivo-cell {% if day == today %}day-today{% endif %}"
+                {% if not periodo_cerrado %}style="cursor:pointer;" onclick="this.querySelector('.incentivo-check').click()"{% endif %}>
               <input
                 type="checkbox"
                 class="incentivo-check form-check-input"
@@ -102,6 +115,7 @@
                 data-fecha="{{ day|date:'Y-m-d' }}"
                 title="{{ tipo }} — {{ day|date:'d/m/Y' }}"
                 onclick="event.stopPropagation()"
+                {% if periodo_cerrado %}disabled{% endif %}
               >
             </td>
             {% endfor %}
@@ -113,6 +127,7 @@
                 rows="2"
                 placeholder="Comentario de la semana…"
                 style="font-size:12px; resize:none;"
+                {% if periodo_cerrado %}readonly{% endif %}
               ></textarea>
             </td>
           </tr>
@@ -148,6 +163,7 @@
   <script src="{% static 'js/incentives.js' %}"></script>
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
+    var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
 
     function getCsrf() {
       return document.cookie.split(';').map(c => c.trim())
@@ -208,6 +224,7 @@
     }
 
     // Toggle al marcar/desmarcar
+    if (!PERIODO_CERRADO)
     document.querySelectorAll('.incentivo-check').forEach(function(cb) {
       cb.addEventListener('change', function() {
         var empId = this.dataset.emp;
@@ -237,6 +254,7 @@
     });
 
     // Guardar comentario semanal al salir del textarea
+    if (!PERIODO_CERRADO)
     document.querySelectorAll('.comentario-semana').forEach(function(ta) {
       ta.addEventListener('blur', function() {
         var empId = this.dataset.emp;
