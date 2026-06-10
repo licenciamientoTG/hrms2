@@ -1,5 +1,13 @@
 {% if rec.category %}{{ rec.category.title }}{% else %}Comunicado{% endif %}
 
 {{ teaser }}
+{% if links %}
+
+--- ENLACES ---
+{% for link in links %}
+{{ link.label }}
+{{ link.url }}
+{% endfor %}
+{% endif %}
 
 Ver comunicado: {{ rec_url }}

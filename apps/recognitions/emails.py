@@ -102,12 +102,14 @@ def send_recognition_email(recognition, *, email_channels=None) -> bool:
 
 
     teaser = _build_teaser(recognition.message, limit=80)
+    links  = list(recognition.links.all())
 
     ctx = {
         "rec": recognition,
         "rec_url": rec_url,
         "cover_url": cover_url,
         "teaser": teaser,
+        "links": links,
     }
 
     try:

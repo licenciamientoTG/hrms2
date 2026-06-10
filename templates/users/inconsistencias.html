@@ -1,0 +1,159 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block page_title %}Inconsistencias de Usuarios{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Inconsistencias de Usuarios</h2>
+  <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary">
+    <i class="fas fa-arrow-left"></i> Volver a Usuarios
+  </a>
+</div>
+
+{% if messages %}
+  {% for msg in messages %}
+  <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div class="card p-3 mb-4">
+  <h5 class="mb-3">
+    <i class="fas fa-exclamation-triangle text-warning"></i>
+    Usuarios con sufijo en username
+    <span class="badge bg-warning text-dark ms-2">{{ sufijo_cases|length }}</span>
+  </h5>
+  <p class="text-muted small mb-3">
+    Empleados activos cuyo username no coincide con su número de reloj.
+    Ocurre cuando se actualiza información en Tress (p. ej. cambio de razón social) y se crea un registro duplicado con sufijo.
+  </p>
+
+  {% if sufijo_cases %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Colaborador</th>
+          <th class="text-center">Num. Reloj</th>
+          <th class="text-center">Username actual</th>
+          <th class="text-center">Username correcto</th>
+          <th>Duplicado activo</th>
+          <th>Variaciones detectadas</th>
+          <th class="text-center">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in sufijo_cases %}
+        <tr>
+          <td>
+            <strong>{{ c.emp.first_name }} {{ c.emp.last_name }}</strong>
+            <div class="text-muted small">{{ c.emp.company|default:"—" }}</div>
+          </td>
+          <td class="text-center">{{ c.emp.employee_number }}</td>
+          <td class="text-center">
+            <code class="text-danger">{{ c.username_actual }}</code>
+          </td>
+          <td class="text-center">
+            <code class="text-success">{{ c.username_correcto }}</code>
+          </td>
+
+          {# --- Columna duplicado --- #}
+          <td>
+            {% if c.tiene_duplicado %}
+              {% if c.es_misma_persona %}
+                <span class="badge bg-danger">Misma persona</span>
+              {% else %}
+                <span class="badge bg-info text-dark">Persona diferente</span>
+              {% endif %}
+              <div class="text-muted small mt-1">
+                EmpID {{ c.emp_duplicado.id }}<br>
+                {{ c.emp_duplicado.first_name }} {{ c.emp_duplicado.last_name }}<br>
+                <em>{{ c.emp_duplicado.company|default:"—" }}</em>
+              </div>
+            {% else %}
+              <span class="badge bg-secondary">No</span>
+            {% endif %}
+          </td>
+
+          {# --- Columna variaciones --- #}
+          <td>
+            {% if c.diferencias %}
+              <ul class="list-unstyled mb-0 small">
+                {% for d in c.diferencias %}
+                <li class="mb-1">
+                  <span class="fw-semibold text-secondary">{{ d.campo }}:</span><br>
+                  <span class="text-danger text-decoration-line-through">{{ d.anterior }}</span>
+                  <i class="fas fa-arrow-right text-muted mx-1" style="font-size:.7rem"></i>
+                  <span class="text-success fw-semibold">{{ d.nuevo }}</span>
+                </li>
+                {% endfor %}
+              </ul>
+            {% elif c.tiene_duplicado %}
+              <span class="text-muted small">Sin diferencias de datos</span>
+            {% else %}
+              <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+
+          {# --- Columna acción --- #}
+          <td class="text-center">
+            {% if c.tiene_duplicado and c.es_misma_persona %}
+              {# Armar texto de confirmación con las variaciones #}
+              <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}"
+                    onsubmit="return confirmarCorreccion(this, '{{ c.emp.first_name }} {{ c.emp.last_name }}', '{{ c.username_correcto }}', {{ c.emp_duplicado.id }}, {% if c.diferencias %}true{% else %}false{% endif %})">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger">
+                  <i class="fas fa-wrench"></i> Corregir y limpiar
+                </button>
+              </form>
+            {% elif not c.tiene_duplicado %}
+              <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}"
+                    onsubmit="return confirm('¿Renombrar username de \'{{ c.username_actual }}\' a \'{{ c.username_correcto }}\'?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-warning">
+                  <i class="fas fa-pen"></i> Renombrar
+                </button>
+              </form>
+            {% else %}
+              <span class="text-muted small">Persona diferente<br>Revisar manualmente</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Modal / tooltip de ayuda sobre qué hace "Corregir y limpiar" #}
+  <div class="alert alert-info mt-3 small">
+    <i class="fas fa-info-circle me-1"></i>
+    <strong>Corregir y limpiar</strong> hace lo siguiente:
+    <ol class="mb-0 mt-1">
+      <li>Desactiva el registro duplicado (el del username limpio con datos viejos).</li>
+      <li>Asigna el username correcto al registro con la <strong>nueva información</strong> (nueva razón social, etc.).</li>
+      <li>Elimina el usuario con sufijo.</li>
+    </ol>
+    El colaborador queda activo con su número de reloj original y sus datos actualizados.
+  </div>
+
+  {% else %}
+  <p class="text-success"><i class="fas fa-check-circle"></i> No se encontraron inconsistencias.</p>
+  {% endif %}
+</div>
+
+<script>
+function confirmarCorreccion(form, nombre, usernameNuevo, empIdViejo, tieneDiferencias) {
+  let msg = `¿Corregir a ${nombre}?\n\n`;
+  msg += `• El registro duplicado (EmpID ${empIdViejo}) será desactivado.\n`;
+  msg += `• El username quedará como: ${usernameNuevo}\n`;
+  if (tieneDiferencias) {
+    msg += `• Los datos actualizados (nueva razón social, etc.) quedarán aplicados.\n`;
+  }
+  msg += `\n¿Continuar?`;
+  return confirm(msg);
+}
+</script>
+{% endblock %}

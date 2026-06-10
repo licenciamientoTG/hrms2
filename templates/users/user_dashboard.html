@@ -11,9 +11,16 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Usuarios</h2>
   {% if request.user.is_superuser %}
-    <a href="{% url 'terms_audit' %}" class="btn btn-primary">
-      <i class="fas fa-file-contract"></i> Auditoría de Términos
-    </a>
+    <div class="d-flex gap-2">
+      <a href="{% url 'terms_audit' %}" class="btn btn-primary">
+        <i class="fas fa-file-contract"></i> Auditoría de Términos
+      </a>
+      {% if request.user.username == 'SUPERUSER' or request.user.username == 'JOSE' %}
+      <a href="{% url 'user_inconsistencias' %}" class="btn btn-warning">
+        <i class="fas fa-exclamation-triangle"></i> Inconsistencias
+      </a>
+      {% endif %}
+    </div>
   {% endif %}
 </div>
 

@@ -285,3 +285,119 @@ def terms_audit_view(request):
         "page_obj": page_obj,
         "q": q
     })
+
+
+@login_required
+@user_passes_test(lambda u: u.username in ('SUPERUSER', 'JOSE'))
+def user_inconsistencias_view(request):
+    # Empleados activos con username != employee_number (tienen sufijo)
+    sufijo_cases = []
+    for emp in Employee.objects.filter(is_active=True).select_related('user', 'department', 'job_position', 'station'):
+        if emp.user and emp.user.username != str(emp.employee_number):
+            clean_username = str(emp.employee_number)
+            clean_user = User.objects.filter(username=clean_username).first()
+            clean_emp = None
+            if clean_user:
+                try:
+                    clean_emp = clean_user.employee
+                except Exception:
+                    clean_emp = None
+
+            # Calcular diferencias entre el registro sufijado (nuevo) y el original (limpio)
+            diferencias = []
+            es_misma_persona = False
+            if clean_emp and clean_emp.is_active:
+                # Mismo apellido => misma persona
+                es_misma_persona = clean_emp.last_name.strip().lower() == emp.last_name.strip().lower()
+
+                campos = [
+                    ('Razón Social', emp.company, clean_emp.company),
+                    ('Nombre',       emp.first_name, clean_emp.first_name),
+                    ('Apellidos',    emp.last_name,  clean_emp.last_name),
+                    ('Departamento', str(emp.department or '—'), str(clean_emp.department or '—')),
+                    ('Puesto',       str(emp.job_position or '—'), str(clean_emp.job_position or '—')),
+                    ('Estación',     str(emp.station or '—'), str(clean_emp.station or '—')),
+                ]
+                for label, val_nuevo, val_viejo in campos:
+                    if str(val_nuevo or '').strip().lower() != str(val_viejo or '').strip().lower():
+                        diferencias.append({
+                            'campo':    label,
+                            'anterior': val_viejo or '—',
+                            'nuevo':    val_nuevo or '—',
+                        })
+
+                # Si solo cambió razón social (y apellido coincide), también es misma persona
+                if not es_misma_persona and diferencias:
+                    solo_company = all(d['campo'] == 'Razón Social' for d in diferencias)
+                    if solo_company:
+                        es_misma_persona = True
+
+            tiene_duplicado = clean_emp is not None and clean_emp.is_active
+
+            # Omitir casos donde el duplicado es una persona diferente (no se toma acción)
+            if tiene_duplicado and not es_misma_persona:
+                continue
+
+            sufijo_cases.append({
+                'emp': emp,
+                'username_actual':   emp.user.username,
+                'username_correcto': clean_username,
+                'tiene_duplicado':   tiene_duplicado,
+                'emp_duplicado':     clean_emp if tiene_duplicado else None,
+                'es_misma_persona':  es_misma_persona,
+                'diferencias':       diferencias,
+            })
+
+    return render(request, "users/inconsistencias.html", {
+        "sufijo_cases": sufijo_cases,
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.username in ('SUPERUSER', 'JOSE'))
+@require_POST
+def corregir_inconsistencia_view(request, emp_id):
+    from django.db import transaction
+
+    emp_nuevo = get_object_or_404(Employee, id=emp_id, is_active=True)
+
+    if not emp_nuevo.user:
+        messages.error(request, f"El empleado {emp_nuevo.first_name} no tiene usuario asignado.")
+        return redirect('user_inconsistencias')
+
+    clean_username = str(emp_nuevo.employee_number)
+
+    with transaction.atomic():
+        clean_user = User.objects.filter(username=clean_username).first()
+
+        if clean_user:
+            # Caso CON duplicado: emp viejo tiene el username limpio
+            try:
+                emp_viejo = clean_user.employee
+            except Exception:
+                emp_viejo = None
+
+            suffix_user = emp_nuevo.user
+
+            # 1. Liberar clean_user del emp viejo primero (unique constraint)
+            if emp_viejo:
+                Employee.objects.filter(id=emp_viejo.id).update(is_active=False, user=None)
+
+            # 2. Asignar clean_user al emp nuevo
+            Employee.objects.filter(id=emp_nuevo.id).update(user=clean_user)
+
+            # 3. Borrar usuario sufijado
+            suffix_user.delete()
+
+            messages.success(request, f"{emp_nuevo.first_name} {emp_nuevo.last_name}: username corregido a '{clean_username}', duplicado desactivado.")
+
+        else:
+            # Caso SIN duplicado: solo renombrar el username
+            user = emp_nuevo.user
+            old_username = user.username
+            user.username = clean_username
+            user.save(update_fields=['username'])
+
+            messages.success(request, f"{emp_nuevo.first_name} {emp_nuevo.last_name}: username renombrado de '{old_username}' a '{clean_username}'.")
+
+    return redirect('user_inconsistencias')
