@@ -89,7 +89,7 @@ def incentives_dashboard_admin(request):
     week_end = week_start + timedelta(days=6)
     days = [week_start + timedelta(days=i) for i in range(7)]
 
-    TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
     teams = {
         team_key: {'display': display_name, 'employees': [], 'gerente': None}
@@ -132,6 +132,20 @@ def incentives_dashboard_admin(request):
 
     periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
+    # Presupuesto global: suma de todos los incentivos de la semana
+    registros_semana = (
+        IncentivoRegistro.objects
+        .filter(employee_id__in=emp_ids, fecha__range=(week_start, week_end))
+        .values('employee_id', 'tipo')
+        .annotate(count=Count('id'))
+    )
+    presupuesto_global = 0
+    for r in registros_semana:
+        if r['tipo'] == 'Diesel':
+            presupuesto_global += r['count'] * 50
+        elif r['tipo'] == 'Encargado':
+            presupuesto_global += 200 + (r['count'] - 1) * 100 if r['count'] > 0 else 0
+
     return render(request, 'incentives/admin/incentives_dashboard_admin.html', {
         'dept_data': dept_data,
         'week_start': week_start,
@@ -141,6 +155,7 @@ def incentives_dashboard_admin(request):
         'days': days,
         'tipos': json.dumps(TIPOS),
         'periodo_cerrado': periodo_cerrado,
+        'presupuesto_global': presupuesto_global,
     })
 
 
@@ -162,7 +177,7 @@ def incentives_dashboard_zona(request):
     week_end = week_start + timedelta(days=6)
     days = [week_start + timedelta(days=i) for i in range(7)]
 
-    TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
     try:
         jefe = Employee.objects.select_related('job_position').get(user=request.user)
@@ -263,7 +278,7 @@ def incentives_dashboard_manager(request):
         department = None
         colaboradores = Employee.objects.none()
 
-    TIPOS = ['Diesel', 'Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
     periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
@@ -306,9 +321,23 @@ def incentives_dashboard_user(request):
             ).values_list('fecha', flat=True)
         )
         diesel_dias = sum(1 for d in days if d in diesel_fechas)
+        encargado_fechas = set(
+            IncentivoRegistro.objects.filter(
+                employee=emp,
+                tipo='Encargado',
+                fecha__range=(week_start, week_end),
+            ).values_list('fecha', flat=True)
+        )
+        encargado_dias = sum(1 for d in days if d in encargado_fechas)
     except Employee.DoesNotExist:
         diesel_fechas = set()
         diesel_dias = 0
+        encargado_fechas = set()
+        encargado_dias = 0
+
+    diesel_total = diesel_dias * 50
+    encargado_total = (200 + (encargado_dias - 1) * 100) if encargado_dias > 0 else 0
+    gran_total = diesel_total + encargado_total
 
     return render(request, 'incentives/user/incentives_dashboard_user.html', {
         'week_start': week_start,
@@ -318,7 +347,12 @@ def incentives_dashboard_user(request):
         'days': days,
         'diesel_fechas': diesel_fechas,
         'diesel_dias': diesel_dias,
-        'otros_tipos': ['Encargado', 'Mistery', 'Venta', 'ECU', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
+        'diesel_total': diesel_total,
+        'encargado_fechas': encargado_fechas,
+        'encargado_dias': encargado_dias,
+        'encargado_total': encargado_total,
+        'gran_total': gran_total,
+        'otros_tipos': ['Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
     })
 
 
@@ -370,15 +404,39 @@ def toggle_incentivo(request):
     except Employee.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'Empleado no encontrado'}, status=404)
 
-    registro, created = IncentivoRegistro.objects.get_or_create(
-        employee=emp,
-        tipo=tipo,
-        fecha=fecha,
-        defaults={'registrado_por': request.user},
-    )
-    if not created:
-        registro.delete()
+    # Si ya existe → desmarcar
+    existente = IncentivoRegistro.objects.filter(employee=emp, tipo=tipo, fecha=fecha).first()
+    if existente:
+        existente.delete()
         return JsonResponse({'ok': True, 'estado': 'eliminado'})
+
+    # Límite de 6 días por semana para Diesel
+    if tipo == 'Diesel':
+        dias_semana = IncentivoRegistro.objects.filter(
+            employee=emp,
+            tipo='Diesel',
+            fecha__range=(week_start, week_start + timedelta(days=6)),
+        ).count()
+        if dias_semana >= 6:
+            return JsonResponse(
+                {'ok': False, 'error': 'Máximo 6 días de Diesel por semana ($300)', 'max_diesel': True},
+                status=400,
+            )
+
+    # Límite de 6 palomitas por semana para Encargado (la 7ma no aplica)
+    if tipo == 'Encargado':
+        dias_semana = IncentivoRegistro.objects.filter(
+            employee=emp,
+            tipo='Encargado',
+            fecha__range=(week_start, week_start + timedelta(days=6)),
+        ).count()
+        if dias_semana >= 6:
+            return JsonResponse(
+                {'ok': False, 'error': 'Máximo 6 días de Encargado por semana ($700)', 'max_encargado': True},
+                status=400,
+            )
+
+    IncentivoRegistro.objects.create(employee=emp, tipo=tipo, fecha=fecha, registrado_por=request.user)
     return JsonResponse({'ok': True, 'estado': 'creado'})
 
 

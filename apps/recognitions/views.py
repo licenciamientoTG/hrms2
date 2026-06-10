@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.http import HttpResponseForbidden
-from .models import RecognitionCategory, Recognition, RecognitionComment, RecognitionMedia
+from .models import RecognitionCategory, Recognition, RecognitionComment, RecognitionMedia, RecognitionLink
 from django.db.models.deletion import ProtectedError
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
@@ -106,6 +106,14 @@ def recognition_dashboard_admin(request):
 
                 for f in files:
                     RecognitionMedia.objects.create(recognition=rec, file=f)
+
+                link_labels = request.POST.getlist('link_label')
+                link_urls   = request.POST.getlist('link_url')
+                for i, (lbl, url) in enumerate(zip(link_labels, link_urls)):
+                    lbl = lbl.strip()
+                    url = url.strip()
+                    if url:
+                        RecognitionLink.objects.create(recognition=rec, label=lbl or url, url=url, order=i)
 
             # Publicar
             published_now = publish_recognition_if_due(rec)
@@ -234,6 +242,14 @@ def recognition_dashboard_user(request):
             for f in files:
                 RecognitionMedia.objects.create(recognition=rec, file=f)
 
+            link_labels = request.POST.getlist('link_label')
+            link_urls   = request.POST.getlist('link_url')
+            for i, (lbl, url) in enumerate(zip(link_labels, link_urls)):
+                lbl = lbl.strip()
+                url = url.strip()
+                if url:
+                    RecognitionLink.objects.create(recognition=rec, label=lbl or url, url=url, order=i)
+
         # Publicar si ya toca (el servicio también envía el correo una sola vez)
         published_now = publish_recognition_if_due(rec)
 
@@ -272,7 +288,7 @@ def recognition_dashboard_user(request):
         )
         # my_reaction se añade en Python tras la query (ver abajo)
         .prefetch_related(
-            'recipients', 'media',
+            'recipients', 'media', 'links',
             Prefetch(
                 'comments',
                 queryset=RecognitionComment.objects.select_related('author', 'author__employee').order_by('created_at')

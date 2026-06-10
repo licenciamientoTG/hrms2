@@ -72,6 +72,23 @@
         </p>
       {% endif %}
 
+      {# --- Links adjuntos --- #}
+      {% with rec_links=rec.links.all %}
+        {% if rec_links %}
+          <div class="mt-3 p-3 rounded" style="background:#f0f4ff;">
+            <div class="fw-semibold small mb-2" style="color:#0f3b68;">Enlaces</div>
+            {% for link in rec_links %}
+              <div class="mb-1">
+                <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"
+                   class="text-decoration-none fw-semibold" style="color:#1663d8;">
+                  {{ link.label }}
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
       {# --- Bloque de Medios --- #}
       {% with all_media=rec.media.all %}
         <div id="rec-{{ rec.id }}-carousel" class="carousel slide mt-2" data-bs-ride="carousel">

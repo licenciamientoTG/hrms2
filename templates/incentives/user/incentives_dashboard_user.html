@@ -53,6 +53,7 @@
             </th>
             {% endfor %}
             <th class="text-center" style="min-width:80px;">DÍAS</th>
+            <th class="text-center" style="min-width:90px;">TOTAL</th>
           </tr>
         </thead>
         <tbody>
@@ -71,6 +72,28 @@
             <td class="text-center fw-semibold">
               {% if diesel_dias > 0 %}{{ diesel_dias }}{% else %}—{% endif %}
             </td>
+            <td class="text-center fw-semibold text-success">
+              {% if diesel_total > 0 %}${{ diesel_total }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {# ── Encargado ── #}
+          <tr>
+            <td class="fw-semibold">Encargado</td>
+            {% for day in days %}
+            <td class="text-center {% if day == today %}day-today{% endif %}">
+              {% if day in encargado_fechas %}
+                <i class="fas fa-check-circle text-success" style="font-size:1.2rem;" title="Registrado"></i>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td class="text-center fw-semibold">
+              {% if encargado_dias > 0 %}{{ encargado_dias }}{% else %}—{% endif %}
+            </td>
+            <td class="text-center fw-semibold text-success">
+              {% if encargado_total > 0 %}${{ encargado_total }}{% else %}—{% endif %}
+            </td>
           </tr>
           {# ── Otros tipos (próximamente) ── #}
           {% for tipo in otros_tipos %}
@@ -79,6 +102,7 @@
             {% for day in days %}
             <td class="text-center">—</td>
             {% endfor %}
+            <td class="text-center">—</td>
             <td class="text-center">—</td>
           </tr>
           {% endfor %}
@@ -92,8 +116,8 @@
 <div class="row g-3">
   <div class="col-md-6">
     <div class="summary-card p-3">
-      <small class="text-muted d-block mb-1">DIESEL ESTA SEMANA</small>
-      <div class="h4 mb-0">{{ diesel_dias }} día{% if diesel_dias != 1 %}s{% endif %}</div>
+      <small class="text-muted d-block mb-1">TOTAL INCENTIVOS ESTA SEMANA</small>
+      <div class="h4 mb-0 text-success">${{ gran_total }}</div>
     </div>
   </div>
   <div class="col-md-6">

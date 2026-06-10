@@ -165,3 +165,20 @@ class RecognitionMedia(models.Model):
 
     def __str__(self):
         return f'Media #{self.pk} of Rec #{self.recognition_id}'
+
+
+class RecognitionLink(models.Model):
+    recognition = models.ForeignKey(
+        Recognition,
+        on_delete=models.CASCADE,
+        related_name='links'
+    )
+    label = models.CharField(max_length=200)
+    url   = models.URLField(max_length=2000)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'{self.label} → {self.url[:60]}'

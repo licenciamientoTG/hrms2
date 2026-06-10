@@ -7,7 +7,9 @@ from .views import (
     create_group,
     delete_group,
     reset_password_to_default,
-    terms_audit_view
+    terms_audit_view,
+    user_inconsistencias_view,
+    corregir_inconsistencia_view
 )
 from apps.users.views import force_password_change, upload_user_photo
 
@@ -22,5 +24,7 @@ urlpatterns = [
     path('groups/delete/<int:group_id>/', delete_group, name='delete_group'),
     path('reset-default/<int:user_id>/', reset_password_to_default, name='reset_password_default'),
     path('audit/terms/', terms_audit_view, name='terms_audit'),
+    path('audit/inconsistencias/', user_inconsistencias_view, name='user_inconsistencias'),
+    path('audit/inconsistencias/corregir/<int:emp_id>/', corregir_inconsistencia_view, name='corregir_inconsistencia'),
     path('upload-photo/<int:user_id>/', upload_user_photo, name='upload_user_photo'),
 ]
