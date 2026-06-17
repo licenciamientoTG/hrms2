@@ -214,12 +214,14 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "")
 CORPO_NEWS_EMAIL = os.getenv("CORPO_NEWS_EMAIL", "").strip()
 ESTACIONES_NEWS_EMAIL = os.getenv("ESTACIONES_NEWS_EMAIL", "").strip()
 ESTACIONES_JUAREZ_EMAIL = os.getenv("ESTACIONES_JUAREZ_EMAIL", "").strip()
+AQUACAR_EMAIL = os.getenv("AQUACAR_EMAIL", "").strip()
 
 
 NEWS_EMAILS = {
     "corpo": CORPO_NEWS_EMAIL,
     "estaciones": ESTACIONES_NEWS_EMAIL,
     "juarez": ESTACIONES_JUAREZ_EMAIL,
+    "aquacar": AQUACAR_EMAIL,
 }
 
 def RESOLVE_NEWS_EMAIL(channel: str) -> list[str]:

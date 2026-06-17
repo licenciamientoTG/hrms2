@@ -9,6 +9,7 @@ from .views import (
     toggle_semana_cerrada,
     semana_data,
     guardar_comentario,
+    resumen_global,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('cerrar-semana/', toggle_semana_cerrada, name='toggle_semana_cerrada'),
     path('semana/', semana_data, name='semana_data'),
     path('comentario/', guardar_comentario, name='guardar_comentario'),
+    path('resumen-global/', resumen_global, name='resumen_global'),
 ]

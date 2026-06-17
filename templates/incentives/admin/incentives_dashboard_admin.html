@@ -53,7 +53,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
         <h5 class="card-title mb-0">Resumen de Estaciones para Cierre</h5>
-        <small class="text-muted">Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
+        <span style="display:inline-block; margin-top:4px; background:#fff3cd; border:1px solid #ffc107; border-radius:5px; padding:2px 10px; font-size:13px; font-weight:600; color:#856404;">
+          <i class="fas fa-calendar-week" style="margin-right:5px;"></i>Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}
+        </span>
       </div>
       <div class="input-group" style="max-width: 300px;">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -67,7 +69,8 @@
           <tr>
             <th style="width:30px;"></th>
             <th>ESTACIÓN</th>
-            <th>GERENTE</th>
+            <th>GERENTE / SUBGERENTE</th>
+            <th style="width:80px;" class="text-center">CAPTURA</th>
           </tr>
         </thead>
         <tbody>
@@ -77,10 +80,25 @@
               <i class="fas fa-chevron-right toggle-icon" style="font-size:11px; color:#888; transition:transform .2s;"></i>
             </td>
             <td>{{ item.team }}</td>
-            <td>{{ item.gerente|default:"-" }}</td>
+            <td>
+              {% if item.gerente %}
+                {{ item.gerente }}
+              {% elif item.subgerentes %}
+                {% for sub in item.subgerentes %}
+                  {{ sub }} <span style="font-size:10px; font-weight:600; background:#1a6fb5; color:#fff; border-radius:3px; padding:1px 5px; vertical-align:middle;">SUB</span>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if item.tiene_captura %}
+                <span title="Ya hay incentivos registrados esta semana" style="display:inline-block; width:10px; height:10px; background:#28a745; border-radius:50%;"></span>
+              {% endif %}
+            </td>
           </tr>
           <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}">
-            <td colspan="3" class="p-0">
+            <td colspan="4" class="p-0">
               <div class="incentives-detail-container px-3 py-2">
                 <table class="table table-sm mb-0 zona-emp-table">
                   <thead class="table-light">
@@ -147,8 +165,8 @@
     <div class="summary-card p-3">
       <div class="d-flex justify-content-between align-items-start">
         <div>
-          <small class="text-muted d-block mb-1">PRESUPUESTO GLOBAL ACUMULADO</small>
-          <div class="h4 mb-0 text-success">${{ presupuesto_global }}</div>
+          <small class="text-muted d-block mb-1">INCENTIVOS ACUMULADOS</small>
+          <div class="h4 mb-0 text-success" id="presupuesto-global-val">${{ presupuesto_global }}</div>
           <small class="text-muted">Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
         </div>
       </div>
@@ -156,8 +174,12 @@
   </div>
   <div class="col-md-4">
     <div class="summary-card p-3">
-      <small class="text-muted">ESTATUS GLOBAL DE CAPTURA</small>
-      <div class="h4 mb-0">-</div>
+      <small class="text-muted d-block mb-1">ESTATUS GLOBAL DE CAPTURA</small>
+      <div class="h4 mb-1" id="estaciones-captura-val">{{ estaciones_con_captura }} <small class="text-muted" style="font-size:14px;">de {{ total_estaciones }} estaciones</small></div>
+      <div class="progress" style="height:6px;" data-total="{{ total_estaciones }}">
+        <div class="progress-bar bg-success" id="progress-captura-bar" style="width:{% widthratio estaciones_con_captura total_estaciones 100 %}%;"></div>
+      </div>
+      <small class="text-muted">han registrado al menos un incentivo esta semana</small>
     </div>
   </div>
   <div class="col-md-4">
@@ -172,6 +194,9 @@
 {% block scripts %}
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
+    var PRESUPUESTO_GLOBAL = {{ presupuesto_global }};
+    var ESTACIONES_CON_CAPTURA = {{ estaciones_con_captura }};
+    var TOTAL_ESTACIONES = {{ total_estaciones }};
     var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
     var DIAS = [
       {% for day in days %}

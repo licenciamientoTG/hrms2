@@ -42,6 +42,24 @@ def _otorgar_permiso_incentivos(user):
         user.user_permissions.add(perm)
 
 
+def _get_rol_incentivos(user):
+    """Devuelve el rol del usuario: 'admin', 'zona', 'gerente', 'user' o None."""
+    if user.is_superuser or user.is_staff:
+        return 'admin'
+    try:
+        emp = Employee.objects.select_related('job_position').get(user=user)
+        titulo = (emp.job_position.title if emp.job_position else '').lower()
+        if 'jefe de zona' in titulo:
+            return 'zona'
+        if 'gerente de estaci' in titulo or 'subgerente de estaci' in titulo:
+            return 'gerente'
+    except Employee.DoesNotExist:
+        pass
+    if user.has_perm('incentives.Modulo_incentivos'):
+        return 'user'
+    return None
+
+
 @login_required
 def incentives_dashboard(request):
     if request.user.is_superuser or request.user.is_staff:
@@ -71,8 +89,9 @@ def incentives_dashboard(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.has_perm('incentives.Modulo_incentivos'))
 def incentives_dashboard_admin(request):
+    if not (request.user.is_superuser or request.user.is_staff):
+        return redirect('incentives_dashboard')
     from datetime import date, timedelta
     from django.db.models import Count
     import json
@@ -92,7 +111,7 @@ def incentives_dashboard_admin(request):
     TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
     teams = {
-        team_key: {'display': display_name, 'employees': [], 'gerente': None}
+        team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': []}
         for team_key, display_name in STATION_TEAMS.items()
     }
 
@@ -121,10 +140,18 @@ def incentives_dashboard_admin(request):
         titulo = (emp.job_position.title if emp.job_position else '').lower()
         if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
             teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+        elif 'subgerente de estaci' in titulo:
+            teams[team_key]['subgerentes'].append(f"{emp.first_name} {emp.last_name}".strip())
 
     dept_data = sorted(
         [
-            {'team': data['display'], 'gerente': data['gerente'], 'employees': data['employees']}
+            {
+                'team': data['display'],
+                'gerente': data['gerente'],
+                'subgerentes': data['subgerentes'],
+                'employees': data['employees'],
+                'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
+            }
             for data in teams.values()
         ],
         key=lambda x: x['team']
@@ -146,6 +173,12 @@ def incentives_dashboard_admin(request):
         elif r['tipo'] == 'Encargado':
             presupuesto_global += 200 + (r['count'] - 1) * 100 if r['count'] > 0 else 0
 
+    estaciones_con_captura = sum(
+        1 for item in dept_data
+        if any(getattr(emp, 'incentivo_count', 0) > 0 for emp in item['employees'])
+    )
+    total_estaciones = len(dept_data)
+
     return render(request, 'incentives/admin/incentives_dashboard_admin.html', {
         'dept_data': dept_data,
         'week_start': week_start,
@@ -156,11 +189,15 @@ def incentives_dashboard_admin(request):
         'tipos': json.dumps(TIPOS),
         'periodo_cerrado': periodo_cerrado,
         'presupuesto_global': presupuesto_global,
+        'estaciones_con_captura': estaciones_con_captura,
+        'total_estaciones': total_estaciones,
     })
 
 
 @login_required
 def incentives_dashboard_zona(request):
+    if _get_rol_incentivos(request.user) != 'zona':
+        return redirect('incentives_dashboard')
     from datetime import date, timedelta
     from django.db.models import Count
     import json
@@ -195,7 +232,7 @@ def incentives_dashboard_zona(request):
         teams_del_jefe = set()
 
     teams = {
-        team_key: {'display': STATION_TEAMS[team_key], 'employees': [], 'gerente': None}
+        team_key: {'display': STATION_TEAMS[team_key], 'employees': [], 'gerente': None, 'subgerentes': []}
         for team_key in teams_del_jefe
     }
 
@@ -225,10 +262,18 @@ def incentives_dashboard_zona(request):
         titulo = (emp.job_position.title if emp.job_position else '').lower()
         if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
             teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+        elif 'subgerente de estaci' in titulo:
+            teams[team_key]['subgerentes'].append(f"{emp.first_name} {emp.last_name}".strip())
 
     dept_data = sorted(
         [
-            {'team': data['display'], 'gerente': data['gerente'], 'employees': data['employees']}
+            {
+                'team': data['display'],
+                'gerente': data['gerente'],
+                'subgerentes': data['subgerentes'],
+                'employees': data['employees'],
+                'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
+            }
             for data in teams.values()
         ],
         key=lambda x: x['team']
@@ -250,6 +295,8 @@ def incentives_dashboard_zona(request):
 
 @login_required
 def incentives_dashboard_manager(request):
+    if _get_rol_incentivos(request.user) != 'gerente':
+        return redirect('incentives_dashboard')
     from datetime import date, timedelta
     today = date.today()
 
@@ -297,6 +344,8 @@ def incentives_dashboard_manager(request):
 
 @login_required
 def incentives_dashboard_user(request):
+    if _get_rol_incentivos(request.user) != 'user':
+        return redirect('incentives_dashboard')
     from datetime import date, timedelta
     today = date.today()
 
@@ -378,6 +427,52 @@ def toggle_semana_cerrada(request):
     else:
         SemanaCerrada.objects.create(week_start=week_start, cerrada_por=request.user)
         return JsonResponse({'ok': True, 'estado': 'cerrada'})
+
+
+def _resumen_semana(week_start):
+    """Calcula presupuesto global y estaciones con captura para una semana."""
+    from datetime import timedelta
+    from django.db.models import Count
+    from collections import defaultdict
+
+    week_end = week_start + timedelta(days=6)
+    employees = _deduplicar_por_tsa(list(
+        Employee.objects
+        .filter(is_active=True, team__in=STATION_TEAMS.keys())
+        .only('id', 'team')
+    ))
+    emp_ids = [emp.id for emp in employees]
+
+    registros = (
+        IncentivoRegistro.objects
+        .filter(employee_id__in=emp_ids, fecha__range=(week_start, week_end))
+        .values('employee_id', 'tipo')
+        .annotate(count=Count('id'))
+    )
+
+    presupuesto_global = 0
+    emp_counts = defaultdict(int)
+    for r in registros:
+        emp_counts[r['employee_id']] += r['count']
+        if r['tipo'] == 'Diesel':
+            presupuesto_global += r['count'] * 50
+        elif r['tipo'] == 'Encargado':
+            presupuesto_global += (200 + (r['count'] - 1) * 100) if r['count'] > 0 else 0
+
+    team_emp_map = defaultdict(list)
+    for emp in employees:
+        team_emp_map[emp.team.strip()].append(emp.id)
+
+    estaciones_con_captura = sum(
+        1 for emp_id_list in team_emp_map.values()
+        if any(emp_counts.get(eid, 0) > 0 for eid in emp_id_list)
+    )
+
+    return {
+        'presupuesto_global': presupuesto_global,
+        'estaciones_con_captura': estaciones_con_captura,
+        'total_estaciones': len(STATION_TEAMS),
+    }
 
 
 @login_required
@@ -475,6 +570,64 @@ def semana_data(request):
             for r in registros
         ],
         'comentarios': comentarios,
+    })
+
+
+@login_required
+def resumen_global(request):
+    """Devuelve presupuesto global y estatus de captura por estación para la semana dada."""
+    from datetime import date, timedelta
+    from django.db.models import Count
+    from collections import defaultdict
+
+    semana = request.GET.get('semana')
+    if not semana:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+    try:
+        week_start = date.fromisoformat(semana)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    week_end = week_start + timedelta(days=6)
+
+    employees = _deduplicar_por_tsa(list(
+        Employee.objects
+        .filter(is_active=True, team__in=STATION_TEAMS.keys())
+        .only('id', 'team')
+    ))
+    emp_ids = [emp.id for emp in employees]
+
+    registros = (
+        IncentivoRegistro.objects
+        .filter(employee_id__in=emp_ids, fecha__range=(week_start, week_end))
+        .values('employee_id', 'tipo')
+        .annotate(count=Count('id'))
+    )
+
+    presupuesto_global = 0
+    emp_counts = defaultdict(int)
+    for r in registros:
+        emp_counts[r['employee_id']] += r['count']
+        if r['tipo'] == 'Diesel':
+            presupuesto_global += r['count'] * 50
+        elif r['tipo'] == 'Encargado':
+            presupuesto_global += (200 + (r['count'] - 1) * 100) if r['count'] > 0 else 0
+
+    team_emp_map = defaultdict(list)
+    for emp in employees:
+        team_emp_map[emp.team.strip()].append(emp.id)
+
+    estaciones_con_captura = sum(
+        1 for emp_id_list in team_emp_map.values()
+        if any(emp_counts.get(eid, 0) > 0 for eid in emp_id_list)
+    )
+    total_estaciones = len(STATION_TEAMS)
+
+    return JsonResponse({
+        'ok': True,
+        'presupuesto_global': presupuesto_global,
+        'estaciones_con_captura': estaciones_con_captura,
+        'total_estaciones': total_estaciones,
     })
 
 

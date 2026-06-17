@@ -122,29 +122,9 @@ function cargarSemana(empId) {
 
 // ── Toggle checkbox ──────────────────────────────────────────────────────────
 
-function onToggle(cb) {
-  var empId = cb.dataset.emp;
-  var tipo  = cb.dataset.tipo;
-
-  if (tipo === 'Diesel' && cb.checked) {
-    var dieselMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Diesel"]:checked').length;
-    if (dieselMarcados > 6) {
-      cb.checked = false;
-      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
-      return;
-    }
-  }
-
-  if (tipo === 'Encargado' && cb.checked) {
-    var encargadoMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
-    if (encargadoMarcados > 6) {
-      cb.checked = false;
-      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
-      return;
-    }
-  }
-
+function _doToggleFetch(cb, empId, tipo) {
   var cbRef = cb;
+  var checkedState = cb.checked;
   fetch('/incentives/toggle/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
@@ -159,9 +139,47 @@ function onToggle(cb) {
     } else {
       actualizarBadge(empId);
       actualizarTotalTipo(empId, tipo);
+      actualizarResumenGlobal(empId, tipo, checkedState);
     }
   })
   .catch(function() { cbRef.checked = !cbRef.checked; });
+}
+
+function onToggle(cb) {
+  var empId = cb.dataset.emp;
+  var tipo  = cb.dataset.tipo;
+
+  if (tipo === 'Diesel' && cb.checked) {
+    var dieselMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Diesel"]:checked').length;
+    if (dieselMarcados > 6) {
+      cb.checked = false;
+      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
+      return;
+    }
+    if (dieselMarcados === 1) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Incentivo Diesel',
+        html: 'El incentivo de Diesel <strong>solo aplica para el primer y segundo turno</strong>.',
+        confirmButtonColor: '#0d6efd',
+        confirmButtonText: 'Entendido',
+      }).then(function() {
+        _doToggleFetch(cb, empId, tipo);
+      });
+      return;
+    }
+  }
+
+  if (tipo === 'Encargado' && cb.checked) {
+    var encargadoMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
+    if (encargadoMarcados > 6) {
+      cb.checked = false;
+      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
+      return;
+    }
+  }
+
+  _doToggleFetch(cb, empId, tipo);
 }
 
 // ── Guardar comentario ───────────────────────────────────────────────────────
@@ -176,7 +194,7 @@ function onComentario(ta) {
   });
 }
 
-// ── Actualiza badge de conteo ────────────────────────────────────────────────
+// ── Actualiza badge de conteo + punto verde de estación + resumen global ─────
 
 function actualizarBadge(empId) {
   var total = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"]:checked').length;
@@ -186,6 +204,69 @@ function actualizarBadge(empId) {
   if (!badge) return;
   badge.className = total > 0 ? 'badge bg-primary zona-emp-badge' : 'badge bg-secondary zona-emp-badge';
   badge.textContent = total > 0 ? total : 'Sin registro';
+
+  actualizarPuntoVerdeEstacion(empRow);
+}
+
+function actualizarPuntoVerdeEstacion(empRow) {
+  var detailRow = empRow.closest('.incentives-detail-row');
+  if (!detailRow) return;
+  var deptId = detailRow.dataset.deptId;
+  var stationRow = document.querySelector('.station-row[data-dept-id="' + deptId + '"]');
+  if (!stationRow) return;
+  var capturaCell = stationRow.querySelector('td:last-child');
+  if (!capturaCell) return;
+
+  var badges = detailRow.querySelectorAll('.zona-emp-badge');
+  var tieneCaptura = Array.from(badges).some(function(b) { return b.classList.contains('bg-primary'); });
+
+  var dot = capturaCell.querySelector('span');
+  if (tieneCaptura && !dot) {
+    var newDot = document.createElement('span');
+    newDot.title = 'Ya hay incentivos registrados esta semana';
+    newDot.style.cssText = 'display:inline-block; width:10px; height:10px; background:#28a745; border-radius:50%;';
+    capturaCell.appendChild(newDot);
+  } else if (!tieneCaptura && dot) {
+    dot.remove();
+  }
+}
+
+function calcularDeltaPresupuesto(empId, tipo, checked) {
+  if (tipo === 'Diesel') {
+    return checked ? 50 : -50;
+  }
+  if (tipo === 'Encargado') {
+    var count = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
+    // count ya refleja el nuevo estado (el checkbox ya cambió antes de llegar aquí)
+    if (checked) return count === 1 ? 200 : 100;
+    else         return count === 0 ? -200 : -100;
+  }
+  return 0;
+}
+
+function actualizarResumenGlobal(empId, tipo, checked) {
+  var valEl = document.getElementById('presupuesto-global-val');
+  if (!valEl) return; // no es la vista admin
+
+  var delta = calcularDeltaPresupuesto(empId, tipo, checked);
+  window.PRESUPUESTO_GLOBAL = (window.PRESUPUESTO_GLOBAL || 0) + delta;
+  valEl.textContent = '$' + window.PRESUPUESTO_GLOBAL;
+
+  // Estaciones con captura: contar puntos verdes activos en el DOM
+  var estaciones = document.querySelectorAll('.station-row td:last-child span').length;
+  window.ESTACIONES_CON_CAPTURA = estaciones;
+
+  var estEl = document.getElementById('estaciones-captura-val');
+  if (estEl) {
+    estEl.innerHTML = estaciones
+      + ' <small class="text-muted" style="font-size:14px;">de '
+      + (window.TOTAL_ESTACIONES || 0) + ' estaciones</small>';
+  }
+
+  var barEl = document.getElementById('progress-captura-bar');
+  if (barEl && window.TOTAL_ESTACIONES > 0) {
+    barEl.style.width = Math.round(estaciones / window.TOTAL_ESTACIONES * 100) + '%';
+  }
 }
 
 // ── Totales gerente (una sola tabla, sin empId) ──────────────────────────────
@@ -387,6 +468,20 @@ document.addEventListener('DOMContentLoaded', function () {
           if (dieselMarcados > 6) {
             this.checked = false;
             Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
+            return;
+          }
+          if (dieselMarcados === 1) {
+            var cbManager = this;
+            Swal.fire({
+              icon: 'info',
+              title: 'Incentivo Diesel',
+              html: 'El incentivo de Diesel <strong>solo aplica para el primer y segundo turno</strong>.',
+              confirmButtonColor: '#0d6efd',
+              confirmButtonText: 'Entendido',
+            }).then(function() {
+              _doToggleFetch(cbManager, empId, tipo);
+              actualizarTotal(tipo);
+            });
             return;
           }
         }
