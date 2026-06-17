@@ -11,14 +11,6 @@
   </a>
 </div>
 
-{% if messages %}
-  {% for msg in messages %}
-  <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
-    {{ msg }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  </div>
-  {% endfor %}
-{% endif %}
 
 <div class="card p-3 mb-4">
   <h5 class="mb-3">
@@ -42,6 +34,7 @@
           <th class="text-center">Username correcto</th>
           <th>Duplicado activo</th>
           <th>Variaciones detectadas</th>
+          <th>Resultado final</th>
           <th class="text-center">Acción</th>
         </tr>
       </thead>
@@ -98,22 +91,29 @@
             {% endif %}
           </td>
 
+          {# --- Columna resultado final --- #}
+          <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal" data-bs-target="#preview-modal-{{ c.emp.id }}">
+              <i class="fas fa-eye"></i> Ver resultado
+            </button>
+          </td>
+
           {# --- Columna acción --- #}
           <td class="text-center">
             {% if c.tiene_duplicado and c.es_misma_persona %}
-              {# Armar texto de confirmación con las variaciones #}
-              <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}"
-                    onsubmit="return confirmarCorreccion(this, '{{ c.emp.first_name }} {{ c.emp.last_name }}', '{{ c.username_correcto }}', {{ c.emp_duplicado.id }}, {% if c.diferencias %}true{% else %}false{% endif %})">
+              <form id="form-corregir-{{ c.emp.id }}" method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-danger">
+                <button type="button" class="btn btn-sm btn-danger"
+                        onclick="confirmarCorreccion('{{ c.emp.id }}', '{{ c.emp.first_name }} {{ c.emp.last_name }}', '{{ c.username_correcto }}', {{ c.emp_duplicado.id }}, {% if c.diferencias %}true{% else %}false{% endif %})">
                   <i class="fas fa-wrench"></i> Corregir y limpiar
                 </button>
               </form>
             {% elif not c.tiene_duplicado %}
-              <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}"
-                    onsubmit="return confirm('¿Renombrar username de \'{{ c.username_actual }}\' a \'{{ c.username_correcto }}\'?')">
+              <form id="form-renombrar-{{ c.emp.id }}" method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-warning">
+                <button type="button" class="btn btn-sm btn-warning"
+                        onclick="confirmarRenombrar('{{ c.emp.id }}', '{{ c.username_actual }}', '{{ c.username_correcto }}')">
                   <i class="fas fa-pen"></i> Renombrar
                 </button>
               </form>
@@ -144,16 +144,124 @@
   {% endif %}
 </div>
 
+{# ===== Modales de preview por colaborador ===== #}
+{% for c in sufijo_cases %}
+<div class="modal fade" id="preview-modal-{{ c.emp.id }}" tabindex="-1"
+     aria-labelledby="preview-label-{{ c.emp.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="preview-label-{{ c.emp.id }}">
+          <i class="fas fa-user me-2"></i>
+          {{ c.emp.first_name }} {{ c.emp.last_name }} — Resultado de la corrección
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">
+          Las filas <span class="badge bg-warning text-dark">resaltadas</span> son los campos que cambiarán.
+        </p>
+        <table class="table table-bordered table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:20%">Campo</th>
+              <th>Antes</th>
+              <th>Después</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in c.preview %}
+            <tr {% if row.cambio %}class="table-warning"{% endif %}>
+              <td class="fw-semibold text-secondary">{{ row.campo }}</td>
+              <td>
+                {% if row.cambio %}
+                  <span class="text-danger text-decoration-line-through">{{ row.antes }}</span>
+                {% else %}
+                  {{ row.antes }}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.cambio %}
+                  <span class="text-success fw-semibold">{{ row.despues }}</span>
+                {% else %}
+                  {{ row.despues }}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if c.tiene_duplicado %}
+        <div class="alert alert-secondary small mb-0">
+          <i class="fas fa-info-circle me-1"></i>
+          El registro duplicado <strong>EmpID {{ c.emp_duplicado.id }}</strong>
+          ({{ c.emp_duplicado.first_name }} {{ c.emp_duplicado.last_name }}) quedará <strong>desactivado</strong>.
+        </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        {% if c.tiene_duplicado and c.es_misma_persona %}
+          <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+              <i class="fas fa-wrench"></i> Corregir y limpiar
+            </button>
+          </form>
+        {% elif not c.tiene_duplicado %}
+          <form method="post" action="{% url 'corregir_inconsistencia' c.emp.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">
+              <i class="fas fa-pen"></i> Renombrar
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
 <script>
-function confirmarCorreccion(form, nombre, usernameNuevo, empIdViejo, tieneDiferencias) {
-  let msg = `¿Corregir a ${nombre}?\n\n`;
-  msg += `• El registro duplicado (EmpID ${empIdViejo}) será desactivado.\n`;
-  msg += `• El username quedará como: ${usernameNuevo}\n`;
+function confirmarRenombrar(empId, usernameActual, usernameCorrecto) {
+  Swal.fire({
+    title: '¿Renombrar usuario?',
+    html: `El username <code>${usernameActual}</code> cambiará a <code class="text-success">${usernameCorrecto}</code>.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#f0ad4e',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Sí, renombrar',
+    cancelButtonText: 'Cancelar',
+  }).then(result => {
+    if (result.isConfirmed) {
+      document.getElementById('form-renombrar-' + empId).submit();
+    }
+  });
+}
+
+function confirmarCorreccion(empId, nombre, usernameNuevo, empIdViejo, tieneDiferencias) {
+  let html = `<p class="mb-2">Se realizarán los siguientes cambios para <strong>${nombre}</strong>:</p><ul class="text-start">`;
+  html += `<li>El username quedará como <code class="text-success">${usernameNuevo}</code>.</li>`;
+  html += `<li>El registro duplicado <strong>(EmpID ${empIdViejo})</strong> será desactivado.</li>`;
   if (tieneDiferencias) {
-    msg += `• Los datos actualizados (nueva razón social, etc.) quedarán aplicados.\n`;
+    html += `<li>Los datos actualizados (nueva razón social, etc.) quedarán aplicados.</li>`;
   }
-  msg += `\n¿Continuar?`;
-  return confirm(msg);
+  html += `</ul>`;
+  Swal.fire({
+    title: '¿Corregir y limpiar?',
+    html: html,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Sí, corregir',
+    cancelButtonText: 'Cancelar',
+  }).then(result => {
+    if (result.isConfirmed) {
+      document.getElementById('form-corregir-' + empId).submit();
+    }
+  });
 }
 </script>
 {% endblock %}

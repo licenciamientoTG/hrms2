@@ -288,7 +288,7 @@ def terms_audit_view(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.username in ('SUPERUSER', 'JOSE'))
+@user_passes_test(lambda u: u.username.upper() in ('SUPERUSER', 'JOSE'))
 def user_inconsistencias_view(request):
     # Empleados activos con username != employee_number (tienen sufijo)
     sufijo_cases = []
@@ -311,12 +311,27 @@ def user_inconsistencias_view(request):
                 es_misma_persona = clean_emp.last_name.strip().lower() == emp.last_name.strip().lower()
 
                 campos = [
-                    ('Razón Social', emp.company, clean_emp.company),
-                    ('Nombre',       emp.first_name, clean_emp.first_name),
-                    ('Apellidos',    emp.last_name,  clean_emp.last_name),
-                    ('Departamento', str(emp.department or '—'), str(clean_emp.department or '—')),
-                    ('Puesto',       str(emp.job_position or '—'), str(clean_emp.job_position or '—')),
-                    ('Estación',     str(emp.station or '—'), str(clean_emp.station or '—')),
+                    ('Razón Social',    emp.company,                                           clean_emp.company),
+                    ('Nombre',          emp.first_name,                                        clean_emp.first_name),
+                    ('Apellidos',       emp.last_name,                                         clean_emp.last_name),
+                    ('Departamento',    str(emp.department or '—'),                            str(clean_emp.department or '—')),
+                    ('Puesto',          emp.job_position.title if emp.job_position else '—',   clean_emp.job_position.title if clean_emp.job_position else '—'),
+                    ('Estación',        str(emp.station or '—'),                               str(clean_emp.station or '—')),
+                    ('RFC',             emp.rfc or '—',                                        clean_emp.rfc or '—'),
+                    ('IMSS',            emp.imss or '—',                                       clean_emp.imss or '—'),
+                    ('CURP',            emp.curp or '—',                                       clean_emp.curp or '—'),
+                    ('Sexo',            emp.gender or '—',                                     clean_emp.gender or '—'),
+                    ('Fecha de ingreso', str(emp.start_date or '—'),                           str(clean_emp.start_date or '—')),
+                    ('Fecha de nacimiento', str(emp.birth_date or '—'),                        str(clean_emp.birth_date or '—')),
+                    ('Antigüedad',      emp.seniority_raw or '—',                              clean_emp.seniority_raw or '—'),
+                    ('Salario diario',  str(emp.daily_salary or '—'),                          str(clean_emp.daily_salary or '—')),
+                    ('Fondo de ahorro', str(emp.saving_fund or '—'),                           str(clean_emp.saving_fund or '—')),
+                    ('Responsable',     emp.responsible or '—',                                clean_emp.responsible or '—'),
+                    ('Líder',           emp.leader or '—',                                     clean_emp.leader or '—'),
+                    ('Equipo',          emp.team or '—',                                       clean_emp.team or '—'),
+                    ('Teléfono',        emp.phone_number or '—',                               clean_emp.phone_number or '—'),
+                    ('Email',           emp.email or '—',                                      clean_emp.email or '—'),
+                    ('Dirección',       emp.address or '—',                                    clean_emp.address or '—'),
                 ]
                 for label, val_nuevo, val_viejo in campos:
                     if str(val_nuevo or '').strip().lower() != str(val_viejo or '').strip().lower():
@@ -338,6 +353,55 @@ def user_inconsistencias_view(request):
             if tiene_duplicado and not es_misma_persona:
                 continue
 
+            # Preview completo para el modal: todos los campos, marcando los que cambian
+            preview_rows = [{
+                'campo':   'Username',
+                'antes':   emp.user.username,
+                'despues': clean_username,
+                'cambio':  True,
+            }]
+            def _cv(emp_obj, attr, fallback='—'):
+                val = getattr(emp_obj, attr, None)
+                return str(val) if val else fallback
+
+            def _antes(attr, fallback='—'):
+                if not clean_emp:
+                    return getattr(emp, attr, None) or fallback
+                val = getattr(clean_emp, attr, None)
+                return str(val) if val else fallback
+
+            field_defs = [
+                ('Nombre',              emp.first_name,                                         _antes('first_name', emp.first_name)),
+                ('Apellidos',           emp.last_name,                                          _antes('last_name',  emp.last_name)),
+                ('Razón Social',        emp.company or '—',                                     _antes('company')),
+                ('Departamento',        str(emp.department or '—'),                             str(clean_emp.department or '—') if clean_emp else str(emp.department or '—')),
+                ('Puesto',              emp.job_position.title if emp.job_position else '—',    (clean_emp.job_position.title if clean_emp.job_position else '—') if clean_emp else (emp.job_position.title if emp.job_position else '—')),
+                ('Estación',            str(emp.station or '—'),                                str(clean_emp.station or '—') if clean_emp else str(emp.station or '—')),
+                ('RFC',                 emp.rfc or '—',                                         _antes('rfc')),
+                ('IMSS',                emp.imss or '—',                                        _antes('imss')),
+                ('CURP',                emp.curp or '—',                                        _antes('curp')),
+                ('Sexo',                emp.gender or '—',                                      _antes('gender')),
+                ('Fecha de ingreso',    str(emp.start_date or '—'),                             _antes('start_date', str(emp.start_date or '—'))),
+                ('Fecha de nacimiento', str(emp.birth_date or '—'),                             _antes('birth_date', str(emp.birth_date or '—'))),
+                ('Antigüedad',          emp.seniority_raw or '—',                               _antes('seniority_raw')),
+                ('Salario diario',      str(emp.daily_salary or '—'),                           _antes('daily_salary', str(emp.daily_salary or '—'))),
+                ('Fondo de ahorro',    str(emp.saving_fund or '—'),                             _antes('saving_fund', str(emp.saving_fund or '—'))),
+                ('Responsable',         emp.responsible or '—',                                 _antes('responsible')),
+                ('Líder',               emp.leader or '—',                                      _antes('leader')),
+                ('Equipo',              emp.team or '—',                                        _antes('team')),
+                ('Teléfono',            emp.phone_number or '—',                                _antes('phone_number')),
+                ('Email',               emp.email or '—',                                       _antes('email')),
+                ('Dirección',           emp.address or '—',                                     _antes('address')),
+            ]
+            for label, val_despues, val_antes in field_defs:
+                cambio = str(val_despues).strip().lower() != str(val_antes).strip().lower()
+                preview_rows.append({
+                    'campo':   label,
+                    'antes':   val_antes,
+                    'despues': val_despues,
+                    'cambio':  cambio,
+                })
+
             sufijo_cases.append({
                 'emp': emp,
                 'username_actual':   emp.user.username,
@@ -346,6 +410,7 @@ def user_inconsistencias_view(request):
                 'emp_duplicado':     clean_emp if tiene_duplicado else None,
                 'es_misma_persona':  es_misma_persona,
                 'diferencias':       diferencias,
+                'preview':           preview_rows,
             })
 
     return render(request, "users/inconsistencias.html", {
@@ -354,7 +419,7 @@ def user_inconsistencias_view(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.username in ('SUPERUSER', 'JOSE'))
+@user_passes_test(lambda u: u.username.upper() in ('SUPERUSER', 'JOSE'))
 @require_POST
 def corregir_inconsistencia_view(request, emp_id):
     from django.db import transaction
