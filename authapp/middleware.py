@@ -37,7 +37,7 @@ class CheckTermsMiddleware:
 
                 # 2. Primero: cambio de contraseña pendiente
                 if profile and profile.must_change_password:
-                    return self.get_response(request)
+                    return redirect('force_password_change')
 
                 # 3. Términos y condiciones
                 if not profile or not profile.accepted_terms:

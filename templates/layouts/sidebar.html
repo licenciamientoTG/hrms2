@@ -252,14 +252,14 @@
                 </li>
             {% endif %}
 
-            {% comment %} {% if perms.incentives.Modulo_incentivos %}
+            {% if perms.incentives.Modulo_incentivos %}
                 <li class="sidebar-item {% if 'incentive' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'incentives_dashboard' %}">
                         <i class="fa-solid fa-gift"></i>
                         <span class="align-middle">Incentivos</span>
                     </a>
                 </li>
-            {% endif %} {% endcomment %}
+            {% endif %}
 
             {% comment %} {% if not user.is_staff or perms.policies.view_policy %} {% endcomment %}
             {% if perms.policies.view_policy %}    
