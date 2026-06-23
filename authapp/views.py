@@ -169,6 +169,43 @@ def home(request):
         "is_birthday": is_birthday,
     })
 
+PUESTOS_CHECADOR = {
+    "Gerente De Estación",
+    "Subgerente De Estacion",
+    "Oficial de Servicio al Cliente",
+    "Jefe de Zona bajio",
+    "Jefe de Zona Operaciones",
+    "Gerente De Operaciones",
+    "Auxiliar De Nomina",
+    "Supervisor De Nóminas",
+    "Supervisor de Relaciones Laborales",
+    "Gerente De Capital Humano",
+}
+
+
+def usuario_requiere_checador(user):
+    """Retorna True si el puesto del usuario está en la lista de puestos que deben firmar."""
+    try:
+        return user.employee.job_position.title in PUESTOS_CHECADOR
+    except Exception:
+        return False
+
+
+@login_required
+def checador_policy_view(request):
+    if request.method == "POST":
+        from .models import UserProfile
+        from django.utils import timezone
+
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.accepted_checador_policy = True
+        profile.accepted_checador_policy_at = timezone.now()
+        profile.save()
+        return redirect("home")
+
+    return render(request, "authapp/checador_policy.html")
+
+
 @login_required
 def terms_and_conditions_view(request):
     if request.method == "POST":

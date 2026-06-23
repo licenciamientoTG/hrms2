@@ -258,16 +258,30 @@ def reset_password_to_default(request, user_id):
 
     return redirect('admin_reset_password', user_id=user_id)
 
+PUESTOS_CHECADOR = {
+    "Gerente De Estación",
+    "Subgerente De Estacion",
+    "Oficial de Servicio al Cliente",
+    "Jefe de Zona bajio",
+    "Jefe de Zona Operaciones",
+    "Gerente De Operaciones",
+    "Auxiliar De Nomina",
+    "Supervisor De Nóminas",
+    "Supervisor de Relaciones Laborales",
+    "Gerente De Capital Humano",
+}
+
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def terms_audit_view(request):
     User = get_user_model()
     q = (request.GET.get('q') or '').strip()
-    
-    # 1. Base del Query con optimización de relaciones
-    users_qs = User.objects.select_related('userprofile', 'employee__department').order_by('username')
-    
-    # 2. Lógica de Buscador (Filtra por nombre, apellido o nombre de usuario)
+
+    users_qs = User.objects.select_related(
+        'userprofile', 'employee__department', 'employee__job_position'
+    ).order_by('username')
+
     if q:
         users_qs = users_qs.filter(
             Q(username__icontains=q) |
@@ -275,12 +289,18 @@ def terms_audit_view(request):
             Q(last_name__icontains=q) |
             Q(employee__employee_number__icontains=q)
         )
-    
-    # 3. Paginación (Carga de 15 en 15 como en tus otras vistas)
+
     paginator = Paginator(users_qs, 15)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
+    # Anotar si cada usuario requiere firmar el comunicado de checadores
+    for u in page_obj:
+        try:
+            u.requiere_checador = u.employee.job_position.title in PUESTOS_CHECADOR
+        except Exception:
+            u.requiere_checador = False
+
     return render(request, "authapp/terms_audit.html", {
         "page_obj": page_obj,
         "q": q

@@ -1,0 +1,352 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'template/img/logos/logo_sencillo.png' %}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comunicado de Checadores - HRMS TOTALGAS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #f0f3f8, #ffffff);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        .header {
+            margin: 20px 0;
+        }
+
+        .terms-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 1px 0px 20px rgb(0 0 0 / 51%);
+            width: 100%;
+            max-width: 860px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .terms-header {
+            background: #1a4b96;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .terms-header h2 {
+            color: #a5e65a;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        /* Visor PDF */
+        .pdf-viewer-wrapper {
+            background: #525659;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: #3a3a3a;
+            color: white;
+            font-size: 14px;
+            flex-wrap: wrap;
+        }
+
+        .pdf-controls button {
+            background: #555;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .pdf-controls button:hover:not(:disabled) {
+            background: #777;
+        }
+
+        .pdf-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pdf-controls .separator {
+            width: 1px;
+            height: 20px;
+            background: #666;
+        }
+
+        .zoom-btn {
+            font-size: 18px !important;
+            padding: 2px 10px !important;
+            line-height: 1;
+        }
+
+        #pdf-canvas-container {
+            overflow: auto;
+            max-height: 58vh;
+        }
+
+        #pdf-canvas-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            min-width: min-content;
+        }
+
+        #pdf-canvas-container canvas {
+            display: block;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        #pdf-loading {
+            color: #ccc;
+            padding: 40px;
+            font-size: 15px;
+        }
+
+        /* Sección de firma */
+        .acceptance-section {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-top: 1px solid #eee;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-container input {
+            width: 20px;
+            height: 20px;
+            margin-top: 3px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            font-weight: bold;
+            color: #1a4b96;
+            font-size: 16px;
+        }
+
+        .consent-text {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .terms-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .btn-accept {
+            background: #a5e65a;
+            color: #1a4b96;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .btn-accept:hover:not(:disabled) {
+            background: #8fc940;
+            transform: translateY(-1px);
+        }
+
+        .btn-accept:disabled {
+            background: #cccccc;
+            color: #888888;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="color: #2B57A4; font-size: 32px; letter-spacing: 2px;">HRMS</h1>
+    </div>
+
+    <div class="terms-container">
+        <div class="terms-header">
+            <h2>Comunicado: Uso Correcto de Checadores</h2>
+            <p>TOTALGAS - Recursos Humanos</p>
+        </div>
+
+        <div class="pdf-viewer-wrapper">
+            <div class="pdf-controls">
+                <button id="prevPage" disabled>&#8249; Anterior</button>
+                <span id="pageInfo">Cargando...</span>
+                <button id="nextPage" disabled>Siguiente &#8250;</button>
+                <div class="separator"></div>
+                <button class="zoom-btn" id="zoomOut" title="Alejar">&#8722;</button>
+                <span id="zoomLevel">100%</span>
+                <button class="zoom-btn" id="zoomIn" title="Acercar">&#43;</button>
+            </div>
+            <div id="pdf-canvas-container">
+                <div id="pdf-canvas-inner">
+                    <p id="pdf-loading">Cargando documento...</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" class="acceptance-section">
+            {% csrf_token %}
+
+            <label class="checkbox-container">
+                <input type="checkbox" id="acceptCheck" name="accept_checkbox" onchange="toggleButton()" disabled>
+                <span class="checkbox-label">He leído el comunicado y me doy por enterado</span>
+            </label>
+            <p id="checkHint" style="font-size:13px; color:#e67e22; margin-bottom:12px;">
+                &#9888; Debes llegar a la última página del documento para poder confirmar.
+            </p>
+
+            <p class="consent-text">
+                Al marcar esta casilla y continuar, confirmo que he leído el comunicado sobre el uso correcto
+                de los checadores y me comprometo a seguir las indicaciones establecidas.
+            </p>
+
+            <div class="terms-actions">
+                <button type="submit" id="submitBtn" class="btn-accept" disabled>Firmar y Continuar</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        const PDF_URL = '/media/documents/Comunicado_Checar_Cuenta.pdf';
+        const container = document.getElementById('pdf-canvas-inner');
+        const pageInfo  = document.getElementById('pageInfo');
+        const prevBtn   = document.getElementById('prevPage');
+        const nextBtn   = document.getElementById('nextPage');
+
+        let pdfDoc    = null;
+        let currPage  = 1;
+        let rendering = false;
+        let zoomFactor = 1.0;
+        const ZOOM_STEP = 0.25;
+        const ZOOM_MIN  = 0.5;
+        const ZOOM_MAX  = 3.0;
+
+        const zoomInBtn  = document.getElementById('zoomIn');
+        const zoomOutBtn = document.getElementById('zoomOut');
+        const zoomLabel  = document.getElementById('zoomLevel');
+
+        function getBaseScale() {
+            const maxWidth = container.clientWidth - 20 || 800;
+            return (maxWidth / 816);
+        }
+
+        function renderPage(num) {
+            if (rendering) return;
+            rendering = true;
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+
+            pdfDoc.getPage(num).then(page => {
+                const scale    = getBaseScale() * zoomFactor;
+                const viewport = page.getViewport({ scale });
+
+                const canvas  = document.createElement('canvas');
+                const ctx     = canvas.getContext('2d');
+                canvas.width  = viewport.width;
+                canvas.height = viewport.height;
+
+                container.innerHTML = '';
+                container.appendChild(canvas);
+
+                page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+                    rendering = false;
+                    pageInfo.textContent = `Página ${num} de ${pdfDoc.numPages}`;
+                    prevBtn.disabled = (num <= 1);
+                    nextBtn.disabled = (num >= pdfDoc.numPages);
+                    updateZoomButtons();
+                    updateCheckbox();
+                });
+            });
+        }
+
+        function updateZoomButtons() {
+            zoomLabel.textContent = Math.round(zoomFactor * 100) + '%';
+            zoomOutBtn.disabled = zoomFactor <= ZOOM_MIN;
+            zoomInBtn.disabled  = zoomFactor >= ZOOM_MAX;
+        }
+
+        pdfjsLib.getDocument(PDF_URL).promise.then(pdf => {
+            pdfDoc = pdf;
+            document.getElementById('pdf-loading').remove();
+            renderPage(currPage);
+        }).catch(() => {
+            container.innerHTML = '<p style="color:#f88;padding:20px;">No se pudo cargar el documento. Contacta a soporte.</p>';
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currPage > 1) { currPage--; renderPage(currPage); }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currPage < pdfDoc.numPages) { currPage++; renderPage(currPage); }
+        });
+
+        zoomInBtn.addEventListener('click', () => {
+            if (zoomFactor < ZOOM_MAX) { zoomFactor = Math.min(ZOOM_MAX, zoomFactor + ZOOM_STEP); renderPage(currPage); }
+        });
+
+        zoomOutBtn.addEventListener('click', () => {
+            if (zoomFactor > ZOOM_MIN) { zoomFactor = Math.max(ZOOM_MIN, zoomFactor - ZOOM_STEP); renderPage(currPage); }
+        });
+
+
+        function updateCheckbox() {
+            const checkbox = document.getElementById('acceptCheck');
+            const hint     = document.getElementById('checkHint');
+            const isLast   = pdfDoc && currPage >= pdfDoc.numPages;
+            checkbox.disabled = !isLast;
+            hint.style.display = isLast ? 'none' : 'block';
+            if (!isLast) {
+                checkbox.checked = false;
+                document.getElementById('submitBtn').disabled = true;
+            }
+        }
+
+        function toggleButton() {
+            const checkbox = document.getElementById('acceptCheck');
+            const button   = document.getElementById('submitBtn');
+            button.disabled = !checkbox.checked;
+        }
+    </script>
+</body>
+</html>
