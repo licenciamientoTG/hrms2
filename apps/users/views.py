@@ -277,6 +277,9 @@ PUESTOS_CHECADOR = {
 def terms_audit_view(request):
     User = get_user_model()
     q = (request.GET.get('q') or '').strip()
+    f_aviso = request.GET.get('aviso', '')
+    f_checador = request.GET.get('checador', '')
+    f_contrasena = request.GET.get('contrasena', '')
 
     users_qs = User.objects.select_related(
         'userprofile', 'employee__department', 'employee__job_position'
@@ -289,6 +292,34 @@ def terms_audit_view(request):
             Q(last_name__icontains=q) |
             Q(employee__employee_number__icontains=q)
         )
+
+    # Filtro aviso legal
+    if f_aviso == 'aceptado':
+        users_qs = users_qs.filter(userprofile__accepted_terms=True)
+    elif f_aviso == 'pendiente':
+        users_qs = users_qs.filter(userprofile__accepted_terms=False)
+
+    # Filtro comunicado checadores
+    if f_checador == 'aceptado':
+        users_qs = users_qs.filter(
+            employee__job_position__title__in=PUESTOS_CHECADOR,
+            userprofile__accepted_checador_policy=True
+        )
+    elif f_checador == 'pendiente':
+        users_qs = users_qs.filter(
+            employee__job_position__title__in=PUESTOS_CHECADOR,
+            userprofile__accepted_checador_policy=False
+        )
+    elif f_checador == 'na':
+        users_qs = users_qs.exclude(
+            employee__job_position__title__in=PUESTOS_CHECADOR
+        )
+
+    # Filtro contraseña pendiente
+    if f_contrasena == 'si':
+        users_qs = users_qs.filter(userprofile__must_change_password=True)
+    elif f_contrasena == 'no':
+        users_qs = users_qs.filter(userprofile__must_change_password=False)
 
     paginator = Paginator(users_qs, 15)
     page_number = request.GET.get('page')
@@ -303,7 +334,10 @@ def terms_audit_view(request):
 
     return render(request, "authapp/terms_audit.html", {
         "page_obj": page_obj,
-        "q": q
+        "q": q,
+        "f_aviso": f_aviso,
+        "f_checador": f_checador,
+        "f_contrasena": f_contrasena,
     })
 
 

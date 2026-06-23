@@ -11,10 +11,75 @@
 
 <div class="card p-3">
   <form class="mb-3" method="get">
-    <div class="d-flex gap-2">
-      <input name="q" type="text" value="{{ q }}" class="form-control" 
-             placeholder="🔍 Buscar por nombre o usuario...">
+    <div class="row g-2 align-items-end">
+      <!-- Búsqueda -->
+      <div class="col-12 col-md-4">
+        <input name="q" type="text" value="{{ q }}" class="form-control"
+               placeholder="🔍 Buscar por nombre o usuario...">
+      </div>
+
+      <!-- Filtro Aviso Legal -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Aviso Legal</label>
+        <select name="aviso" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="aceptado" {% if f_aviso == 'aceptado' %}selected{% endif %}>Aceptado</option>
+          <option value="pendiente" {% if f_aviso == 'pendiente' %}selected{% endif %}>Pendiente</option>
+        </select>
+      </div>
+
+      <!-- Filtro Comunicado Checadores -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Com. Checadores</label>
+        <select name="checador" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="aceptado" {% if f_checador == 'aceptado' %}selected{% endif %}>Aceptado</option>
+          <option value="pendiente" {% if f_checador == 'pendiente' %}selected{% endif %}>Pendiente</option>
+          <option value="na" {% if f_checador == 'na' %}selected{% endif %}>N/A</option>
+        </select>
+      </div>
+
+      <!-- Filtro Contraseña Pendiente -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Pend. Contraseña</label>
+        <select name="contrasena" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="si" {% if f_contrasena == 'si' %}selected{% endif %}>Sí</option>
+          <option value="no" {% if f_contrasena == 'no' %}selected{% endif %}>No</option>
+        </select>
+      </div>
+
+      <!-- Botones -->
+      <div class="col-6 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">
+          <i class="fas fa-filter"></i> Filtrar
+        </button>
+        <a href="{% url 'terms_audit' %}" class="btn btn-outline-secondary btn-sm w-100">
+          <i class="fas fa-times"></i> Limpiar
+        </a>
+      </div>
     </div>
+
+    <!-- Indicador de filtros activos -->
+    {% if f_aviso or f_checador or f_contrasena %}
+    <div class="mt-2 d-flex gap-2 flex-wrap">
+      {% if f_aviso %}
+        <span class="badge bg-primary">
+          Aviso: {{ f_aviso|capfirst }}
+        </span>
+      {% endif %}
+      {% if f_checador %}
+        <span class="badge bg-info text-dark">
+          Checadores: {% if f_checador == 'na' %}N/A{% else %}{{ f_checador|capfirst }}{% endif %}
+        </span>
+      {% endif %}
+      {% if f_contrasena %}
+        <span class="badge bg-warning text-dark">
+          Contraseña pend.: {{ f_contrasena|capfirst }}
+        </span>
+      {% endif %}
+    </div>
+    {% endif %}
   </form>
 
   <div class="table-responsive">
@@ -76,7 +141,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="6" class="text-center py-4">No se encontraron resultados para "{{ q }}"</td></tr>
+          <tr><td colspan="6" class="text-center py-4">No se encontraron resultados.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -87,17 +152,17 @@
     <ul class="pagination mb-0 justify-content-center">
       {% if page_obj.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}">Anterior</a>
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&aviso={{ f_aviso }}&checador={{ f_checador }}&contrasena={{ f_contrasena }}">Anterior</a>
         </li>
       {% endif %}
-      
+
       <li class="page-item disabled">
         <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
       </li>
-      
+
       {% if page_obj.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}">Siguiente</a>
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&aviso={{ f_aviso }}&checador={{ f_checador }}&contrasena={{ f_contrasena }}">Siguiente</a>
         </li>
       {% endif %}
     </ul>
