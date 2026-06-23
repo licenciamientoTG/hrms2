@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import login_view, register_view, logout_view, terms_and_conditions_view
+from .views import login_view, register_view, logout_view, terms_and_conditions_view, checador_policy_view
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
@@ -7,6 +7,7 @@ urlpatterns = [
     path("register/", register_view, name="register"),
     path("logout/", logout_view, name="logout"),
     path("terms/", terms_and_conditions_view, name="terms_and_conditions"),
+    path("checador/", checador_policy_view, name="checador_policy"),
     path('accounts/', include('django.contrib.auth.urls')),
     path("auth/accounts/login/", login_view, name="login"),
     # 1. Formulario para pedir correo

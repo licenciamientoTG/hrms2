@@ -23,7 +23,9 @@
         <tr>
           <th>Colaborador / Departamento</th>
           <th class="text-center">Usuario</th>
-          <th class="text-center">Estado Términos</th>
+          <th class="text-center">Aviso Legal</th>
+          <th class="text-center">Comunicado Checadores</th>
+          <th class="text-center">Fecha Firma Checadores</th>
           <th class="text-center">Pendiente de Contraseña</th>
         </tr>
       </thead>
@@ -35,6 +37,9 @@
               <div class="small text-muted">
                 {{ u.employee.department.name|default:"Sin departamento asignado" }}
               </div>
+              {% if u.employee.job_position %}
+                <div class="small text-muted fst-italic">{{ u.employee.job_position.title }}</div>
+              {% endif %}
             </td>
             <td class="text-center">{{ u.username }}</td>
             <td class="text-center">
@@ -42,6 +47,24 @@
                 <span class="badge bg-success">ACEPTADO</span>
               {% else %}
                 <span class="badge bg-danger">PENDIENTE</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if u.requiere_checador %}
+                {% if u.userprofile.accepted_checador_policy %}
+                  <span class="badge bg-success">FIRMADO</span>
+                {% else %}
+                  <span class="badge bg-danger">PENDIENTE</span>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">N/A</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if u.requiere_checador and u.userprofile.accepted_checador_policy_at %}
+                <small>{{ u.userprofile.accepted_checador_policy_at|date:"d/m/Y H:i" }}</small>
+              {% else %}
+                <span class="text-muted">—</span>
               {% endif %}
             </td>
             <td class="text-center">
@@ -53,7 +76,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="text-center py-4">No se encontraron resultados para "{{ q }}"</td></tr>
+          <tr><td colspan="6" class="text-center py-4">No se encontraron resultados para "{{ q }}"</td></tr>
         {% endfor %}
       </tbody>
     </table>

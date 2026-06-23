@@ -10,38 +10,43 @@ class CheckTermsMiddleware:
             # 1. Rutas excluidas para evitar bucles
             allowed_paths = [
                 reverse('logout'),
-                '/static/', 
+                '/static/',
                 '/media/',
                 '/admin/',
             ]
-            
-            # Intentar agregar rutas dinámicas
+
             try:
                 allowed_paths.append(reverse('terms_and_conditions'))
             except:
                 allowed_paths.append('/auth/terms/')
 
             try:
-                # Ruta de cambio de contraseña debe ser permitida 
-                # para que no se bloquee con los términos
+                allowed_paths.append(reverse('checador_policy'))
+            except:
+                allowed_paths.append('/auth/checador/')
+
+            try:
                 allowed_paths.append(reverse('force_password_change'))
             except:
                 pass
 
             is_allowed = any(request.path.startswith(path) for path in allowed_paths)
-            
+
             if not is_allowed:
-                # 2. JERARQUÍA: Primero verificar cambio de contraseña
                 profile = getattr(request.user, 'userprofile', None)
-                
-                # Si tiene perfil y debe cambiar contraseña, dejamos que otro 
-                # middleware o la lógica de home lo mande allá. No bloqueamos aquí.
+
+                # 2. Primero: cambio de contraseña pendiente
                 if profile and profile.must_change_password:
                     return self.get_response(request)
 
-                # 3. Validar Términos y Condiciones
-                # Si no tiene perfil o no ha aceptado, mandarlo a términos
+                # 3. Términos y condiciones
                 if not profile or not profile.accepted_terms:
                     return redirect('terms_and_conditions')
+
+                # 4. Comunicado de checadores (solo puestos que aplican)
+                if not profile.accepted_checador_policy:
+                    from .views import usuario_requiere_checador
+                    if usuario_requiere_checador(request.user):
+                        return redirect('checador_policy')
 
         return self.get_response(request)
