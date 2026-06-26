@@ -57,6 +57,8 @@ class SurveyQuestion(models.Model):
     NONE     = 'none'
     ASSESSMENT = 'assessment'
     FRECUENCY  = 'frecuency'
+    RANKING    = 'ranking'
+    IMAGE      = 'image'
 
     TYPES = [
         (TEXT, 'Texto'),
@@ -65,8 +67,10 @@ class SurveyQuestion(models.Model):
         (SINGLE, 'Opciones (selección única)'),
         (MULTIPLE, 'Opciones (selección múltiple)'),
         (RATING, 'Calificación'),
-        (ASSESSMENT,'Evaluación'), 
+        (ASSESSMENT,'Evaluación'),
         (FRECUENCY,'Frecuencia'),
+        (RANKING, 'Ordenamiento (ranking)'),
+        (IMAGE, 'Imagen de apoyo'),
         (NONE, 'Sin respuesta'),
     ]
 
@@ -78,6 +82,9 @@ class SurveyQuestion(models.Model):
 
     # Solo para rating (si lo usas)
     rating_max = models.PositiveSmallIntegerField(default=5)
+
+    # Solo para image
+    image_url = models.CharField(max_length=500, blank=True, default='')
 
     # Branching (solo aplica a SINGLE)
     branch_enabled = models.BooleanField(default=False)

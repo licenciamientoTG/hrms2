@@ -97,10 +97,11 @@ def persist_builder_state(survey: Survey, state: Dict[str, Any]) -> None:
                 required=_b(q.get('required')),
                 order=_i(q.get('order'), 1),
                 branch_enabled=branch_enabled,
+                image_url=_s(q.get('imageUrl')) if qtype == 'image' else '',
             )
 
-            # opciones para SINGLE/MULTIPLE
-            if qtype in ('single', 'multiple'):
+            # opciones para SINGLE/MULTIPLE/RANKING
+            if qtype in ('single', 'multiple', 'ranking'):
                 opts = q.get('options') or []
                 by_opt = (q.get('branch') or {}).get('byOption') or {}
                 for idx, opt in enumerate(opts):

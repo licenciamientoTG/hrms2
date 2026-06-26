@@ -1,4 +1,5 @@
 import json
+import os
 from django.db.models import Prefetch, Q
 from apps.employee.models import Employee, JobPosition
 from django.shortcuts import render, redirect, get_object_or_404
@@ -41,6 +42,34 @@ try:
     from openpyxl import Workbook
 except Exception:
     Workbook = None
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def survey_upload_image(request):
+    """Sube una imagen de apoyo y retorna su URL."""
+    from django.conf import settings
+    img = request.FILES.get('image')
+    if not img:
+        return JsonResponse({'error': 'No se recibió ninguna imagen.'}, status=400)
+
+    allowed = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
+    if img.content_type not in allowed:
+        return JsonResponse({'error': 'Tipo de archivo no permitido.'}, status=400)
+
+    ext = os.path.splitext(img.name)[1].lower() or '.jpg'
+    filename = f"{uuid4().hex}{ext}"
+    rel_path = os.path.join('surveys', 'images', filename)
+    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, 'wb') as f:
+        for chunk in img.chunks():
+            f.write(chunk)
+
+    url = settings.MEDIA_URL + rel_path.replace('\\', '/')
+    return JsonResponse({'url': url})
+
 
 @login_required
 def survey_dashboard(request):
@@ -618,7 +647,7 @@ def survey_edit(request, pk: int):
                 "order": j,
             }
 
-            if q.qtype in ("single", "multiple"):
+            if q.qtype in ("single", "multiple", "ranking"):
                 opts = []
                 for k, op in enumerate(q.options.all().order_by('order', 'id'), start=1):
                     opts.append({
@@ -636,6 +665,9 @@ def survey_edit(request, pk: int):
                             by[idx] = op.branch_to_section_id   # temporal
                     if by:
                         qj["branch"] = {"enabled": True, "byOption": by}
+
+            if q.qtype == "image":
+                qj["imageUrl"] = q.image_url or ""
 
             qs_json.append(qj)
 
@@ -801,10 +833,12 @@ def _sections_for_template(survey) -> list[dict]:
             }
 
             # Opciones para tipos con escala u opciones
-            if q.qtype in {"single", "multiple", "assessment", "frecuency"}:
+            if q.qtype in {"single", "multiple", "assessment", "frecuency", "ranking"}:
                 opts = list(q.options.all())
                 if opts:
                     qd["options"] = [{"label": o.label} for o in opts]
+                    if q.qtype == "ranking":
+                        qd["rank_range"] = list(range(1, len(opts) + 1))
                 else:
                     if q.qtype == "assessment":
                         qd["options"] = [{"label": x} for x in
@@ -822,7 +856,10 @@ def _sections_for_template(survey) -> list[dict]:
                     if by:
                         qd["branch"] = {"enabled": True, "byOption": by}
 
-            # Para text/integer/decimal/rating no hay opciones, pero igual se agregan
+            # Para image, pasamos la URL almacenada
+            if q.qtype == "image":
+                qd["image_url"] = q.image_url or ""
+
             sec["questions"].append(qd)
 
         out.append(sec)
@@ -994,6 +1031,52 @@ def take_survey(request, survey_id):
                         q_title=q.get("title",""), required=bool(q.get("required")),
                         order=_as_int(q.get("order")) or 0,
                         value_int=v
+                    ))
+
+                elif qtype in ("none", "image"):
+                    pass  # sin respuesta esperada
+
+                elif qtype == "ranking":
+                    opts = q.get("options") or []
+                    n = len(opts)
+                    ranks = {}
+                    valid = True
+                    for opt_idx in range(n):
+                        raw = request.POST.get(f"{name}_r{opt_idx}", "")
+                        if _is_empty(raw):
+                            if q.get("required"):
+                                errors.append(qid_str)
+                                valid = False
+                            break
+                        rank_val = _as_int(raw)
+                        if rank_val is None or not (1 <= rank_val <= n):
+                            errors.append(qid_str)
+                            valid = False
+                            break
+                        ranks[opt_idx] = rank_val
+
+                    if not valid:
+                        continue
+
+                    if not ranks:
+                        continue
+
+                    # Validar que no haya rangos duplicados
+                    rank_values = list(ranks.values())
+                    if len(set(rank_values)) != len(rank_values):
+                        errors.append(qid_str)
+                        continue
+
+                    ranks_list = [ranks.get(i) for i in range(n)]
+                    answers.append(SurveyAnswer(
+                        response=resp, question_id=qid, q_type=qtype,
+                        q_title=q.get("title",""), required=bool(q.get("required")),
+                        order=_as_int(q.get("order")) or 0,
+                        value_multi=ranks_list,
+                        snapshot={
+                            "options": [o["label"] for o in opts],
+                            "ranks": ranks_list,
+                        }
                     ))
             except DataError as e:
                 transaction.set_rollback(True)
@@ -1243,6 +1326,27 @@ def survey_detail_admin(request, pk: int):
                 q_stats["extra"]["top_text"] = vc.most_common(10)
             else:
                 q_stats["extra"]["note"] = "Sin respuestas abiertas."
+
+        # ---- Ranking (ordenamiento) ----
+        elif q.qtype == "ranking":
+            totals = defaultdict(int)
+            counts = defaultdict(int)
+            for a in rows:
+                snap = a.snapshot or {}
+                labels_snap = snap.get("options") or opt_labels
+                ranks_list = snap.get("ranks") or a.value_multi or []
+                for i, rank in enumerate(ranks_list):
+                    if rank is not None and 0 <= i < len(labels_snap):
+                        totals[i] += rank
+                        counts[i] += 1
+
+            if opt_labels and any(counts[i] for i in range(len(opt_labels))):
+                avgs = [round(totals[i] / counts[i], 2) if counts[i] else 0
+                        for i in range(len(opt_labels))]
+                q_stats.update({"chart": "bar", "labels": opt_labels, "data": avgs})
+                q_stats["extra"]["note"] = "Promedio de rango asignado (1 = Mayor impacto / N = Menor impacto)"
+            else:
+                q_stats["extra"]["note"] = "Sin datos de ranking aún."
 
         else:
             q_stats["extra"]["note"] = "Tipo no graficado aún."
@@ -1534,7 +1638,14 @@ def survey_export_xlsx(request, pk: int):
         ans_map = {}
         for a in resp.answers.all():
             val_str = ""
-            if a.value_text:
+            if a.q_type == "ranking":
+                snap = a.snapshot or {}
+                labels = snap.get("options") or []
+                ranks = snap.get("ranks") or a.value_multi or []
+                if labels and ranks:
+                    parts = [f"{labels[i]}: {ranks[i]}" for i in range(len(labels)) if i < len(ranks) and ranks[i] is not None]
+                    val_str = " | ".join(parts)
+            elif a.value_text:
                 val_str = a.value_text
             elif a.snapshot:
                 lbls = a.snapshot.get('selected_labels')
@@ -1548,7 +1659,7 @@ def survey_export_xlsx(request, pk: int):
                 val_str = str(a.value_decimal)
             elif a.value_choice is not None:
                 val_str = str(a.value_choice)
-            
+
             ans_map[a.question_id] = val_str
 
         # Escribir respuestas

@@ -1,0 +1,294 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/incentives.css' %}">
+<style>
+  .ops-upload-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: border-color .2s, background .2s;
+    cursor: pointer;
+  }
+  .ops-upload-zone:hover { border-color: #0d6efd; background: #f0f5ff; }
+  .ops-upload-zone.has-file { border-color: #198754; background: #f0fff4; }
+  .ops-table th { font-size: 11px; white-space: nowrap; background: #f8f9fa; }
+  .ops-table td { font-size: 12px; }
+  .ops-table tfoot td { font-size: 12px; font-weight: 600; background: #f8f9fa; }
+  .badge-match   { background:#d1fae5; color:#065f46; font-size:10px; padding:3px 6px; border-radius:4px; }
+  .badge-nomatch { background:#fee2e2; color:#991b1b; font-size:10px; padding:3px 6px; border-radius:4px; }
+</style>
+{% endblock %}
+
+{% block page_title %}Incentivos — Operaciones{% endblock %}
+{% block title %}Incentivos de Ventas{% endblock %}
+
+{% block content %}
+
+{# ── Encabezado con navegación de mes ── #}
+<div class="card mb-4">
+  <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">Incentivos — Gerente de Operaciones</h4>
+      <small class="text-muted">{{ mes_actual|date:"F Y"|capfirst }}</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="?delta={{ delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Mes anterior">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% if delta != 0 %}
+      <a href="?reset=1" class="btn btn-outline-primary btn-sm px-3">Mes actual</a>
+      {% else %}
+      <span class="btn btn-outline-primary btn-sm px-3 disabled">Mes actual</span>
+      {% endif %}
+      {% if delta < 0 %}
+      <a href="?delta={{ delta|add:"1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Mes siguiente">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="btn btn-outline-secondary btn-sm week-nav-btn disabled">
+        <i class="fas fa-chevron-right"></i>
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if presupuestos %}
+
+{# ── Presupuesto ya guardado ── #}
+<div class="card mb-4">
+  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <i class="fas fa-file-excel me-2 text-success"></i>
+      Presupuesto de Ventas — {{ mes_actual|date:"F Y"|capfirst }}
+    </h6>
+    <span class="badge-match">{{ presupuestos|length }} estaciones</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle ops-table mb-0">
+        <thead>
+          <tr>
+            <th>Estación</th>
+            <th class="text-end">Máxima</th>
+            <th class="text-end">Super</th>
+            <th class="text-end">Diesel</th>
+            <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in presupuestos %}
+          <tr>
+            <td>{{ p.nombre }}</td>
+            <td class="text-end">{% if p.maxima %}${{ p.maxima|floatformat:"0" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end">{% if p.gasolina_super %}${{ p.gasolina_super|floatformat:"0" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end">{% if p.diesel %}${{ p.diesel|floatformat:"0" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end fw-semibold">${{ p.total|floatformat:"0" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>TOTAL ({{ presupuestos|length }} estaciones)</td>
+            <td class="text-end">${{ totales.t_maxima|floatformat:"0" }}</td>
+            <td class="text-end">${{ totales.t_super|floatformat:"0" }}</td>
+            <td class="text-end">${{ totales.t_diesel|floatformat:"0" }}</td>
+            <td class="text-end text-primary">${{ totales.t_total|floatformat:"0" }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+{# ── Carga de Excel ── #}
+<div class="card mb-4">
+  <div class="card-header py-2 px-3">
+    <h6 class="mb-0 fw-semibold">
+      <i class="fas fa-file-excel me-2 text-success"></i>
+      Presupuesto de Ventas — {{ mes_actual|date:"F Y"|capfirst }}
+    </h6>
+  </div>
+  <div class="card-body p-3">
+    <label class="ops-upload-zone w-100" id="upload-zone" for="input-excel">
+      <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="upload-icon"></i>
+      <div class="fw-semibold text-muted" id="upload-label">Haz clic para seleccionar el archivo Excel</div>
+      <div class="text-muted" style="font-size:12px;">.xlsx o .xls</div>
+      <input type="file" id="input-excel" accept=".xlsx,.xls" class="d-none">
+    </label>
+    <div id="upload-error" class="alert alert-danger mt-2 py-2 d-none"></div>
+  </div>
+</div>
+
+{# ── Vista previa (oculta hasta que se cargue el archivo) ── #}
+<div class="card mb-4 d-none" id="preview-card">
+  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h6 class="mb-0 fw-semibold">Vista previa — {{ mes_actual|date:"F Y"|capfirst }}</h6>
+    <div class="d-flex gap-2 align-items-center" id="preview-badges"></div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle ops-table mb-0">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Estación (Excel)</th>
+            <th>Estación (Sistema)</th>
+            <th class="text-end">Máxima</th>
+            <th class="text-end">Super</th>
+            <th class="text-end">Diesel</th>
+            <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody id="preview-tbody"></tbody>
+        <tfoot id="preview-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center">
+    <small class="text-muted" id="preview-footer-msg"></small>
+    <button class="btn btn-success btn-sm d-none" id="btn-confirmar">
+      <i class="fas fa-check me-1"></i> Confirmar y guardar
+    </button>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+{% if not presupuestos %}
+<script>
+const MES_ACTUAL   = "{{ mes_actual|date:'Y-m-d' }}";
+const CSRF_TOKEN   = "{{ csrf_token }}";
+const URL_PARSEAR  = "{% url 'parsear_excel_ventas' %}";
+const URL_GUARDAR  = "{% url 'guardar_presupuesto_ventas' %}";
+
+const fmt = n => '$' + (n || 0).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+
+document.getElementById('input-excel').addEventListener('change', async function () {
+  if (!this.files.length) return;
+  const file = this.files[0];
+
+  const zone  = document.getElementById('upload-zone');
+  const icon  = document.getElementById('upload-icon');
+  const label = document.getElementById('upload-label');
+  const errEl = document.getElementById('upload-error');
+  errEl.classList.add('d-none');
+  icon.className   = 'fas fa-spinner fa-spin fa-2x mb-2';
+  icon.style.color = '#0d6efd';
+  label.textContent = 'Procesando…';
+  document.getElementById('preview-card').classList.add('d-none');
+
+  const fd = new FormData();
+  fd.append('archivo', file);
+
+  try {
+    const res  = await fetch(URL_PARSEAR, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al procesar el archivo');
+
+    zone.classList.add('has-file');
+    icon.className   = 'fas fa-file-excel fa-2x mb-2';
+    icon.style.color = '#198754';
+    label.textContent = file.name;
+
+    renderPreview(data);
+
+  } catch (e) {
+    zone.classList.remove('has-file');
+    icon.className   = 'fas fa-upload fa-2x mb-2';
+    icon.style.color = '#adb5bd';
+    label.textContent = 'Haz clic para seleccionar el archivo Excel';
+    errEl.textContent = e.message;
+    errEl.classList.remove('d-none');
+  }
+});
+
+function renderPreview(data) {
+  const card    = document.getElementById('preview-card');
+  const badges  = document.getElementById('preview-badges');
+  const tbody   = document.getElementById('preview-tbody');
+  const tfoot   = document.getElementById('preview-tfoot');
+  const footMsg = document.getElementById('preview-footer-msg');
+  const btnConf = document.getElementById('btn-confirmar');
+
+  badges.innerHTML = `
+    <span class="badge-match">${data.coincidencias} coincidencias</span>
+    <span class="badge-nomatch">${data.sin_match} sin match</span>
+  `;
+
+  let totMax = 0, totSup = 0, totDie = 0, totTot = 0;
+
+  tbody.innerHTML = data.filas.map(f => {
+    totMax += f.maxima;
+    totSup += f.super;
+    totDie += f.diesel;
+    totTot += f.total;
+    const rowClass = f.match ? '' : 'class="table-danger"';
+    return `<tr ${rowClass}>
+      <td><code>${f.codigo}</code></td>
+      <td>${f.nombre_excel}</td>
+      <td>${f.nombre_sistema}</td>
+      <td class="text-end">${f.maxima ? fmt(f.maxima) : '<span class="text-muted">—</span>'}</td>
+      <td class="text-end">${f.super  ? fmt(f.super)  : '<span class="text-muted">—</span>'}</td>
+      <td class="text-end">${f.diesel ? fmt(f.diesel) : '<span class="text-muted">—</span>'}</td>
+      <td class="text-end fw-semibold">${fmt(f.total)}</td>
+    </tr>`;
+  }).join('');
+
+  tfoot.innerHTML = `<tr>
+    <td colspan="3">TOTAL (${data.filas.length} estaciones)</td>
+    <td class="text-end">${fmt(totMax)}</td>
+    <td class="text-end">${fmt(totSup)}</td>
+    <td class="text-end">${fmt(totDie)}</td>
+    <td class="text-end text-primary">${fmt(totTot)}</td>
+  </tr>`;
+
+  if (data.sin_match > 0) {
+    footMsg.innerHTML = `<i class="fas fa-exclamation-triangle me-1 text-danger"></i>${data.sin_match} estación(es) en rojo no se procesarán.`;
+    btnConf.classList.toggle('d-none', data.coincidencias === 0);
+  } else {
+    footMsg.textContent = '';
+    btnConf.classList.remove('d-none');
+  }
+
+  card.classList.remove('d-none');
+  window._filasParsadas = data.filas;
+}
+
+document.getElementById('btn-confirmar').addEventListener('click', async function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando…';
+
+  try {
+    const res = await fetch(URL_GUARDAR, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mes: MES_ACTUAL, filas: window._filasParsadas }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+
+    // Recargar la página para mostrar la tabla guardada
+    window.location.reload();
+
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i> Confirmar y guardar';
+    document.getElementById('preview-footer-msg').innerHTML =
+      `<i class="fas fa-exclamation-triangle me-1 text-danger"></i>${e.message}`;
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

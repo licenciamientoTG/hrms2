@@ -68,6 +68,32 @@ class SemanaCerrada(models.Model):
         return f"Semana {self.week_start} (cerrada)"
 
 
+class PresupuestoVenta(models.Model):
+    """Presupuesto mensual de ventas por estación, cargado desde Excel."""
+    team_key = models.CharField(max_length=50, verbose_name='Clave de estación')
+    mes = models.DateField(verbose_name='Mes (primer día)')
+    maxima = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Máxima')
+    gasolina_super = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Super')
+    diesel = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Diesel')
+    total = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Total')
+    subido_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='presupuestos_venta',
+        verbose_name='Subido por',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('team_key', 'mes')]
+        verbose_name = 'Presupuesto de venta'
+        verbose_name_plural = 'Presupuestos de venta'
+
+    def __str__(self):
+        return f"{self.team_key} — {self.mes.strftime('%B %Y')}"
+
+
 class ComentarioSemana(models.Model):
     """Comentario del gerente para un tipo de incentivo en una semana."""
     employee = models.ForeignKey(

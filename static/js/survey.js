@@ -163,7 +163,7 @@ function buildStateFromServerDOM(){
     return null;
   }
   function ensureOptionsShape(q) {
-    const optTypes = new Set(['single', 'multiple', 'assessment', 'frecuency']);
+    const optTypes = new Set(['single', 'multiple', 'assessment', 'frecuency', 'ranking']);
     if (optTypes.has(q.type)) {
       q.options ||= [];
       // MIGRACIÓN: si vienen como strings => volver objetos
@@ -618,12 +618,45 @@ function buildStateFromServerDOM(){
   const btnAddOpt = document.getElementById('qeAddOption');
   const btnSave = document.getElementById('qeSave');
   const qeBranch = document.getElementById('qeBranch');
+  const imageWrap   = document.getElementById('qeImageWrap');
+  const imageInput  = document.getElementById('qeImageInput');
+  const imageStatus = document.getElementById('qeImageStatus');
+  const imagePreviewBox = document.getElementById('qeImagePreview');
+  const imagePreviewImg = document.getElementById('qeImagePreviewImg');
 
   let CURRENT_QID = null;
   let CURRENT_SEC_ID = null;
-  const optTypes = new Set(['single', 'multiple']);
+  const optTypes = new Set(['single', 'multiple', 'ranking']);
 
   function branchAllowed(type){ return type === 'single'; }
+
+  // ---- Upload de imagen ----
+  imageInput?.addEventListener('change', async () => {
+    const file = imageInput.files[0];
+    if (!file) return;
+    if (imageStatus) imageStatus.textContent = 'Subiendo…';
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('csrfmiddlewaretoken', document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '');
+    try {
+      const res = await fetch('/surveys/admin/upload-image/', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.url) {
+        if (CURRENT_QID) {
+          const found = findQuestionById(CURRENT_QID);
+          if (found) found.q.imageUrl = data.url;
+        }
+        if (imagePreviewImg) imagePreviewImg.src = data.url;
+        imagePreviewBox?.classList.remove('d-none');
+        if (imageStatus) imageStatus.textContent = 'Imagen subida correctamente.';
+      } else {
+        if (imageStatus) imageStatus.textContent = data.error || 'Error al subir.';
+      }
+    } catch {
+      if (imageStatus) imageStatus.textContent = 'Error de red al subir la imagen.';
+    }
+    imageInput.value = '';
+  });
 
   function buildBranchOptionsHTML(currentSectionId, selected){
     // Construye el <option> list para un destino
@@ -683,6 +716,8 @@ function buildStateFromServerDOM(){
       rating:   {short:'★',    long:'Calificación',             cls:'qtype-rating'},
       assessment:{short:'ASG', long:'Evaluación',               cls:'qtype-assessment'},
       frecuency: {short:'FREC', long:'Frecuencia',              cls:'qtype-frecuency'},
+      ranking:  {short:'RNK',  long:'Ordenamiento (ranking)',   cls:'qtype-ranking'},
+      image:    {short:'IMG',  long:'Imagen de apoyo',          cls:'qtype-image'},
       none:     {short:'—',    long:'Sin respuesta',            cls:'qtype-none'},
     };
     return map[t] || {short:t || '?', long:'Tipo desconocido', cls:'qtype-none'};
@@ -721,7 +756,10 @@ function buildStateFromServerDOM(){
     if (optsList) optsList.innerHTML = '';
   });
 
-  function toggleOptionsByType(type) { optsWrap?.classList.toggle('d-none', !optTypes.has(type)); }
+  function toggleOptionsByType(type) {
+    optsWrap?.classList.toggle('d-none', !optTypes.has(type));
+    imageWrap?.classList.toggle('d-none', type !== 'image');
+  }
   function highlightType(type) {
     if (!typeList) return;
     typeList.querySelectorAll('.list-group-item').forEach(btn => {
@@ -741,6 +779,7 @@ function buildStateFromServerDOM(){
     if (!arr.length) arr.push({ label:'Opción 1', correct:false });
 
     const isSingle = (q.type === 'single');
+    const isRanking = (q.type === 'ranking');
     const branchingOn = branchAllowed(q.type) && !!qeBranch?.checked;
     ensureBranchShape(q);
 
@@ -750,11 +789,12 @@ function buildStateFromServerDOM(){
       row.dataset.index = String(idx);
       row.innerHTML = `
         <span class="input-group-text">${idx+1}</span>
-        <input type="text" class="form-control" value="${(opt.label ?? '').replaceAll('"','&quot;')}" placeholder="Texto de la opción">
+        <input type="text" class="form-control" value="${(opt.label ?? '').replaceAll('"','&quot;')}" placeholder="Texto del factor">
+        ${isRanking ? '' : `
         <div class="input-group-text" style="gap:.35rem">
           <input type="${isSingle ? 'radio' : 'checkbox'}" name="qe-correct" ${opt.correct ? 'checked' : ''} data-opt-correct>
           <small>${isSingle ? 'Correcta' : 'Correcta(s)'}</small>
-        </div>
+        </div>`}
         <select class="form-select form-select-sm w-auto ms-2" data-branch-idx="${idx}" ${branchingOn ? '' : 'disabled'}>
           ${buildBranchOptionsHTML(CURRENT_SEC_ID, q.branch?.byOption?.[idx] ?? null)}
         </select>
@@ -840,6 +880,16 @@ function buildStateFromServerDOM(){
       delete q.branch;
     }
 
+    // 🖼 Imagen: cargar URL existente al abrir modal
+    if (type === 'image' && q.imageUrl) {
+      if (imagePreviewImg) imagePreviewImg.src = q.imageUrl;
+      imagePreviewBox?.classList.remove('d-none');
+    } else {
+      imagePreviewBox?.classList.add('d-none');
+      if (imagePreviewImg) imagePreviewImg.src = '';
+    }
+    if (imageStatus) imageStatus.textContent = '';
+
     showModal();
   });
 
@@ -894,14 +944,16 @@ function buildStateFromServerDOM(){
   btnAddOpt?.addEventListener('click', () => {
     const row = document.createElement('div');
     const isSingle = (readActiveType() === 'single');
+    const isRanking = (readActiveType() === 'ranking');
     row.className = 'input-group input-group-sm mb-2 align-items-center';
     row.innerHTML = `
       <span class="input-group-text">+</span>
-      <input type="text" class="form-control" value="" placeholder="Texto de la opción">
+      <input type="text" class="form-control" value="" placeholder="${isRanking ? 'Texto del factor' : 'Texto de la opción'}">
+      ${isRanking ? '' : `
       <div class="input-group-text" style="gap:.35rem">
         <input type="${isSingle ? 'radio' : 'checkbox'}" name="qe-correct" data-opt-correct>
         <small>${isSingle ? 'Correcta' : 'Correcta(s)'}</small>
-      </div>
+      </div>`}
       <button type="button" class="btn btn-outline-danger" data-opt-del>&times;</button>
     `;
     optsList?.appendChild(row);
@@ -964,9 +1016,14 @@ function buildStateFromServerDOM(){
       delete q.branch;
     }
 
+  } else if (newType === 'image') {
+    delete q.options;
+    delete q.branch;
+    // imageUrl ya fue asignado por el handler del input file
   } else {
     delete q.options;
     delete q.branch;
+    delete q.imageUrl;
   }
 
 
@@ -1646,8 +1703,11 @@ function blockSurveyAutosaveWrites() {
   }
 
 
+  let _saving = false;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (_saving) return;
+    _saving = true;
     const btn = document.getElementById('btnPublish');
     btn?.setAttribute('disabled', 'disabled');
 
@@ -1671,7 +1731,7 @@ function blockSurveyAutosaveWrites() {
       } else {
         alert('Error al guardar');
       }
-    } finally {
+      _saving = false;
       btn?.removeAttribute('disabled');
     }
   });
@@ -2088,6 +2148,34 @@ function demoHTMLForType(type) {
         <input class="form-control" inputmode="numeric" pattern="[0-9]*" placeholder="0" disabled>
       </div>
       <div class="text-muted mt-2">Ejemplo: el usuario ingresa un número sin decimales.</div>
+    `,
+    image: `
+      <div class="mb-2 small fw-semibold">Imagen de apoyo:</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:100px;border:2px dashed #dee2e6;border-radius:.375rem;background:#f8f9fa;color:#adb5bd;">
+        <div class="text-center">
+          <div style="font-size:2rem;">🖼</div>
+          <div style="font-size:.8rem;">La imagen aparece aquí</div>
+        </div>
+      </div>
+      <div class="text-muted mt-2" style="font-size:.8rem">El usuario solo ve la imagen, no necesita responder.</div>
+    `,
+    ranking: `
+      <div class="mb-2 small fw-semibold">Toca cada factor en orden de mayor a menor impacto:</div>
+      <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;border:1px solid #0d6efd;border-radius:.375rem;background:#f0f5ff;">
+          <span style="min-width:1.6rem;height:1.6rem;border-radius:50%;background:#0d6efd;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex-shrink:0;">1</span>
+          <span style="font-size:.85rem">Factor A</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;border:1px solid #dee2e6;border-radius:.375rem;background:#fff;">
+          <span style="min-width:1.6rem;height:1.6rem;border-radius:50%;background:#f8f9fa;border:1px solid #dee2e6;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;"></span>
+          <span style="font-size:.85rem">Factor B</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;border:1px solid #dee2e6;border-radius:.375rem;background:#fff;">
+          <span style="min-width:1.6rem;height:1.6rem;border-radius:50%;background:#f8f9fa;border:1px solid #dee2e6;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;"></span>
+          <span style="font-size:.85rem">Factor C</span>
+        </div>
+      </div>
+      <div class="text-muted" style="font-size:.8rem">Toca de nuevo un factor para deseleccionarlo y reordenar.</div>
     `,
     none: `
       <div class="mb-2">Sin respuesta:</div>
