@@ -38,3 +38,25 @@ STATION_TEAMS = {
     'Praxedis': 'PRAXEDIS',
     'Colosio': 'Colosio',
 }
+
+# Mapeo de códigos numéricos del Excel → key en STATION_TEAMS
+# Para las estaciones cuyo Employee.team usa clave de texto, no número.
+EXCEL_CODE_TO_TEAM_KEY = {
+    '9733':  'Ejercito',
+    '4457':  'Satelite',
+    '1159':  'Fuentes',
+    '1156':  'Clara',
+    '10141': 'Solis',
+    '12097': 'Santiago',
+    '1148':  'Jarudo',
+    '1242':  'Villahumada',
+    '24938': 'Travel Center',
+    '24499': 'Picachos',
+    '24500': 'Ventanas',
+    '14946': 'San Rafael',
+    '15071': 'Puertecito',
+    '15901': 'Jesus Maria',
+    '12442': 'Gabriela Mistral',
+    '3184':  'Praxedis',
+    '22600': 'Colosio',
+}

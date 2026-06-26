@@ -34,11 +34,37 @@
     {% endfor %}
   {% endif %}
 
+  {% if q.qtype == 'image' and q.image_url %}
+    <div class="mt-2" data-preview="image">
+      <img src="{{ q.image_url }}" alt="Imagen de apoyo"
+           class="img-fluid rounded" style="max-height:120px; object-fit:contain;">
+    </div>
+  {% elif q.qtype == 'image' %}
+    <div class="mt-2 text-muted small" data-preview="image">
+      <i class="bi bi-image"></i> Sin imagen configurada
+    </div>
+  {% endif %}
+
+  {% if q.qtype == 'ranking' %}
+    {% for opt in q.options.all|slice:":3" %}
+      <div class="d-flex align-items-center gap-2 mt-1" data-preview="ranking"
+           style="padding:.25rem .5rem;border:1px solid #dee2e6;border-radius:.375rem;background:#fff;">
+        <span style="min-width:1.5rem;height:1.5rem;border-radius:50%;border:1px solid #dee2e6;background:#f8f9fa;
+                     display:inline-flex;align-items:center;justify-content:center;
+                     font-size:.7rem;color:#6c757d;flex-shrink:0;"></span>
+        <small>{{ opt.label }}</small>
+      </div>
+    {% endfor %}
+    {% if q.options.count > 3 %}
+      <small class="text-muted ms-1">…</small>
+    {% endif %}
+  {% endif %}
+
   <div class="q-footer">
     <div class="q-meta">
       {% with t=q.qtype %}
       <span class="q-ico" data-bs-toggle="tooltip" data-bs-placement="top"
-            title="Tipo de respuesta: {% if t == 'text' %}Texto{% elif t == 'integer' %}Número entero{% elif t == 'decimal' %}Número decimal{% elif t == 'single' %}Opciones (selección única){% elif t == 'multiple' %}Opciones (selección múltiple){% elif t == 'rating' %}Calificación{% elif t == 'dropdown' %}Lista desplegable{% else %}Sin respuesta{% endif %}">
+            title="Tipo de respuesta: {% if t == 'text' %}Texto{% elif t == 'integer' %}Número entero{% elif t == 'decimal' %}Número decimal{% elif t == 'single' %}Opciones (selección única){% elif t == 'multiple' %}Opciones (selección múltiple){% elif t == 'rating' %}Calificación{% elif t == 'ranking' %}Ordenamiento (ranking){% elif t == 'dropdown' %}Lista desplegable{% else %}Sin respuesta{% endif %}">
         <i class="bi bi-info-circle"></i>
       </span>
       {% endwith %}

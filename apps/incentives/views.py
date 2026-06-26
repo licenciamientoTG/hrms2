@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta
 
 
 def _deduplicar_por_tsa(employees):
@@ -43,16 +43,19 @@ def _otorgar_permiso_incentivos(user):
 
 
 def _get_rol_incentivos(user):
-    """Devuelve el rol del usuario: 'admin', 'zona', 'gerente', 'user' o None."""
+    """Devuelve el rol del usuario: 'admin', 'zona', 'gerente', 'operaciones', 'user' o None."""
     if user.is_superuser or user.is_staff:
         return 'admin'
     try:
         emp = Employee.objects.select_related('job_position').get(user=user)
-        titulo = (emp.job_position.title if emp.job_position else '').lower()
-        if 'jefe de zona' in titulo:
+        titulo = (emp.job_position.title if emp.job_position else '')
+        titulo_lower = titulo.lower()
+        if 'jefe de zona' in titulo_lower:
             return 'zona'
-        if 'gerente de estaci' in titulo or 'subgerente de estaci' in titulo:
+        if 'gerente de estaci' in titulo_lower or 'subgerente de estaci' in titulo_lower:
             return 'gerente'
+        if titulo == 'Gerente De Operaciones' and 'aqua car club' not in (emp.company or '').lower():
+            return 'operaciones'
     except Employee.DoesNotExist:
         pass
     if user.has_perm('incentives.Modulo_incentivos'):
@@ -65,21 +68,31 @@ def incentives_dashboard(request):
     if request.user.is_superuser or request.user.is_staff:
         return redirect('incentives_dashboard_admin')
 
+    es_gerente = False
+    es_jefe_zona = False
+    es_gerente_ops = False
+
     try:
         emp = Employee.objects.select_related('job_position').get(user=request.user)
-        titulo = (emp.job_position.title if emp.job_position else '').lower()
-        es_gerente = 'gerente de estaci' in titulo or 'subgerente de estaci' in titulo
-        es_jefe_zona = 'jefe de zona' in titulo
+        titulo = emp.job_position.title if emp.job_position else ''
+        titulo_lower = titulo.lower()
+        es_gerente = 'gerente de estaci' in titulo_lower or 'subgerente de estaci' in titulo_lower
+        es_jefe_zona = 'jefe de zona' in titulo_lower
+        es_gerente_ops = (
+            titulo == 'Gerente De Operaciones'
+            and 'aqua car club' not in (emp.company or '').lower()
+        )
     except Employee.DoesNotExist:
-        es_gerente = False
-        es_jefe_zona = False
+        pass
 
     # Otorgar permiso automáticamente a roles que lo justifican por puesto
-    if es_gerente or es_jefe_zona:
+    if es_gerente or es_jefe_zona or es_gerente_ops:
         _otorgar_permiso_incentivos(request.user)
         if es_gerente:
             return redirect('incentives_dashboard_manager')
-        return redirect('incentives_dashboard_zona')
+        if es_jefe_zona:
+            return redirect('incentives_dashboard_zona')
+        return redirect('incentives_dashboard_operaciones')
 
     # Para el resto, requiere permiso asignado manualmente
     if not request.user.has_perm('incentives.Modulo_incentivos'):
@@ -405,7 +418,180 @@ def incentives_dashboard_user(request):
     })
 
 
+@login_required
+def incentives_dashboard_operaciones(request):
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return redirect('incentives_dashboard')
+    from datetime import date
+    import calendar
+    today = date.today()
+
+    if 'reset' in request.GET:
+        request.session['incentivos_ops_delta'] = 0
+    elif 'delta' in request.GET:
+        request.session['incentivos_ops_delta'] = int(request.GET['delta'])
+
+    delta = request.session.get('incentivos_ops_delta', 0)
+
+    year = today.year
+    month = today.month + delta
+    while month > 12:
+        month -= 12
+        year += 1
+    while month < 1:
+        month += 12
+        year -= 1
+
+    mes_actual = date(year, month, 1)
+    mes_fin = date(year, month, calendar.monthrange(year, month)[1])
+
+    from apps.incentives.constants import STATION_TEAMS
+    from django.db.models import Sum
+    registros = PresupuestoVenta.objects.filter(mes=mes_actual).order_by('team_key')
+    presupuestos = [
+        {
+            'team_key': r.team_key,
+            'nombre': STATION_TEAMS.get(r.team_key, r.team_key),
+            'maxima': r.maxima,
+            'gasolina_super': r.gasolina_super,
+            'diesel': r.diesel,
+            'total': r.total,
+        }
+        for r in registros
+    ]
+    totales = registros.aggregate(
+        t_maxima=Sum('maxima'),
+        t_super=Sum('gasolina_super'),
+        t_diesel=Sum('diesel'),
+        t_total=Sum('total'),
+    ) if presupuestos else {}
+
+    return render(request, 'incentives/operaciones/incentives_dashboard_operaciones.html', {
+        'mes_actual': mes_actual,
+        'mes_fin': mes_fin,
+        'today': today,
+        'delta': delta,
+        'presupuestos': presupuestos,
+        'totales': totales,
+    })
+
+
 # ── AJAX ────────────────────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def parsear_excel_ventas(request):
+    """Recibe un Excel de presupuesto de ventas, lo parsea y devuelve vista previa."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        return JsonResponse({'ok': False, 'error': 'No se recibió archivo'}, status=400)
+
+    try:
+        import openpyxl
+        from apps.incentives.constants import EXCEL_CODE_TO_TEAM_KEY
+        wb = openpyxl.load_workbook(archivo, data_only=True)
+        ws = wb.active
+
+        filas = []
+        for row in ws.iter_rows(min_row=4, values_only=True):
+            codigo = row[0]
+            nombre = row[1]
+            if codigo is None and nombre is None:
+                continue
+
+            codigo = str(codigo).strip() if codigo is not None else ''
+            nombre = str(nombre).strip() if nombre is not None else ''
+
+            def to_num(val):
+                if val is None or val == '' or val == '—':
+                    return 0
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    try:
+                        # Limpiar formato de moneda: "$656,419" → 656419.0
+                        limpio = str(val).replace('$', '').replace(',', '').strip()
+                        return float(limpio) if limpio else 0
+                    except (ValueError, TypeError):
+                        return 0
+
+            maxima = to_num(row[2] if len(row) > 2 else None)
+            super_  = to_num(row[3] if len(row) > 3 else None)
+            diesel  = to_num(row[4] if len(row) > 4 else None)
+            total   = to_num(row[5] if len(row) > 5 else None)
+
+            # Determinar team_key
+            team_key = None
+            if codigo in STATION_TEAMS:
+                team_key = codigo
+            elif codigo in EXCEL_CODE_TO_TEAM_KEY:
+                team_key = EXCEL_CODE_TO_TEAM_KEY[codigo]
+
+            filas.append({
+                'codigo': codigo,
+                'nombre_excel': nombre,
+                'nombre_sistema': STATION_TEAMS.get(team_key, '—') if team_key else '—',
+                'team_key': team_key,
+                'maxima': maxima,
+                'super': super_,
+                'diesel': diesel,
+                'total': total,
+                'match': team_key is not None,
+            })
+
+        coincidencias = sum(1 for f in filas if f['match'])
+        sin_match = len(filas) - coincidencias
+
+        return JsonResponse({
+            'ok': True,
+            'filas': filas,
+            'coincidencias': coincidencias,
+            'sin_match': sin_match,
+        })
+
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def guardar_presupuesto_ventas(request):
+    """Guarda (o reemplaza) el presupuesto mensual de ventas por estación."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        mes_str = data['mes']           # 'YYYY-MM-DD'
+        filas = data['filas']           # lista de objetos del parser
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    from datetime import date
+    mes = date.fromisoformat(mes_str)
+
+    guardados = 0
+    for f in filas:
+        if not f.get('match') or not f.get('team_key'):
+            continue
+        PresupuestoVenta.objects.update_or_create(
+            team_key=f['team_key'],
+            mes=mes,
+            defaults={
+                'maxima':         f.get('maxima', 0) or 0,
+                'gasolina_super': f.get('super', 0) or 0,
+                'diesel':         f.get('diesel', 0) or 0,
+                'total':          f.get('total', 0) or 0,
+                'subido_por':     request.user,
+            },
+        )
+        guardados += 1
+
+    return JsonResponse({'ok': True, 'guardados': guardados})
+
 
 @login_required
 @require_POST
