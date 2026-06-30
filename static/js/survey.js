@@ -835,10 +835,10 @@ function buildStateFromServerDOM(){
   function collectOptionsFromUI() {
     if (!optsList) return [];
     const out = [];
-    optsList.querySelectorAll('.input-group').forEach(row => {
-      const label = row.querySelector('input.form-control')?.value?.trim() || '';
+    optsList.querySelectorAll('.input-group').forEach((row, idx) => {
+      const label = row.querySelector('input.form-control')?.value?.trim() || `Opción ${idx+1}`;
       const correct = !!row.querySelector('[data-opt-correct]')?.checked;
-      if (label) out.push({ label, correct });
+      out.push({ label, correct });
     });
     return out;
   }

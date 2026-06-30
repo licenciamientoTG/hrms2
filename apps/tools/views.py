@@ -49,7 +49,7 @@ def calculator_user(request):
         status__in=["pending", "approved"]
     ).order_by("-created_at").first() #
 
-    dias_restantes = None #
+    tiempo_restante = None
 
     # Si está aprobado, verificar si ya venció el plazo de semanas
     if active_loan and active_loan.status == "approved": #
@@ -58,9 +58,15 @@ def calculator_user(request):
         if timezone.now() >= fecha_vencimiento: #
             active_loan = None  # El plazo ya terminó, no mostrar como activo
         else:
-            # Calculamos los días que faltan para llegar a la fecha de vencimiento
-            delta = fecha_vencimiento - timezone.now() #
-            dias_restantes = max(0, delta.days) #
+            delta = fecha_vencimiento - timezone.now()
+            if delta.days >= 1:
+                tiempo_restante = f"{delta.days} {'día' if delta.days == 1 else 'días'}"
+            else:
+                horas = delta.seconds // 3600
+                if horas > 0:
+                    tiempo_restante = f"{horas} {'hora' if horas == 1 else 'horas'}"
+                else:
+                    tiempo_restante = "menos de 1 hora"
 
     return render(
         request,
@@ -69,8 +75,8 @@ def calculator_user(request):
             "fondo_ahorro": fondo_ahorro, #
             "max_weeks_allowed": max_weeks_allowed, #
             "current_week": current_week, #
-            "active_loan": active_loan, #
-            "dias_restantes": dias_restantes, # Pasamos los días al HTML
+            "active_loan": active_loan,
+            "tiempo_restante": tiempo_restante if active_loan else None,
         },
     )
 
@@ -223,8 +229,13 @@ def create_loan_request(request):
             if ultimo.status == "approved":
                 fin = ultimo.created_at + timedelta(weeks=ultimo.weeks)
                 if timezone.now() < fin:
-                    dias_restantes = (fin - timezone.now()).days
-                    return JsonResponse({"ok": False, "error": f"Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {dias_restantes} días."})
+                    delta_fin = fin - timezone.now()
+                    if delta_fin.days >= 1:
+                        tiempo_msg = f"{delta_fin.days} {'día' if delta_fin.days == 1 else 'días'}"
+                    else:
+                        horas = delta_fin.seconds // 3600
+                        tiempo_msg = f"{horas} {'hora' if horas == 1 else 'horas'}" if horas > 0 else "menos de 1 hora"
+                    return JsonResponse({"ok": False, "error": f"Tienes un préstamo activo. Podrás solicitar otro en aproximadamente {tiempo_msg}."})
 
         # Crear
         puesto = employee.job_position.title if employee.job_position else "Sin puesto"

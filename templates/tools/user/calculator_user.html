@@ -112,11 +112,10 @@
                   Tienes una solicitud con folio <strong>#{{ active_loan.id }}</strong>
               </div>
 
-              {% if dias_restantes is not None %}
+              {% if tiempo_restante is not None %}
               <div class="small text-muted mb-1">
-                  Podrás solicitar nuevo prestamo en aproximadamente <strong>{{ dias_restantes }} días</strong>
+                  Podrás solicitar nuevo préstamo en aproximadamente <strong>{{ tiempo_restante }}</strong>
               </div>
-
               {% endif %}
 
               <div class="mt-2 pt-2 border-top small text-muted">

@@ -75,7 +75,7 @@ class SurveyQuestion(models.Model):
     ]
 
     section = models.ForeignKey(SurveySection, on_delete=models.CASCADE, related_name='questions')
-    title   = models.CharField(max_length=255, default="Pregunta")
+    title   = models.CharField(max_length=1000, default="Pregunta")
     qtype   = models.CharField(max_length=20, choices=TYPES, default=SINGLE)
     required = models.BooleanField(default=False)
     order   = models.PositiveIntegerField(default=1)
