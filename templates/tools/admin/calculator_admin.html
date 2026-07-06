@@ -133,13 +133,27 @@
                         {% if s.status != 'cancelled' %}
                             <form action="{% url 'cancel_loan_request' s.id %}" method="POST" style="display:inline;" class="form-cancelar-prestamo">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger btn-cancelar" 
+                                <button type="submit" class="btn btn-sm btn-outline-danger btn-cancelar"
                                         title="Cancelar solicitud">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
                             </form>
                         {% else %}
                             <span class="badge bg-danger">Cancelada</span>
+                        {% endif %}
+                        {% if request.user.is_superuser and s.status == 'approved' and not s.unlocked %}
+                            <form action="{% url 'unlock_loan_request' s.id %}" method="POST" style="display:inline;" class="form-desbloquear-prestamo">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning btn-desbloquear"
+                                        title="Desbloquear — permite al empleado solicitar un nuevo préstamo ahora">
+                                    <i class="fa-solid fa-lock-open"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if s.unlocked %}
+                            <span class="badge bg-warning text-dark" title="El empleado puede solicitar un nuevo préstamo">
+                                <i class="fa-solid fa-lock-open"></i> Desbloqueado
+                            </span>
                         {% endif %}
                     </td>
                     </tr>
@@ -185,11 +199,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const forms = document.querySelectorAll('.form-cancelar-prestamo');
-    
+
     forms.forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             Swal.fire({
                 title: '¿Estás seguro?',
                 text: "Deseas cancelar esta solicitud. Esta acción no se puede deshacer.",
@@ -199,6 +213,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonColor: '#3085d6',
                 confirmButtonText: 'Sí, cancelar',
                 cancelButtonText: 'No, volver'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+
+    const formsDesbloquear = document.querySelectorAll('.form-desbloquear-prestamo');
+
+    formsDesbloquear.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            Swal.fire({
+                title: '¿Desbloquear préstamo?',
+                text: "El empleado podrá solicitar un nuevo préstamo de inmediato, sin esperar el plazo restante.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#f0ad4e',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, desbloquear',
+                cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
                     form.submit();

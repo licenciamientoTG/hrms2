@@ -422,19 +422,25 @@ def incentives_dashboard_user(request):
 def incentives_dashboard_operaciones(request):
     if _get_rol_incentivos(request.user) != 'operaciones':
         return redirect('incentives_dashboard')
-    from datetime import date
+    from datetime import date, timedelta
     import calendar
+    from django.db import connection
+    from django.db.models import Sum
+    from apps.incentives.constants import STATION_TEAMS, CG_CODE_TO_TEAM_KEY, TEAM_KEY_TO_CG_CODE, SG12_COD_TO_TEAM_KEY
+
     today = date.today()
 
+    # ── Navegación de MES (presupuesto) ──────────────────────────────────────
     if 'reset' in request.GET:
         request.session['incentivos_ops_delta'] = 0
-    elif 'delta' in request.GET:
-        request.session['incentivos_ops_delta'] = int(request.GET['delta'])
+        request.session['incentivos_ops_week_delta'] = 0
+    elif 'mes_delta' in request.GET:
+        request.session['incentivos_ops_delta'] = int(request.GET['mes_delta'])
 
-    delta = request.session.get('incentivos_ops_delta', 0)
+    mes_delta = request.session.get('incentivos_ops_delta', 0)
 
     year = today.year
-    month = today.month + delta
+    month = today.month + mes_delta
     while month > 12:
         month -= 12
         year += 1
@@ -443,40 +449,196 @@ def incentives_dashboard_operaciones(request):
         year -= 1
 
     mes_actual = date(year, month, 1)
-    mes_fin = date(year, month, calendar.monthrange(year, month)[1])
+    dias_mes = calendar.monthrange(year, month)[1]
+    mes_fin = date(year, month, dias_mes)
 
-    from apps.incentives.constants import STATION_TEAMS
-    from django.db.models import Sum
-    registros = PresupuestoVenta.objects.filter(mes=mes_actual).order_by('team_key')
-    presupuestos = [
-        {
-            'team_key': r.team_key,
-            'nombre': STATION_TEAMS.get(r.team_key, r.team_key),
-            'maxima': r.maxima,
-            'gasolina_super': r.gasolina_super,
-            'diesel': r.diesel,
-            'total': r.total,
+    # ── Navegación de SEMANA (lunes a domingo) ────────────────────────────────
+    if 'week_reset' in request.GET:
+        request.session['incentivos_ops_week_delta'] = 0
+    elif 'week_delta' in request.GET:
+        request.session['incentivos_ops_week_delta'] = int(request.GET['week_delta'])
+
+    week_delta = request.session.get('incentivos_ops_week_delta', 0)
+
+    lunes_hoy = today - timedelta(days=today.weekday())
+
+    # Clampear week_delta para que la semana siempre tenga días dentro del mes actual
+    lunes_mes_ini = mes_actual - timedelta(days=mes_actual.weekday())
+    lunes_mes_fin = mes_fin - timedelta(days=mes_fin.weekday())
+    min_week_delta = (lunes_mes_ini - lunes_hoy).days // 7
+    max_week_delta = (lunes_mes_fin - lunes_hoy).days // 7
+    week_delta = max(min_week_delta, min(max_week_delta, week_delta))
+    request.session['incentivos_ops_week_delta'] = week_delta
+
+    semana_ini = lunes_hoy + timedelta(weeks=week_delta)
+    semana_fin = semana_ini + timedelta(days=6)
+
+    # Periodo = días de la semana que caen dentro del mes del presupuesto
+    periodo_ini = max(semana_ini, mes_actual)
+    periodo_fin = min(semana_fin, mes_fin)
+    dias_periodo = max(0, (periodo_fin - periodo_ini).days + 1)
+    semana_num = semana_ini.isocalendar()[1]
+    semana_year = semana_ini.year % 100  # últimos 2 dígitos del año
+
+    # ── Presupuesto mensual ───────────────────────────────────────────────────
+    registros_ppto = PresupuestoVenta.objects.filter(mes=mes_actual)
+    presupuestos = {r.team_key: r for r in registros_ppto}
+
+    # ── Presupuesto del mes adyacente (cuando la semana cruza el cambio de mes) ──
+    dias_en_mes_actual = dias_periodo          # días de la semana en el mes seleccionado
+    dias_en_otro_mes   = 7 - dias_en_mes_actual  # días que caen en el mes vecino (0 si semana completa en el mes)
+
+    presupuestos_otro_mes = {}
+    dias_otro_mes = 0
+    if dias_en_otro_mes > 0:
+        if semana_ini < mes_actual:
+            # La semana empieza en el mes anterior
+            otro_month = month - 1 if month > 1 else 12
+            otro_year  = year if month > 1 else year - 1
+        else:
+            # La semana termina en el mes siguiente
+            otro_month = month + 1 if month < 12 else 1
+            otro_year  = year if month < 12 else year + 1
+        otro_mes = date(otro_year, otro_month, 1)
+        dias_otro_mes = calendar.monthrange(otro_year, otro_month)[1]
+        presupuestos_otro_mes = {r.team_key: r for r in PresupuestoVenta.objects.filter(mes=otro_mes)}
+
+    # ── Construir filas de comparación (sin ventas — se cargan por AJAX) ──────
+    def display_code(tk):
+        if tk.lstrip('-').isdigit():
+            return tk
+        return TEAM_KEY_TO_CG_CODE.get(tk, tk)
+
+    def sort_key(tk):
+        cod = display_code(tk)
+        try:
+            return int(cod)
+        except ValueError:
+            return 99999
+
+    rows = []
+    totales_ppto = {k: 0 for k in ('pm_gas', 'pm_diesel', 'pm_total', 'ps_gas', 'ps_diesel', 'ps_total')}
+
+    for team_key in sorted(presupuestos.keys(), key=sort_key):
+        r = presupuestos[team_key]
+
+        pm_gas    = float((r.maxima or 0) + (r.gasolina_super or 0))
+        pm_diesel = float(r.diesel or 0)
+        pm_total  = float(r.total or 0)
+
+        # Parte proporcional del mes seleccionado (sin redondear aún)
+        ps_gas_f    = (pm_gas    / dias_mes) * dias_en_mes_actual if dias_mes > 0 else 0.0
+        ps_diesel_f = (pm_diesel / dias_mes) * dias_en_mes_actual if dias_mes > 0 else 0.0
+
+        # Parte proporcional del mes adyacente (si la semana lo cruza y existe presupuesto)
+        if dias_en_otro_mes > 0 and dias_otro_mes > 0 and team_key in presupuestos_otro_mes:
+            r2 = presupuestos_otro_mes[team_key]
+            pm2_gas    = float((r2.maxima or 0) + (r2.gasolina_super or 0))
+            pm2_diesel = float(r2.diesel or 0)
+            ps_gas_f    += (pm2_gas    / dias_otro_mes) * dias_en_otro_mes
+            ps_diesel_f += (pm2_diesel / dias_otro_mes) * dias_en_otro_mes
+
+        ps_gas    = round(ps_gas_f)
+        ps_diesel = round(ps_diesel_f)
+        ps_total  = ps_gas + ps_diesel  # siempre suma de componentes, nunca desde pm_total
+
+        row = {
+            'team_key':  team_key,
+            'codigo':    display_code(team_key),
+            'nombre':    STATION_TEAMS.get(team_key, team_key),
+            'pm_gas':    pm_gas,    'pm_diesel': pm_diesel, 'pm_total': pm_total,
+            'ps_gas':    ps_gas,    'ps_diesel': ps_diesel, 'ps_total': ps_total,
         }
-        for r in registros
-    ]
-    totales = registros.aggregate(
-        t_maxima=Sum('maxima'),
-        t_super=Sum('gasolina_super'),
-        t_diesel=Sum('diesel'),
-        t_total=Sum('total'),
-    ) if presupuestos else {}
+        rows.append(row)
+
+        for k in totales_ppto:
+            totales_ppto[k] += row[k]
+
+    # ¿La semana cruza el cambio de mes y falta el presupuesto del mes adyacente?
+    ppto_otro_mes_incompleto = dias_en_otro_mes > 0 and not presupuestos_otro_mes
+    otro_mes_display = None
+    if dias_en_otro_mes > 0:
+        if semana_ini < mes_actual:
+            otro_month = month - 1 if month > 1 else 12
+            otro_year  = year if month > 1 else year - 1
+        else:
+            otro_month = month + 1 if month < 12 else 1
+            otro_year  = year if month < 12 else year + 1
+        otro_mes_display = date(otro_year, otro_month, 1)
 
     return render(request, 'incentives/operaciones/incentives_dashboard_operaciones.html', {
-        'mes_actual': mes_actual,
-        'mes_fin': mes_fin,
-        'today': today,
-        'delta': delta,
-        'presupuestos': presupuestos,
-        'totales': totales,
+        'mes_actual':    mes_actual,
+        'dias_mes':      dias_mes,
+        'today':         today,
+        'mes_delta':     mes_delta,
+        'week_delta':    week_delta,
+        'min_week_delta': min_week_delta,
+        'max_week_delta': max_week_delta,
+        'presupuestos':  presupuestos,
+        'semana_ini':    semana_ini,
+        'semana_fin':    semana_fin,
+        'periodo_ini':   periodo_ini,
+        'periodo_fin':   periodo_fin,
+        'dias_periodo':  dias_periodo,
+        'dias_en_otro_mes':          dias_en_otro_mes,
+        'ppto_otro_mes_incompleto':  ppto_otro_mes_incompleto,
+        'otro_mes_display':          otro_mes_display,
+        'rows':          rows,
+        'totales_ppto':  totales_ppto,
+        'semana_num':    semana_num,
+        'semana_year':   semana_year,
     })
 
 
 # ── AJAX ────────────────────────────────────────────────────────────────────
+
+@login_required
+def ventas_sg12_json(request):
+    """Devuelve ventas semanales desde ControlGas en JSON (para carga asíncrona)."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    from datetime import date
+    from django.db import connection
+    from django.core.cache import cache
+    from apps.incentives.constants import SG12_COD_TO_TEAM_KEY
+
+    try:
+        semana_ini = date.fromisoformat(request.GET['semana_ini'])
+        semana_fin = date.fromisoformat(request.GET['semana_fin'])
+    except (KeyError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Parámetros inválidos'}, status=400)
+
+    cache_key = f"ventas_sg12_v10_{semana_ini}_{semana_fin}"
+    ventas = cache.get(cache_key)
+    if ventas is None:
+        ventas = {}
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT
+                        EstacionCod,
+                        ROUND(SUM(CASE WHEN LOWER(Producto) NOT LIKE %s THEN Cantidad ELSE 0 END), 0),
+                        ROUND(SUM(CASE WHEN LOWER(Producto) LIKE %s     THEN Cantidad ELSE 0 END), 0),
+                        ROUND(SUM(Cantidad), 0)
+                    FROM SG12.dbo.VVentasGlobalesGas WITH (NOLOCK)
+                    WHERE Fecha BETWEEN %s AND %s
+                    GROUP BY EstacionCod
+                """, ['%diesel%', '%diesel%', semana_ini.isoformat(), semana_fin.isoformat()])
+                for estacion_cod, gas, diesel, total in cursor.fetchall():
+                    tk = SG12_COD_TO_TEAM_KEY.get(estacion_cod)
+                    if not tk:
+                        continue
+                    ventas[tk] = {
+                        'gas':    int(gas or 0),
+                        'diesel': int(diesel or 0),
+                        'total':  int(total or 0),
+                    }
+            cache.set(cache_key, ventas, timeout=3600)
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)})
+
+    return JsonResponse({'ok': True, 'ventas': ventas})
 
 @login_required
 @require_POST
@@ -502,7 +664,11 @@ def parsear_excel_ventas(request):
             if codigo is None and nombre is None:
                 continue
 
-            codigo = str(codigo).strip() if codigo is not None else ''
+            # openpyxl devuelve celdas numéricas como float (ej. 4188.0); convertir a entero primero
+            if isinstance(codigo, float):
+                codigo = str(int(codigo))
+            else:
+                codigo = str(codigo).strip() if codigo is not None else ''
             nombre = str(nombre).strip() if nombre is not None else ''
 
             def to_num(val):

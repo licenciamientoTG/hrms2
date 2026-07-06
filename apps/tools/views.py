@@ -51,22 +51,25 @@ def calculator_user(request):
 
     tiempo_restante = None
 
-    # Si está aprobado, verificar si ya venció el plazo de semanas
+    # Si está aprobado, verificar si ya venció el plazo de semanas o fue desbloqueado
     if active_loan and active_loan.status == "approved": #
-        fecha_vencimiento = active_loan.created_at + timedelta(weeks=active_loan.weeks) #
-        
-        if timezone.now() >= fecha_vencimiento: #
-            active_loan = None  # El plazo ya terminó, no mostrar como activo
+        if active_loan.unlocked:
+            active_loan = None  # Superusuario desbloqueó, puede solicitar de nuevo
         else:
-            delta = fecha_vencimiento - timezone.now()
-            if delta.days >= 1:
-                tiempo_restante = f"{delta.days} {'día' if delta.days == 1 else 'días'}"
+            fecha_vencimiento = active_loan.created_at + timedelta(weeks=active_loan.weeks) #
+
+            if timezone.now() >= fecha_vencimiento: #
+                active_loan = None  # El plazo ya terminó, no mostrar como activo
             else:
-                horas = delta.seconds // 3600
-                if horas > 0:
-                    tiempo_restante = f"{horas} {'hora' if horas == 1 else 'horas'}"
+                delta = fecha_vencimiento - timezone.now()
+                if delta.days >= 1:
+                    tiempo_restante = f"{delta.days} {'día' if delta.days == 1 else 'días'}"
                 else:
-                    tiempo_restante = "menos de 1 hora"
+                    horas = delta.seconds // 3600
+                    if horas > 0:
+                        tiempo_restante = f"{horas} {'hora' if horas == 1 else 'horas'}"
+                    else:
+                        tiempo_restante = "menos de 1 hora"
 
     return render(
         request,
@@ -226,7 +229,7 @@ def create_loan_request(request):
         ultimo = LoanRequest.objects.filter(user=request.user, status__in=["pending", "approved"]).order_by("-created_at").first()
         if ultimo:
             if ultimo.status == "pending": return JsonResponse({"ok": False, "error": "Solicitud en revisión."})
-            if ultimo.status == "approved":
+            if ultimo.status == "approved" and not ultimo.unlocked:
                 fin = ultimo.created_at + timedelta(weeks=ultimo.weeks)
                 if timezone.now() < fin:
                     delta_fin = fin - timezone.now()
@@ -398,6 +401,31 @@ def export_loans_excel(request):
     response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
     
     return response
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def unlock_loan_request(request, pk):
+    """
+    Permite al superusuario desbloquear el candado de un préstamo aprobado,
+    habilitando al empleado para solicitar un nuevo préstamo de inmediato.
+    """
+    solicitud = get_object_or_404(LoanRequest, pk=pk)
+    solicitud.unlocked = True
+    solicitud.save()
+
+    notify(
+        user=solicitud.user,
+        title="Préstamo desbloqueado",
+        body="Un administrador ha habilitado tu cuenta para solicitar un nuevo préstamo.",
+        module="prestamos",
+        url=reverse('calculator_user')
+    )
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({"ok": True})
+
+    return redirect('calculator_admin')
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)

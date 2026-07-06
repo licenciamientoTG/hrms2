@@ -31,6 +31,7 @@ class LoanRequest(models.Model):
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Estado")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha del préstamo")
+    unlocked = models.BooleanField(default=False, verbose_name="Desbloqueado por superusuario")
 
     # Propiedades calculadas (no se guardan en BD, se calculan al vuelo)
     @property
