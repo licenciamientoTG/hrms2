@@ -426,7 +426,7 @@ def incentives_dashboard_operaciones(request):
     import calendar
     from django.db import connection
     from django.db.models import Sum
-    from apps.incentives.constants import STATION_TEAMS, CG_CODE_TO_TEAM_KEY, TEAM_KEY_TO_CG_CODE, SG12_COD_TO_TEAM_KEY
+    from apps.incentives.constants import STATION_TEAMS, CG_CODE_TO_TEAM_KEY, TEAM_KEY_TO_CG_CODE, SG12_COD_TO_TEAM_KEY, EXCEL_ORDER_LOOKUP
 
     today = date.today()
 
@@ -460,11 +460,12 @@ def incentives_dashboard_operaciones(request):
 
     week_delta = request.session.get('incentivos_ops_week_delta', 0)
 
+    # Semanas Lunes–Domingo (igual que el Excel)
     lunes_hoy = today - timedelta(days=today.weekday())
 
     # Clampear week_delta para que la semana siempre tenga días dentro del mes actual
     lunes_mes_ini = mes_actual - timedelta(days=mes_actual.weekday())
-    lunes_mes_fin = mes_fin - timedelta(days=mes_fin.weekday())
+    lunes_mes_fin = mes_fin    - timedelta(days=mes_fin.weekday())
     min_week_delta = (lunes_mes_ini - lunes_hoy).days // 7
     max_week_delta = (lunes_mes_fin - lunes_hoy).days // 7
     week_delta = max(min_week_delta, min(max_week_delta, week_delta))
@@ -485,18 +486,18 @@ def incentives_dashboard_operaciones(request):
     presupuestos = {r.team_key: r for r in registros_ppto}
 
     # ── Presupuesto del mes adyacente (cuando la semana cruza el cambio de mes) ──
-    dias_en_mes_actual = dias_periodo          # días de la semana en el mes seleccionado
-    dias_en_otro_mes   = 7 - dias_en_mes_actual  # días que caen en el mes vecino (0 si semana completa en el mes)
+    dias_en_mes_actual = dias_periodo
+    dias_en_otro_mes   = 7 - dias_en_mes_actual
 
     presupuestos_otro_mes = {}
     dias_otro_mes = 0
     if dias_en_otro_mes > 0:
         if semana_ini < mes_actual:
-            # La semana empieza en el mes anterior
+            # Semana empieza en el mes anterior
             otro_month = month - 1 if month > 1 else 12
             otro_year  = year if month > 1 else year - 1
         else:
-            # La semana termina en el mes siguiente
+            # Semana termina en el mes siguiente
             otro_month = month + 1 if month < 12 else 1
             otro_year  = year if month < 12 else year + 1
         otro_mes = date(otro_year, otro_month, 1)
@@ -504,47 +505,45 @@ def incentives_dashboard_operaciones(request):
         presupuestos_otro_mes = {r.team_key: r for r in PresupuestoVenta.objects.filter(mes=otro_mes)}
 
     # ── Construir filas de comparación (sin ventas — se cargan por AJAX) ──────
-    def display_code(tk):
-        if tk.lstrip('-').isdigit():
-            return tk
-        return TEAM_KEY_TO_CG_CODE.get(tk, tk)
-
-    def sort_key(tk):
-        cod = display_code(tk)
-        try:
-            return int(cod)
-        except ValueError:
-            return 99999
+    def excel_no_and_pos(tk):
+        """Devuelve (posición_en_excel, n.o_excel) para ordenar y mostrar igual que el Excel."""
+        if tk in EXCEL_ORDER_LOOKUP:
+            return EXCEL_ORDER_LOOKUP[tk]
+        # Fallback para estaciones no definidas en el orden: al final, mostrando el team_key
+        return (9999, tk)
 
     rows = []
     totales_ppto = {k: 0 for k in ('pm_gas', 'pm_diesel', 'pm_total', 'ps_gas', 'ps_diesel', 'ps_total')}
 
-    for team_key in sorted(presupuestos.keys(), key=sort_key):
+    for team_key in sorted(presupuestos.keys(), key=lambda tk: excel_no_and_pos(tk)[0]):
         r = presupuestos[team_key]
 
         pm_gas    = float((r.maxima or 0) + (r.gasolina_super or 0))
         pm_diesel = float(r.diesel or 0)
         pm_total  = float(r.total or 0)
 
-        # Parte proporcional del mes seleccionado (sin redondear aún)
-        ps_gas_f    = (pm_gas    / dias_mes) * dias_en_mes_actual if dias_mes > 0 else 0.0
-        ps_diesel_f = (pm_diesel / dias_mes) * dias_en_mes_actual if dias_mes > 0 else 0.0
-
-        # Parte proporcional del mes adyacente (si la semana lo cruza y existe presupuesto)
-        if dias_en_otro_mes > 0 and dias_otro_mes > 0 and team_key in presupuestos_otro_mes:
+        if dias_mes == 0:
+            ps_gas_f = ps_diesel_f = 0.0
+        elif dias_en_otro_mes > 0 and dias_otro_mes > 0 and team_key in presupuestos_otro_mes:
+            # Semana cruza cambio de mes y ambos presupuestos existen → dividir proporcionalmente
             r2 = presupuestos_otro_mes[team_key]
             pm2_gas    = float((r2.maxima or 0) + (r2.gasolina_super or 0))
             pm2_diesel = float(r2.diesel or 0)
-            ps_gas_f    += (pm2_gas    / dias_otro_mes) * dias_en_otro_mes
-            ps_diesel_f += (pm2_diesel / dias_otro_mes) * dias_en_otro_mes
+            ps_gas_f    = (pm_gas    / dias_mes) * dias_en_mes_actual + (pm2_gas    / dias_otro_mes) * dias_en_otro_mes
+            ps_diesel_f = (pm_diesel / dias_mes) * dias_en_mes_actual + (pm2_diesel / dias_otro_mes) * dias_en_otro_mes
+        else:
+            # Semana completa en el mes, o mes adyacente sin presupuesto → usar 7 días del mes actual
+            ps_gas_f    = (pm_gas    / dias_mes) * 7
+            ps_diesel_f = (pm_diesel / dias_mes) * 7
 
         ps_gas    = round(ps_gas_f)
         ps_diesel = round(ps_diesel_f)
         ps_total  = ps_gas + ps_diesel  # siempre suma de componentes, nunca desde pm_total
 
+        _, excel_no = excel_no_and_pos(team_key)
         row = {
             'team_key':  team_key,
-            'codigo':    display_code(team_key),
+            'codigo':    excel_no,
             'nombre':    STATION_TEAMS.get(team_key, team_key),
             'pm_gas':    pm_gas,    'pm_diesel': pm_diesel, 'pm_total': pm_total,
             'ps_gas':    ps_gas,    'ps_diesel': ps_diesel, 'ps_total': ps_total,
@@ -559,9 +558,11 @@ def incentives_dashboard_operaciones(request):
     otro_mes_display = None
     if dias_en_otro_mes > 0:
         if semana_ini < mes_actual:
+            # Semana empieza en el mes anterior
             otro_month = month - 1 if month > 1 else 12
             otro_year  = year if month > 1 else year - 1
         else:
+            # Semana termina en el mes siguiente
             otro_month = month + 1 if month < 12 else 1
             otro_year  = year if month < 12 else year + 1
         otro_mes_display = date(otro_year, otro_month, 1)

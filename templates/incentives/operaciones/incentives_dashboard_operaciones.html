@@ -18,11 +18,31 @@
 
   .ind-table { font-size: 11px; white-space: nowrap; border-collapse: collapse; width: 100%; }
   .ind-table th, .ind-table td { border: 1px solid #dee2e6; padding: 4px 8px; vertical-align: middle; }
-  .ind-table thead tr.group-header th { text-align: center; background: #0d6efd; color: #fff; }
-  .ind-table thead tr.sub-header th  { text-align: center; background: #e9ecef; font-size: 10px; }
-  .ind-table tbody tr:hover { background: #f0f5ff; }
-  .ind-table tfoot td { font-weight: 600; background: #f8f9fa; }
-  .ind-table .text-end  { text-align: right; }
+
+  /* ── Cabecera por grupo ── */
+  .ind-table thead tr.group-header th      { text-align: center; background: #1e40af; color: #fff; }
+  .ind-table thead tr.group-header th.gh-pm { background: #1d4ed8; }
+  .ind-table thead tr.group-header th.gh-ps { background: #166534; }
+  .ind-table thead tr.group-header th.gh-vs { background: #92400e; }
+
+  /* ── Sub-cabecera por grupo ── */
+  .ind-table thead tr.sub-header th        { text-align: center; font-size: 10px; }
+  .ind-table thead tr.sub-header th.sh-pm  { background: #dbeafe; color: #1e3a8a; }
+  .ind-table thead tr.sub-header th.sh-ps  { background: #dcfce7; color: #14532d; }
+  .ind-table thead tr.sub-header th.sh-vs  { background: #fef3c7; color: #78350f; }
+
+  /* ── Separador visual entre grupos de columnas ── */
+  .col-group-start { border-left: 2px solid #6b7280 !important; }
+  /* ── Separador entre pares dentro de Venta Semanal (Diesel / Total) ── */
+  .col-pair-sep { border-left: 1px dashed #9ca3af !important; }
+
+  /* ── Filas alternadas: azul claro / blanco ── */
+  .ind-table tbody tr:nth-child(odd)  { background-color: #dbeafe; }
+  .ind-table tbody tr:nth-child(even) { background-color: #ffffff; }
+  .ind-table tbody tr:hover           { background-color: #bfdbfe !important; }
+
+  .ind-table tfoot td { font-weight: 600; background: #f1f5f9; }
+  .ind-table .text-end   { text-align: right; }
   .ind-table .text-center { text-align: center; }
   .dif-pos { background: #d1fae5; color: #065f46; font-weight: 500; }
   .dif-neg { background: #fee2e2; color: #991b1b; font-weight: 500; }
@@ -196,16 +216,16 @@
           <tr class="group-header">
             <th rowspan="2">N.o</th>
             <th rowspan="2">Estación</th>
-            <th colspan="3">Presupuesto Mensual</th>
-            <th colspan="3">Presupuesto Semanal</th>
-            <th colspan="6">Venta Semanal</th>
+            <th colspan="3" class="gh-pm col-group-start">Presupuesto Mensual</th>
+            <th colspan="3" class="gh-ps col-group-start">Presupuesto Semanal</th>
+            <th colspan="6" class="gh-vs col-group-start">Venta Semanal</th>
           </tr>
           <tr class="sub-header">
-            <th>Gasolinas</th><th>Diesel</th><th>Total</th>
-            <th>Gasolinas</th><th>Diesel</th><th>Total</th>
-            <th>Gasolinas</th><th>Dif/Ppto</th>
-            <th>Diesel</th><th>Dif/Ppto</th>
-            <th>Total</th><th>Dif/Ppto</th>
+            <th class="sh-pm col-group-start">Gasolinas</th><th class="sh-pm">Diesel</th><th class="sh-pm">Total</th>
+            <th class="sh-ps col-group-start">Gasolinas</th><th class="sh-ps">Diesel</th><th class="sh-ps">Total</th>
+            <th class="sh-vs col-group-start">Gasolinas</th><th class="sh-vs">Dif/Ppto</th>
+            <th class="sh-vs col-pair-sep">Diesel</th><th class="sh-vs">Dif/Ppto</th>
+            <th class="sh-vs col-pair-sep">Total</th><th class="sh-vs">Dif/Ppto</th>
           </tr>
         </thead>
         <tbody id="ops-tbody">
@@ -213,30 +233,30 @@
           <tr data-tk="{{ row.team_key }}" data-ps-gas="{{ row.ps_gas }}" data-ps-diesel="{{ row.ps_diesel }}" data-ps-total="{{ row.ps_total }}">
             <td class="text-center">{{ row.codigo }}</td>
             <td>{{ row.nombre }}</td>
-            <td class="text-end">{% if row.pm_gas %}{{ row.pm_gas|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end col-group-start">{% if row.pm_gas %}{{ row.pm_gas|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td class="text-end">{{ row.pm_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end fw-semibold">{% if row.pm_total %}{{ row.pm_total|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-            <td class="text-end">{% if row.ps_gas %}{{ row.ps_gas|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end col-group-start">{% if row.ps_gas %}{{ row.ps_gas|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td class="text-end">{{ row.ps_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end fw-semibold">{{ row.ps_total|floatformat:"0"|intcomma }}</td>
-            <td class="ventas-loading" colspan="6"><span class="spinner-border spinner-border-sm"></span></td>
+            <td class="ventas-loading col-group-start" colspan="6"><span class="spinner-border spinner-border-sm"></span></td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr>
             <td colspan="2" class="text-center">TOTALES</td>
-            <td class="text-end">{{ totales_ppto.pm_gas|floatformat:"0"|intcomma }}</td>
+            <td class="text-end col-group-start">{{ totales_ppto.pm_gas|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.pm_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.pm_total|floatformat:"0"|intcomma }}</td>
-            <td class="text-end">{{ totales_ppto.ps_gas|floatformat:"0"|intcomma }}</td>
+            <td class="text-end col-group-start">{{ totales_ppto.ps_gas|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.ps_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.ps_total|floatformat:"0"|intcomma }}</td>
-            <td class="text-end" id="tot-vs-gas">—</td>
+            <td class="text-end col-group-start" id="tot-vs-gas">—</td>
             <td class="text-end" id="tot-dif-gas">—</td>
-            <td class="text-end" id="tot-vs-diesel">—</td>
+            <td class="text-end col-pair-sep" id="tot-vs-diesel">—</td>
             <td class="text-end" id="tot-dif-diesel">—</td>
-            <td class="text-end fw-semibold" id="tot-vs-total">—</td>
+            <td class="text-end fw-semibold col-pair-sep" id="tot-vs-total">—</td>
             <td class="text-end" id="tot-dif-total">—</td>
           </tr>
         </tfoot>
@@ -416,15 +436,15 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
 
     // Reemplaza la celda de spinner con 6 celdas reales
     loadingTd.removeAttribute('colspan');
-    loadingTd.className = 'text-end';
+    loadingTd.className = 'text-end col-group-start';
     loadingTd.textContent = fmt(vsGas);
 
     const cells = [
-      { cls: `text-end ${clsDif(difGas)}`,    txt: fmtDif(difGas) },
-      { cls: 'text-end',                       txt: fmt(vsDiesel) },
-      { cls: `text-end ${clsDif(difDiesel)}`,  txt: fmtDif(difDiesel) },
-      { cls: 'text-end fw-semibold',           txt: fmt(vsTotal) },
-      { cls: `text-end ${clsDif(difTotal)}`,   txt: fmtDif(difTotal) },
+      { cls: `text-end ${clsDif(difGas)}`,                   txt: fmtDif(difGas) },
+      { cls: 'text-end col-pair-sep',                        txt: fmt(vsDiesel) },
+      { cls: `text-end ${clsDif(difDiesel)}`,                txt: fmtDif(difDiesel) },
+      { cls: 'text-end fw-semibold col-pair-sep',            txt: fmt(vsTotal) },
+      { cls: `text-end ${clsDif(difTotal)}`,                 txt: fmtDif(difTotal) },
     ];
     cells.forEach(c => {
       const td = document.createElement('td');

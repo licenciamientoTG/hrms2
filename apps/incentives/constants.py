@@ -90,6 +90,52 @@ CG_CODE_TO_TEAM_KEY = {
 # Reverso: team_key → código numérico de display (N.o en el Excel/ControlGas)
 TEAM_KEY_TO_CG_CODE = {v: k for k, v in CG_CODE_TO_TEAM_KEY.items()}
 
+# Orden exacto del Excel y N.o que se muestra en la primera columna del dashboard
+# (excel_no, team_key)
+EXCEL_STATION_ORDER = [
+    ('1148',  'Jarudo'),
+    ('1149',  '1149'),
+    ('1156',  'Clara'),
+    ('1159',  'Fuentes'),
+    ('1163',  '1163'),
+    ('1242',  'Villahumada'),
+    ('1376',  '1376'),
+    ('2172',  '2172'),
+    ('2526',  '2526'),
+    ('4179',  '4179'),
+    ('4188',  '4188'),
+    ('4457',  'Satelite'),
+    ('5170',  '5170'),
+    ('5317',  '5317'),
+    ('5465',  '5465'),
+    ('6410',  '6410'),
+    ('6947',  '6947'),
+    ('7167',  '7167'),
+    ('8244',  '8244'),
+    ('9191',  '9191'),
+    ('9235',  '9235'),
+    ('9773',  'Ejercito'),
+    ('9885',  '9885'),
+    ('10141', 'Solis'),
+    ('9893',  '9893'),
+    ('11007', '11007'),
+    ('12097', 'Santiago'),
+    ('12900', '12900'),
+    ('23214', '23214'),
+    ('24499', 'Picachos'),
+    ('24500', 'Ventanas'),
+    ('24938', 'Travel Center'),
+    ('3184',  'Praxedis'),
+    ('22600', 'Colosio'),
+    ('15091', 'Jesus Maria'),
+    ('15071', 'Puertecito'),
+    ('14946', 'San Rafael'),
+    ('12442', 'Gabriela Mistral'),
+]
+
+# Lookup rápido: team_key → (posición, excel_no)
+EXCEL_ORDER_LOOKUP = {tk: (pos, no) for pos, (no, tk) in enumerate(EXCEL_STATION_ORDER)}
+
 # Mapeo de EstacionCod (entero interno de SG12) → team_key en STATION_TEAMS
 SG12_COD_TO_TEAM_KEY = {
     2:  '4188',          # Gemela Grande
