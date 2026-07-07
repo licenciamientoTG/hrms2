@@ -403,7 +403,7 @@ def export_loans_excel(request):
     return response
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_superuser or u.has_perm('tools.desbloquear_prestamos'))
 @require_POST
 def unlock_loan_request(request, pk):
     """

@@ -424,121 +424,119 @@ def incentives_dashboard_operaciones(request):
         return redirect('incentives_dashboard')
     from datetime import date, timedelta
     import calendar
-    from django.db import connection
-    from django.db.models import Sum
-    from apps.incentives.constants import STATION_TEAMS, CG_CODE_TO_TEAM_KEY, TEAM_KEY_TO_CG_CODE, SG12_COD_TO_TEAM_KEY, EXCEL_ORDER_LOOKUP
+    from apps.incentives.constants import STATION_TEAMS, EXCEL_ORDER_LOOKUP
 
     today = date.today()
-
-    # ── Navegación de MES (presupuesto) ──────────────────────────────────────
-    if 'reset' in request.GET:
-        request.session['incentivos_ops_delta'] = 0
-        request.session['incentivos_ops_week_delta'] = 0
-    elif 'mes_delta' in request.GET:
-        request.session['incentivos_ops_delta'] = int(request.GET['mes_delta'])
-
-    mes_delta = request.session.get('incentivos_ops_delta', 0)
-
-    year = today.year
-    month = today.month + mes_delta
-    while month > 12:
-        month -= 12
-        year += 1
-    while month < 1:
-        month += 12
-        year -= 1
-
-    mes_actual = date(year, month, 1)
-    dias_mes = calendar.monthrange(year, month)[1]
-    mes_fin = date(year, month, dias_mes)
-
-    # ── Navegación de SEMANA (lunes a domingo) ────────────────────────────────
-    if 'week_reset' in request.GET:
-        request.session['incentivos_ops_week_delta'] = 0
-    elif 'week_delta' in request.GET:
-        request.session['incentivos_ops_week_delta'] = int(request.GET['week_delta'])
-
-    week_delta = request.session.get('incentivos_ops_week_delta', 0)
-
-    # Semanas Lunes–Domingo (igual que el Excel)
     lunes_hoy = today - timedelta(days=today.weekday())
+    domingo_hoy = lunes_hoy + timedelta(days=6)
 
-    # Clampear week_delta para que la semana siempre tenga días dentro del mes actual
-    lunes_mes_ini = mes_actual - timedelta(days=mes_actual.weekday())
-    lunes_mes_fin = mes_fin    - timedelta(days=mes_fin.weekday())
-    min_week_delta = (lunes_mes_ini - lunes_hoy).days // 7
-    max_week_delta = (lunes_mes_fin - lunes_hoy).days // 7
-    week_delta = max(min_week_delta, min(max_week_delta, week_delta))
-    request.session['incentivos_ops_week_delta'] = week_delta
+    # ── Rango de fechas ───────────────────────────────────────────────────────
+    if 'reset' in request.GET:
+        request.session.pop('incentivos_ops_fecha_ini', None)
+        request.session.pop('incentivos_ops_fecha_fin', None)
 
-    semana_ini = lunes_hoy + timedelta(weeks=week_delta)
-    semana_fin = semana_ini + timedelta(days=6)
-
-    # Periodo = días de la semana que caen dentro del mes del presupuesto
-    periodo_ini = max(semana_ini, mes_actual)
-    periodo_fin = min(semana_fin, mes_fin)
-    dias_periodo = max(0, (periodo_fin - periodo_ini).days + 1)
-    semana_num = semana_ini.isocalendar()[1]
-    semana_year = semana_ini.year % 100  # últimos 2 dígitos del año
-
-    # ── Presupuesto mensual ───────────────────────────────────────────────────
-    registros_ppto = PresupuestoVenta.objects.filter(mes=mes_actual)
-    presupuestos = {r.team_key: r for r in registros_ppto}
-
-    # ── Presupuesto del mes adyacente (cuando la semana cruza el cambio de mes) ──
-    dias_en_mes_actual = dias_periodo
-    dias_en_otro_mes   = 7 - dias_en_mes_actual
-
-    presupuestos_otro_mes = {}
-    dias_otro_mes = 0
-    if dias_en_otro_mes > 0:
-        if semana_ini < mes_actual:
-            # Semana empieza en el mes anterior
-            otro_month = month - 1 if month > 1 else 12
-            otro_year  = year if month > 1 else year - 1
+    if 'fecha_ini' in request.GET and 'fecha_fin' in request.GET:
+        try:
+            fecha_ini = date.fromisoformat(request.GET['fecha_ini'])
+            fecha_fin = date.fromisoformat(request.GET['fecha_fin'])
+            if fecha_fin < fecha_ini:
+                fecha_ini, fecha_fin = fecha_fin, fecha_ini
+            request.session['incentivos_ops_fecha_ini'] = fecha_ini.isoformat()
+            request.session['incentivos_ops_fecha_fin'] = fecha_fin.isoformat()
+        except ValueError:
+            fecha_ini = lunes_hoy
+            fecha_fin = domingo_hoy
+    else:
+        saved_ini = request.session.get('incentivos_ops_fecha_ini')
+        saved_fin = request.session.get('incentivos_ops_fecha_fin')
+        if saved_ini and saved_fin:
+            try:
+                fecha_ini = date.fromisoformat(saved_ini)
+                fecha_fin = date.fromisoformat(saved_fin)
+            except ValueError:
+                fecha_ini = lunes_hoy
+                fecha_fin = domingo_hoy
         else:
-            # Semana termina en el mes siguiente
-            otro_month = month + 1 if month < 12 else 1
-            otro_year  = year if month < 12 else year + 1
-        otro_mes = date(otro_year, otro_month, 1)
-        dias_otro_mes = calendar.monthrange(otro_year, otro_month)[1]
-        presupuestos_otro_mes = {r.team_key: r for r in PresupuestoVenta.objects.filter(mes=otro_mes)}
+            fecha_ini = lunes_hoy
+            fecha_fin = domingo_hoy
 
-    # ── Construir filas de comparación (sin ventas — se cargan por AJAX) ──────
+    dias_total_rango = (fecha_fin - fecha_ini).days + 1
+    semana_num  = fecha_ini.isocalendar()[1]
+    semana_year = fecha_ini.isocalendar()[0]
+
+    # ── Meses involucrados en el rango ────────────────────────────────────────
+    meses_en_rango = []
+    cur = date(fecha_ini.year, fecha_ini.month, 1)
+    while cur <= fecha_fin:
+        dias_mes = calendar.monthrange(cur.year, cur.month)[1]
+        mes_fin_date = date(cur.year, cur.month, dias_mes)
+        inicio_en_mes = max(fecha_ini, cur)
+        fin_en_mes = min(fecha_fin, mes_fin_date)
+        dias_en_rango_mes = (fin_en_mes - inicio_en_mes).days + 1
+        meses_en_rango.append({
+            'mes': cur,
+            'dias_mes': dias_mes,
+            'dias_en_rango': dias_en_rango_mes,
+        })
+        if cur.month == 12:
+            cur = date(cur.year + 1, 1, 1)
+        else:
+            cur = date(cur.year, cur.month + 1, 1)
+
+    # ── Presupuestos por mes ──────────────────────────────────────────────────
+    presupuestos_por_mes = {}
+    for m in meses_en_rango:
+        regs = PresupuestoVenta.objects.filter(mes=m['mes'])
+        presupuestos_por_mes[m['mes']] = {r.team_key: r for r in regs}
+
+    meses_sin_ppto = [m['mes'] for m in meses_en_rango if not presupuestos_por_mes.get(m['mes'])]
+
+    # Mes principal: el que más días aporta al rango (para mostrar en columna "Presupuesto Mensual")
+    mes_principal = max(meses_en_rango, key=lambda m: m['dias_en_rango'])['mes']
+
+    # Mes por defecto para la carga: el primero sin presupuesto, o el mes principal
+    mes_upload_default = meses_sin_ppto[0] if meses_sin_ppto else mes_principal
+
+    # Todos los meses que ya tienen presupuesto cargado (para advertencia de sobreescritura)
+    import json as _json
+    _meses_cargados = (PresupuestoVenta.objects
+                       .order_by('mes').values_list('mes', flat=True).distinct())
+    meses_con_ppto_json = _json.dumps([m.strftime('%Y-%m') for m in _meses_cargados])
+
+    # ── Construir filas ───────────────────────────────────────────────────────
     def excel_no_and_pos(tk):
-        """Devuelve (posición_en_excel, n.o_excel) para ordenar y mostrar igual que el Excel."""
         if tk in EXCEL_ORDER_LOOKUP:
             return EXCEL_ORDER_LOOKUP[tk]
-        # Fallback para estaciones no definidas en el orden: al final, mostrando el team_key
         return (9999, tk)
+
+    all_team_keys = set()
+    for ppto in presupuestos_por_mes.values():
+        all_team_keys.update(ppto.keys())
 
     rows = []
     totales_ppto = {k: 0 for k in ('pm_gas', 'pm_diesel', 'pm_total', 'ps_gas', 'ps_diesel', 'ps_total')}
 
-    for team_key in sorted(presupuestos.keys(), key=lambda tk: excel_no_and_pos(tk)[0]):
-        r = presupuestos[team_key]
+    for team_key in sorted(all_team_keys, key=lambda tk: excel_no_and_pos(tk)[0]):
+        ppto_principal = presupuestos_por_mes.get(mes_principal, {}).get(team_key)
+        pm_gas = pm_diesel = pm_total = 0.0
+        if ppto_principal:
+            pm_gas    = float((ppto_principal.maxima or 0) + (ppto_principal.gasolina_super or 0))
+            pm_diesel = float(ppto_principal.diesel or 0)
+            pm_total  = float(ppto_principal.total or 0)
 
-        pm_gas    = float((r.maxima or 0) + (r.gasolina_super or 0))
-        pm_diesel = float(r.diesel or 0)
-        pm_total  = float(r.total or 0)
-
-        if dias_mes == 0:
-            ps_gas_f = ps_diesel_f = 0.0
-        elif dias_en_otro_mes > 0 and dias_otro_mes > 0 and team_key in presupuestos_otro_mes:
-            # Semana cruza cambio de mes y ambos presupuestos existen → dividir proporcionalmente
-            r2 = presupuestos_otro_mes[team_key]
-            pm2_gas    = float((r2.maxima or 0) + (r2.gasolina_super or 0))
-            pm2_diesel = float(r2.diesel or 0)
-            ps_gas_f    = (pm_gas    / dias_mes) * dias_en_mes_actual + (pm2_gas    / dias_otro_mes) * dias_en_otro_mes
-            ps_diesel_f = (pm_diesel / dias_mes) * dias_en_mes_actual + (pm2_diesel / dias_otro_mes) * dias_en_otro_mes
-        else:
-            # Semana completa en el mes, o mes adyacente sin presupuesto → usar 7 días del mes actual
-            ps_gas_f    = (pm_gas    / dias_mes) * 7
-            ps_diesel_f = (pm_diesel / dias_mes) * 7
+        # Presupuesto del periodo: suma proporcional de cada mes dentro del rango
+        ps_gas_f = ps_diesel_f = 0.0
+        for m in meses_en_rango:
+            ppto = presupuestos_por_mes.get(m['mes'], {}).get(team_key)
+            if ppto and m['dias_mes'] > 0:
+                m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
+                m_diesel = float(ppto.diesel or 0)
+                ps_gas_f    += (m_gas    / m['dias_mes']) * m['dias_en_rango']
+                ps_diesel_f += (m_diesel / m['dias_mes']) * m['dias_en_rango']
 
         ps_gas    = round(ps_gas_f)
         ps_diesel = round(ps_diesel_f)
-        ps_total  = ps_gas + ps_diesel  # siempre suma de componentes, nunca desde pm_total
+        ps_total  = ps_gas + ps_diesel
 
         _, excel_no = excel_no_and_pos(team_key)
         row = {
@@ -549,45 +547,23 @@ def incentives_dashboard_operaciones(request):
             'ps_gas':    ps_gas,    'ps_diesel': ps_diesel, 'ps_total': ps_total,
         }
         rows.append(row)
-
         for k in totales_ppto:
             totales_ppto[k] += row[k]
 
-    # ¿La semana cruza el cambio de mes y falta el presupuesto del mes adyacente?
-    ppto_otro_mes_incompleto = dias_en_otro_mes > 0 and not presupuestos_otro_mes
-    otro_mes_display = None
-    if dias_en_otro_mes > 0:
-        if semana_ini < mes_actual:
-            # Semana empieza en el mes anterior
-            otro_month = month - 1 if month > 1 else 12
-            otro_year  = year if month > 1 else year - 1
-        else:
-            # Semana termina en el mes siguiente
-            otro_month = month + 1 if month < 12 else 1
-            otro_year  = year if month < 12 else year + 1
-        otro_mes_display = date(otro_year, otro_month, 1)
-
     return render(request, 'incentives/operaciones/incentives_dashboard_operaciones.html', {
-        'mes_actual':    mes_actual,
-        'dias_mes':      dias_mes,
-        'today':         today,
-        'mes_delta':     mes_delta,
-        'week_delta':    week_delta,
-        'min_week_delta': min_week_delta,
-        'max_week_delta': max_week_delta,
-        'presupuestos':  presupuestos,
-        'semana_ini':    semana_ini,
-        'semana_fin':    semana_fin,
-        'periodo_ini':   periodo_ini,
-        'periodo_fin':   periodo_fin,
-        'dias_periodo':  dias_periodo,
-        'dias_en_otro_mes':          dias_en_otro_mes,
-        'ppto_otro_mes_incompleto':  ppto_otro_mes_incompleto,
-        'otro_mes_display':          otro_mes_display,
-        'rows':          rows,
-        'totales_ppto':  totales_ppto,
-        'semana_num':    semana_num,
-        'semana_year':   semana_year,
+        'fecha_ini':          fecha_ini,
+        'fecha_fin':          fecha_fin,
+        'dias_total_rango':   dias_total_rango,
+        'semana_num':         semana_num,
+        'semana_year':        semana_year,
+        'today':              today,
+        'meses_en_rango':     meses_en_rango,
+        'mes_principal':      mes_principal,
+        'mes_upload_default': mes_upload_default,
+        'meses_sin_ppto':     meses_sin_ppto,
+        'meses_con_ppto_json': meses_con_ppto_json,
+        'rows':               rows,
+        'totales_ppto':       totales_ppto,
     })
 
 

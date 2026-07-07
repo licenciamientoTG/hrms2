@@ -54,6 +54,7 @@ class LoanRequest(models.Model):
 
         permissions = [
             ("Modulo_herramientas", "Acceso al Módulo de Herramientas"),
+            ("desbloquear_prestamos", "Puede desbloquear préstamos"),
         ]
 
     def __str__(self):

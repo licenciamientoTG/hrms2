@@ -33,7 +33,7 @@
 
   /* ── Separador visual entre grupos de columnas ── */
   .col-group-start { border-left: 2px solid #6b7280 !important; }
-  /* ── Separador entre pares dentro de Venta Semanal (Diesel / Total) ── */
+  /* ── Separador entre pares dentro de Venta del Periodo (Diesel / Total) ── */
   .col-pair-sep { border-left: 1px dashed #9ca3af !important; }
 
   /* ── Filas alternadas: azul claro / blanco ── */
@@ -56,157 +56,140 @@
 
 {% block content %}
 
-{# ── Encabezado con navegación de mes ── #}
+{# ── Encabezado con selector de rango de fechas ── #}
 <div class="card mb-3">
   <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
       <h5 class="mb-0">Indicadores Operativos — Gerente de Operaciones</h5>
       <small class="text-muted">
-        Mes: <strong>{{ mes_actual|date:"F Y"|capfirst }}</strong>
-        &nbsp;·&nbsp; {{ dias_mes }} días
-        {% if presupuestos %}&nbsp;·&nbsp; {{ presupuestos|length }} estaciones cargadas{% endif %}
+        {{ fecha_ini|date:"d/m/Y" }} — {{ fecha_fin|date:"d/m/Y" }}
+        &nbsp;·&nbsp; {{ dias_total_rango }} día{{ dias_total_rango|pluralize }}
+        &nbsp;·&nbsp; Semana <strong>{{ semana_num }}</strong>/{{ semana_year }}
       </small>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <a href="?mes_delta={{ mes_delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm" title="Mes anterior">
-        <i class="fas fa-chevron-left"></i>
-      </a>
-      {% if mes_delta != 0 %}
-      <a href="?reset=1" class="btn btn-outline-primary btn-sm px-3">Mes actual</a>
-      {% else %}
-      <span class="btn btn-outline-primary btn-sm px-3 disabled">Mes actual</span>
-      {% endif %}
-      {% if mes_delta < 0 %}
-      <a href="?mes_delta={{ mes_delta|add:"1" }}" class="btn btn-outline-secondary btn-sm" title="Mes siguiente">
-        <i class="fas fa-chevron-right"></i>
-      </a>
-      {% else %}
-      <span class="btn btn-outline-secondary btn-sm disabled"><i class="fas fa-chevron-right"></i></span>
-      {% endif %}
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <form method="GET" class="d-flex align-items-center gap-1 flex-wrap">
+        <label class="mb-0 small text-muted fw-semibold">De</label>
+        <input type="date" name="fecha_ini" value="{{ fecha_ini|date:'Y-m-d' }}"
+               class="form-control form-control-sm" style="width:auto">
+        <label class="mb-0 small text-muted fw-semibold">a</label>
+        <input type="date" name="fecha_fin" value="{{ fecha_fin|date:'Y-m-d' }}"
+               class="form-control form-control-sm" style="width:auto">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-search me-1"></i>Ver
+        </button>
+      </form>
+      <a href="?reset=1" class="btn btn-outline-secondary btn-sm">Periodo actual</a>
+      <button class="btn btn-outline-success btn-sm" type="button"
+              data-bs-toggle="collapse" data-bs-target="#upload-card"
+              title="Cargar / actualizar presupuesto mensual">
+        <i class="fas fa-file-excel me-1"></i>Presupuesto
+      </button>
     </div>
   </div>
 </div>
 
-{% if not presupuestos %}
-
-{# ── Sin presupuesto: zona de carga ── #}
-<div class="card mb-4">
-  <div class="card-header py-2 px-3">
-    <h6 class="mb-0 fw-semibold">
-      <i class="fas fa-file-excel me-2 text-success"></i>
-      Presupuesto de Ventas — {{ mes_actual|date:"F Y"|capfirst }}
-    </h6>
-  </div>
-  <div class="card-body p-3">
-    <label class="ops-upload-zone w-100" id="upload-zone" for="input-excel">
-      <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="upload-icon"></i>
-      <div class="fw-semibold text-muted" id="upload-label">Haz clic para seleccionar el archivo Excel de presupuesto</div>
-      <div class="text-muted" style="font-size:12px;">.xlsx o .xls</div>
-      <input type="file" id="input-excel" accept=".xlsx,.xls" class="d-none">
-    </label>
-    <div id="upload-error" class="alert alert-danger mt-2 py-2 d-none"></div>
-  </div>
+{# ── Alertas por meses sin presupuesto ── #}
+{% for mes in meses_sin_ppto %}
+<div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between mb-2">
+  <span>
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    Falta el presupuesto de <strong>{{ mes|date:"F Y"|capfirst }}</strong>
+  </span>
+  <button class="btn btn-warning btn-sm"
+          onclick="abrirUpload('{{ mes|date:'Y-m' }}')"
+          data-bs-toggle="collapse" data-bs-target="#upload-card">
+    <i class="fas fa-upload me-1"></i>Cargar presupuesto
+  </button>
 </div>
+{% endfor %}
 
-<div class="card mb-4 d-none" id="preview-card">
-  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <h6 class="mb-0 fw-semibold">Vista previa — {{ mes_actual|date:"F Y"|capfirst }}</h6>
-    <div class="d-flex gap-2 align-items-center" id="preview-badges"></div>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-bordered table-hover align-middle mb-0" style="font-size:12px;">
-        <thead>
-          <tr>
-            <th>Código</th><th>Estación (Excel)</th><th>Estación (Sistema)</th>
-            <th class="text-end">Máxima</th><th class="text-end">Super</th>
-            <th class="text-end">Diesel</th><th class="text-end">Total</th>
-          </tr>
-        </thead>
-        <tbody id="preview-tbody"></tbody>
-        <tfoot id="preview-tfoot"></tfoot>
-      </table>
+{# ── Card de carga de presupuesto (colapsable) ── #}
+<div class="collapse {% if meses_sin_ppto %}show{% endif %}" id="upload-card">
+  <div class="card mb-4">
+    <div class="card-body p-3">
+
+      {# ── Paso 1: selección de mes ── #}
+      <div class="mb-3">
+        <label class="form-label fw-semibold mb-1">
+          <i class="fas fa-calendar-alt me-1 text-primary"></i>
+          1. Para Cargar / actualizar presupuesto de ventas selecciona el mes
+        </label>
+        <div class="d-flex align-items-center gap-2">
+          <input type="month" id="mes-upload" value=""
+                 style="position:absolute;opacity:0;pointer-events:none;width:0;height:0"
+                 onkeydown="return false">
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  onclick="document.getElementById('mes-upload').showPicker()"
+                  title="Seleccionar mes">
+            <i class="fas fa-calendar-alt"></i>
+          </button>
+          <span id="mes-upload-label" class="text-muted small">Sin seleccionar</span>
+        </div>
+        <div id="upload-mes-warning" class="alert alert-warning py-2 px-3 mt-2 d-none">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Este mes ya tiene presupuesto cargado. Si subes un nuevo archivo <strong>se reemplazará</strong>.
+        </div>
+      </div>
+
+      {# ── Paso 2: zona de subida (se habilita tras elegir mes) ── #}
+      <div id="upload-zona-wrapper" class="d-none">
+        <label class="form-label fw-semibold mb-1">
+          <i class="fas fa-file-excel me-1 text-success"></i>
+          2. Sube el archivo Excel
+        </label>
+        <label class="ops-upload-zone w-100" id="upload-zone" for="input-excel">
+          <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="upload-icon"></i>
+          <div class="fw-semibold text-muted" id="upload-label">Haz clic para seleccionar el archivo Excel de presupuesto</div>
+          <div class="text-muted" style="font-size:12px;">.xlsx o .xls</div>
+          <input type="file" id="input-excel" accept=".xlsx,.xls" class="d-none">
+        </label>
+        <div id="upload-error" class="alert alert-danger mt-2 py-2 d-none"></div>
+      </div>
+
     </div>
   </div>
-  <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center">
-    <small class="text-muted" id="preview-footer-msg"></small>
-    <button class="btn btn-success btn-sm d-none" id="btn-confirmar">
-      <i class="fas fa-check me-1"></i> Confirmar y guardar
-    </button>
-  </div>
-</div>
 
-{% else %}
-
-{# ── Con presupuesto: navegación de semana ── #}
-<div class="card mb-3">
-  <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <span class="fw-semibold">Semana:</span>
-      {{ semana_ini|date:"d/m/Y" }} — {{ semana_fin|date:"d/m/Y" }}
-      &nbsp;
-      {% if dias_periodo > 0 %}
-        <span class="badge bg-info text-dark">
-          Periodo en {{ mes_actual|date:"F"|capfirst }}: {{ periodo_ini|date:"d" }} al {{ periodo_fin|date:"d" }} ({{ dias_periodo }}/{{ dias_mes }} días)
-        </span>
-      {% else %}
-        <span class="badge bg-warning text-dark">
-          Esta semana no tiene días en {{ mes_actual|date:"F"|capfirst }}
-        </span>
-      {% endif %}
-      {% if ppto_otro_mes_incompleto %}
-        <span class="badge bg-warning text-dark ms-1">
-          <i class="fas fa-exclamation-triangle me-1"></i>
-          Presupuesto incompleto: faltan {{ dias_en_otro_mes }} día{{ dias_en_otro_mes|pluralize }} de {{ otro_mes_display|date:"F Y"|capfirst }} sin cargar
-        </span>
-      {% elif dias_en_otro_mes > 0 %}
-        <span class="badge bg-success ms-1">
-          <i class="fas fa-check me-1"></i>
-          Presupuesto completo ({{ mes_actual|date:"F"|capfirst }} + {{ otro_mes_display|date:"F"|capfirst }})
-        </span>
-      {% endif %}
+  <div class="card mb-4 d-none" id="preview-card">
+    <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="mb-0 fw-semibold" id="preview-title">Vista previa</h6>
+      <div class="d-flex gap-2 align-items-center" id="preview-badges"></div>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      {% if week_delta > min_week_delta %}
-      <a href="?week_delta={{ week_delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm" title="Semana anterior">
-        <i class="fas fa-chevron-left"></i>
-      </a>
-      {% else %}
-      <span class="btn btn-outline-secondary btn-sm disabled"><i class="fas fa-chevron-left"></i></span>
-      {% endif %}
-      {% if week_delta != 0 and week_delta >= min_week_delta and week_delta <= max_week_delta %}
-      <a href="?week_reset=1" class="btn btn-outline-primary btn-sm px-3">Semana actual</a>
-      {% else %}
-      <span class="btn btn-outline-primary btn-sm px-3 disabled">Semana actual</span>
-      {% endif %}
-      {% if week_delta < max_week_delta %}
-      <a href="?week_delta={{ week_delta|add:"1" }}" class="btn btn-outline-secondary btn-sm" title="Semana siguiente">
-        <i class="fas fa-chevron-right"></i>
-      </a>
-      {% else %}
-      <span class="btn btn-outline-secondary btn-sm disabled"><i class="fas fa-chevron-right"></i></span>
-      {% endif %}
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle mb-0" style="font-size:12px;">
+          <thead>
+            <tr>
+              <th>Código</th><th>Estación (Excel)</th><th>Estación (Sistema)</th>
+              <th class="text-end">Máxima</th><th class="text-end">Super</th>
+              <th class="text-end">Diesel</th><th class="text-end">Total</th>
+            </tr>
+          </thead>
+          <tbody id="preview-tbody"></tbody>
+          <tfoot id="preview-tfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center">
+      <small class="text-muted" id="preview-footer-msg"></small>
+      <button class="btn btn-success btn-sm d-none" id="btn-confirmar">
+        <i class="fas fa-check me-1"></i> Confirmar y guardar
+      </button>
     </div>
   </div>
 </div>
 
 {# ── Tabla principal de indicadores ── #}
+{% if rows %}
 <div class="card mb-4">
   <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
     <h6 class="mb-0 fw-semibold">
-      INDICADORES OPERATIVOS SEMANAL — {{ mes_actual|date:"F Y"|capfirst|upper }}
+      INDICADORES OPERATIVOS — {{ fecha_ini|date:"d/m/Y" }} AL {{ fecha_fin|date:"d/m/Y" }}
     </h6>
     <small class="text-muted">
-      Semana {{ semana_num }}/{{ semana_year }} &nbsp;·&nbsp;
-      {{ periodo_ini|date:"d" }} al {{ periodo_fin|date:"d" }} de {{ mes_actual|date:"F"|capfirst }}
-      ({{ dias_periodo }}/{{ dias_mes }} días)
-      {% if ppto_otro_mes_incompleto %}
-        &nbsp;·&nbsp;
-        <span class="text-warning fw-semibold">
-          <i class="fas fa-exclamation-triangle"></i>
-          Ppto. semanal incompleto — falta {{ otro_mes_display|date:"F"|capfirst }}
-        </span>
-      {% endif %}
+      Semana {{ semana_num }}/{{ semana_year }}
+      &nbsp;·&nbsp; {{ dias_total_rango }} día{{ dias_total_rango|pluralize }}
+      &nbsp;·&nbsp; Ppto. mensual: {{ mes_principal|date:"F Y"|capfirst }}
     </small>
   </div>
   <div class="card-body p-0">
@@ -217,8 +200,8 @@
             <th rowspan="2">N.o</th>
             <th rowspan="2">Estación</th>
             <th colspan="3" class="gh-pm col-group-start">Presupuesto Mensual</th>
-            <th colspan="3" class="gh-ps col-group-start">Presupuesto Semanal</th>
-            <th colspan="6" class="gh-vs col-group-start">Venta Semanal</th>
+            <th colspan="3" class="gh-ps col-group-start">Presupuesto Periodo</th>
+            <th colspan="6" class="gh-vs col-group-start">Venta del Periodo</th>
           </tr>
           <tr class="sub-header">
             <th class="sh-pm col-group-start">Gasolinas</th><th class="sh-pm">Diesel</th><th class="sh-pm">Total</th>
@@ -265,27 +248,102 @@
   </div>
   <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center">
     <small class="text-muted">
-      <i class="fas fa-square me-1" style="color:#fff3cd; border:1px solid #ccc;"></i> Amarillo = sin datos de ControlGas para esta semana
+      <i class="fas fa-square me-1" style="color:#fff3cd; border:1px solid #ccc;"></i> Amarillo = sin datos de ControlGas para este periodo
     </small>
     <small id="ventas-status" class="text-muted">
       <span class="spinner-border spinner-border-sm me-1"></span> Cargando ventas de ControlGas…
     </small>
   </div>
 </div>
-
+{% else %}
+<div class="alert alert-info">
+  <i class="fas fa-info-circle me-2"></i>
+  No hay presupuesto cargado para el periodo seleccionado. Usa el botón <strong>Presupuesto</strong> para cargar el Excel mensual.
+</div>
 {% endif %}
+
 {% endblock %}
 
 {% block scripts %}
-{% if not presupuestos %}
 <script>
-const MES_ACTUAL  = "{{ mes_actual|date:'Y-m-d' }}";
-const CSRF_TOKEN  = "{{ csrf_token }}";
-const URL_PARSEAR = "{% url 'parsear_excel_ventas' %}";
-const URL_GUARDAR = "{% url 'guardar_presupuesto_ventas' %}";
+const CSRF_TOKEN       = "{{ csrf_token }}";
+const URL_PARSEAR      = "{% url 'parsear_excel_ventas' %}";
+const URL_GUARDAR      = "{% url 'guardar_presupuesto_ventas' %}";
+const URL_VENTAS       = "{% url 'ventas_sg12_json' %}";
+const MESES_CON_PPTO   = new Set({{ meses_con_ppto_json|safe }});
 const fmt = n => (n || 0).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 0});
 
-document.getElementById('input-excel').addEventListener('change', async function () {
+// Abre el card de upload, establece el mes y dispara la lógica de validación
+function abrirUpload(mesYYYYMM) {
+  const input = document.getElementById('mes-upload');
+  if (input && mesYYYYMM) {
+    input.value = mesYYYYMM;
+    input.dispatchEvent(new Event('change'));
+  }
+}
+
+function actualizarTituloPreview() {
+  const mesInput = document.getElementById('mes-upload');
+  const titulo   = document.getElementById('preview-title');
+  if (!mesInput || !titulo) return;
+  const [y, m] = mesInput.value.split('-');
+  if (y && m) {
+    const fecha = new Date(parseInt(y), parseInt(m) - 1, 1);
+    titulo.textContent = 'Vista previa — ' + fecha.toLocaleDateString('es-MX', {month: 'long', year: 'numeric'});
+  }
+}
+
+document.getElementById('mes-upload')?.addEventListener('change', function() {
+  const val     = this.value;          // "YYYY-MM" o ""
+  // Actualizar etiqueta del botón
+  const labelEl = document.getElementById('mes-upload-label');
+  if (labelEl) {
+    if (val) {
+      const [y, m] = val.split('-');
+      const fecha = new Date(parseInt(y), parseInt(m) - 1, 1);
+      labelEl.textContent = fecha.toLocaleDateString('es-MX', {month: 'long', year: 'numeric'});
+      labelEl.classList.remove('text-muted');
+    } else {
+      labelEl.textContent = 'Sin seleccionar';
+      labelEl.classList.add('text-muted');
+    }
+  }
+  const wrapper = document.getElementById('upload-zona-wrapper');
+  const warning = document.getElementById('upload-mes-warning');
+
+  // Limpiar estado previo de subida
+  document.getElementById('preview-card')?.classList.add('d-none');
+  window._filasParsadas = null;
+  const zone  = document.getElementById('upload-zone');
+  const icon  = document.getElementById('upload-icon');
+  const label = document.getElementById('upload-label');
+  const input = document.getElementById('input-excel');
+  const errEl = document.getElementById('upload-error');
+  if (zone)  zone.classList.remove('has-file');
+  if (icon)  { icon.className = 'fas fa-upload fa-2x mb-2'; icon.style.color = '#adb5bd'; }
+  if (label) label.textContent = 'Haz clic para seleccionar el archivo Excel de presupuesto';
+  if (input) input.value = '';
+  if (errEl) errEl.classList.add('d-none');
+
+  if (!val) {
+    wrapper?.classList.add('d-none');
+    warning?.classList.add('d-none');
+    return;
+  }
+
+  // Mostrar advertencia si el mes ya tiene presupuesto
+  if (MESES_CON_PPTO.has(val)) {
+    warning?.classList.remove('d-none');
+  } else {
+    warning?.classList.add('d-none');
+  }
+
+  // Habilitar zona de subida
+  wrapper?.classList.remove('d-none');
+  actualizarTituloPreview();
+});
+
+document.getElementById('input-excel')?.addEventListener('change', async function () {
   if (!this.files.length) return;
   const file  = this.files[0];
   const zone  = document.getElementById('upload-zone');
@@ -326,6 +384,7 @@ function renderPreview(data) {
   const tfoot   = document.getElementById('preview-tfoot');
   const footMsg = document.getElementById('preview-footer-msg');
   const btnConf = document.getElementById('btn-confirmar');
+  actualizarTituloPreview();
   badges.innerHTML = `<span class="badge-match">${data.coincidencias} coincidencias</span> <span class="badge-nomatch">${data.sin_match} sin match</span>`;
   let totMax=0, totSup=0, totDie=0, totTot=0;
   tbody.innerHTML = data.filas.map(f => {
@@ -353,15 +412,22 @@ function renderPreview(data) {
   window._filasParsadas = data.filas;
 }
 
-document.getElementById('btn-confirmar').addEventListener('click', async function () {
+document.getElementById('btn-confirmar')?.addEventListener('click', async function () {
   const btn = this;
+  const mesInput = document.getElementById('mes-upload');
+  if (!mesInput || !mesInput.value) {
+    alert('Selecciona el mes para guardar el presupuesto.');
+    return;
+  }
+  // Convertir YYYY-MM a YYYY-MM-01
+  const mes = mesInput.value + '-01';
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando…';
   try {
     const res  = await fetch(URL_GUARDAR, {
       method: 'POST',
       headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mes: MES_ACTUAL, filas: window._filasParsadas }),
+      body: JSON.stringify({ mes, filas: window._filasParsadas }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error al guardar');
@@ -373,22 +439,20 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
       `<i class="fas fa-exclamation-triangle me-1 text-danger"></i>${e.message}`;
   }
 });
-</script>
-{% else %}
-<script>
+
+{% if rows %}
+// ── Cargar ventas desde ControlGas ────────────────────────────────────────
 (async function () {
-  const fmt = n => Math.round(n).toLocaleString('es-MX');
   const fmtDif = n => (n >= 0 ? '' : '') + Math.round(n).toLocaleString('es-MX');
   const clsDif = n => n > 0 ? 'dif-pos' : n < 0 ? 'dif-neg' : '';
 
-  const SEMANA_INI = "{{ semana_ini|date:'Y-m-d' }}";
-  const SEMANA_FIN = "{{ semana_fin|date:'Y-m-d' }}";
-  const URL_VENTAS = "{% url 'ventas_sg12_json' %}";
+  const FECHA_INI  = "{{ fecha_ini|date:'Y-m-d' }}";
+  const FECHA_FIN  = "{{ fecha_fin|date:'Y-m-d' }}";
   const statusEl   = document.getElementById('ventas-status');
 
   let res, data;
   try {
-    res  = await fetch(`${URL_VENTAS}?semana_ini=${SEMANA_INI}&semana_fin=${SEMANA_FIN}`);
+    res  = await fetch(`${URL_VENTAS}?semana_ini=${FECHA_INI}&semana_fin=${FECHA_FIN}`);
     data = await res.json();
   } catch (e) {
     statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-danger me-1"></i> Error de red`;
@@ -397,7 +461,6 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
 
   if (!data.ok) {
     statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-danger me-1"></i> ${data.error}`;
-    // Marcar todas las filas en amarillo
     document.querySelectorAll('#ops-tbody tr').forEach(tr => tr.classList.add('sin-ventas'));
     document.querySelectorAll('#ops-tbody .ventas-loading').forEach(td => {
       td.textContent = 'Sin datos de ControlGas';
@@ -434,7 +497,6 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
     totVsGas    += vsGas;    totVsDiesel += vsDiesel; totVsTotal  += vsTotal;
     totDifGas   += difGas;   totDifDiesel += difDiesel; totDifTotal += difTotal;
 
-    // Reemplaza la celda de spinner con 6 celdas reales
     loadingTd.removeAttribute('colspan');
     loadingTd.className = 'text-end col-group-start';
     loadingTd.textContent = fmt(vsGas);
@@ -454,7 +516,6 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
     });
   });
 
-  // Actualizar totales en tfoot
   document.getElementById('tot-vs-gas').textContent    = fmt(totVsGas);
   document.getElementById('tot-dif-gas').textContent   = fmtDif(totDifGas);
   document.getElementById('tot-dif-gas').className     = `text-end ${clsDif(totDifGas)}`;
@@ -467,6 +528,6 @@ document.getElementById('btn-confirmar').addEventListener('click', async functio
 
   statusEl.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Ventas actualizadas';
 })();
-</script>
 {% endif %}
+</script>
 {% endblock %}

@@ -10,4 +10,5 @@ class UserModuleAccess(models.Model):
         default_permissions = () # Limpiamos los permisos por defecto
         permissions = [
             ("Modulo_usuarios", "Acceso al Módulo de Usuarios"),
+            ("auditoria_terminos", "Acceso a Auditoría de Términos"),
         ]

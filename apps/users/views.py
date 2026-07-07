@@ -273,7 +273,7 @@ PUESTOS_CHECADOR = {
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(lambda u: u.is_superuser or u.has_perm('users.auditoria_terminos'))
 def terms_audit_view(request):
     User = get_user_model()
     q = (request.GET.get('q') or '').strip()
