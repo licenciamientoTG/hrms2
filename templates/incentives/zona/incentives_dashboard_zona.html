@@ -58,7 +58,7 @@
       <div>
         <h5 class="card-title mb-0">Estaciones a tu cargo</h5>
         <span style="display:inline-block; margin-top:4px; background:#fff3cd; border:1px solid #ffc107; border-radius:5px; padding:2px 10px; font-size:13px; font-weight:600; color:#856404;">
-          <i class="fas fa-calendar-week" style="margin-right:5px;"></i>Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}
+          <i class="fas fa-calendar-week" style="margin-right:5px;"></i>Semana {{ week_start|date:"W" }} — del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}
         </span>
       </div>
       <div class="input-group" style="max-width: 300px;">

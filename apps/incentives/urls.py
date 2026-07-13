@@ -14,6 +14,7 @@ from .views import (
     guardar_comentario,
     resumen_global,
     ventas_sg12_json,
+    sync_venta_semana,
 )
 
 urlpatterns = [
@@ -31,4 +32,5 @@ urlpatterns = [
     path('parsear-excel-ventas/', parsear_excel_ventas, name='parsear_excel_ventas'),
     path('guardar-presupuesto-ventas/', guardar_presupuesto_ventas, name='guardar_presupuesto_ventas'),
     path('ventas-sg12/', ventas_sg12_json, name='ventas_sg12_json'),
+    path('sync-venta/', sync_venta_semana, name='sync_venta_semana'),
 ]

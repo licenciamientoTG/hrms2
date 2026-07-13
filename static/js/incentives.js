@@ -49,15 +49,27 @@ function buildEmpTable(empId) {
 
   TIPOS.forEach(function(tipo) {
     html += '<tr><td class="fw-semibold" style="font-size:13px;">' + tipo + '</td>';
-    DIAS.forEach(function(dia) {
-      html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
-            + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
-      html += '<input type="checkbox" class="incentivo-check form-check-input"'
-            + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
-            + (PERIODO_CERRADO ? ' disabled' : '')
-            + ' onclick="event.stopPropagation()">';
+    if (tipo === 'Venta') {
+      html += '<td colspan="' + DIAS.length + '" class="text-center py-2" id="venta-badge-emp-' + empId + '">';
+      // El badge se actualiza por cargarSemana; por defecto muestra "cargando"
+      html += '<span class="text-muted" style="font-size:12px;"><i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…</span>';
+      // Checkbox oculto para que cargarSemana lo detecte y actualice el badge
+      html += '<input type="checkbox" class="incentivo-check d-none"'
+            + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+            + ' data-badge-id="venta-badge-emp-' + empId + '"'
+            + ' disabled>';
       html += '</td>';
-    });
+    } else {
+      DIAS.forEach(function(dia) {
+        html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
+              + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
+        html += '<input type="checkbox" class="incentivo-check form-check-input"'
+              + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
+              + (PERIODO_CERRADO ? ' disabled' : '')
+              + ' onclick="event.stopPropagation()">';
+        html += '</td>';
+      });
+    }
     html += '<td onclick="event.stopPropagation()">'
           + '<textarea class="comentario-semana form-control form-control-sm"'
           + ' data-emp="' + empId + '" data-tipo="' + tipo + '"'
@@ -95,6 +107,27 @@ function buildEmpTable(empId) {
   }
 }
 
+// ── Actualiza el badge visual del bono de Venta para un empleado ─────────────
+
+function actualizarBadgeVenta(empId, ganado) {
+  var badgeId = 'venta-badge-emp-' + empId;
+  var cell = document.getElementById(badgeId);
+  if (!cell) return;
+  if (ganado) {
+    cell.innerHTML = '<span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;">'
+      + '<i class="fas fa-check-circle me-1"></i>Bono ganado</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+      + ' data-badge-id="' + badgeId + '" disabled checked>';
+  } else {
+    cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:4px 12px;font-size:12px;">'
+      + '<i class="fas fa-times-circle me-1"></i>Sin bono esta semana</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+      + ' data-badge-id="' + badgeId + '" disabled>';
+  }
+}
+
 // ── Carga datos del empleado vía AJAX ────────────────────────────────────────
 
 function cargarSemana(empId) {
@@ -102,12 +135,18 @@ function cargarSemana(empId) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok) return;
+      var tieneVenta = false;
       data.registros.forEach(function(reg) {
+        if (reg.tipo === 'Venta') {
+          tieneVenta = true;
+          return;
+        }
         var cb = document.querySelector(
           '.incentivo-check[data-emp="' + empId + '"][data-tipo="' + reg.tipo + '"][data-fecha="' + reg.fecha + '"]'
         );
         if (cb) cb.checked = true;
       });
+      actualizarBadgeVenta(empId, tieneVenta);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -341,9 +380,65 @@ function actualizarTabla(select) {
   cargarSemanaManager(empId);
 }
 
+// ── Sincronización automática del bono de Venta ──────────────────────────────
+
+function syncVentaSemana() {
+  fetch('/incentives/sync-venta/?semana=' + SEMANA_INICIO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+
+      // Vista gerente: actualizar el badge de estado en la fila Venta
+      var ventaCell = document.getElementById('venta-status-cell');
+      if (ventaCell) {
+        var tkKeys = Object.keys(data.estaciones || {});
+        var html = '';
+        if (tkKeys.length > 0) {
+          var est = data.estaciones[tkKeys[0]];
+          if (est.verde === true) {
+            html = '<span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+                 + '<i class="fas fa-check-circle me-1"></i>Bono ganado — semana completa</span>';
+          } else if (est.verde === false) {
+            html = '<span style="display:inline-block;background:#fee2e2;color:#991b1b;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+                 + '<i class="fas fa-times-circle me-1"></i>Meta no alcanzada esta semana</span>';
+          } else {
+            html = '<span class="text-muted" style="font-size:12px;"><i class="fas fa-minus-circle me-1"></i>Sin datos de ventas</span>';
+          }
+        } else {
+          html = '<span class="text-muted" style="font-size:12px;"><i class="fas fa-minus-circle me-1"></i>Sin datos</span>';
+        }
+        ventaCell.innerHTML = html;
+      }
+
+      // Vista admin/zona: actualizar badges de Venta de empleados ya expandidos
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (!empId) return;
+        fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
+          .then(function(r) { return r.json(); })
+          .then(function(sd) {
+            if (!sd.ok) return;
+            actualizarBadgeVenta(empId, sd.registros.some(function(r) { return r.tipo === 'Venta'; }));
+          });
+      });
+    })
+    .catch(function() {
+      var ventaCell = document.getElementById('venta-status-cell');
+      if (ventaCell) {
+        ventaCell.innerHTML = '<span class="text-muted" style="font-size:12px;">'
+          + '<i class="fas fa-exclamation-triangle me-1"></i>Sin conexión a indicadores</span>';
+      }
+    });
+}
+
 // ── DOM Ready ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
+
+  // Sincronizar bono de Venta según Indicadores Operativos
+  if (typeof SEMANA_INICIO !== 'undefined') {
+    syncVentaSemana();
+  }
 
   // Accordion de estaciones
   document.querySelectorAll('.station-row').forEach(function(row) {

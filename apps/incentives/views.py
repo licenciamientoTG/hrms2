@@ -391,11 +391,17 @@ def incentives_dashboard_user(request):
             ).values_list('fecha', flat=True)
         )
         encargado_dias = sum(1 for d in days if d in encargado_fechas)
+        venta_ganada = IncentivoRegistro.objects.filter(
+            employee=emp,
+            tipo='Venta',
+            fecha__range=(week_start, week_end),
+        ).exists()
     except Employee.DoesNotExist:
         diesel_fechas = set()
         diesel_dias = 0
         encargado_fechas = set()
         encargado_dias = 0
+        venta_ganada = False
 
     diesel_total = diesel_dias * 50
     encargado_total = (200 + (encargado_dias - 1) * 100) if encargado_dias > 0 else 0
@@ -414,7 +420,8 @@ def incentives_dashboard_user(request):
         'encargado_dias': encargado_dias,
         'encargado_total': encargado_total,
         'gran_total': gran_total,
-        'otros_tipos': ['Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
+        'venta_ganada': venta_ganada,
+        'otros_tipos': ['Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
     })
 
 
@@ -991,3 +998,146 @@ def guardar_comentario(request):
         defaults={'comentario': comentario},
     )
     return JsonResponse({'ok': True})
+
+
+@login_required
+def sync_venta_semana(request):
+    """Sincroniza el bono de Venta según el estado verde/rojo de los Indicadores Operativos.
+
+    Consulta SG12 para la semana indicada, compara contra PresupuestoVenta y:
+      - Verde (venta real >= presupuesto): crea IncentivoRegistro tipo='Venta' para todos
+        los empleados activos de esa estación usando week_start como fecha.
+      - Rojo: elimina esos registros.
+    Devuelve el estado por station_key para que el JS actualice la UI.
+    """
+    from datetime import date, timedelta
+    from django.db import connection
+    from django.core.cache import cache
+    from apps.incentives.constants import SG12_COD_TO_TEAM_KEY
+    import calendar as _calendar
+
+    rol = _get_rol_incentivos(request.user)
+    if not rol:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    semana_str = request.GET.get('semana')
+    if not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+    try:
+        week_start = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    week_end = week_start + timedelta(days=6)
+
+    # Semana cerrada: no sincronizar (los registros ya están bloqueados)
+    if SemanaCerrada.objects.filter(week_start=week_start).exists():
+        return JsonResponse({'ok': True, 'cerrada': True, 'estaciones': {}})
+
+    # Team keys según rol
+    if rol == 'gerente':
+        try:
+            gerente_emp = Employee.objects.get(user=request.user)
+            tk = (gerente_emp.team or '').strip()
+            team_keys = [tk] if tk in STATION_TEAMS else []
+        except Employee.DoesNotExist:
+            return JsonResponse({'ok': True, 'estaciones': {}})
+    else:
+        # admin, zona, operaciones — sincroniza todas las estaciones
+        team_keys = list(STATION_TEAMS.keys())
+
+    if not team_keys:
+        return JsonResponse({'ok': True, 'estaciones': {}})
+
+    # Ventas SG12 (reutiliza la misma caché que ventas_sg12_json)
+    cache_key = f"ventas_sg12_v10_{week_start}_{week_end}"
+    ventas = cache.get(cache_key)
+    if ventas is None:
+        ventas = {}
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT
+                        EstacionCod,
+                        ROUND(SUM(CASE WHEN LOWER(Producto) NOT LIKE %s THEN Cantidad ELSE 0 END), 0),
+                        ROUND(SUM(CASE WHEN LOWER(Producto) LIKE %s     THEN Cantidad ELSE 0 END), 0),
+                        ROUND(SUM(Cantidad), 0)
+                    FROM SG12.dbo.VVentasGlobalesGas WITH (NOLOCK)
+                    WHERE Fecha BETWEEN %s AND %s
+                    GROUP BY EstacionCod
+                """, ['%diesel%', '%diesel%', week_start.isoformat(), week_end.isoformat()])
+                for estacion_cod, gas, diesel, total in cursor.fetchall():
+                    tk = SG12_COD_TO_TEAM_KEY.get(estacion_cod)
+                    if tk:
+                        ventas[tk] = {
+                            'gas':    int(gas or 0),
+                            'diesel': int(diesel or 0),
+                            'total':  int(total or 0),
+                        }
+            cache.set(cache_key, ventas, timeout=3600)
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)})
+
+    # Meses involucrados en la semana (para calcular presupuesto proporcional)
+    def _meses_en_rango(ini, fin):
+        meses = []
+        cur = date(ini.year, ini.month, 1)
+        while cur <= fin:
+            dias_mes = _calendar.monthrange(cur.year, cur.month)[1]
+            mes_fin = date(cur.year, cur.month, dias_mes)
+            dias_en_rango = (min(fin, mes_fin) - max(ini, cur)).days + 1
+            meses.append({'mes': cur, 'dias_mes': dias_mes, 'dias_en_rango': dias_en_rango})
+            cur = date(cur.year + 1, 1, 1) if cur.month == 12 else date(cur.year, cur.month + 1, 1)
+        return meses
+
+    meses = _meses_en_rango(week_start, week_end)
+    resultado = {}
+
+    for team_key in team_keys:
+        # Presupuesto proporcional a los días de la semana en cada mes
+        ps_total = 0.0
+        for m in meses:
+            ppto = PresupuestoVenta.objects.filter(team_key=team_key, mes=m['mes']).first()
+            if ppto and m['dias_mes'] > 0:
+                m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
+                m_diesel = float(ppto.diesel or 0)
+                ps_total += ((m_gas + m_diesel) / m['dias_mes']) * m['dias_en_rango']
+
+        if ps_total == 0:
+            resultado[team_key] = {'verde': None, 'sin_presupuesto': True}
+            continue
+
+        venta_sg12 = ventas.get(team_key)
+        if not venta_sg12:
+            resultado[team_key] = {'verde': None, 'sin_datos': True}
+            continue
+
+        vs_total = venta_sg12['total']
+        verde = vs_total >= round(ps_total)
+        resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': round(ps_total)}
+
+        # Sincronizar registros Venta en BD
+        empleados_ids = list(
+            Employee.objects
+            .filter(is_active=True, team=team_key)
+            .values_list('id', flat=True)
+        )
+        if not empleados_ids:
+            continue
+
+        if verde:
+            for emp_id in empleados_ids:
+                IncentivoRegistro.objects.get_or_create(
+                    employee_id=emp_id,
+                    tipo='Venta',
+                    fecha=week_start,
+                    defaults={'registrado_por': request.user},
+                )
+        else:
+            IncentivoRegistro.objects.filter(
+                employee_id__in=empleados_ids,
+                tipo='Venta',
+                fecha=week_start,
+            ).delete()
+
+    return JsonResponse({'ok': True, 'estaciones': resultado})

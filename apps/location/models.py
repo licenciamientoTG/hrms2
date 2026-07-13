@@ -95,9 +95,23 @@ class Location(models.Model):
     )
 
     is_headquarters = models.BooleanField(
-        default=False, 
-        verbose_name=_("Casa matriz"), 
+        default=False,
+        verbose_name=_("Casa matriz"),
         help_text=_("Indica si esta ubicación es la casa matriz de la empresa")
+    )
+
+    is_foranea = models.BooleanField(
+        default=False,
+        verbose_name=_("Foránea"),
+        help_text=_("Indica si la estación es foránea (fuera de la ciudad principal)")
+    )
+
+    team_key = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name=_("Clave de equipo"),
+        help_text=_("Clave que corresponde a Employee.team para identificar empleados de esta estación")
     )
 
     cost_center = models.CharField(
