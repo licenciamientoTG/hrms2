@@ -1,3 +1,17 @@
+# Team keys de estaciones del Bajío (reciben $240 de bono de venta, sin importar antigüedad)
+BAJIO_TEAM_KEYS = {
+    '11007',           # Independencia/Aguascalientes
+    '1376',            # Delicias
+    '12900',           # El Castaño
+    'Picachos',
+    'Ventanas',
+    'San Rafael',
+    'Puertecito',
+    'Jesus Maria',
+    'Gabriela Mistral',
+    'Colosio',
+}
+
 STATION_TEAMS = {
     '4188': 'Gemela Grande',
     '11007': 'Aguascalientes/Independencia',

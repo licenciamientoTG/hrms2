@@ -208,16 +208,22 @@ def create_loan_request(request):
         employee = Employee.objects.filter(user=request.user).first()
         if not employee: return JsonResponse({"ok": False, "error": "Empleado no encontrado."})
 
-        # Validar antigüedad (6 meses)
-        if employee.start_date:
+        # Validar antigüedad (6 meses) — usar seniority_raw para respetar antigüedad real
+        seniority_date = None
+        if employee.seniority_raw:
+            try:
+                seniority_date = datetime.strptime(employee.seniority_raw, "%d/%m/%Y").date()
+            except ValueError:
+                pass
+        if seniority_date is None and employee.start_date:
+            seniority_date = employee.start_date
+        if seniority_date:
             today = date.today()
-            diff_years = today.year - employee.start_date.year
-            diff_months = (diff_years * 12) + today.month - employee.start_date.month
-            if today.day < employee.start_date.day:
+            diff_months = (today.year - seniority_date.year) * 12 + today.month - seniority_date.month
+            if today.day < seniority_date.day:
                 diff_months -= 1
-            
             if diff_months < 6:
-                 return JsonResponse({"ok": False, "error": "Debes tener al menos 6 meses de antigüedad para solicitar un préstamo."})
+                return JsonResponse({"ok": False, "error": "Debes tener al menos 6 meses de antigüedad para solicitar un préstamo."})
 
         # Validar 50% Fondo
         ahorro_total = Decimal(str(employee.saving_fund or 0))

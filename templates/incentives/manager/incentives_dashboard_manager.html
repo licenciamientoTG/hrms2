@@ -14,7 +14,7 @@
   <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
       <h4 class="mb-0">Incentivos — {{ department.name|default:"Mi Departamento" }}</h4>
-      <small class="text-muted">Semana del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
+      <small class="text-muted">Semana {{ week_start|date:"W" }} — del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
     </div>
     <div class="d-flex align-items-center gap-2">
       <a href="?delta={{ delta|add:"-1" }}" class="btn btn-outline-secondary btn-sm week-nav-btn" title="Semana anterior">
@@ -132,6 +132,28 @@
               ></textarea>
             </td>
             <td class="text-center fw-semibold total-col" data-tipo="{{ tipo }}">$0</td>
+          </tr>
+          {% elif tipo == "Venta" %}
+          <tr>
+            <td class="fw-semibold">Venta</td>
+            <td colspan="7" class="text-center py-2" id="venta-status-cell">
+              <span class="text-muted" style="font-size:12px;">
+                <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando indicadores…
+              </span>
+            </td>
+            <td>—</td>
+            <td class="text-center text-muted">—</td>
+          </tr>
+          {% elif tipo == "Mistery" %}
+          <tr>
+            <td class="fw-semibold">Mistery</td>
+            <td colspan="7" class="text-center py-2" id="mistery-status-cell">
+              <span class="text-muted" style="font-size:12px;">
+                <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…
+              </span>
+            </td>
+            <td>—</td>
+            <td class="text-center text-muted">—</td>
           </tr>
           {% else %}
           <tr class="text-muted">

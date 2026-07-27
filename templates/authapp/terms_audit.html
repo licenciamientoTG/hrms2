@@ -13,8 +13,8 @@
   <form class="mb-3" method="get">
     <div class="row g-2 align-items-end">
       <!-- Búsqueda -->
-      <div class="col-12 col-md-4">
-        <input name="q" type="text" value="{{ q }}" class="form-control"
+      <div class="col-12 col-md-3">
+        <input name="q" type="text" value="{{ q }}" class="form-control form-control-sm"
                placeholder="🔍 Buscar por nombre o usuario...">
       </div>
 
@@ -50,36 +50,19 @@
       </div>
 
       <!-- Botones -->
-      <div class="col-6 col-md-2 d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm w-100">
+      <div class="col-6 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
           <i class="fas fa-filter"></i> Filtrar
         </button>
-        <a href="{% url 'terms_audit' %}" class="btn btn-outline-secondary btn-sm w-100">
+        <a href="{% url 'terms_audit' %}" class="btn btn-outline-secondary btn-sm">
           <i class="fas fa-times"></i> Limpiar
+        </a>
+        <a href="{% url 'terms_audit_export' %}?tema=todo&q={{ q }}&aviso={{ f_aviso }}&checador={{ f_checador }}&contrasena={{ f_contrasena }}"
+           class="btn btn-success btn-sm">
+          <i class="fas fa-file-export"></i> Exportar
         </a>
       </div>
     </div>
-
-    <!-- Indicador de filtros activos -->
-    {% if f_aviso or f_checador or f_contrasena %}
-    <div class="mt-2 d-flex gap-2 flex-wrap">
-      {% if f_aviso %}
-        <span class="badge bg-primary">
-          Aviso: {{ f_aviso|capfirst }}
-        </span>
-      {% endif %}
-      {% if f_checador %}
-        <span class="badge bg-info text-dark">
-          Checadores: {% if f_checador == 'na' %}N/A{% else %}{{ f_checador|capfirst }}{% endif %}
-        </span>
-      {% endif %}
-      {% if f_contrasena %}
-        <span class="badge bg-warning text-dark">
-          Contraseña pend.: {{ f_contrasena|capfirst }}
-        </span>
-      {% endif %}
-    </div>
-    {% endif %}
   </form>
 
   <div class="table-responsive">

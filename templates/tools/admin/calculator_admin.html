@@ -141,7 +141,7 @@
                         {% else %}
                             <span class="badge bg-danger">Cancelada</span>
                         {% endif %}
-                        {% if request.user.is_superuser and s.status == 'approved' and not s.unlocked %}
+                        {% if s.status == 'approved' and not s.unlocked and perms.tools.desbloquear_prestamos %}
                             <form action="{% url 'unlock_loan_request' s.id %}" method="POST" style="display:inline;" class="form-desbloquear-prestamo">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-outline-warning btn-desbloquear"

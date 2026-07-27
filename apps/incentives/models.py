@@ -94,6 +94,48 @@ class PresupuestoVenta(models.Model):
         return f"{self.team_key} — {self.mes.strftime('%B %Y')}"
 
 
+class PresupuestoVentaSemanal(models.Model):
+    """Override de presupuesto semanal por estación para eventos extraordinarios."""
+    team_key   = models.CharField(max_length=50, verbose_name='Clave de estación')
+    semana     = models.DateField(verbose_name='Semana (lunes)')
+    gas        = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Gas')
+    diesel     = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Diesel')
+    subido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='presupuestos_venta_semanal', verbose_name='Subido por',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('team_key', 'semana')]
+        verbose_name = 'Presupuesto de venta semanal'
+        verbose_name_plural = 'Presupuestos de venta semanales'
+
+    @property
+    def total(self):
+        return (self.gas or 0) + (self.diesel or 0)
+
+    def __str__(self):
+        return f"{self.team_key} — semana {self.semana}"
+
+
+class FaltaEmpleado(models.Model):
+    """Faltas semanales por empleado, sincronizadas desde TRESS cada lunes."""
+    employee_number = models.CharField(max_length=20, verbose_name='Número de empleado')
+    semana          = models.DateField(verbose_name='Semana (lunes)')
+    faltas          = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name='Faltas')
+    equipo          = models.CharField(max_length=100, blank=True, verbose_name='Equipo')
+    nombre          = models.CharField(max_length=200, blank=True, verbose_name='Nombre')
+
+    class Meta:
+        unique_together     = [('employee_number', 'semana')]
+        verbose_name        = 'Falta de empleado'
+        verbose_name_plural = 'Faltas de empleados'
+
+    def __str__(self):
+        return f"{self.employee_number} — semana {self.semana} — {self.faltas} falta(s)"
+
+
 class ComentarioSemana(models.Model):
     """Comentario del gerente para un tipo de incentivo en una semana."""
     employee = models.ForeignKey(

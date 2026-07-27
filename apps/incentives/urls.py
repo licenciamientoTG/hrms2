@@ -8,12 +8,17 @@ from .views import (
     incentives_dashboard_operaciones,
     parsear_excel_ventas,
     guardar_presupuesto_ventas,
+    presupuesto_mes_json,
     toggle_incentivo,
     toggle_semana_cerrada,
     semana_data,
     guardar_comentario,
     resumen_global,
     ventas_sg12_json,
+    sync_venta_semana,
+    sync_mistery_semana,
+    presupuesto_semana_json,
+    guardar_presupuesto_semana,
 )
 
 urlpatterns = [
@@ -31,4 +36,9 @@ urlpatterns = [
     path('parsear-excel-ventas/', parsear_excel_ventas, name='parsear_excel_ventas'),
     path('guardar-presupuesto-ventas/', guardar_presupuesto_ventas, name='guardar_presupuesto_ventas'),
     path('ventas-sg12/', ventas_sg12_json, name='ventas_sg12_json'),
+    path('sync-venta/', sync_venta_semana, name='sync_venta_semana'),
+    path('sync-mistery/', sync_mistery_semana, name='sync_mistery_semana'),
+    path('presupuesto-mes/', presupuesto_mes_json, name='presupuesto_mes_json'),
+    path('presupuesto-semana/', presupuesto_semana_json, name='presupuesto_semana_json'),
+    path('guardar-presupuesto-semana/', guardar_presupuesto_semana, name='guardar_presupuesto_semana'),
 ]

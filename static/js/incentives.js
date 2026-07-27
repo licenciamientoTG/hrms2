@@ -24,7 +24,9 @@ function actualizarGranTotalEmp(empId) {
   if (!granTotalCell) return;
   var dieselCount = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Diesel"]:checked').length;
   var encargadoCount = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
-  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0);
+  var ventaCb = document.querySelector('.incentivo-check[data-emp="' + empId + '"][data-tipo="Venta"]:checked');
+  var ventaMonto = ventaCb ? (parseInt(ventaCb.dataset.monto) || 0) : 0;
+  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0) + ventaMonto;
   granTotalCell.textContent = '$' + total;
 }
 
@@ -35,7 +37,25 @@ function buildEmpTable(empId) {
   if (!container || container.dataset.built === '1') return;
   container.dataset.built = '1';
 
-  var html = '<div class="table-responsive"><table class="table table-bordered align-middle incentives-week-table mb-0">';
+  // ── Contexto: nombre de estación y colaborador ──
+  var empRow      = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
+  var empNombre   = empRow ? (empRow.querySelectorAll('td')[1] || {}).innerText || '' : '';
+  var empPuesto   = empRow ? (empRow.querySelectorAll('td')[2] || {}).innerText || '' : '';
+  var detailParent = empRow ? empRow.closest('.incentives-detail-row') : null;
+  var stationRow  = detailParent ? document.querySelector('.station-row[data-dept-id="' + detailParent.dataset.deptId + '"]') : null;
+  var estNombre   = stationRow ? (stationRow.querySelectorAll('td')[1] || {}).innerText || '' : '';
+
+  var contextoHtml = '';
+  if (estNombre || empNombre) {
+    contextoHtml = '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;margin-bottom:14px;background:#f0f6ff;border:1px solid #c7ddf9;border-radius:10px;font-size:18px;">'
+      + (estNombre ? '<span style="background:#1e40af;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700;"><i class="fas fa-gas-pump me-2"></i>' + estNombre + '</span>' : '')
+      + (estNombre && empNombre ? '<i class="fas fa-chevron-right" style="color:#6b7280;font-size:15px;"></i>' : '')
+      + (empNombre ? '<span style="background:#fff;border:1px solid #93c5fd;color:#1e40af;border-radius:8px;padding:8px 18px;font-weight:700;"><i class="fas fa-user me-2"></i>' + empNombre.trim() + '</span>' : '')
+      + (empPuesto ? '<span style="color:#6b7280;font-size:15px;">· ' + empPuesto.trim() + '</span>' : '')
+      + '</div>';
+  }
+
+  var html = contextoHtml + '<div class="table-responsive"><table class="table table-bordered align-middle incentives-week-table mb-0">';
   html += '<thead><tr><th style="min-width:120px;">INCENTIVO</th>';
   DIAS.forEach(function(dia) {
     html += '<th class="text-center' + (dia.esHoy ? ' day-today' : '') + '" style="min-width:68px;">';
@@ -49,15 +69,32 @@ function buildEmpTable(empId) {
 
   TIPOS.forEach(function(tipo) {
     html += '<tr><td class="fw-semibold" style="font-size:13px;">' + tipo + '</td>';
-    DIAS.forEach(function(dia) {
-      html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
-            + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
-      html += '<input type="checkbox" class="incentivo-check form-check-input"'
-            + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
-            + (PERIODO_CERRADO ? ' disabled' : '')
-            + ' onclick="event.stopPropagation()">';
+    if (tipo === 'Venta') {
+      html += '<td colspan="' + DIAS.length + '" class="text-center py-2" id="venta-badge-emp-' + empId + '">';
+      html += '<span class="text-muted" style="font-size:12px;"><i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…</span>';
+      html += '<input type="checkbox" class="incentivo-check d-none"'
+            + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+            + ' data-badge-id="venta-badge-emp-' + empId + '"'
+            + ' disabled>';
       html += '</td>';
-    });
+    } else if (tipo === 'Mistery') {
+      html += '<td colspan="' + DIAS.length + '" class="text-center py-2" id="mistery-badge-emp-' + empId + '">';
+      html += '<span class="text-muted" style="font-size:12px;"><i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…</span>';
+      html += '<input type="checkbox" class="incentivo-check d-none"'
+            + ' data-emp="' + empId + '" data-tipo="Mistery" data-fecha="' + SEMANA_INICIO + '"'
+            + ' disabled>';
+      html += '</td>';
+    } else {
+      DIAS.forEach(function(dia) {
+        html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
+              + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
+        html += '<input type="checkbox" class="incentivo-check form-check-input"'
+              + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
+              + (PERIODO_CERRADO ? ' disabled' : '')
+              + ' onclick="event.stopPropagation()">';
+        html += '</td>';
+      });
+    }
     html += '<td onclick="event.stopPropagation()">'
           + '<textarea class="comentario-semana form-control form-control-sm"'
           + ' data-emp="' + empId + '" data-tipo="' + tipo + '"'
@@ -66,6 +103,8 @@ function buildEmpTable(empId) {
           + '</td>';
     if (tipo === 'Diesel' || tipo === 'Encargado') {
       html += '<td class="text-center fw-semibold" id="total-' + empId + '-' + tipo + '">$0</td>';
+    } else if (tipo === 'Venta') {
+      html += '<td class="text-center fw-semibold text-muted" id="total-' + empId + '-Venta">—</td>';
     } else {
       html += '<td class="text-center text-muted">—</td>';
     }
@@ -95,6 +134,50 @@ function buildEmpTable(empId) {
   }
 }
 
+// ── Actualiza el badge visual de Mistery para un empleado ────────────────────
+
+function actualizarBadgeMistery(empId, ganado) {
+  var cell = document.getElementById('mistery-badge-emp-' + empId);
+  if (!cell) return;
+  if (ganado) {
+    cell.innerHTML = '<span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;">'
+      + '<i class="fas fa-star me-1"></i>Ganó Mistery esta semana</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Mistery" data-fecha="' + SEMANA_INICIO + '" disabled checked>';
+  } else {
+    cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:4px 12px;font-size:12px;">'
+      + '<i class="fas fa-times-circle me-1"></i>Sin Mistery esta semana</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Mistery" data-fecha="' + SEMANA_INICIO + '" disabled>';
+  }
+}
+
+// ── Actualiza el badge visual del bono de Venta para un empleado ─────────────
+
+function actualizarBadgeVenta(empId, ganado, monto) {
+  var badgeId = 'venta-badge-emp-' + empId;
+  var cell = document.getElementById(badgeId);
+  var totalCell = document.getElementById('total-' + empId + '-Venta');
+  if (!cell) return;
+  if (ganado) {
+    var montoStr = monto ? ' — $' + monto : '';
+    cell.innerHTML = '<span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;">'
+      + '<i class="fas fa-check-circle me-1"></i>Bono ganado' + montoStr + '</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+      + ' data-badge-id="' + badgeId + '" data-monto="' + (monto || 0) + '" disabled checked>';
+    if (totalCell) { totalCell.textContent = monto ? '$' + monto : '—'; totalCell.classList.remove('text-muted'); }
+  } else {
+    cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:4px 12px;font-size:12px;">'
+      + '<i class="fas fa-times-circle me-1"></i>Sin bono esta semana</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+      + ' data-badge-id="' + badgeId + '" data-monto="0" disabled>';
+    if (totalCell) { totalCell.textContent = '—'; totalCell.classList.add('text-muted'); }
+  }
+  actualizarGranTotalEmp(empId);
+}
+
 // ── Carga datos del empleado vía AJAX ────────────────────────────────────────
 
 function cargarSemana(empId) {
@@ -102,12 +185,26 @@ function cargarSemana(empId) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok) return;
+      var tieneVenta = false;
+      var ventaMonto = null;
+      var tieneMistery = false;
       data.registros.forEach(function(reg) {
+        if (reg.tipo === 'Venta') {
+          tieneVenta = true;
+          ventaMonto = reg.monto;
+          return;
+        }
+        if (reg.tipo === 'Mistery') {
+          tieneMistery = true;
+          return;
+        }
         var cb = document.querySelector(
           '.incentivo-check[data-emp="' + empId + '"][data-tipo="' + reg.tipo + '"][data-fecha="' + reg.fecha + '"]'
         );
         if (cb) cb.checked = true;
       });
+      actualizarBadgeVenta(empId, tieneVenta, ventaMonto);
+      actualizarBadgeMistery(empId, tieneMistery);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -288,8 +385,21 @@ function actualizarGranTotal() {
   if (!granTotalCell) return;
   var dieselCount = document.querySelectorAll('.incentivo-check[data-tipo="Diesel"]:checked').length;
   var encargadoCount = document.querySelectorAll('.incentivo-check[data-tipo="Encargado"]:checked').length;
-  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0);
+  var ventaMonto = window.VENTA_MONTO_MANAGER || 0;
+  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0) + ventaMonto;
   granTotalCell.textContent = '$' + total;
+}
+
+function actualizarBadgeMisteryManager(ganado) {
+  var cell = document.getElementById('mistery-status-cell');
+  if (!cell) return;
+  if (ganado) {
+    cell.innerHTML = '<span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+      + '<i class="fas fa-star me-1"></i>Ganó Mistery esta semana</span>';
+  } else {
+    cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">'
+      + '<i class="fas fa-times-circle me-1"></i>Sin Mistery esta semana</span>';
+  }
 }
 
 function cargarSemanaManager(empId) {
@@ -300,12 +410,36 @@ function cargarSemanaManager(empId) {
       if (!data.ok) return;
       document.querySelectorAll('.incentivo-check').forEach(function(cb) { cb.checked = false; });
       document.querySelectorAll('.comentario-semana').forEach(function(ta) { ta.value = ''; });
+      window.VENTA_MONTO_MANAGER = 0;
+      var tieneVentaManager = false;
+      var tieneMisteryManager = false;
       data.registros.forEach(function(reg) {
+        if (reg.tipo === 'Venta') {
+          tieneVentaManager = true;
+          window.VENTA_MONTO_MANAGER = reg.monto || 0;
+          return;
+        }
+        if (reg.tipo === 'Mistery') {
+          tieneMisteryManager = true;
+          return;
+        }
         var cb = document.querySelector(
           '.incentivo-check[data-tipo="' + reg.tipo + '"][data-fecha="' + reg.fecha + '"]'
         );
         if (cb) cb.checked = true;
       });
+      var ventaCell = document.getElementById('venta-status-cell');
+      if (ventaCell) {
+        if (tieneVentaManager) {
+          var montoStr = window.VENTA_MONTO_MANAGER ? ' — $' + window.VENTA_MONTO_MANAGER : '';
+          ventaCell.innerHTML = '<span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+            + '<i class="fas fa-check-circle me-1"></i>Bono ganado' + montoStr + '</span>';
+        } else {
+          ventaCell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">'
+            + '<i class="fas fa-times-circle me-1"></i>Sin bono esta semana</span>';
+        }
+      }
+      actualizarBadgeMisteryManager(tieneMisteryManager);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector('.comentario-semana[data-tipo="' + tipo + '"]');
@@ -338,12 +472,113 @@ function actualizarTabla(select) {
   var granTotalCell = document.getElementById('gran-total-semana');
   if (granTotalCell) granTotalCell.textContent = '$0';
 
+  // Resetear badge de Mistery al cambiar de empleado
+  var misteryCell = document.getElementById('mistery-status-cell');
+  if (misteryCell) {
+    misteryCell.innerHTML = '<span class="text-muted" style="font-size:12px;">'
+      + '<i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…</span>';
+  }
+
   cargarSemanaManager(empId);
+}
+
+// ── Sincronización automática del bono de Venta ──────────────────────────────
+
+function syncVentaSemana() {
+  fetch('/incentives/sync-venta/?semana=' + SEMANA_INICIO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+
+      // Vista gerente: actualizar el badge de estado en la fila Venta
+      var ventaCell = document.getElementById('venta-status-cell');
+      if (ventaCell) {
+        var tkKeys = Object.keys(data.estaciones || {});
+        var html = '';
+        if (tkKeys.length > 0) {
+          var est = data.estaciones[tkKeys[0]];
+          if (est.verde === true) {
+            html = '<span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+                 + '<i class="fas fa-check-circle me-1"></i>Bono ganado — semana completa</span>';
+          } else if (est.verde === false) {
+            html = '<span style="display:inline-block;background:#fee2e2;color:#991b1b;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
+                 + '<i class="fas fa-times-circle me-1"></i>Meta no alcanzada esta semana</span>';
+          } else {
+            html = '<span class="text-muted" style="font-size:12px;"><i class="fas fa-minus-circle me-1"></i>Sin datos de ventas</span>';
+          }
+        } else {
+          html = '<span class="text-muted" style="font-size:12px;"><i class="fas fa-minus-circle me-1"></i>Sin datos</span>';
+        }
+        ventaCell.innerHTML = html;
+      }
+
+      // Vista admin/zona: actualizar badges de Venta de empleados ya expandidos
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (!empId) return;
+        fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
+          .then(function(r) { return r.json(); })
+          .then(function(sd) {
+            if (!sd.ok) return;
+            var ventaReg = sd.registros.find(function(r) { return r.tipo === 'Venta'; });
+            actualizarBadgeVenta(empId, !!ventaReg, ventaReg ? ventaReg.monto : null);
+          });
+      });
+    })
+    .catch(function() {
+      var ventaCell = document.getElementById('venta-status-cell');
+      if (ventaCell) {
+        ventaCell.innerHTML = '<span class="text-muted" style="font-size:12px;">'
+          + '<i class="fas fa-exclamation-triangle me-1"></i>Sin conexión a indicadores</span>';
+      }
+    });
+}
+
+// ── Sincronización automática de Mistery ─────────────────────────────────────
+
+function syncMisterySemana() {
+  fetch('/incentives/sync-mistery/?semana=' + SEMANA_INICIO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+
+      // Admin/zona: actualizar badge de empleados ya expandidos
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (!empId) return;
+        fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
+          .then(function(r) { return r.json(); })
+          .then(function(sd) {
+            if (!sd.ok) return;
+            var tieneMistery = sd.registros.some(function(r) { return r.tipo === 'Mistery'; });
+            actualizarBadgeMistery(empId, tieneMistery);
+          });
+      });
+
+      // Gerente: actualizar badge si hay un empleado seleccionado
+      var selector = document.getElementById('selector-colaborador');
+      if (selector && selector.value) {
+        var empId = selector.value;
+        fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
+          .then(function(r) { return r.json(); })
+          .then(function(sd) {
+            if (!sd.ok) return;
+            var tieneMistery = sd.registros.some(function(r) { return r.tipo === 'Mistery'; });
+            actualizarBadgeMisteryManager(tieneMistery);
+          });
+      }
+    });
 }
 
 // ── DOM Ready ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
+
+  // Sincronizar bono de Venta y Mistery según datos externos
+  if (typeof SEMANA_INICIO !== 'undefined') {
+    syncVentaSemana();
+    syncMisterySemana();
+  }
 
   // Accordion de estaciones
   document.querySelectorAll('.station-row').forEach(function(row) {
