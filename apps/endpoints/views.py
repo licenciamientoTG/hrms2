@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.utils.timezone import now
 from django.db import transaction
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import json
 
 from apps.employee.models import Employee
@@ -517,3 +517,55 @@ def recibir_datos1(request):
         error_details = traceback.format_exc()
         print(f"🚨 EXCEPCIÓN CRÍTICA en recibir_datos1: {str(e)}\n{error_details}")
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def recibir_faltas(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'mensaje': 'Método no permitido'}, status=405)
+
+    try:
+        from apps.incentives.models import FaltaEmpleado
+        from decimal import Decimal, InvalidOperation
+
+        data = json.loads(request.body or '{}')
+
+        employee_number = _safe_str(data.get('Numero'))
+        nombre          = _safe_str(data.get('NombreCompleto'))
+        equipo          = _safe_str(data.get('Equipo'))
+        semana_str      = _safe_str(data.get('Semana'))
+
+        try:
+            faltas = Decimal(str(data.get('Faltas', '0')).replace(',', '.').strip() or '0')
+        except InvalidOperation:
+            faltas = Decimal('0')
+
+        if not employee_number:
+            return JsonResponse({'success': False, 'mensaje': 'Falta Numero'}, status=400)
+
+        # Calcular semana (lunes) — si no viene, usar el lunes de hoy
+        if semana_str:
+            semana = date.fromisoformat(semana_str)
+        else:
+            today = date.today()
+            semana = today - timedelta(days=today.weekday())
+
+        obj, created = FaltaEmpleado.objects.update_or_create(
+            employee_number=employee_number,
+            semana=semana,
+            defaults={
+                'faltas': faltas,
+                'equipo': equipo,
+                'nombre': nombre,
+            }
+        )
+
+        estado = 'creado' if created else 'actualizado'
+        print(f"{'✅' if created else '🔄'} Falta {estado}: {nombre} ({employee_number}) — {faltas} falta(s) semana {semana}")
+        return JsonResponse({'success': True, 'status': estado, 'mensaje': f'{nombre} — {faltas} falta(s)'})
+
+    except Exception as e:
+        import traceback
+        print(f"🚨 EXCEPCIÓN en recibir_faltas: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+

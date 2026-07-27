@@ -16,7 +16,9 @@ def auto_incentivos_permission(request):
     except Exception:
         return {}
 
-    if (en_estacion or es_gerente_ops) and not request.user.has_perm('incentives.Modulo_incentivos'):
+    es_jefe_zona = 'jefe de zona' in titulo.lower()
+
+    if (en_estacion or es_gerente_ops or es_jefe_zona) and not request.user.has_perm('incentives.Modulo_incentivos'):
         from django.contrib.auth.models import Group
         grupo = Group.objects.filter(name='Modulo de incentivos').first()
         if grupo:

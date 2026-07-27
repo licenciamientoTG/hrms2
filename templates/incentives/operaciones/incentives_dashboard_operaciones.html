@@ -48,6 +48,8 @@
   .dif-neg { background: #fee2e2; color: #991b1b; font-weight: 500; }
   .sin-ventas td { background: #fff3cd !important; }
   .ventas-loading { text-align: center; color: #adb5bd; }
+  .btn-override-semana { padding: 1px 5px; font-size: 10px; line-height: 1.2; }
+  .override-badge { font-size: 9px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 3px; padding: 1px 4px; margin-left: 4px; vertical-align: middle; }
 </style>
 {% endblock %}
 
@@ -68,12 +70,18 @@
       </small>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <form method="GET" class="d-flex align-items-center gap-1 flex-wrap">
+      <form method="GET" class="d-flex align-items-center gap-1 flex-wrap" id="form-rango">
+        <label class="mb-0 small text-muted fw-semibold">Semana</label>
+        <input type="week" id="semana-picker"
+               value="{{ semana_year }}-W{{ semana_num|stringformat:'02d' }}"
+               class="form-control form-control-sm" style="width:auto"
+               title="Selecciona semana — rellena las fechas automáticamente">
+        <span class="text-muted small">·</span>
         <label class="mb-0 small text-muted fw-semibold">De</label>
-        <input type="date" name="fecha_ini" value="{{ fecha_ini|date:'Y-m-d' }}"
+        <input type="date" name="fecha_ini" id="fecha-ini-input" value="{{ fecha_ini|date:'Y-m-d' }}"
                class="form-control form-control-sm" style="width:auto">
         <label class="mb-0 small text-muted fw-semibold">a</label>
-        <input type="date" name="fecha_fin" value="{{ fecha_fin|date:'Y-m-d' }}"
+        <input type="date" name="fecha_fin" id="fecha-fin-input" value="{{ fecha_fin|date:'Y-m-d' }}"
                class="form-control form-control-sm" style="width:auto">
         <button type="submit" class="btn btn-primary btn-sm">
           <i class="fas fa-search me-1"></i>Ver
@@ -81,100 +89,85 @@
       </form>
       <a href="?reset=1" class="btn btn-outline-secondary btn-sm">Periodo actual</a>
       <button class="btn btn-outline-success btn-sm" type="button"
-              data-bs-toggle="collapse" data-bs-target="#upload-card"
+              data-bs-toggle="modal" data-bs-target="#modal-presupuesto"
               title="Cargar / actualizar presupuesto mensual">
         <i class="fas fa-file-excel me-1"></i>Presupuesto
+        {% if meses_sin_ppto %}<span class="badge bg-danger ms-1" style="font-size:9px;">!</span>{% endif %}
       </button>
     </div>
   </div>
 </div>
 
-{# ── Alertas por meses sin presupuesto ── #}
-{% for mes in meses_sin_ppto %}
-<div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between mb-2">
-  <span>
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    Falta el presupuesto de <strong>{{ mes|date:"F Y"|capfirst }}</strong>
-  </span>
-  <button class="btn btn-warning btn-sm"
-          onclick="abrirUpload('{{ mes|date:'Y-m' }}')"
-          data-bs-toggle="collapse" data-bs-target="#upload-card">
-    <i class="fas fa-upload me-1"></i>Cargar presupuesto
-  </button>
-</div>
-{% endfor %}
+{# ── Modal presupuesto mensual ── #}
+<div class="modal fade" id="modal-presupuesto" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2 bg-light">
+        <h6 class="modal-title fw-semibold">
+          <i class="fas fa-file-excel me-2 text-success"></i>Gestión de Presupuesto Mensual de Ventas
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
 
-{# ── Card de carga de presupuesto (colapsable) ── #}
-<div class="collapse {% if meses_sin_ppto %}show{% endif %}" id="upload-card">
-  <div class="card mb-4">
-    <div class="card-body p-3">
+        {# ── Paso 1: selección de mes ── #}
+        <div class="mb-4">
+          <label class="form-label fw-semibold mb-1">
+            <span class="badge bg-primary rounded-pill me-1">1</span> Selecciona el mes
+          </label>
+          <input type="month" id="mes-upload" class="form-control form-control-sm" style="max-width:220px;">
+          <div id="upload-mes-warning" class="alert alert-warning py-2 px-3 mt-2 d-none" style="max-width:520px;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Este mes ya tiene presupuesto cargado. Si subes un nuevo archivo <strong>se reemplazará</strong>.
+          </div>
+        </div>
 
-      {# ── Paso 1: selección de mes ── #}
-      <div class="mb-3">
-        <label class="form-label fw-semibold mb-1">
-          <i class="fas fa-calendar-alt me-1 text-primary"></i>
-          1. Para Cargar / actualizar presupuesto de ventas selecciona el mes
-        </label>
-        <div class="d-flex align-items-center gap-2">
-          <input type="month" id="mes-upload" value=""
-                 style="position:absolute;opacity:0;pointer-events:none;width:0;height:0"
-                 onkeydown="return false">
-          <button type="button" class="btn btn-outline-primary btn-sm"
-                  onclick="document.getElementById('mes-upload').showPicker()"
-                  title="Seleccionar mes">
-            <i class="fas fa-calendar-alt"></i>
+        {# ── Paso 2: zona de subida ── #}
+        <div id="upload-zona-wrapper" class="d-none mb-3">
+          <label class="form-label fw-semibold mb-1">
+            <span class="badge bg-primary rounded-pill me-1">2</span> Sube el archivo Excel
+          </label>
+          <label class="ops-upload-zone" style="max-width:520px;display:block;" id="upload-zone" for="input-excel">
+            <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="upload-icon"></i>
+            <div class="fw-semibold text-muted" id="upload-label">Haz clic para seleccionar el archivo Excel de presupuesto</div>
+            <div class="text-muted" style="font-size:12px;">.xlsx o .xls</div>
+            <input type="file" id="input-excel" accept=".xlsx,.xls" class="d-none">
+          </label>
+          <div id="upload-error" class="alert alert-danger mt-2 py-2 d-none" style="max-width:520px;"></div>
+        </div>
+
+        {# ── Paso 3: preview ── #}
+        <div id="preview-card" class="d-none">
+          <hr class="my-3">
+          <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <h6 class="mb-0 fw-semibold" id="preview-title">Vista previa</h6>
+            <div id="preview-badges"></div>
+          </div>
+          <div class="table-responsive" style="max-height:340px; overflow-y:auto;">
+            <table class="table table-bordered table-hover align-middle mb-0" style="font-size:12px;">
+              <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+                <tr>
+                  <th>Código</th><th>Estación (Excel)</th><th>Estación (Sistema)</th>
+                  <th class="text-end">Máxima</th><th class="text-end">Super</th>
+                  <th class="text-end">Diesel</th><th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody id="preview-tbody"></tbody>
+              <tfoot id="preview-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer py-2 justify-content-between">
+        <small class="text-muted" id="preview-footer-msg"></small>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+          <button class="btn btn-success btn-sm d-none" id="btn-confirmar">
+            <i class="fas fa-check me-1"></i> Confirmar y guardar
           </button>
-          <span id="mes-upload-label" class="text-muted small">Sin seleccionar</span>
-        </div>
-        <div id="upload-mes-warning" class="alert alert-warning py-2 px-3 mt-2 d-none">
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          Este mes ya tiene presupuesto cargado. Si subes un nuevo archivo <strong>se reemplazará</strong>.
         </div>
       </div>
-
-      {# ── Paso 2: zona de subida (se habilita tras elegir mes) ── #}
-      <div id="upload-zona-wrapper" class="d-none">
-        <label class="form-label fw-semibold mb-1">
-          <i class="fas fa-file-excel me-1 text-success"></i>
-          2. Sube el archivo Excel
-        </label>
-        <label class="ops-upload-zone w-100" id="upload-zone" for="input-excel">
-          <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="upload-icon"></i>
-          <div class="fw-semibold text-muted" id="upload-label">Haz clic para seleccionar el archivo Excel de presupuesto</div>
-          <div class="text-muted" style="font-size:12px;">.xlsx o .xls</div>
-          <input type="file" id="input-excel" accept=".xlsx,.xls" class="d-none">
-        </label>
-        <div id="upload-error" class="alert alert-danger mt-2 py-2 d-none"></div>
-      </div>
-
-    </div>
-  </div>
-
-  <div class="card mb-4 d-none" id="preview-card">
-    <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <h6 class="mb-0 fw-semibold" id="preview-title">Vista previa</h6>
-      <div class="d-flex gap-2 align-items-center" id="preview-badges"></div>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle mb-0" style="font-size:12px;">
-          <thead>
-            <tr>
-              <th>Código</th><th>Estación (Excel)</th><th>Estación (Sistema)</th>
-              <th class="text-end">Máxima</th><th class="text-end">Super</th>
-              <th class="text-end">Diesel</th><th class="text-end">Total</th>
-            </tr>
-          </thead>
-          <tbody id="preview-tbody"></tbody>
-          <tfoot id="preview-tfoot"></tfoot>
-        </table>
-      </div>
-    </div>
-    <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center">
-      <small class="text-muted" id="preview-footer-msg"></small>
-      <button class="btn btn-success btn-sm d-none" id="btn-confirmar">
-        <i class="fas fa-check me-1"></i> Confirmar y guardar
-      </button>
     </div>
   </div>
 </div>
@@ -182,15 +175,21 @@
 {# ── Tabla principal de indicadores ── #}
 {% if rows %}
 <div class="card mb-4">
-  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
-    <h6 class="mb-0 fw-semibold">
-      INDICADORES OPERATIVOS — {{ fecha_ini|date:"d/m/Y" }} AL {{ fecha_fin|date:"d/m/Y" }}
-    </h6>
-    <small class="text-muted">
-      Semana {{ semana_num }}/{{ semana_year }}
-      &nbsp;·&nbsp; {{ dias_total_rango }} día{{ dias_total_rango|pluralize }}
-      &nbsp;·&nbsp; Ppto. mensual: {{ mes_principal|date:"F Y"|capfirst }}
-    </small>
+  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h6 class="mb-0 fw-semibold">
+        INDICADORES OPERATIVOS — {{ fecha_ini|date:"d/m/Y" }} AL {{ fecha_fin|date:"d/m/Y" }}
+      </h6>
+      <small class="text-muted">
+        Semana {{ semana_num }}/{{ semana_year }}
+        &nbsp;·&nbsp; {{ dias_total_rango }} día{{ dias_total_rango|pluralize }}
+        &nbsp;·&nbsp; Ppto. mensual: {{ mes_principal|date:"F Y"|capfirst }}
+      </small>
+    </div>
+    <button class="btn btn-outline-primary btn-sm" id="btn-sync-mes"
+            title="Recalcular incentivos de Venta para todas las semanas del mes visible">
+      <i class="fas fa-sync-alt me-1"></i>Recalcular incentivos del mes
+    </button>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -199,6 +198,7 @@
           <tr class="group-header">
             <th rowspan="2">N.o</th>
             <th rowspan="2">Estación</th>
+            <th rowspan="2" style="width:36px;"></th>
             <th colspan="3" class="gh-pm col-group-start">Presupuesto Mensual</th>
             <th colspan="3" class="gh-ps col-group-start">Presupuesto Periodo</th>
             <th colspan="6" class="gh-vs col-group-start">Venta del Periodo</th>
@@ -213,9 +213,17 @@
         </thead>
         <tbody id="ops-tbody">
           {% for row in rows %}
-          <tr data-tk="{{ row.team_key }}" data-ps-gas="{{ row.ps_gas }}" data-ps-diesel="{{ row.ps_diesel }}" data-ps-total="{{ row.ps_total }}">
+          <tr data-tk="{{ row.team_key }}" data-ps-gas="{{ row.ps_gas }}" data-ps-diesel="{{ row.ps_diesel }}" data-ps-total="{{ row.ps_total }}" data-nombre="{{ row.nombre }}">
             <td class="text-center">{{ row.codigo }}</td>
-            <td>{{ row.nombre }}</td>
+            <td>
+              {{ row.nombre }}
+              {% if row.tiene_override %}<span class="override-badge" title="Presupuesto semanal ajustado">ajuste</span>{% endif %}
+            </td>
+            <td class="text-center">
+              <button class="btn btn-outline-warning btn-override-semana" title="Ajustar presupuesto de esta semana">
+                <i class="fas fa-sliders-h"></i>
+              </button>
+            </td>
             <td class="text-end col-group-start">{% if row.pm_gas %}{{ row.pm_gas|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td class="text-end">{{ row.pm_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end fw-semibold">{% if row.pm_total %}{{ row.pm_total|floatformat:"0"|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
@@ -228,7 +236,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="2" class="text-center">TOTALES</td>
+            <td colspan="3" class="text-center">TOTALES</td>
             <td class="text-end col-group-start">{{ totales_ppto.pm_gas|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.pm_diesel|floatformat:"0"|intcomma }}</td>
             <td class="text-end">{{ totales_ppto.pm_total|floatformat:"0"|intcomma }}</td>
@@ -262,25 +270,116 @@
 </div>
 {% endif %}
 
+{# ── Modal override presupuesto semanal ── #}
+<div class="modal fade" id="modal-override-semanal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title fs-6">Ajuste semanal — <span id="override-nombre"></span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Semana (lunes)</label>
+          <input type="date" id="override-semana" class="form-control form-control-sm">
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold mb-1">Gas</label>
+            <input type="number" id="override-gas" class="form-control form-control-sm" min="0" step="1" placeholder="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold mb-1">Diesel</label>
+            <input type="number" id="override-diesel" class="form-control form-control-sm" min="0" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="mb-1">
+          <label class="form-label small fw-semibold mb-1">Total</label>
+          <div class="form-control form-control-sm bg-light fw-semibold" id="override-total">0</div>
+        </div>
+        <small class="text-muted">
+          <i class="fas fa-info-circle me-1"></i>
+          Gas y diesel en 0 elimina el ajuste (vuelve al mensual proporcional).
+        </small>
+        <div id="override-error" class="alert alert-danger py-1 px-2 mt-2 d-none" style="font-size:12px;"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-guardar-override">
+          <i class="fas fa-save me-1"></i>Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-const CSRF_TOKEN       = "{{ csrf_token }}";
-const URL_PARSEAR      = "{% url 'parsear_excel_ventas' %}";
-const URL_GUARDAR      = "{% url 'guardar_presupuesto_ventas' %}";
-const URL_VENTAS       = "{% url 'ventas_sg12_json' %}";
-const MESES_CON_PPTO   = new Set({{ meses_con_ppto_json|safe }});
+const CSRF_TOKEN         = "{{ csrf_token }}";
+const URL_PARSEAR        = "{% url 'parsear_excel_ventas' %}";
+const URL_GUARDAR        = "{% url 'guardar_presupuesto_ventas' %}";
+const URL_VENTAS         = "{% url 'ventas_sg12_json' %}";
+const URL_PPTO_MES           = "{% url 'presupuesto_mes_json' %}";
+const URL_PPTO_SEMANA        = "{% url 'presupuesto_semana_json' %}";
+const URL_GUARDAR_SEMANA     = "{% url 'guardar_presupuesto_semana' %}";
+const SEMANA_OVERRIDE_DEFAULT = "{{ semana_override }}";
+const MESES_CON_PPTO     = new Set({{ meses_con_ppto_json|safe }});
 const fmt = n => (n || 0).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 0});
 
-// Abre el card de upload, establece el mes y dispara la lógica de validación
+// ── Selector de semana → rellena fechas y hace submit ─────────────────────
+document.getElementById('semana-picker')?.addEventListener('change', function () {
+  if (!this.value) return;
+  const [yearStr, weekStr] = this.value.split('-W');
+  const year = parseInt(yearStr, 10);
+  const week = parseInt(weekStr, 10);
+
+  // Lunes de la semana ISO: Jan 4 siempre cae en semana 1
+  const jan4 = new Date(year, 0, 4);
+  const dow  = (jan4.getDay() + 6) % 7;   // 0 = lunes
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - dow + (week - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const toISO = d => d.toISOString().split('T')[0];
+  document.getElementById('fecha-ini-input').value = toISO(monday);
+  document.getElementById('fecha-fin-input').value = toISO(sunday);
+  document.getElementById('form-rango').submit();
+});
+
+// Abre el modal de presupuesto y opcionalmente preselecciona el mes
 function abrirUpload(mesYYYYMM) {
-  const input = document.getElementById('mes-upload');
-  if (input && mesYYYYMM) {
-    input.value = mesYYYYMM;
-    input.dispatchEvent(new Event('change'));
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-presupuesto'));
+  modal.show();
+  if (mesYYYYMM) {
+    const input = document.getElementById('mes-upload');
+    if (input) { input.value = mesYYYYMM; input.dispatchEvent(new Event('change')); }
   }
 }
+
+// Al abrir el modal: resetear el estado interno
+document.getElementById('modal-presupuesto')?.addEventListener('show.bs.modal', function () {
+  const input = document.getElementById('mes-upload');
+  if (input) input.value = '';
+  document.getElementById('upload-zona-wrapper')?.classList.add('d-none');
+  document.getElementById('upload-mes-warning')?.classList.add('d-none');
+  document.getElementById('preview-card')?.classList.add('d-none');
+  document.getElementById('btn-confirmar')?.classList.add('d-none');
+  document.getElementById('preview-footer-msg').textContent = '';
+  window._filasParsadas = null;
+  const zone  = document.getElementById('upload-zone');
+  const icon  = document.getElementById('upload-icon');
+  const label = document.getElementById('upload-label');
+  const inp   = document.getElementById('input-excel');
+  const errEl = document.getElementById('upload-error');
+  if (zone)  zone.classList.remove('has-file');
+  if (icon)  { icon.className = 'fas fa-upload fa-2x mb-2'; icon.style.color = '#adb5bd'; }
+  if (label) label.textContent = 'Haz clic para seleccionar el archivo Excel de presupuesto';
+  if (inp)   inp.value = '';
+  if (errEl) errEl.classList.add('d-none');
+});
 
 function actualizarTituloPreview() {
   const mesInput = document.getElementById('mes-upload');
@@ -293,26 +392,64 @@ function actualizarTituloPreview() {
   }
 }
 
-document.getElementById('mes-upload')?.addEventListener('change', function() {
-  const val     = this.value;          // "YYYY-MM" o ""
-  // Actualizar etiqueta del botón
-  const labelEl = document.getElementById('mes-upload-label');
-  if (labelEl) {
-    if (val) {
-      const [y, m] = val.split('-');
-      const fecha = new Date(parseInt(y), parseInt(m) - 1, 1);
-      labelEl.textContent = fecha.toLocaleDateString('es-MX', {month: 'long', year: 'numeric'});
-      labelEl.classList.remove('text-muted');
-    } else {
-      labelEl.textContent = 'Sin seleccionar';
-      labelEl.classList.add('text-muted');
-    }
+async function cargarPresupuestoExistente(mesYYYYMM) {
+  const card    = document.getElementById('preview-card');
+  const badges  = document.getElementById('preview-badges');
+  const tbody   = document.getElementById('preview-tbody');
+  const tfoot   = document.getElementById('preview-tfoot');
+  const footMsg = document.getElementById('preview-footer-msg');
+  const btnConf = document.getElementById('btn-confirmar');
+  const titulo  = document.getElementById('preview-title');
+
+  // Mostrar el card con estado de carga
+  card.classList.remove('d-none');
+  badges.innerHTML = '<span class="text-muted" style="font-size:12px;"><i class="fas fa-circle-notch fa-spin me-1"></i>Cargando datos guardados…</span>';
+  tbody.innerHTML = '';
+  tfoot.innerHTML = '';
+  footMsg.textContent = '';
+  btnConf.classList.add('d-none');
+
+  const [y, m] = mesYYYYMM.split('-');
+  const fecha = new Date(parseInt(y), parseInt(m) - 1, 1);
+  titulo.textContent = 'Datos guardados — ' + fecha.toLocaleDateString('es-MX', {month: 'long', year: 'numeric'});
+
+  try {
+    const res  = await fetch(`${URL_PPTO_MES}?mes=${mesYYYYMM}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al cargar');
+
+    badges.innerHTML = `<span class="badge-match">${data.coincidencias} estaciones cargadas</span>`;
+    let totMax=0, totSup=0, totDie=0, totTot=0;
+    tbody.innerHTML = data.filas.map(f => {
+      totMax+=f.maxima; totSup+=f.super; totDie+=f.diesel; totTot+=f.total;
+      return `<tr>
+        <td><code>${f.codigo}</code></td>
+        <td>${f.nombre_excel}</td>
+        <td>${f.nombre_sistema}</td>
+        <td class="text-end">${f.maxima ? fmt(f.maxima) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end">${f.super  ? fmt(f.super)  : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end">${f.diesel ? fmt(f.diesel) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end fw-semibold">${fmt(f.total)}</td>
+      </tr>`;
+    }).join('');
+    tfoot.innerHTML = `<tr><td colspan="3">TOTAL (${data.filas.length} estaciones)</td>
+      <td class="text-end">${fmt(totMax)}</td><td class="text-end">${fmt(totSup)}</td>
+      <td class="text-end">${fmt(totDie)}</td><td class="text-end text-primary fw-semibold">${fmt(totTot)}</td></tr>`;
+    footMsg.innerHTML = '<i class="fas fa-info-circle me-1 text-primary"></i>Estos son los datos actualmente guardados. Sube un nuevo Excel para reemplazarlos.';
+  } catch (e) {
+    badges.innerHTML = `<span class="badge-nomatch">Error: ${e.message}</span>`;
   }
+}
+
+document.getElementById('mes-upload')?.addEventListener('change', function() {
+  const val     = this.value;   // "YYYY-MM" o ""
   const wrapper = document.getElementById('upload-zona-wrapper');
   const warning = document.getElementById('upload-mes-warning');
 
-  // Limpiar estado previo de subida
+  // Limpiar estado previo de subida (zona + preview)
   document.getElementById('preview-card')?.classList.add('d-none');
+  document.getElementById('btn-confirmar')?.classList.add('d-none');
+  document.getElementById('preview-footer-msg').textContent = '';
   window._filasParsadas = null;
   const zone  = document.getElementById('upload-zone');
   const icon  = document.getElementById('upload-icon');
@@ -331,14 +468,14 @@ document.getElementById('mes-upload')?.addEventListener('change', function() {
     return;
   }
 
-  // Mostrar advertencia si el mes ya tiene presupuesto
+  // Advertencia + carga automática si el mes ya tiene presupuesto
   if (MESES_CON_PPTO.has(val)) {
     warning?.classList.remove('d-none');
+    cargarPresupuestoExistente(val);
   } else {
     warning?.classList.add('d-none');
   }
 
-  // Habilitar zona de subida
   wrapper?.classList.remove('d-none');
   actualizarTituloPreview();
 });
@@ -412,6 +549,25 @@ function renderPreview(data) {
   window._filasParsadas = data.filas;
 }
 
+// Devuelve los lunes de todas las semanas que se solapan con el mes dado
+function semanasDelMes(year, month) {
+  const semanas = [];
+  const primerDia  = new Date(year, month - 1, 1);
+  const ultimoDia  = new Date(year, month, 0);
+  // Lunes de la semana que contiene el primer día del mes
+  const dow = primerDia.getDay();          // 0=Dom, 1=Lun…
+  const diff = dow === 0 ? -6 : 1 - dow;
+  const primerLunes = new Date(primerDia);
+  primerLunes.setDate(primerDia.getDate() + diff);
+  let lunes = new Date(primerLunes);
+  while (lunes <= ultimoDia) {
+    semanas.push(lunes.toISOString().split('T')[0]);
+    lunes = new Date(lunes);
+    lunes.setDate(lunes.getDate() + 7);
+  }
+  return semanas;
+}
+
 document.getElementById('btn-confirmar')?.addEventListener('click', async function () {
   const btn = this;
   const mesInput = document.getElementById('mes-upload');
@@ -431,6 +587,15 @@ document.getElementById('btn-confirmar')?.addEventListener('click', async functi
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error al guardar');
+
+    // Sincronizar bonos de Venta para todas las semanas del mes recién guardado
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Calculando incentivos…';
+    const [y, m] = mesInput.value.split('-').map(Number);
+    const semanas = semanasDelMes(y, m);
+    await Promise.all(semanas.map(s =>
+      fetch(`/incentives/sync-venta/?semana=${s}`).catch(() => {})
+    ));
+
     window.location.reload();
   } catch (e) {
     btn.disabled = false;
@@ -482,8 +647,11 @@ document.getElementById('btn-confirmar')?.addEventListener('click', async functi
     const v = ventas[tk];
 
     if (!v) {
+      const esSheetsStation = (tk === 'Praxedis' || tk === 'Colosio');
       tr.classList.add('sin-ventas');
-      loadingTd.textContent = 'Sin datos de ControlGas';
+      loadingTd.textContent = esSheetsStation
+        ? (data.sheets_error ? `Sin datos (Sheets: ${data.sheets_error})` : 'Sin datos de Google Sheets')
+        : 'Sin datos de ControlGas';
       return;
     }
 
@@ -527,7 +695,107 @@ document.getElementById('btn-confirmar')?.addEventListener('click', async functi
   document.getElementById('tot-dif-total').className   = `text-end fw-semibold ${clsDif(totDifTotal)}`;
 
   statusEl.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Ventas actualizadas';
+
+  // Sincronizar bonos de Venta en BD para la semana visible
+  fetch(`/incentives/sync-venta/?semana=${FECHA_INI}`).catch(() => {});
 })();
 {% endif %}
+
+// ── Botón "Recalcular incentivos del mes" ─────────────────────────────────
+document.getElementById('btn-sync-mes')?.addEventListener('click', async function () {
+  const btn = this;
+  // Determinar el mes principal del periodo visible
+  const mesPpal = "{{ mes_principal|date:'Y-m' }}";
+  if (!mesPpal) return;
+  const [y, m] = mesPpal.split('-').map(Number);
+  const semanas = semanasDelMes(y, m);
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Calculando…';
+  try {
+    await Promise.all(semanas.map(s =>
+      fetch(`/incentives/sync-venta/?semana=${s}`).catch(() => {})
+    ));
+    btn.innerHTML = '<i class="fas fa-check-circle me-1 text-success"></i>Listo';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Recalcular incentivos del mes';
+    }, 2000);
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Recalcular incentivos del mes';
+  }
+});
+
+// ── Modal: ajuste de presupuesto semanal por estación ────────────────────
+let _overrideTk = null;
+const _overrideModal = new bootstrap.Modal(document.getElementById('modal-override-semanal'));
+
+function calcOverrideTotal() {
+  const gas    = parseFloat(document.getElementById('override-gas').value)    || 0;
+  const diesel = parseFloat(document.getElementById('override-diesel').value) || 0;
+  document.getElementById('override-total').textContent = fmt(gas + diesel);
+}
+document.getElementById('override-gas')?.addEventListener('input', calcOverrideTotal);
+document.getElementById('override-diesel')?.addEventListener('input', calcOverrideTotal);
+
+document.querySelectorAll('.btn-override-semana').forEach(btn => {
+  btn.addEventListener('click', async function () {
+    const tr     = this.closest('tr');
+    _overrideTk  = tr.dataset.tk;
+    const nombre = tr.dataset.nombre || _overrideTk;
+    document.getElementById('override-nombre').textContent   = nombre;
+    document.getElementById('override-semana').value         = SEMANA_OVERRIDE_DEFAULT;
+    document.getElementById('override-gas').value            = '';
+    document.getElementById('override-diesel').value         = '';
+    document.getElementById('override-total').textContent    = '0';
+    document.getElementById('override-error').classList.add('d-none');
+
+    try {
+      const res  = await fetch(`${URL_PPTO_SEMANA}?tk=${_overrideTk}&semana=${SEMANA_OVERRIDE_DEFAULT}`);
+      const data = await res.json();
+      if (data.ok && data.override) {
+        document.getElementById('override-gas').value    = data.override.gas;
+        document.getElementById('override-diesel').value = data.override.diesel;
+        calcOverrideTotal();
+      }
+    } catch (e) {}
+
+    _overrideModal.show();
+  });
+});
+
+document.getElementById('btn-guardar-override')?.addEventListener('click', async function () {
+  const btn    = this;
+  const semana = document.getElementById('override-semana').value;
+  const gas    = parseFloat(document.getElementById('override-gas').value)    || 0;
+  const diesel = parseFloat(document.getElementById('override-diesel').value) || 0;
+  const errEl  = document.getElementById('override-error');
+  errEl.classList.add('d-none');
+
+  if (!semana) { errEl.textContent = 'Selecciona la semana.'; errEl.classList.remove('d-none'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando…';
+  try {
+    const res  = await fetch(URL_GUARDAR_SEMANA, {
+      method:  'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ team_key: _overrideTk, semana, gas, diesel }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+
+    await fetch(`/incentives/sync-venta/?semana=${semana}`).catch(() => {});
+    _overrideModal.hide();
+    window.location.reload();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('d-none');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save me-1"></i>Guardar';
+  }
+});
 </script>
 {% endblock %}

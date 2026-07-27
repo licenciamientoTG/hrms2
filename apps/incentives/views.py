@@ -6,7 +6,39 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal
+from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
+
+
+def _parsear_seniority(seniority_raw):
+    """Parsea 'DD/MM/YYYY' a date; devuelve None si no es válido."""
+    from datetime import datetime
+    if not seniority_raw:
+        return None
+    try:
+        return datetime.strptime(seniority_raw.strip(), '%d/%m/%Y').date()
+    except ValueError:
+        return None
+
+
+def _filtrar_empleados_por_semana(employees, week_end, inactivos_con_registro=None):
+    """Filtra la lista de empleados para una semana:
+    - Activos: excluye a quien ingresó después de week_end.
+    - Inactivos: solo incluye a quien tiene registro en esa semana (ids en inactivos_con_registro).
+    """
+    if inactivos_con_registro is None:
+        inactivos_con_registro = set()
+    result = []
+    for emp in employees:
+        if emp.is_active:
+            sd = _parsear_seniority(emp.seniority_raw)
+            if sd is not None and sd > week_end:
+                continue
+            result.append(emp)
+        else:
+            if emp.id in inactivos_con_registro:
+                result.append(emp)
+    return result
 
 
 def _deduplicar_por_tsa(employees):
@@ -122,18 +154,33 @@ def incentives_dashboard_admin(request):
     days = [week_start + timedelta(days=i) for i in range(7)]
 
     TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     teams = {
         team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': []}
         for team_key, display_name in STATION_TEAMS.items()
     }
 
-    employees = _deduplicar_por_tsa(list(
-        Employee.objects
-        .filter(is_active=True, team__in=STATION_TEAMS.keys())
-        .select_related('job_position')
-        .order_by('last_name', 'first_name')
-    ))
+    # IDs de empleados inactivos que tienen registro en esta semana (para mostrarlos igual)
+    inactivos_con_registro = set(
+        IncentivoRegistro.objects
+        .filter(fecha__range=(week_start, week_end), employee__is_active=False,
+                employee__team__in=STATION_TEAMS.keys())
+        .values_list('employee_id', flat=True)
+    )
+
+    from django.db.models import Q
+    employees = _filtrar_empleados_por_semana(
+        _deduplicar_por_tsa(list(
+            Employee.objects
+            .filter(team__in=STATION_TEAMS.keys())
+            .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
+            .select_related('job_position')
+            .order_by('last_name', 'first_name')
+        )),
+        week_end,
+        inactivos_con_registro,
+    )
 
     emp_ids = [emp.id for emp in employees]
     incentivo_counts = {
@@ -164,10 +211,11 @@ def incentives_dashboard_admin(request):
                 'subgerentes': data['subgerentes'],
                 'employees': data['employees'],
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
+                '_tk': tk,
             }
-            for data in teams.values()
+            for tk, data in teams.items()
         ],
-        key=lambda x: x['team']
+        key=lambda x: EXCEL_ORDER_LOOKUP.get(x['_tk'], (9999, x['team']))[0]
     )
 
     periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
@@ -228,6 +276,7 @@ def incentives_dashboard_zona(request):
     days = [week_start + timedelta(days=i) for i in range(7)]
 
     TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     try:
         jefe = Employee.objects.select_related('job_position').get(user=request.user)
@@ -249,12 +298,24 @@ def incentives_dashboard_zona(request):
         for team_key in teams_del_jefe
     }
 
-    employees = _deduplicar_por_tsa(list(
-        Employee.objects
-        .filter(is_active=True, team__in=teams_del_jefe)
-        .select_related('job_position')
-        .order_by('last_name', 'first_name')
-    ))
+    from django.db.models import Q
+    inactivos_con_registro_zona = set(
+        IncentivoRegistro.objects
+        .filter(fecha__range=(week_start, week_end), employee__is_active=False,
+                employee__team__in=teams_del_jefe)
+        .values_list('employee_id', flat=True)
+    )
+    employees = _filtrar_empleados_por_semana(
+        _deduplicar_por_tsa(list(
+            Employee.objects
+            .filter(team__in=teams_del_jefe)
+            .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro_zona))
+            .select_related('job_position')
+            .order_by('last_name', 'first_name')
+        )),
+        week_end,
+        inactivos_con_registro_zona,
+    )
 
     # Conteo de incentivos por empleado para la semana actual
     emp_ids = [emp.id for emp in employees]
@@ -286,10 +347,11 @@ def incentives_dashboard_zona(request):
                 'subgerentes': data['subgerentes'],
                 'employees': data['employees'],
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
+                '_tk': tk,
             }
-            for data in teams.values()
+            for tk, data in teams.items()
         ],
-        key=lambda x: x['team']
+        key=lambda x: EXCEL_ORDER_LOOKUP.get(x['_tk'], (9999, x['team']))[0]
     )
 
     periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
@@ -391,9 +453,16 @@ def incentives_dashboard_user(request):
             ).values_list('fecha', flat=True)
         )
         encargado_dias = sum(1 for d in days if d in encargado_fechas)
-        venta_ganada = IncentivoRegistro.objects.filter(
+        venta_registro = IncentivoRegistro.objects.filter(
             employee=emp,
             tipo='Venta',
+            fecha__range=(week_start, week_end),
+        ).values('monto').first()
+        venta_ganada = venta_registro is not None
+        venta_monto = int(venta_registro['monto']) if venta_registro and venta_registro['monto'] else None
+        mistery_ganada = IncentivoRegistro.objects.filter(
+            employee=emp,
+            tipo='Mistery',
             fecha__range=(week_start, week_end),
         ).exists()
     except Employee.DoesNotExist:
@@ -402,10 +471,12 @@ def incentives_dashboard_user(request):
         encargado_fechas = set()
         encargado_dias = 0
         venta_ganada = False
+        venta_monto = None
+        mistery_ganada = False
 
     diesel_total = diesel_dias * 50
     encargado_total = (200 + (encargado_dias - 1) * 100) if encargado_dias > 0 else 0
-    gran_total = diesel_total + encargado_total
+    gran_total = diesel_total + encargado_total + (venta_monto or 0)
 
     return render(request, 'incentives/user/incentives_dashboard_user.html', {
         'week_start': week_start,
@@ -421,7 +492,9 @@ def incentives_dashboard_user(request):
         'encargado_total': encargado_total,
         'gran_total': gran_total,
         'venta_ganada': venta_ganada,
-        'otros_tipos': ['Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
+        'venta_monto': venta_monto,
+        'mistery_ganada': mistery_ganada,
+        'otros_tipos': ['ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
     })
 
 
@@ -531,27 +604,38 @@ def incentives_dashboard_operaciones(request):
             pm_diesel = float(ppto_principal.diesel or 0)
             pm_total  = float(ppto_principal.total or 0)
 
-        # Presupuesto del periodo: suma proporcional de cada mes dentro del rango
-        ps_gas_f = ps_diesel_f = 0.0
-        for m in meses_en_rango:
-            ppto = presupuestos_por_mes.get(m['mes'], {}).get(team_key)
-            if ppto and m['dias_mes'] > 0:
-                m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
-                m_diesel = float(ppto.diesel or 0)
-                ps_gas_f    += (m_gas    / m['dias_mes']) * m['dias_en_rango']
-                ps_diesel_f += (m_diesel / m['dias_mes']) * m['dias_en_rango']
-
-        ps_gas    = round(ps_gas_f)
-        ps_diesel = round(ps_diesel_f)
-        ps_total  = ps_gas + ps_diesel
+        # Presupuesto del periodo: override semanal tiene prioridad
+        semana_ini_lunes = fecha_ini - timedelta(days=fecha_ini.weekday())
+        override_sem = PresupuestoVentaSemanal.objects.filter(
+            team_key=team_key, semana=semana_ini_lunes,
+        ).first()
+        if override_sem:
+            ps_gas    = round(float(override_sem.gas))
+            ps_diesel = round(float(override_sem.diesel))
+            ps_total  = ps_gas + ps_diesel
+            tiene_override = True
+        else:
+            ps_gas_f = ps_diesel_f = 0.0
+            for m in meses_en_rango:
+                ppto = presupuestos_por_mes.get(m['mes'], {}).get(team_key)
+                if ppto and m['dias_mes'] > 0:
+                    m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
+                    m_diesel = float(ppto.diesel or 0)
+                    ps_gas_f    += (m_gas    / m['dias_mes']) * m['dias_en_rango']
+                    ps_diesel_f += (m_diesel / m['dias_mes']) * m['dias_en_rango']
+            ps_gas    = round(ps_gas_f)
+            ps_diesel = round(ps_diesel_f)
+            ps_total  = ps_gas + ps_diesel
+            tiene_override = False
 
         _, excel_no = excel_no_and_pos(team_key)
         row = {
-            'team_key':  team_key,
-            'codigo':    excel_no,
-            'nombre':    STATION_TEAMS.get(team_key, team_key),
-            'pm_gas':    pm_gas,    'pm_diesel': pm_diesel, 'pm_total': pm_total,
-            'ps_gas':    ps_gas,    'ps_diesel': ps_diesel, 'ps_total': ps_total,
+            'team_key':      team_key,
+            'codigo':        excel_no,
+            'nombre':        STATION_TEAMS.get(team_key, team_key),
+            'pm_gas':        pm_gas,    'pm_diesel': pm_diesel, 'pm_total': pm_total,
+            'ps_gas':        ps_gas,    'ps_diesel': ps_diesel, 'ps_total': ps_total,
+            'tiene_override': tiene_override,
         }
         rows.append(row)
         for k in totales_ppto:
@@ -571,6 +655,7 @@ def incentives_dashboard_operaciones(request):
         'meses_con_ppto_json': meses_con_ppto_json,
         'rows':               rows,
         'totales_ppto':       totales_ppto,
+        'semana_override':    (fecha_ini - timedelta(days=fecha_ini.weekday())).isoformat(),
     })
 
 
@@ -622,7 +707,22 @@ def ventas_sg12_json(request):
         except Exception as e:
             return JsonResponse({'ok': False, 'error': str(e)})
 
-    return JsonResponse({'ok': True, 'ventas': ventas})
+    # Complementar con datos de Google Sheets para Praxedis y Colosio
+    sheets_cache_key = f"ventas_sheets_v1_{semana_ini}"
+    sheets_ventas = cache.get(sheets_cache_key)
+    sheets_error = None
+    if sheets_ventas is None:
+        sheets_ventas, sheets_error = leer_ventas_praxedis_colosio(semana_ini)
+        if not sheets_error:
+            cache.set(sheets_cache_key, sheets_ventas, timeout=3600)
+    for tk, sv in sheets_ventas.items():
+        ventas[tk] = {'gas': sv['gas'], 'diesel': sv['diesel'], 'total': sv['total']}
+
+    return JsonResponse({
+        'ok': True,
+        'ventas': ventas,
+        'sheets_error': sheets_error,
+    })
 
 @login_required
 @require_POST
@@ -704,6 +804,47 @@ def parsear_excel_ventas(request):
 
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def presupuesto_mes_json(request):
+    """Devuelve los datos de presupuesto ya guardados para un mes dado (YYYY-MM)."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    mes_str = request.GET.get('mes', '')  # 'YYYY-MM'
+    if not mes_str:
+        return JsonResponse({'ok': False, 'error': 'Falta el parámetro mes'}, status=400)
+
+    try:
+        from datetime import date
+        y, m = mes_str.split('-')
+        mes_date = date(int(y), int(m), 1)
+    except (ValueError, AttributeError):
+        return JsonResponse({'ok': False, 'error': 'Formato de mes inválido'}, status=400)
+
+    registros = PresupuestoVenta.objects.filter(mes=mes_date).order_by('team_key')
+    filas = []
+    for r in registros:
+        nombre_sistema = STATION_TEAMS.get(r.team_key, r.team_key)
+        filas.append({
+            'codigo':         r.team_key,
+            'nombre_excel':   nombre_sistema,
+            'nombre_sistema': nombre_sistema,
+            'team_key':       r.team_key,
+            'maxima':         float(r.maxima or 0),
+            'super':          float(r.gasolina_super or 0),
+            'diesel':         float(r.diesel or 0),
+            'total':          float(r.total or 0),
+            'match':          True,
+        })
+
+    return JsonResponse({
+        'ok':           True,
+        'filas':        filas,
+        'coincidencias': len(filas),
+        'sin_match':    0,
+    })
 
 
 @login_required
@@ -889,7 +1030,7 @@ def semana_data(request):
     registros = IncentivoRegistro.objects.filter(
         employee_id=emp_id,
         fecha__range=(semana_date, semana_end),
-    ).values('tipo', 'fecha')
+    ).values('tipo', 'fecha', 'monto')
 
     comentarios = {
         c['tipo']: c['comentario']
@@ -902,7 +1043,11 @@ def semana_data(request):
     return JsonResponse({
         'ok': True,
         'registros': [
-            {'tipo': r['tipo'], 'fecha': r['fecha'].isoformat()}
+            {
+                'tipo': r['tipo'],
+                'fecha': r['fecha'].isoformat(),
+                'monto': int(r['monto']) if r['monto'] is not None else None,
+            }
             for r in registros
         ],
         'comentarios': comentarios,
@@ -1000,7 +1145,38 @@ def guardar_comentario(request):
     return JsonResponse({'ok': True})
 
 
-@login_required
+def _calcular_monto_venta(team_key, seniority_raw):
+    """Devuelve el monto del bono de Venta para un empleado, o None si no aplica.
+
+    Reglas:
+    - seniority_raw >= 08/07/2026 → None (no aplica)
+    - Estación Bajío → $240
+    - Resto, antigüedad ≤ 2019 → $230
+    - Resto, antigüedad ≥ 2020 → $200
+    """
+    from datetime import datetime, date as _date
+    from apps.incentives.constants import BAJIO_TEAM_KEYS
+
+    CUTOFF = _date(2026, 7, 8)
+    seniority_date = None
+    if seniority_raw:
+        try:
+            seniority_date = datetime.strptime(seniority_raw.strip(), "%d/%m/%Y").date()
+        except ValueError:
+            pass
+
+    if seniority_date is not None and seniority_date >= CUTOFF:
+        return None
+
+    if team_key in BAJIO_TEAM_KEYS:
+        return 240
+
+    if seniority_date is not None and seniority_date.year <= 2019:
+        return 230
+
+    return 200
+
+
 def sync_venta_semana(request):
     """Sincroniza el bono de Venta según el estado verde/rojo de los Indicadores Operativos.
 
@@ -1035,10 +1211,10 @@ def sync_venta_semana(request):
         return JsonResponse({'ok': True, 'cerrada': True, 'estaciones': {}})
 
     # Team keys según rol
-    if rol == 'gerente':
+    if rol in ('gerente', 'user'):
         try:
-            gerente_emp = Employee.objects.get(user=request.user)
-            tk = (gerente_emp.team or '').strip()
+            emp = Employee.objects.get(user=request.user)
+            tk = (emp.team or '').strip()
             team_keys = [tk] if tk in STATION_TEAMS else []
         except Employee.DoesNotExist:
             return JsonResponse({'ok': True, 'estaciones': {}})
@@ -1078,6 +1254,14 @@ def sync_venta_semana(request):
         except Exception as e:
             return JsonResponse({'ok': False, 'error': str(e)})
 
+    # Ventas Google Sheets para Praxedis y Colosio
+    sheets_cache_key = f"ventas_sheets_v1_{week_start}"
+    sheets_ventas = cache.get(sheets_cache_key)
+    if sheets_ventas is None:
+        sheets_ventas, _ = leer_ventas_praxedis_colosio(week_start)
+        if sheets_ventas:
+            cache.set(sheets_cache_key, sheets_ventas, timeout=3600)
+
     # Meses involucrados en la semana (para calcular presupuesto proporcional)
     def _meses_en_rango(ini, fin):
         meses = []
@@ -1094,14 +1278,94 @@ def sync_venta_semana(request):
     resultado = {}
 
     for team_key in team_keys:
-        # Presupuesto proporcional a los días de la semana en cada mes
-        ps_total = 0.0
-        for m in meses:
-            ppto = PresupuestoVenta.objects.filter(team_key=team_key, mes=m['mes']).first()
-            if ppto and m['dias_mes'] > 0:
-                m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
-                m_diesel = float(ppto.diesel or 0)
-                ps_total += ((m_gas + m_diesel) / m['dias_mes']) * m['dias_en_rango']
+
+        # ── Praxedis y Colosio: presupuesto y venta desde Google Sheets ──────
+        if team_key in SHEETS_TEAM_KEYS:
+            override = PresupuestoVentaSemanal.objects.filter(team_key=team_key, semana=week_start).first()
+            if override:
+                sv = sheets_ventas.get(team_key) if sheets_ventas else None
+                vs_total = sv['total'] if sv else 0
+                ps_total_ov = float(override.total)
+                if ps_total_ov == 0:
+                    resultado[team_key] = {'verde': None, 'sin_presupuesto': True, 'fuente': 'override'}
+                    continue
+                verde = vs_total >= ps_total_ov
+                resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override'}
+                empleados = list(Employee.objects.filter(is_active=True, team=team_key).values('id', 'seniority_raw'))
+                if empleados:
+                    if verde:
+                        for emp in empleados:
+                            monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                            if monto is None:
+                                IncentivoRegistro.objects.filter(employee_id=emp['id'], tipo='Venta', fecha=week_start).delete()
+                                continue
+                            obj, created = IncentivoRegistro.objects.get_or_create(
+                                employee_id=emp['id'], tipo='Venta', fecha=week_start,
+                                defaults={'registrado_por': request.user, 'monto': monto},
+                            )
+                            if not created and obj.monto != monto:
+                                obj.monto = monto
+                                obj.save(update_fields=['monto'])
+                    else:
+                        IncentivoRegistro.objects.filter(
+                            employee_id__in=[e['id'] for e in empleados],
+                            tipo='Venta', fecha=week_start,
+                        ).delete()
+                continue
+
+            sv = sheets_ventas.get(team_key) if sheets_ventas else None
+            if not sv:
+                resultado[team_key] = {'verde': None, 'sin_datos': True, 'fuente': 'sheets'}
+                continue
+            vs_total  = sv['total']
+            ps_total  = sv['ppto_total']
+            if ps_total == 0:
+                resultado[team_key] = {'verde': None, 'sin_presupuesto': True, 'fuente': 'sheets'}
+                continue
+            verde = vs_total >= ps_total
+            resultado[team_key] = {
+                'verde': verde, 'vs': vs_total, 'ps': ps_total, 'fuente': 'sheets',
+            }
+            empleados = list(
+                Employee.objects
+                .filter(is_active=True, team=team_key)
+                .values('id', 'seniority_raw')
+            )
+            if empleados:
+                if verde:
+                    for emp in empleados:
+                        monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                        if monto is None:
+                            IncentivoRegistro.objects.filter(
+                                employee_id=emp['id'], tipo='Venta', fecha=week_start,
+                            ).delete()
+                            continue
+                        obj, created = IncentivoRegistro.objects.get_or_create(
+                            employee_id=emp['id'], tipo='Venta', fecha=week_start,
+                            defaults={'registrado_por': request.user, 'monto': monto},
+                        )
+                        if not created and obj.monto != monto:
+                            obj.monto = monto
+                            obj.save(update_fields=['monto'])
+                else:
+                    IncentivoRegistro.objects.filter(
+                        employee_id__in=[e['id'] for e in empleados],
+                        tipo='Venta', fecha=week_start,
+                    ).delete()
+            continue
+
+        # ── Resto de estaciones: override semanal tiene prioridad sobre proporcional mensual ──
+        override = PresupuestoVentaSemanal.objects.filter(team_key=team_key, semana=week_start).first()
+        if override:
+            ps_total = float(override.total)
+        else:
+            ps_total = 0.0
+            for m in meses:
+                ppto = PresupuestoVenta.objects.filter(team_key=team_key, mes=m['mes']).first()
+                if ppto and m['dias_mes'] > 0:
+                    m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
+                    m_diesel = float(ppto.diesel or 0)
+                    ps_total += ((m_gas + m_diesel) / m['dias_mes']) * m['dias_en_rango']
 
         if ps_total == 0:
             resultado[team_key] = {'verde': None, 'sin_presupuesto': True}
@@ -1116,28 +1380,187 @@ def sync_venta_semana(request):
         verde = vs_total >= round(ps_total)
         resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': round(ps_total)}
 
-        # Sincronizar registros Venta en BD
-        empleados_ids = list(
+        empleados = list(
             Employee.objects
             .filter(is_active=True, team=team_key)
-            .values_list('id', flat=True)
+            .values('id', 'seniority_raw')
         )
-        if not empleados_ids:
+        if not empleados:
             continue
 
         if verde:
-            for emp_id in empleados_ids:
-                IncentivoRegistro.objects.get_or_create(
-                    employee_id=emp_id,
+            for emp in empleados:
+                monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                if monto is None:
+                    IncentivoRegistro.objects.filter(
+                        employee_id=emp['id'],
+                        tipo='Venta',
+                        fecha=week_start,
+                    ).delete()
+                    continue
+                obj, created = IncentivoRegistro.objects.get_or_create(
+                    employee_id=emp['id'],
                     tipo='Venta',
                     fecha=week_start,
-                    defaults={'registrado_por': request.user},
+                    defaults={'registrado_por': request.user, 'monto': monto},
                 )
+                if not created and obj.monto != monto:
+                    obj.monto = monto
+                    obj.save(update_fields=['monto'])
         else:
             IncentivoRegistro.objects.filter(
-                employee_id__in=empleados_ids,
+                employee_id__in=[e['id'] for e in empleados],
                 tipo='Venta',
                 fecha=week_start,
             ).delete()
 
     return JsonResponse({'ok': True, 'estaciones': resultado})
+
+
+@login_required
+def sync_mistery_semana(request):
+    """Sincroniza el incentivo Mistery leyendo TGV2.dbo.AuditoriaMystery.
+
+    Para la semana indicada (week_start=lunes):
+      - date_mistery en TGV2 = domingo de esa semana (week_start + 6 días)
+      - qualification >= 100 → crea IncentivoRegistro tipo='Mistery' para todos
+        los empleados activos de esa estación (fecha=week_start).
+      - qualification <  100 → elimina esos registros si existían.
+    Estaciones sin dato en TGV2 no se tocan.
+    """
+    from datetime import date, timedelta
+    from django.db import connections
+    from apps.incentives.constants import SG12_COD_TO_TEAM_KEY
+
+    rol = _get_rol_incentivos(request.user)
+    if not rol:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    semana_str = request.GET.get('semana')
+    if not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+    try:
+        week_start = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    if SemanaCerrada.objects.filter(week_start=week_start).exists():
+        return JsonResponse({'ok': True, 'cerrada': True, 'estaciones': {}})
+
+    # date_mistery en TGV2 es el domingo de la semana ISO
+    date_mistery = week_start + timedelta(days=6)
+
+    # Leer calificaciones desde TGV2
+    try:
+        with connections['default'].cursor() as cursor:
+            cursor.execute(
+                "SELECT codgas, qualification FROM TGV2.dbo.AuditoriaMystery WHERE date_mistery = %s",
+                [date_mistery.isoformat()],
+            )
+            rows = cursor.fetchall()
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+    resultado = {}
+
+    for codgas, qualification in rows:
+        team_key = SG12_COD_TO_TEAM_KEY.get(codgas)
+        if not team_key:
+            continue
+
+        try:
+            cal = float(qualification)
+        except (TypeError, ValueError):
+            continue
+
+        ganador = cal >= 100
+        resultado[team_key] = {'qualification': cal, 'ganador': ganador}
+
+        empleados = list(
+            Employee.objects.filter(is_active=True, team=team_key).values_list('id', flat=True)
+        )
+        if not empleados:
+            continue
+
+        if ganador:
+            for emp_id in empleados:
+                IncentivoRegistro.objects.get_or_create(
+                    employee_id=emp_id,
+                    tipo='Mistery',
+                    fecha=week_start,
+                    defaults={'registrado_por': request.user},
+                )
+        else:
+            IncentivoRegistro.objects.filter(
+                employee_id__in=empleados,
+                tipo='Mistery',
+                fecha=week_start,
+            ).delete()
+
+    return JsonResponse({'ok': True, 'estaciones': resultado})
+
+
+@login_required
+def presupuesto_semana_json(request):
+    """Devuelve el override semanal de presupuesto para una estación y semana."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    from datetime import date
+    tk = request.GET.get('tk', '').strip()
+    semana_str = request.GET.get('semana', '')
+    if not tk or not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Faltan parámetros'}, status=400)
+    try:
+        semana = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    override = PresupuestoVentaSemanal.objects.filter(team_key=tk, semana=semana).first()
+    return JsonResponse({
+        'ok': True,
+        'override': {
+            'gas':    float(override.gas),
+            'diesel': float(override.diesel),
+            'total':  float(override.total),
+        } if override else None,
+    })
+
+
+@login_required
+@require_POST
+def guardar_presupuesto_semana(request):
+    """Guarda o elimina el override semanal de presupuesto para una estación."""
+    if _get_rol_incentivos(request.user) != 'operaciones':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    from datetime import date
+    from decimal import Decimal
+    try:
+        data = json.loads(request.body)
+        team_key  = data['team_key'].strip()
+        semana_str = data['semana']
+        gas    = float(data.get('gas', 0) or 0)
+        diesel = float(data.get('diesel', 0) or 0)
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    try:
+        semana = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    if gas == 0 and diesel == 0:
+        deleted, _ = PresupuestoVentaSemanal.objects.filter(team_key=team_key, semana=semana).delete()
+        return JsonResponse({'ok': True, 'accion': 'eliminado' if deleted else 'sin_cambio'})
+
+    PresupuestoVentaSemanal.objects.update_or_create(
+        team_key=team_key,
+        semana=semana,
+        defaults={
+            'gas':        Decimal(str(gas)),
+            'diesel':     Decimal(str(diesel)),
+            'subido_por': request.user,
+        },
+    )
+    return JsonResponse({'ok': True, 'accion': 'guardado'})

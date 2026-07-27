@@ -101,11 +101,28 @@
             <td colspan="7" class="text-center py-2">
               {% if venta_ganada %}
               <span style="display:inline-block;background:#d1fae5;color:#065f46;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">
-                <i class="fas fa-check-circle me-1"></i>Bono ganado
+                <i class="fas fa-check-circle me-1"></i>Bono ganado{% if venta_monto %} — ${{ venta_monto }}{% endif %}
               </span>
               {% else %}
               <span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">
                 <i class="fas fa-times-circle me-1"></i>Sin bono esta semana
+              </span>
+              {% endif %}
+            </td>
+            <td class="text-center">—</td>
+            <td class="text-center">{% if venta_ganada and venta_monto %}${{ venta_monto }}{% else %}—{% endif %}</td>
+          </tr>
+          {# ── Mistery ── #}
+          <tr>
+            <td class="fw-semibold">Mistery</td>
+            <td colspan="7" class="text-center py-2">
+              {% if mistery_ganada %}
+              <span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">
+                <i class="fas fa-star me-1"></i>Ganó Mistery esta semana
+              </span>
+              {% else %}
+              <span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">
+                <i class="fas fa-times-circle me-1"></i>Sin Mistery esta semana
               </span>
               {% endif %}
             </td>
@@ -147,5 +164,8 @@
 
 {% endblock %}
 {% block scripts %}
+  <script>
+    var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
+  </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

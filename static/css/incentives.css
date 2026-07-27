@@ -94,8 +94,10 @@
 /* Zona — tabla de empleados dentro de la estación */
 .zona-emp-table th { font-size: 12px; }
 .zona-emp-row:hover { background: #f0f5ff; }
-.zona-emp-row.zona-expanded { background: #e8f0fe; }
-.zona-emp-row.zona-expanded .zona-emp-toggle { transform: rotate(90deg); }
+.zona-emp-row.zona-expanded { background: #1e40af !important; color: #fff; }
+.zona-emp-row.zona-expanded td { color: #fff !important; font-weight: 600; }
+.zona-emp-row.zona-expanded .zona-emp-toggle { transform: rotate(90deg); color: #fff !important; }
+.zona-emp-row.zona-expanded .badge { border: 1px solid rgba(255,255,255,.4); }
 
 /* Zona — detalle semanal del empleado */
 .zona-emp-detail-row td { padding: 0 !important; }

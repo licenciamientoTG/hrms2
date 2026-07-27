@@ -144,6 +144,17 @@
             <td>—</td>
             <td class="text-center text-muted">—</td>
           </tr>
+          {% elif tipo == "Mistery" %}
+          <tr>
+            <td class="fw-semibold">Mistery</td>
+            <td colspan="7" class="text-center py-2" id="mistery-status-cell">
+              <span class="text-muted" style="font-size:12px;">
+                <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…
+              </span>
+            </td>
+            <td>—</td>
+            <td class="text-center text-muted">—</td>
+          </tr>
           {% else %}
           <tr class="text-muted">
             <td class="fw-semibold">{{ tipo }}</td>

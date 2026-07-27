@@ -342,6 +342,153 @@ def terms_audit_view(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser or u.has_perm('users.auditoria_terminos'))
+def terms_audit_export_view(request):
+    from django.http import HttpResponse
+
+    tema = request.GET.get('tema', 'aviso')  # aviso | checador | contrasena
+    q = (request.GET.get('q') or '').strip()
+    f_aviso = request.GET.get('aviso', '')
+    f_checador = request.GET.get('checador', '')
+    f_contrasena = request.GET.get('contrasena', '')
+
+    User = get_user_model()
+    users_qs = User.objects.select_related(
+        'userprofile', 'employee__department', 'employee__job_position'
+    ).order_by('username')
+
+    if q:
+        users_qs = users_qs.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(employee__employee_number__icontains=q)
+        )
+
+    if f_aviso == 'aceptado':
+        users_qs = users_qs.filter(userprofile__accepted_terms=True)
+    elif f_aviso == 'pendiente':
+        users_qs = users_qs.filter(userprofile__accepted_terms=False)
+
+    if f_checador == 'aceptado':
+        users_qs = users_qs.filter(
+            employee__job_position__title__in=PUESTOS_CHECADOR,
+            userprofile__accepted_checador_policy=True
+        )
+    elif f_checador == 'pendiente':
+        users_qs = users_qs.filter(
+            employee__job_position__title__in=PUESTOS_CHECADOR,
+            userprofile__accepted_checador_policy=False
+        )
+    elif f_checador == 'na':
+        users_qs = users_qs.exclude(
+            employee__job_position__title__in=PUESTOS_CHECADOR
+        )
+
+    if f_contrasena == 'si':
+        users_qs = users_qs.filter(userprofile__must_change_password=True)
+    elif f_contrasena == 'no':
+        users_qs = users_qs.filter(userprofile__must_change_password=False)
+
+    TEMAS = {
+        'aviso': 'Aviso_Legal',
+        'checador': 'Comunicado_Checadores',
+        'contrasena': 'Pendiente_Contrasena',
+        'todo': 'Auditoria_Aviso_Legal_Completa',
+    }
+    nombre_archivo = TEMAS.get(tema, 'Auditoria')
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}.csv"'
+    response.write('\ufeff')  # BOM para Excel
+
+    writer = csv.writer(response)
+
+    if tema == 'aviso':
+        writer.writerow(['No. Empleado', 'Colaborador', 'Usuario', 'Departamento', 'Puesto', 'Aviso Legal'])
+        for u in users_qs:
+            try:
+                emp_num = u.employee.employee_number
+                depto = u.employee.department.name if u.employee.department else ''
+                puesto = u.employee.job_position.title if u.employee.job_position else ''
+            except Exception:
+                emp_num = depto = puesto = ''
+            estatus = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+            writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto, estatus])
+
+    elif tema == 'checador':
+        writer.writerow(['No. Empleado', 'Colaborador', 'Usuario', 'Departamento', 'Puesto', 'Comunicado Checadores', 'Fecha Firma'])
+        for u in users_qs:
+            try:
+                emp_num = u.employee.employee_number
+                depto = u.employee.department.name if u.employee.department else ''
+                puesto = u.employee.job_position.title if u.employee.job_position else ''
+                requiere = puesto in PUESTOS_CHECADOR
+            except Exception:
+                emp_num = depto = puesto = ''
+                requiere = False
+
+            if requiere:
+                estatus = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
+                try:
+                    fecha = u.userprofile.accepted_checador_policy_at.strftime('%d/%m/%Y %H:%M') if u.userprofile.accepted_checador_policy_at else ''
+                except Exception:
+                    fecha = ''
+            else:
+                estatus = 'N/A'
+                fecha = ''
+            writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto, estatus, fecha])
+
+    elif tema == 'contrasena':
+        writer.writerow(['No. Empleado', 'Colaborador', 'Usuario', 'Departamento', 'Puesto', 'Pendiente de Contraseña'])
+        for u in users_qs:
+            try:
+                emp_num = u.employee.employee_number
+                depto = u.employee.department.name if u.employee.department else ''
+                puesto = u.employee.job_position.title if u.employee.job_position else ''
+            except Exception:
+                emp_num = depto = puesto = ''
+            estatus = 'SÍ' if u.userprofile.must_change_password else 'NO'
+            writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto, estatus])
+
+    elif tema == 'todo':
+        writer.writerow([
+            'No. Empleado', 'Colaborador', 'Usuario', 'Departamento', 'Puesto',
+            'Aviso Legal',
+            'Comunicado Checadores', 'Fecha Firma Checadores',
+            'Pendiente de Contraseña',
+        ])
+        for u in users_qs:
+            try:
+                emp_num = u.employee.employee_number
+                depto = u.employee.department.name if u.employee.department else ''
+                puesto = u.employee.job_position.title if u.employee.job_position else ''
+                requiere = puesto in PUESTOS_CHECADOR
+            except Exception:
+                emp_num = depto = puesto = ''
+                requiere = False
+
+            aviso_est = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+
+            if requiere:
+                checador_est = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
+                try:
+                    fecha_firma = u.userprofile.accepted_checador_policy_at.strftime('%d/%m/%Y %H:%M') if u.userprofile.accepted_checador_policy_at else ''
+                except Exception:
+                    fecha_firma = ''
+            else:
+                checador_est = 'N/A'
+                fecha_firma = ''
+
+            pass_est = 'SÍ' if u.userprofile.must_change_password else 'NO'
+
+            writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto,
+                             aviso_est, checador_est, fecha_firma, pass_est])
+
+    return response
+
+
+@login_required
 @user_passes_test(lambda u: u.username.upper() in ('SUPERUSER', 'JOSE'))
 def user_inconsistencias_view(request):
     # Empleados activos con username != employee_number (tienen sufijo)
