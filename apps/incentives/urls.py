@@ -17,8 +17,11 @@ from .views import (
     ventas_sg12_json,
     sync_venta_semana,
     sync_mistery_semana,
+    mistery_evaluado_json,
+    marcar_evaluado_mistery,
     presupuesto_semana_json,
     guardar_presupuesto_semana,
+    configuracion_incentivos,
 )
 
 urlpatterns = [
@@ -38,7 +41,10 @@ urlpatterns = [
     path('ventas-sg12/', ventas_sg12_json, name='ventas_sg12_json'),
     path('sync-venta/', sync_venta_semana, name='sync_venta_semana'),
     path('sync-mistery/', sync_mistery_semana, name='sync_mistery_semana'),
+    path('mistery-evaluado/', mistery_evaluado_json, name='mistery_evaluado_json'),
+    path('marcar-evaluado-mistery/', marcar_evaluado_mistery, name='marcar_evaluado_mistery'),
     path('presupuesto-mes/', presupuesto_mes_json, name='presupuesto_mes_json'),
     path('presupuesto-semana/', presupuesto_semana_json, name='presupuesto_semana_json'),
     path('guardar-presupuesto-semana/', guardar_presupuesto_semana, name='guardar_presupuesto_semana'),
+    path('configuracion/', configuracion_incentivos, name='configuracion_incentivos'),
 ]

@@ -118,7 +118,7 @@
             <td colspan="7" class="text-center py-2">
               {% if mistery_ganada %}
               <span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">
-                <i class="fas fa-star me-1"></i>Ganó Mistery esta semana
+                <i class="fas fa-star me-1"></i>Ganó Mistery esta semana{% if mistery_monto %} — ${{ mistery_monto }}{% endif %}
               </span>
               {% else %}
               <span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">
@@ -127,7 +127,9 @@
               {% endif %}
             </td>
             <td class="text-center">—</td>
-            <td class="text-center">—</td>
+            <td class="text-center fw-semibold {% if mistery_monto %}text-success{% else %}text-muted{% endif %}">
+              {% if mistery_monto %}${{ mistery_monto }}{% else %}—{% endif %}
+            </td>
           </tr>
           {# ── Otros tipos ── #}
           {% for tipo in otros_tipos %}

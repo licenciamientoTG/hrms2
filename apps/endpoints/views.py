@@ -298,9 +298,15 @@ def recibir_datos1(request):
         start_date = _as_date(data.get('FechaIngreso'))
         termination_date = _as_date(data.get('FechaBaja'))
 
-        employee_number = _safe_str(data.get('Numero'), '0')
+        employee_number = _safe_str(data.get('Numero'))
         incoming_is_active = _as_bool(data.get('Activo'))
         archivo_origen = _safe_str(data.get('archivo_origen'))
+
+        if not employee_number or employee_number == '0':
+            return JsonResponse({
+                'success': False,
+                'mensaje': f"Registro rechazado: número de empleado inválido ('{employee_number}'). Nombre: {nombre_completo}"
+            }, status=400)
 
         seniority_raw = _safe_str(data.get('Antiguedad'))
 

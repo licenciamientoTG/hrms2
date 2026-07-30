@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
@@ -79,9 +79,12 @@ def _get_rol_incentivos(user):
     if user.is_superuser or user.is_staff:
         return 'admin'
     try:
-        emp = Employee.objects.select_related('job_position').get(user=user)
+        emp = Employee.objects.select_related('job_position', 'department').get(user=user)
         titulo = (emp.job_position.title if emp.job_position else '')
         titulo_lower = titulo.lower()
+        dept_nombre = (emp.department.name if emp.department else '').lower()
+        if 'supervisor de nóminas' in titulo_lower or 'supervisor de nominas' in titulo_lower or 'nomina' in dept_nombre:
+            return 'admin'
         if 'jefe de zona' in titulo_lower:
             return 'zona'
         if 'gerente de estaci' in titulo_lower or 'subgerente de estaci' in titulo_lower:
@@ -103,11 +106,14 @@ def incentives_dashboard(request):
     es_gerente = False
     es_jefe_zona = False
     es_gerente_ops = False
+    es_nominas = False
 
     try:
-        emp = Employee.objects.select_related('job_position').get(user=request.user)
+        emp = Employee.objects.select_related('job_position', 'department').get(user=request.user)
         titulo = emp.job_position.title if emp.job_position else ''
         titulo_lower = titulo.lower()
+        dept_nombre = (emp.department.name if emp.department else '').lower()
+        es_nominas = 'supervisor de nóminas' in titulo_lower or 'supervisor de nominas' in titulo_lower or 'nomina' in dept_nombre
         es_gerente = 'gerente de estaci' in titulo_lower or 'subgerente de estaci' in titulo_lower
         es_jefe_zona = 'jefe de zona' in titulo_lower
         es_gerente_ops = (
@@ -118,8 +124,10 @@ def incentives_dashboard(request):
         pass
 
     # Otorgar permiso automáticamente a roles que lo justifican por puesto
-    if es_gerente or es_jefe_zona or es_gerente_ops:
+    if es_nominas or es_gerente or es_jefe_zona or es_gerente_ops:
         _otorgar_permiso_incentivos(request.user)
+        if es_nominas:
+            return redirect('incentives_dashboard_admin')
         if es_gerente:
             return redirect('incentives_dashboard_manager')
         if es_jefe_zona:
@@ -135,7 +143,7 @@ def incentives_dashboard(request):
 
 @login_required
 def incentives_dashboard_admin(request):
-    if not (request.user.is_superuser or request.user.is_staff):
+    if _get_rol_incentivos(request.user) != 'admin':
         return redirect('incentives_dashboard')
     from datetime import date, timedelta
     from django.db.models import Count
@@ -227,12 +235,13 @@ def incentives_dashboard_admin(request):
         .values('employee_id', 'tipo')
         .annotate(count=Count('id'))
     )
+    cfg = ConfiguracionIncentivos.get()
     presupuesto_global = 0
     for r in registros_semana:
         if r['tipo'] == 'Diesel':
-            presupuesto_global += r['count'] * 50
+            presupuesto_global += r['count'] * cfg.diesel_por_dia
         elif r['tipo'] == 'Encargado':
-            presupuesto_global += 200 + (r['count'] - 1) * 100 if r['count'] > 0 else 0
+            presupuesto_global += cfg.encargado_primer_dia + (r['count'] - 1) * cfg.encargado_incremento if r['count'] > 0 else 0
 
     estaciones_con_captura = sum(
         1 for item in dept_data
@@ -252,6 +261,7 @@ def incentives_dashboard_admin(request):
         'presupuesto_global': presupuesto_global,
         'estaciones_con_captura': estaciones_con_captura,
         'total_estaciones': total_estaciones,
+        'cfg': cfg,
     })
 
 
@@ -365,6 +375,7 @@ def incentives_dashboard_zona(request):
         'days': days,
         'tipos': json.dumps(TIPOS),
         'periodo_cerrado': periodo_cerrado,
+        'cfg': ConfiguracionIncentivos.get(),
     })
 
 
@@ -414,6 +425,7 @@ def incentives_dashboard_manager(request):
         'colaboradores': colaboradores,
         'tipos': TIPOS,
         'periodo_cerrado': periodo_cerrado,
+        'cfg': ConfiguracionIncentivos.get(),
     })
 
 
@@ -460,11 +472,13 @@ def incentives_dashboard_user(request):
         ).values('monto').first()
         venta_ganada = venta_registro is not None
         venta_monto = int(venta_registro['monto']) if venta_registro and venta_registro['monto'] else None
-        mistery_ganada = IncentivoRegistro.objects.filter(
+        mistery_reg = IncentivoRegistro.objects.filter(
             employee=emp,
             tipo='Mistery',
             fecha__range=(week_start, week_end),
-        ).exists()
+        ).values('monto').first()
+        mistery_ganada = mistery_reg is not None
+        mistery_monto = int(mistery_reg['monto']) if mistery_reg and mistery_reg['monto'] else 0
     except Employee.DoesNotExist:
         diesel_fechas = set()
         diesel_dias = 0
@@ -473,10 +487,12 @@ def incentives_dashboard_user(request):
         venta_ganada = False
         venta_monto = None
         mistery_ganada = False
+        mistery_monto = 0
 
-    diesel_total = diesel_dias * 50
-    encargado_total = (200 + (encargado_dias - 1) * 100) if encargado_dias > 0 else 0
-    gran_total = diesel_total + encargado_total + (venta_monto or 0)
+    cfg = ConfiguracionIncentivos.get()
+    diesel_total = diesel_dias * cfg.diesel_por_dia
+    encargado_total = (cfg.encargado_primer_dia + (encargado_dias - 1) * cfg.encargado_incremento) if encargado_dias > 0 else 0
+    gran_total = diesel_total + encargado_total + (venta_monto or 0) + mistery_monto
 
     return render(request, 'incentives/user/incentives_dashboard_user.html', {
         'week_start': week_start,
@@ -494,6 +510,7 @@ def incentives_dashboard_user(request):
         'venta_ganada': venta_ganada,
         'venta_monto': venta_monto,
         'mistery_ganada': mistery_ganada,
+        'mistery_monto': mistery_monto,
         'otros_tipos': ['ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros'],
     })
 
@@ -927,14 +944,15 @@ def _resumen_semana(week_start):
         .annotate(count=Count('id'))
     )
 
+    cfg = ConfiguracionIncentivos.get()
     presupuesto_global = 0
     emp_counts = defaultdict(int)
     for r in registros:
         emp_counts[r['employee_id']] += r['count']
         if r['tipo'] == 'Diesel':
-            presupuesto_global += r['count'] * 50
+            presupuesto_global += r['count'] * cfg.diesel_por_dia
         elif r['tipo'] == 'Encargado':
-            presupuesto_global += (200 + (r['count'] - 1) * 100) if r['count'] > 0 else 0
+            presupuesto_global += (cfg.encargado_primer_dia + (r['count'] - 1) * cfg.encargado_incremento) if r['count'] > 0 else 0
 
     team_emp_map = defaultdict(list)
     for emp in employees:
@@ -982,29 +1000,33 @@ def toggle_incentivo(request):
         existente.delete()
         return JsonResponse({'ok': True, 'estado': 'eliminado'})
 
-    # Límite de 6 días por semana para Diesel
+    cfg = ConfiguracionIncentivos.get()
+
+    # Límite de días por semana para Diesel
     if tipo == 'Diesel':
         dias_semana = IncentivoRegistro.objects.filter(
             employee=emp,
             tipo='Diesel',
             fecha__range=(week_start, week_start + timedelta(days=6)),
         ).count()
-        if dias_semana >= 6:
+        diesel_max = cfg.diesel_por_dia * cfg.diesel_max_dias
+        if dias_semana >= cfg.diesel_max_dias:
             return JsonResponse(
-                {'ok': False, 'error': 'Máximo 6 días de Diesel por semana ($300)', 'max_diesel': True},
+                {'ok': False, 'error': f'Máximo {cfg.diesel_max_dias} días de Diesel por semana (${diesel_max})', 'max_diesel': True},
                 status=400,
             )
 
-    # Límite de 6 palomitas por semana para Encargado (la 7ma no aplica)
+    # Límite de días por semana para Encargado
     if tipo == 'Encargado':
         dias_semana = IncentivoRegistro.objects.filter(
             employee=emp,
             tipo='Encargado',
             fecha__range=(week_start, week_start + timedelta(days=6)),
         ).count()
-        if dias_semana >= 6:
+        encargado_max = cfg.encargado_primer_dia + (cfg.encargado_max_dias - 1) * cfg.encargado_incremento
+        if dias_semana >= cfg.encargado_max_dias:
             return JsonResponse(
-                {'ok': False, 'error': 'Máximo 6 días de Encargado por semana ($700)', 'max_encargado': True},
+                {'ok': False, 'error': f'Máximo {cfg.encargado_max_dias} días de Encargado por semana (${encargado_max})', 'max_encargado': True},
                 status=400,
             )
 
@@ -1085,14 +1107,15 @@ def resumen_global(request):
         .annotate(count=Count('id'))
     )
 
+    cfg = ConfiguracionIncentivos.get()
     presupuesto_global = 0
     emp_counts = defaultdict(int)
     for r in registros:
         emp_counts[r['employee_id']] += r['count']
         if r['tipo'] == 'Diesel':
-            presupuesto_global += r['count'] * 50
+            presupuesto_global += r['count'] * cfg.diesel_por_dia
         elif r['tipo'] == 'Encargado':
-            presupuesto_global += (200 + (r['count'] - 1) * 100) if r['count'] > 0 else 0
+            presupuesto_global += (cfg.encargado_primer_dia + (r['count'] - 1) * cfg.encargado_incremento) if r['count'] > 0 else 0
 
     team_emp_map = defaultdict(list)
     for emp in employees:
@@ -1145,17 +1168,20 @@ def guardar_comentario(request):
     return JsonResponse({'ok': True})
 
 
-def _calcular_monto_venta(team_key, seniority_raw):
+def _calcular_monto_venta(team_key, seniority_raw, cfg=None):
     """Devuelve el monto del bono de Venta para un empleado, o None si no aplica.
 
-    Reglas:
-    - seniority_raw >= 08/07/2026 → None (no aplica)
-    - Estación Bajío → $240
-    - Resto, antigüedad ≤ 2019 → $230
-    - Resto, antigüedad ≥ 2020 → $200
+    Reglas (fechas fijas de negocio):
+    - seniority_raw >= 08/07/2026 → None (no aplica, fecha de corte fija)
+    - Estación Bajío → cfg.venta_monto_bajio
+    - Resto, antigüedad ≤ 2019 → cfg.venta_monto_antiguedad
+    - Resto, antigüedad ≥ 2020 → cfg.venta_monto_regular
     """
     from datetime import datetime, date as _date
     from apps.incentives.constants import BAJIO_TEAM_KEYS
+
+    if cfg is None:
+        cfg = ConfiguracionIncentivos.get()
 
     CUTOFF = _date(2026, 7, 8)
     seniority_date = None
@@ -1169,12 +1195,12 @@ def _calcular_monto_venta(team_key, seniority_raw):
         return None
 
     if team_key in BAJIO_TEAM_KEYS:
-        return 240
+        return cfg.venta_monto_bajio
 
     if seniority_date is not None and seniority_date.year <= 2019:
-        return 230
+        return cfg.venta_monto_antiguedad
 
-    return 200
+    return cfg.venta_monto_regular
 
 
 def sync_venta_semana(request):
@@ -1275,6 +1301,7 @@ def sync_venta_semana(request):
         return meses
 
     meses = _meses_en_rango(week_start, week_end)
+    cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
     for team_key in team_keys:
@@ -1295,7 +1322,7 @@ def sync_venta_semana(request):
                 if empleados:
                     if verde:
                         for emp in empleados:
-                            monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                            monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
                             if monto is None:
                                 IncentivoRegistro.objects.filter(employee_id=emp['id'], tipo='Venta', fecha=week_start).delete()
                                 continue
@@ -1334,7 +1361,7 @@ def sync_venta_semana(request):
             if empleados:
                 if verde:
                     for emp in empleados:
-                        monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                        monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
                         if monto is None:
                             IncentivoRegistro.objects.filter(
                                 employee_id=emp['id'], tipo='Venta', fecha=week_start,
@@ -1390,7 +1417,7 @@ def sync_venta_semana(request):
 
         if verde:
             for emp in empleados:
-                monto = _calcular_monto_venta(team_key, emp['seniority_raw'])
+                monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
                 if monto is None:
                     IncentivoRegistro.objects.filter(
                         employee_id=emp['id'],
@@ -1461,6 +1488,7 @@ def sync_mistery_semana(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
 
+    cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
     for codgas, qualification in rows:
@@ -1484,12 +1512,17 @@ def sync_mistery_semana(request):
 
         if ganador:
             for emp_id in empleados:
-                IncentivoRegistro.objects.get_or_create(
+                obj, created = IncentivoRegistro.objects.get_or_create(
                     employee_id=emp_id,
                     tipo='Mistery',
                     fecha=week_start,
-                    defaults={'registrado_por': request.user},
+                    defaults={'registrado_por': request.user, 'monto': cfg.mistery_monto},
                 )
+                if not created and obj.monto != cfg.mistery_monto_evaluado:
+                    # Actualizar monto si cambió en config (sin tocar al evaluado)
+                    if obj.monto != cfg.mistery_monto:
+                        obj.monto = cfg.mistery_monto
+                        obj.save(update_fields=['monto'])
         else:
             IncentivoRegistro.objects.filter(
                 employee_id__in=empleados,
@@ -1564,3 +1597,177 @@ def guardar_presupuesto_semana(request):
         },
     )
     return JsonResponse({'ok': True, 'accion': 'guardado'})
+
+
+@login_required
+def mistery_evaluado_json(request):
+    """Devuelve el emp_id del evaluado de Mistery para la semana dada (gerente de su dpto)."""
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('gerente', 'admin'):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    from datetime import date
+    semana_str = request.GET.get('semana')
+    if not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Falta semana'}, status=400)
+    try:
+        week_start = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    try:
+        gerente_emp = Employee.objects.select_related('department').get(user=request.user)
+        emp_ids = list(
+            Employee.objects.filter(department=gerente_emp.department, is_active=True)
+            .values_list('id', flat=True)
+        )
+    except Employee.DoesNotExist:
+        return JsonResponse({'ok': True, 'evaluado_emp_id': None})
+
+    cfg = ConfiguracionIncentivos.get()
+    evaluado_id = IncentivoRegistro.objects.filter(
+        employee_id__in=emp_ids,
+        tipo='Mistery',
+        fecha=week_start,
+        monto=cfg.mistery_monto_evaluado,
+    ).values_list('employee_id', flat=True).first()
+
+    return JsonResponse({'ok': True, 'evaluado_emp_id': evaluado_id})
+
+
+@login_required
+@require_POST
+def marcar_evaluado_mistery(request):
+    """Marca a un empleado como la persona evaluada en Mistery ($500). Solo gerente."""
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('gerente', 'admin'):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        emp_id = data.get('emp_id')   # None/0 = deseleccionar
+        week_start_str = data['week_start']
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+    from datetime import date
+    try:
+        week_start = date.fromisoformat(week_start_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    if SemanaCerrada.objects.filter(week_start=week_start).exists():
+        return JsonResponse({'ok': False, 'error': 'Semana cerrada', 'cerrada': True}, status=403)
+
+    try:
+        gerente_emp = Employee.objects.select_related('department').get(user=request.user)
+        emp_ids = list(
+            Employee.objects.filter(department=gerente_emp.department, is_active=True)
+            .values_list('id', flat=True)
+        )
+    except Employee.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Empleado no encontrado'}, status=404)
+
+    cfg = ConfiguracionIncentivos.get()
+
+    # Resetear todos a monto general
+    IncentivoRegistro.objects.filter(
+        employee_id__in=emp_ids,
+        tipo='Mistery',
+        fecha=week_start,
+    ).update(monto=cfg.mistery_monto)
+
+    # Si se seleccionó un evaluado, asignarle el monto especial
+    if emp_id:
+        try:
+            emp_id = int(emp_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'ok': False, 'error': 'ID inválido'}, status=400)
+        if emp_id not in emp_ids:
+            return JsonResponse({'ok': False, 'error': 'El empleado no pertenece al departamento'}, status=400)
+        updated = IncentivoRegistro.objects.filter(
+            employee_id=emp_id,
+            tipo='Mistery',
+            fecha=week_start,
+        ).update(monto=cfg.mistery_monto_evaluado)
+        if not updated:
+            return JsonResponse({'ok': False, 'error': 'El empleado no tiene registro de Mistery esta semana'}, status=400)
+
+    return JsonResponse({'ok': True, 'evaluado_emp_id': emp_id or None})
+
+
+def _puede_configurar_incentivos(user):
+    return (
+        user.is_superuser
+        or user.is_staff
+        or user.has_perm('incentives.configurar_incentivos')
+    )
+
+
+@login_required
+def configuracion_incentivos(request):
+    """Vista para configurar los montos de incentivos (admin / nóminas)."""
+    if not _puede_configurar_incentivos(request.user):
+        return redirect('incentives_dashboard')
+
+    cfg = ConfiguracionIncentivos.get()
+    errores = []
+    guardado = False
+
+    if request.method == 'POST':
+        try:
+            encargado_primer_dia  = int(request.POST['encargado_primer_dia'])
+            encargado_incremento  = int(request.POST['encargado_incremento'])
+            encargado_max_dias    = int(request.POST['encargado_max_dias'])
+            diesel_por_dia        = int(request.POST['diesel_por_dia'])
+            diesel_max_dias       = int(request.POST['diesel_max_dias'])
+            venta_monto_bajio      = int(request.POST['venta_monto_bajio'])
+            venta_monto_antiguedad = int(request.POST['venta_monto_antiguedad'])
+            venta_monto_regular    = int(request.POST['venta_monto_regular'])
+            mistery_monto          = int(request.POST['mistery_monto'])
+            mistery_monto_evaluado = int(request.POST['mistery_monto_evaluado'])
+        except (KeyError, ValueError):
+            errores.append('Todos los campos deben ser números enteros.')
+        else:
+            if encargado_primer_dia <= 0 or encargado_incremento <= 0:
+                errores.append('Los montos deben ser mayores a cero.')
+            if encargado_max_dias < 1 or encargado_max_dias > 7:
+                errores.append('El máximo de días de Encargado debe estar entre 1 y 7.')
+            if diesel_max_dias < 1 or diesel_max_dias > 7:
+                errores.append('El máximo de días de Diesel debe estar entre 1 y 7.')
+            if venta_monto_bajio <= 0 or venta_monto_antiguedad <= 0 or venta_monto_regular <= 0:
+                errores.append('Los montos de Venta deben ser mayores a cero.')
+            if mistery_monto < 0 or mistery_monto_evaluado < 0:
+                errores.append('Los montos de Mistery no pueden ser negativos.')
+
+        if not errores:
+            cfg.encargado_primer_dia   = encargado_primer_dia
+            cfg.encargado_incremento   = encargado_incremento
+            cfg.encargado_max_dias     = encargado_max_dias
+            cfg.diesel_por_dia         = diesel_por_dia
+            cfg.diesel_max_dias        = diesel_max_dias
+            cfg.venta_monto_bajio      = venta_monto_bajio
+            cfg.venta_monto_antiguedad = venta_monto_antiguedad
+            cfg.venta_monto_regular    = venta_monto_regular
+            cfg.mistery_monto          = mistery_monto
+            cfg.mistery_monto_evaluado = mistery_monto_evaluado
+            cfg.actualizado_por        = request.user
+            cfg.save()
+            guardado = True
+
+    # Calcular tope y escala para mostrar en la UI
+    encargado_escala = [
+        cfg.encargado_primer_dia + i * cfg.encargado_incremento
+        for i in range(cfg.encargado_max_dias)
+    ]
+    encargado_tope = encargado_escala[-1] if encargado_escala else 0
+    diesel_tope    = cfg.diesel_por_dia * cfg.diesel_max_dias
+
+    return render(request, 'incentives/admin/configuracion_incentivos.html', {
+        'cfg': cfg,
+        'encargado_escala': encargado_escala,
+        'encargado_tope': encargado_tope,
+        'diesel_tope': diesel_tope,
+        'errores': errores,
+        'guardado': guardado,
+    })

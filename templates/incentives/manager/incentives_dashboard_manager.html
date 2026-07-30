@@ -147,13 +147,24 @@
           {% elif tipo == "Mistery" %}
           <tr>
             <td class="fw-semibold">Mistery</td>
-            <td colspan="7" class="text-center py-2" id="mistery-status-cell">
-              <span class="text-muted" style="font-size:12px;">
-                <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…
-              </span>
+            <td colspan="7" class="py-2 px-3">
+              <div id="mistery-status-cell" class="text-center">
+                <span class="text-muted" style="font-size:12px;">
+                  <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…
+                </span>
+              </div>
+              <div id="mistery-evaluado-row" class="d-none mt-2 d-flex align-items-center gap-2 justify-content-center flex-wrap">
+                <span style="font-size:12px;font-weight:600;">Persona evaluada:</span>
+                <select id="mistery-evaluado-select" class="form-select form-select-sm" style="width:auto;min-width:220px;" {% if periodo_cerrado %}disabled{% endif %}>
+                  <option value="">— Sin asignar —</option>
+                  {% for emp in colaboradores %}
+                  <option value="{{ emp.id }}">{{ emp.last_name }} {{ emp.first_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </td>
             <td>—</td>
-            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold text-muted" id="mistery-total-cell">—</td>
           </tr>
           {% else %}
           <tr class="text-muted">
@@ -198,6 +209,11 @@
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
     var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
+    var CFG_DIESEL_POR_DIA = {{ cfg.diesel_por_dia }};
+    var CFG_DIESEL_MAX_DIAS = {{ cfg.diesel_max_dias }};
+    var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
+    var CFG_ENC_INCREMENTO = {{ cfg.encargado_incremento }};
+    var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'layouts/base.html' %}
+{% block page_title %}Configuración de Incentivos{% endblock %}
+{% block title %}Configuración de Incentivos{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-xl-6">
+
+    <div class="card mb-3">
+      <div class="card-body p-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-sliders-h me-2 text-primary"></i>Configuración de Incentivos</h5>
+        <a href="{% url 'incentives_dashboard_admin' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-arrow-left me-1"></i>Regresar
+        </a>
+      </div>
+    </div>
+
+    {% if guardado %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <i class="fas fa-check-circle me-2"></i>Configuración guardada correctamente.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    {% if errores %}
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        {% for e in errores %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- ENCARGADO -->
+      <div class="card mb-4">
+        <div class="card-header bg-light fw-semibold">
+          <i class="fas fa-user-tie me-2"></i>Encargado
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-sm-4">
+              <label class="form-label">Primer día ($)</label>
+              <input type="number" name="encargado_primer_dia" class="form-control"
+                     value="{{ cfg.encargado_primer_dia }}" min="1" required>
+              <div class="form-text">Monto del primer día de la semana.</div>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Incremento por día adicional ($)</label>
+              <input type="number" name="encargado_incremento" class="form-control"
+                     value="{{ cfg.encargado_incremento }}" min="1" required>
+              <div class="form-text">Se suma a partir del 2° día.</div>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Máximo de días / semana</label>
+              <input type="number" name="encargado_max_dias" class="form-control"
+                     value="{{ cfg.encargado_max_dias }}" min="1" max="7" required>
+            </div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#f0f7ff; font-size:.9rem;">
+            <strong>Tope actual:</strong>
+            ${{ encargado_tope }} ({{ cfg.encargado_max_dias }} día{{ cfg.encargado_max_dias|pluralize }})
+            &nbsp;·&nbsp;
+            Escala: {% for monto in encargado_escala %}${{ monto }}{% if not forloop.last %} → {% endif %}{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- DIESEL -->
+      <div class="card mb-4">
+        <div class="card-header bg-light fw-semibold">
+          <i class="fas fa-gas-pump me-2"></i>Diesel
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <label class="form-label">Monto por día ($)</label>
+              <input type="number" name="diesel_por_dia" class="form-control"
+                     value="{{ cfg.diesel_por_dia }}" min="1" required>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Máximo de días / semana</label>
+              <input type="number" name="diesel_max_dias" class="form-control"
+                     value="{{ cfg.diesel_max_dias }}" min="1" max="7" required>
+            </div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#f0f7ff; font-size:.9rem;">
+            <strong>Tope actual:</strong> ${{ diesel_tope }} ({{ cfg.diesel_max_dias }} día{{ cfg.diesel_max_dias|pluralize }})
+          </div>
+        </div>
+      </div>
+
+      <!-- VENTA -->
+      <div class="card mb-4">
+        <div class="card-header bg-light fw-semibold">
+          <i class="fas fa-chart-line me-2"></i>Venta
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">
+            Las fechas de corte son fijas (empleados ≥ 08/07/2026 no aplican; antigüedad ≤ 2019 usa monto especial).
+            Solo se configuran los montos.
+          </p>
+          <div class="row g-3">
+            <div class="col-sm-4">
+              <label class="form-label">Monto Bajío ($)</label>
+              <input type="number" name="venta_monto_bajio" class="form-control"
+                     value="{{ cfg.venta_monto_bajio }}" min="1" required>
+              <div class="form-text">Empleados de estaciones Bajío (cualquier antigüedad).</div>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Monto antigüedad ≤ 2019 ($)</label>
+              <input type="number" name="venta_monto_antiguedad" class="form-control"
+                     value="{{ cfg.venta_monto_antiguedad }}" min="1" required>
+              <div class="form-text">Empleados con ingreso en 2019 o antes.</div>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Monto antigüedad 2020–2026 ($)</label>
+              <input type="number" name="venta_monto_regular" class="form-control"
+                     value="{{ cfg.venta_monto_regular }}" min="1" required>
+              <div class="form-text">Empleados con ingreso del 2020 al 07/07/2026. A partir del 08/07/2026 ya no aplica bono.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MISTERY -->
+      <div class="card mb-4">
+        <div class="card-header bg-light fw-semibold">
+          <i class="fas fa-star me-2"></i>Mistery
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <label class="form-label">Monto general ($)</label>
+              <input type="number" name="mistery_monto" class="form-control"
+                     value="{{ cfg.mistery_monto }}" min="0" required>
+              <div class="form-text">Para todos los empleados de la estación que ganó Mistery.</div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Monto persona evaluada ($)</label>
+              <input type="number" name="mistery_monto_evaluado" class="form-control"
+                     value="{{ cfg.mistery_monto_evaluado }}" min="0" required>
+              <div class="form-text">Para la persona que fue evaluada (asignada por el gerente).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if cfg.actualizado_por %}
+      <p class="text-muted small mb-3">
+        Última actualización: {{ cfg.updated_at|date:"d/m/Y H:i" }} por {{ cfg.actualizado_por.get_full_name|default:cfg.actualizado_por.username }}
+      </p>
+      {% endif %}
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-1"></i>Guardar cambios
+        </button>
+        <a href="{% url 'incentives_dashboard_admin' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

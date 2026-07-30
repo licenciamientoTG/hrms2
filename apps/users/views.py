@@ -413,7 +413,10 @@ def terms_audit_export_view(request):
                 puesto = u.employee.job_position.title if u.employee.job_position else ''
             except Exception:
                 emp_num = depto = puesto = ''
-            estatus = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+            try:
+                estatus = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+            except Exception:
+                estatus = 'PENDIENTE'
             writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto, estatus])
 
     elif tema == 'checador':
@@ -429,10 +432,11 @@ def terms_audit_export_view(request):
                 requiere = False
 
             if requiere:
-                estatus = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
                 try:
+                    estatus = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
                     fecha = u.userprofile.accepted_checador_policy_at.strftime('%d/%m/%Y %H:%M') if u.userprofile.accepted_checador_policy_at else ''
                 except Exception:
+                    estatus = 'PENDIENTE'
                     fecha = ''
             else:
                 estatus = 'N/A'
@@ -448,7 +452,10 @@ def terms_audit_export_view(request):
                 puesto = u.employee.job_position.title if u.employee.job_position else ''
             except Exception:
                 emp_num = depto = puesto = ''
-            estatus = 'SÍ' if u.userprofile.must_change_password else 'NO'
+            try:
+                estatus = 'SÍ' if u.userprofile.must_change_password else 'NO'
+            except Exception:
+                estatus = 'NO'
             writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto, estatus])
 
     elif tema == 'todo':
@@ -468,19 +475,26 @@ def terms_audit_export_view(request):
                 emp_num = depto = puesto = ''
                 requiere = False
 
-            aviso_est = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+            try:
+                aviso_est = 'ACEPTADO' if u.userprofile.accepted_terms else 'PENDIENTE'
+            except Exception:
+                aviso_est = 'PENDIENTE'
 
             if requiere:
-                checador_est = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
                 try:
+                    checador_est = 'FIRMADO' if u.userprofile.accepted_checador_policy else 'PENDIENTE'
                     fecha_firma = u.userprofile.accepted_checador_policy_at.strftime('%d/%m/%Y %H:%M') if u.userprofile.accepted_checador_policy_at else ''
                 except Exception:
+                    checador_est = 'PENDIENTE'
                     fecha_firma = ''
             else:
                 checador_est = 'N/A'
                 fecha_firma = ''
 
-            pass_est = 'SÍ' if u.userprofile.must_change_password else 'NO'
+            try:
+                pass_est = 'SÍ' if u.userprofile.must_change_password else 'NO'
+            except Exception:
+                pass_est = 'NO'
 
             writer.writerow([emp_num, u.get_full_name() or u.username, u.username, depto, puesto,
                              aviso_est, checador_est, fecha_firma, pass_est])
