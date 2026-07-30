@@ -171,6 +171,11 @@
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
     var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
+    var CFG_DIESEL_POR_DIA = {{ cfg.diesel_por_dia }};
+    var CFG_DIESEL_MAX_DIAS = {{ cfg.diesel_max_dias }};
+    var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
+    var CFG_ENC_INCREMENTO = {{ cfg.encargado_incremento }};
+    var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
     var DIAS = [
       {% for day in days %}
       {"fecha":"{{ day|date:'Y-m-d' }}","nombre":"{{ day|date:'D'|slice:':3'|upper }}","display":"{{ day|date:'d/m' }}","esHoy":{% if day == today %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}

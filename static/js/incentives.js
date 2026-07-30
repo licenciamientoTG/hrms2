@@ -5,6 +5,18 @@ function getCsrf() {
     .find(function(c) { return c.startsWith('csrftoken='); })?.split('=')[1] || '';
 }
 
+// Valores de configuración inyectados por el template (con fallback a los defaults)
+var _CFG_DIESEL   = function() { return typeof CFG_DIESEL_POR_DIA  !== 'undefined' ? CFG_DIESEL_POR_DIA  : 50;  };
+var _CFG_DIESEL_MAX = function() { return typeof CFG_DIESEL_MAX_DIAS !== 'undefined' ? CFG_DIESEL_MAX_DIAS : 6;   };
+var _CFG_ENC1     = function() { return typeof CFG_ENC_PRIMER_DIA  !== 'undefined' ? CFG_ENC_PRIMER_DIA  : 200; };
+var _CFG_ENCINC   = function() { return typeof CFG_ENC_INCREMENTO  !== 'undefined' ? CFG_ENC_INCREMENTO  : 100; };
+var _CFG_ENC_MAX  = function() { return typeof CFG_ENC_MAX_DIAS    !== 'undefined' ? CFG_ENC_MAX_DIAS    : 6;   };
+
+function _calcDiesel(count)    { return count * _CFG_DIESEL(); }
+function _calcEncargado(count) { return count > 0 ? _CFG_ENC1() + (count - 1) * _CFG_ENCINC() : 0; }
+function _topeEncargado()      { return _CFG_ENC1() + (_CFG_ENC_MAX() - 1) * _CFG_ENCINC(); }
+function _topeDiesel()         { return _CFG_DIESEL() * _CFG_DIESEL_MAX(); }
+
 // ── Totales por empleado (admin / zona) ──────────────────────────────────────
 
 function actualizarTotalTipo(empId, tipo) {
@@ -12,9 +24,9 @@ function actualizarTotalTipo(empId, tipo) {
   if (!cell) return;
   var count = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="' + tipo + '"]:checked').length;
   if (tipo === 'Diesel') {
-    cell.textContent = '$' + (count * 50);
+    cell.textContent = '$' + _calcDiesel(count);
   } else if (tipo === 'Encargado') {
-    cell.textContent = '$' + (count > 0 ? 200 + (count - 1) * 100 : 0);
+    cell.textContent = '$' + _calcEncargado(count);
   }
   actualizarGranTotalEmp(empId);
 }
@@ -26,7 +38,7 @@ function actualizarGranTotalEmp(empId) {
   var encargadoCount = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
   var ventaCb = document.querySelector('.incentivo-check[data-emp="' + empId + '"][data-tipo="Venta"]:checked');
   var ventaMonto = ventaCb ? (parseInt(ventaCb.dataset.monto) || 0) : 0;
-  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0) + ventaMonto;
+  var total = _calcDiesel(dieselCount) + _calcEncargado(encargadoCount) + ventaMonto;
   granTotalCell.textContent = '$' + total;
 }
 
@@ -231,8 +243,8 @@ function _doToggleFetch(cb, empId, tipo) {
   .then(function(data) {
     if (!data.ok) {
       cbRef.checked = !cbRef.checked;
-      if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
-      if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
+      if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
+      if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
     } else {
       actualizarBadge(empId);
       actualizarTotalTipo(empId, tipo);
@@ -248,9 +260,9 @@ function onToggle(cb) {
 
   if (tipo === 'Diesel' && cb.checked) {
     var dieselMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Diesel"]:checked').length;
-    if (dieselMarcados > 6) {
+    if (dieselMarcados > _CFG_DIESEL_MAX()) {
       cb.checked = false;
-      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
+      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
       return;
     }
     if (dieselMarcados === 1) {
@@ -269,9 +281,9 @@ function onToggle(cb) {
 
   if (tipo === 'Encargado' && cb.checked) {
     var encargadoMarcados = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
-    if (encargadoMarcados > 6) {
+    if (encargadoMarcados > _CFG_ENC_MAX()) {
       cb.checked = false;
-      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
+      Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
       return;
     }
   }
@@ -330,13 +342,12 @@ function actualizarPuntoVerdeEstacion(empRow) {
 
 function calcularDeltaPresupuesto(empId, tipo, checked) {
   if (tipo === 'Diesel') {
-    return checked ? 50 : -50;
+    return checked ? _CFG_DIESEL() : -_CFG_DIESEL();
   }
   if (tipo === 'Encargado') {
     var count = document.querySelectorAll('.incentivo-check[data-emp="' + empId + '"][data-tipo="Encargado"]:checked').length;
-    // count ya refleja el nuevo estado (el checkbox ya cambió antes de llegar aquí)
-    if (checked) return count === 1 ? 200 : 100;
-    else         return count === 0 ? -200 : -100;
+    if (checked) return count === 1 ? _CFG_ENC1() : _CFG_ENCINC();
+    else         return count === 0 ? -_CFG_ENC1() : -_CFG_ENCINC();
   }
   return 0;
 }
@@ -373,9 +384,9 @@ function actualizarTotal(tipo) {
   if (!cell) return;
   var count = document.querySelectorAll('.incentivo-check[data-tipo="' + tipo + '"]:checked').length;
   if (tipo === 'Diesel') {
-    cell.textContent = '$' + (count * 50);
+    cell.textContent = '$' + _calcDiesel(count);
   } else if (tipo === 'Encargado') {
-    cell.textContent = '$' + (count > 0 ? 200 + (count - 1) * 100 : 0);
+    cell.textContent = '$' + _calcEncargado(count);
   }
   actualizarGranTotal();
 }
@@ -386,19 +397,35 @@ function actualizarGranTotal() {
   var dieselCount = document.querySelectorAll('.incentivo-check[data-tipo="Diesel"]:checked').length;
   var encargadoCount = document.querySelectorAll('.incentivo-check[data-tipo="Encargado"]:checked').length;
   var ventaMonto = window.VENTA_MONTO_MANAGER || 0;
-  var total = (dieselCount * 50) + (encargadoCount > 0 ? 200 + (encargadoCount - 1) * 100 : 0) + ventaMonto;
+  var misteryMonto = window.MISTERY_MONTO_MANAGER || 0;
+  var total = _calcDiesel(dieselCount) + _calcEncargado(encargadoCount) + ventaMonto + misteryMonto;
   granTotalCell.textContent = '$' + total;
 }
 
 function actualizarBadgeMisteryManager(ganado) {
   var cell = document.getElementById('mistery-status-cell');
+  var evaluadoRow = document.getElementById('mistery-evaluado-row');
   if (!cell) return;
   if (ganado) {
     cell.innerHTML = '<span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;">'
       + '<i class="fas fa-star me-1"></i>Ganó Mistery esta semana</span>';
+    if (evaluadoRow) {
+      evaluadoRow.classList.remove('d-none');
+      // Cargar quién es el evaluado actual
+      fetch('/incentives/mistery-evaluado/?semana=' + SEMANA_INICIO)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) return;
+          var sel = document.getElementById('mistery-evaluado-select');
+          if (sel) sel.value = d.evaluado_emp_id || '';
+        });
+    }
   } else {
     cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:5px 14px;font-size:13px;">'
       + '<i class="fas fa-times-circle me-1"></i>Sin Mistery esta semana</span>';
+    if (evaluadoRow) evaluadoRow.classList.add('d-none');
+    var totalCell = document.getElementById('mistery-total-cell');
+    if (totalCell) { totalCell.textContent = '—'; totalCell.classList.add('text-muted'); }
   }
 }
 
@@ -411,6 +438,7 @@ function cargarSemanaManager(empId) {
       document.querySelectorAll('.incentivo-check').forEach(function(cb) { cb.checked = false; });
       document.querySelectorAll('.comentario-semana').forEach(function(ta) { ta.value = ''; });
       window.VENTA_MONTO_MANAGER = 0;
+      window.MISTERY_MONTO_MANAGER = 0;
       var tieneVentaManager = false;
       var tieneMisteryManager = false;
       data.registros.forEach(function(reg) {
@@ -421,6 +449,7 @@ function cargarSemanaManager(empId) {
         }
         if (reg.tipo === 'Mistery') {
           tieneMisteryManager = true;
+          window.MISTERY_MONTO_MANAGER = reg.monto || 0;
           return;
         }
         var cb = document.querySelector(
@@ -440,6 +469,16 @@ function cargarSemanaManager(empId) {
         }
       }
       actualizarBadgeMisteryManager(tieneMisteryManager);
+      var misteryTotalCell = document.getElementById('mistery-total-cell');
+      if (misteryTotalCell) {
+        if (tieneMisteryManager && window.MISTERY_MONTO_MANAGER) {
+          misteryTotalCell.textContent = '$' + window.MISTERY_MONTO_MANAGER;
+          misteryTotalCell.classList.remove('text-muted');
+        } else {
+          misteryTotalCell.textContent = '—';
+          misteryTotalCell.classList.add('text-muted');
+        }
+      }
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector('.comentario-semana[data-tipo="' + tipo + '"]');
@@ -689,6 +728,34 @@ document.addEventListener('DOMContentLoaded', function () {
     selector.addEventListener('change', function() { actualizarTabla(this); });
   }
 
+  // Selector de evaluado Mistery (gerente)
+  var evaluadoSelect = document.getElementById('mistery-evaluado-select');
+  if (evaluadoSelect && typeof PERIODO_CERRADO !== 'undefined' && !PERIODO_CERRADO) {
+    evaluadoSelect.addEventListener('change', function() {
+      var empId = this.value || null;
+      fetch('/incentives/marcar-evaluado-mistery/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ emp_id: empId ? parseInt(empId) : null, week_start: SEMANA_INICIO }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
+          return;
+        }
+        // Recargar el colaborador seleccionado para actualizar su total de Mistery
+        var colSelector = document.getElementById('selector-colaborador');
+        if (colSelector && colSelector.value) {
+          cargarSemanaManager(colSelector.value);
+        }
+      })
+      .catch(function() {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión', confirmButtonColor: '#0d6efd' });
+      });
+    });
+  }
+
   // Checkboxes gerente
   if (!window.PERIODO_CERRADO) {
     document.querySelectorAll('.incentivo-check').forEach(function(cb) {
@@ -700,9 +767,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (tipo === 'Diesel' && this.checked) {
           var dieselMarcados = document.querySelectorAll('.incentivo-check[data-tipo="Diesel"]:checked').length;
-          if (dieselMarcados > 6) {
+          if (dieselMarcados > _CFG_DIESEL_MAX()) {
             this.checked = false;
-            Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
+            Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
             return;
           }
           if (dieselMarcados === 1) {
@@ -723,9 +790,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (tipo === 'Encargado' && this.checked) {
           var encargadoMarcados = document.querySelectorAll('.incentivo-check[data-tipo="Encargado"]:checked').length;
-          if (encargadoMarcados > 6) {
+          if (encargadoMarcados > _CFG_ENC_MAX()) {
             this.checked = false;
-            Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
+            Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
             return;
           }
         }
@@ -740,8 +807,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function(data) {
           if (!data.ok) {
             cbRef.checked = !cbRef.checked;
-            if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Diesel por semana (tope $300)', confirmButtonColor: '#0d6efd' });
-            if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo 6 días de Encargado por semana (tope $700)', confirmButtonColor: '#0d6efd' });
+            if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
+            if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
           } else {
             actualizarTotal(tipo);
           }

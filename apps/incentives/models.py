@@ -11,7 +11,80 @@ class IncentivosConfig(models.Model):
         default_permissions = ()
         permissions = [
             ('Modulo_incentivos', 'Puede acceder al módulo de incentivos'),
+            ('configurar_incentivos', 'Puede configurar montos de incentivos'),
         ]
+
+
+class ConfiguracionIncentivos(models.Model):
+    """Singleton con los parámetros configurables de incentivos."""
+    encargado_primer_dia = models.IntegerField(
+        default=200,
+        verbose_name='Encargado — primer día ($)',
+        help_text='Monto del primer día de Encargado por semana.',
+    )
+    encargado_incremento = models.IntegerField(
+        default=100,
+        verbose_name='Encargado — incremento por día adicional ($)',
+        help_text='Monto que se agrega por cada día adicional de Encargado.',
+    )
+    encargado_max_dias = models.IntegerField(
+        default=6,
+        verbose_name='Encargado — máximo de días por semana',
+    )
+    diesel_por_dia = models.IntegerField(
+        default=50,
+        verbose_name='Diesel — monto por día ($)',
+    )
+    diesel_max_dias = models.IntegerField(
+        default=6,
+        verbose_name='Diesel — máximo de días por semana',
+    )
+    venta_monto_bajio = models.IntegerField(
+        default=240,
+        verbose_name='Venta — monto Bajío ($)',
+        help_text='Monto del bono de Venta para estaciones Bajío.',
+    )
+    venta_monto_antiguedad = models.IntegerField(
+        default=230,
+        verbose_name='Venta — monto antigüedad ≤ 2019 ($)',
+        help_text='Monto del bono de Venta para empleados con antigüedad hasta 2019.',
+    )
+    venta_monto_regular = models.IntegerField(
+        default=200,
+        verbose_name='Venta — monto regular ($)',
+        help_text='Monto del bono de Venta para el resto de empleados.',
+    )
+    mistery_monto = models.IntegerField(
+        default=50,
+        verbose_name='Mistery — monto general ($)',
+        help_text='Monto para todos los empleados de la estación que ganó Mistery.',
+    )
+    mistery_monto_evaluado = models.IntegerField(
+        default=500,
+        verbose_name='Mistery — monto persona evaluada ($)',
+        help_text='Monto para la persona que fue evaluada en el Mistery.',
+    )
+    actualizado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='configuraciones_incentivos',
+        verbose_name='Actualizado por',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Configuración de incentivos'
+        verbose_name_plural = 'Configuración de incentivos'
+
+    def __str__(self):
+        return 'Configuración de incentivos'
+
+    @classmethod
+    def get(cls):
+        """Devuelve la instancia singleton, creándola con defaults si no existe."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
 
 
 class IncentivoRegistro(models.Model):

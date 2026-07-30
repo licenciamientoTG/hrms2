@@ -44,6 +44,9 @@
         <i class="fas fa-lock-open" style="font-size:1.6rem; color:#28a745;"></i>
       </button>
       {% endif %}
+      <a href="{% url 'configuracion_incentivos' %}" class="btn btn-outline-secondary btn-sm ms-2" title="Configurar montos de incentivos">
+        <i class="fas fa-sliders-h"></i>
+      </a>
     </div>
   </div>
 </div>
@@ -200,6 +203,11 @@
     var ESTACIONES_CON_CAPTURA = {{ estaciones_con_captura }};
     var TOTAL_ESTACIONES = {{ total_estaciones }};
     var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
+    var CFG_DIESEL_POR_DIA = {{ cfg.diesel_por_dia }};
+    var CFG_DIESEL_MAX_DIAS = {{ cfg.diesel_max_dias }};
+    var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
+    var CFG_ENC_INCREMENTO = {{ cfg.encargado_incremento }};
+    var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
     var DIAS = [
       {% for day in days %}
       {"fecha":"{{ day|date:'Y-m-d' }}","nombre":"{{ day|date:'D'|slice:':3'|upper }}","display":"{{ day|date:'d/m' }}","esHoy":{% if day == today %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}
