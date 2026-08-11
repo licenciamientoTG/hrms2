@@ -116,10 +116,15 @@ def recognition_dashboard_admin(request):
                         RecognitionLink.objects.create(recognition=rec, label=lbl or url, url=url, order=i)
 
             # Publicar
-            published_now = publish_recognition_if_due(rec)
-            
+            published_now, email_sent = publish_recognition_if_due(rec)
+
             if published_now:
-                messages.success(request, "¡Comunicado publicado exitosamente!")
+                if notify_email and email_sent is False:
+                    messages.warning(request, "Comunicado publicado en el HRMS. No se pudo enviar el correo en este momento.")
+                elif notify_email and email_sent:
+                    messages.success(request, "¡Comunicado publicado y correo enviado!")
+                else:
+                    messages.success(request, "¡Comunicado publicado exitosamente!")
             else:
                 messages.success(request, "Comunicado programado.")
 
@@ -252,14 +257,15 @@ def recognition_dashboard_user(request):
                     RecognitionLink.objects.create(recognition=rec, label=lbl or url, url=url, order=i)
 
         # Publicar si ya toca (el servicio también envía el correo una sola vez)
-        published_now = publish_recognition_if_due(rec)
+        published_now, email_sent = publish_recognition_if_due(rec)
 
         if published_now:
-            messages.success(
-                request,
-                _("¡Comunicado publicado!") if not notify_email
-                else _("¡Comunicado publicado y correo enviado!")
-            )
+            if notify_email and email_sent is False:
+                messages.warning(request, "Comunicado publicado en el HRMS. No se pudo enviar el correo en este momento.")
+            elif notify_email and email_sent:
+                messages.success(request, "¡Comunicado publicado y correo enviado!")
+            else:
+                messages.success(request, "¡Comunicado publicado!")
         else:
             messages.success(request, _("Comunicado programado para publicarse en su fecha."))
 

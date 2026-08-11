@@ -10,6 +10,7 @@ class Command(BaseCommand):
         qs = Recognition.objects.filter(published_at__isnull=True, publish_at__lte=timezone.now())
         count = 0
         for rec in qs:
-            if publish_recognition_if_due(rec):
+            published, _ = publish_recognition_if_due(rec)
+            if published:
                 count += 1
         self.stdout.write(self.style.SUCCESS(f"Publicados: {count}"))
