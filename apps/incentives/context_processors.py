@@ -8,6 +8,8 @@ def auto_incentivos_permission(request):
     try:
         emp = request.user.employee
         titulo = emp.job_position.title if emp.is_active and emp.job_position else ''
+        titulo_lower = titulo.lower()
+        dept_nombre = (emp.department.name if emp.department else '').lower()
         en_estacion = bool(emp.is_active and emp.team and emp.team.strip() in STATION_TEAMS)
         es_gerente_ops = (
             titulo == 'Gerente De Operaciones'
@@ -16,9 +18,14 @@ def auto_incentivos_permission(request):
     except Exception:
         return {}
 
-    es_jefe_zona = 'jefe de zona' in titulo.lower()
+    es_jefe_zona = 'jefe de zona' in titulo_lower
+    es_nominas = (
+        'supervisor de nóminas' in titulo_lower
+        or 'supervisor de nominas' in titulo_lower
+        or 'nomina' in dept_nombre
+    )
 
-    if (en_estacion or es_gerente_ops or es_jefe_zona) and not request.user.has_perm('incentives.Modulo_incentivos'):
+    if (en_estacion or es_gerente_ops or es_jefe_zona or es_nominas) and not request.user.has_perm('incentives.Modulo_incentivos'):
         from django.contrib.auth.models import Group
         grupo = Group.objects.filter(name='Modulo de incentivos').first()
         if grupo:

@@ -301,6 +301,25 @@
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.messages .alert').forEach(function (el) {
+    const text = el.textContent.trim();
+    let icon = 'info';
+    if (el.classList.contains('alert-success')) icon = 'success';
+    else if (el.classList.contains('alert-warning')) icon = 'warning';
+    else if (el.classList.contains('alert-danger') || el.classList.contains('alert-error')) icon = 'error';
+    el.style.display = 'none';
+    Swal.fire({
+      icon: icon,
+      text: text,
+      timer: icon === 'success' ? 3500 : undefined,
+      showConfirmButton: icon !== 'success',
+      confirmButtonText: 'Entendido',
+    });
+  });
+});
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
   const groupAll = document.getElementById('group_all');
   const groupCheckboxes = document.querySelectorAll('.group-checkbox');

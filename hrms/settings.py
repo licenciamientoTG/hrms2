@@ -204,6 +204,7 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").strip().lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "5"))  # segundos antes de considerar fallo SMTP
 PASSWORD_RESET_TIMEOUT = 86400
 
 # settings.py
