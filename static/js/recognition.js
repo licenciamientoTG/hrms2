@@ -118,8 +118,8 @@
     const MAX_MB = 10;
     // MODIFICADO: Ahora acepta imágenes y tipos de oficina comunes
     const isAllowed = f => {
-        const types = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-        return f && types.some(t => f.type.startsWith(t) || f.type === t);
+        const types = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        return f && (types.some(t => f.type.startsWith(t) || f.type === t) || f.name.endsWith('.ppt') || f.name.endsWith('.pptx'));
     };
 
     let selected = [];
@@ -147,6 +147,7 @@
                 if (file.name.endsWith('.pdf')) { icon = 'fa-file-pdf'; color = 'text-danger'; }
                 else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) { icon = 'fa-file-excel'; color = 'text-success'; }
                 else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) { icon = 'fa-file-word'; color = 'text-primary'; }
+                else if (file.name.endsWith('.ppt') || file.name.endsWith('.pptx')) { icon = 'fa-file-powerpoint'; color = 'text-warning'; }
                 
                 content = `<div class="d-flex align-items-center justify-content-center bg-light rounded" style="height:84px;width:100%;">
                              <i class="fas ${icon} ${color} fa-3x"></i>

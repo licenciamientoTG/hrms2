@@ -22,6 +22,7 @@ from .views import (
     presupuesto_semana_json,
     guardar_presupuesto_semana,
     configuracion_incentivos,
+    desglose_bonos,
 )
 
 urlpatterns = [
@@ -47,4 +48,5 @@ urlpatterns = [
     path('presupuesto-semana/', presupuesto_semana_json, name='presupuesto_semana_json'),
     path('guardar-presupuesto-semana/', guardar_presupuesto_semana, name='guardar_presupuesto_semana'),
     path('configuracion/', configuracion_incentivos, name='configuracion_incentivos'),
+    path('desglose/', desglose_bonos, name='desglose_bonos'),
 ]

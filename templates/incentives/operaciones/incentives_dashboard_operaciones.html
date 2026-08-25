@@ -88,6 +88,9 @@
         </button>
       </form>
       <a href="?reset=1" class="btn btn-outline-secondary btn-sm">Periodo actual</a>
+      <a href="{% url 'desglose_bonos' %}?fecha_ini={{ fecha_ini|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm" title="Desglose de bonos">
+        <i class="fas fa-table me-1"></i>Desglose
+      </a>
       <button class="btn btn-outline-success btn-sm" type="button"
               data-bs-toggle="modal" data-bs-target="#modal-presupuesto"
               title="Cargar / actualizar presupuesto mensual">

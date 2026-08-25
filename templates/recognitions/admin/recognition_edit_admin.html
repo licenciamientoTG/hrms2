@@ -67,6 +67,19 @@
           </div>
         </div>
 
+        <!-- Fecha de publicación programada -->
+        {% if rec.status == 'scheduled' %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Fecha de publicación programada</label>
+          <input type="datetime-local" class="form-control" name="publish_at"
+                 value="{{ rec.publish_at|date:'Y-m-d' }}T{{ rec.publish_at|date:'H:i' }}">
+          <div class="form-text text-muted">
+            <i class="fa fa-info-circle me-1"></i>
+            Modifica la fecha y hora en que se publicará este comunicado. Déjalo vacío para convertirlo en borrador.
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Importante -->
         <div class="mb-3">
           <div class="form-check form-switch">
