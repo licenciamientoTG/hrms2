@@ -1,0 +1,250 @@
+{% extends 'layouts/base.html' %}
+{% load static humanize %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/incentives.css' %}">
+<style>
+  .desglose-table { font-size: 12px; white-space: nowrap; border-collapse: collapse; width: 100%; }
+  .desglose-table th, .desglose-table td { border: 1px solid #dee2e6; padding: 5px 10px; vertical-align: middle; }
+  .desglose-table thead th { background: #1e40af; color: #fff; text-align: center; }
+  .desglose-table tbody tr:nth-child(odd)  { background-color: #dbeafe; }
+  .desglose-table tbody tr:nth-child(even) { background-color: #ffffff; }
+  .desglose-table tbody tr:hover           { background-color: #bfdbfe !important; }
+  .desglose-table tfoot td { font-weight: 700; background: #f1f5f9; border-top: 2px solid #6b7280; }
+  .desglose-table .text-end { text-align: right; }
+  .desglose-table .text-center { text-align: center; }
+  .col-total { background: #e0f2fe !important; font-weight: 600; }
+  tfoot .col-total { background: #bae6fd !important; }
+  .zero { color: #cbd5e1; }
+</style>
+{% endblock %}
+
+{% block page_title %}Desglose de Bonos{% endblock %}
+{% block title %}Desglose de Bonos{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+  <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">Desglose de Bonos</h4>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'incentives_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i>Volver
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Filtro de semana -->
+<div class="card mb-4">
+  <div class="card-body p-3">
+    <form method="get" id="form-desglose" class="d-flex align-items-center gap-2 flex-wrap">
+      <label class="mb-0 small fw-semibold text-muted">Semana</label>
+      <input type="week" id="semana-picker"
+             value="{{ semana_year }}-W{{ semana_num|stringformat:'02d' }}"
+             class="form-control form-control-sm" style="width:auto;">
+      <input type="hidden" name="fecha_ini" id="fecha-ini-input" value="{{ fecha_ini|date:'Y-m-d' }}">
+      <input type="hidden" name="fecha_fin" id="fecha-fin-input" value="{{ fecha_fin|date:'Y-m-d' }}">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fas fa-search me-1"></i>Ver
+      </button>
+      <a href="?reset=1" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-calendar-day me-1"></i>Semana actual
+      </a>
+      <div class="ms-auto">
+        {% if mostrar_sin_datos %}
+        <a href="?fecha_ini={{ fecha_ini|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-eye-slash me-1"></i>Ocultar sin captura
+        </a>
+        {% else %}
+        <a href="?fecha_ini={{ fecha_ini|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}&sin_datos=1" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-eye me-1"></i>Mostrar todas
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Resumen tarjetas -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Diesel</div>
+        <div class="fs-6 fw-bold text-secondary">${{ totales.diesel|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Encargado</div>
+        <div class="fs-6 fw-bold text-primary">${{ totales.encargado|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Venta</div>
+        <div class="fs-6 fw-bold text-success">${{ totales.venta|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Mistery</div>
+        <div class="fs-6 fw-bold text-warning">${{ totales.mistery|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">ECV</div>
+        <div class="fs-6 fw-bold text-info">${{ totales.ecv|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Auditoría</div>
+        <div class="fs-6 fw-bold text-info">${{ totales.auditoria|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Rotación</div>
+        <div class="fs-6 fw-bold text-info">${{ totales.rotacion|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center h-100 border-primary">
+      <div class="card-body p-2">
+        <div class="small text-muted mb-1">Total general</div>
+        <div class="fs-5 fw-bold text-primary">${{ totales.total|intcomma }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla desglose -->
+<div class="card">
+  <div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="card-title mb-0">Detalle por Estación</h5>
+      <span style="background:#fff3cd; border:1px solid #ffc107; border-radius:5px; padding:2px 12px; font-size:13px; font-weight:600; color:#856404;">
+        <i class="fas fa-calendar-week me-1"></i>{{ fecha_ini|date:"d/m/Y" }} — {{ fecha_fin|date:"d/m/Y" }}
+      </span>
+    </div>
+
+    {% if rows %}
+    <div class="table-responsive">
+      <table class="desglose-table">
+        <thead>
+          <tr>
+            <th style="text-align:left; min-width:160px;" rowspan="2">ESTACIÓN</th>
+            <th colspan="7" style="text-align:center; background:#1e40af;">BONOS ($)</th>
+            <th style="min-width:100px;" class="col-total" rowspan="2">TOTAL $</th>
+          </tr>
+          <tr>
+            <th style="min-width:85px; background:#1d4ed8;">DIESEL</th>
+            <th style="min-width:90px; background:#1d4ed8;">ENCARGADO</th>
+            <th style="min-width:85px; background:#1d4ed8;">VENTA</th>
+            <th style="min-width:85px; background:#1d4ed8;">MISTERY</th>
+            <th style="min-width:70px; background:#16a34a;">ECV</th>
+            <th style="min-width:80px; background:#16a34a;">AUDITORÍA</th>
+            <th style="min-width:80px; background:#16a34a;">ROTACIÓN</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.nombre }}</td>
+            <td class="text-end">
+              {% if row.diesel %}<span>${{ row.diesel|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.encargado %}<span>${{ row.encargado|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.venta %}<span>${{ row.venta|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.mistery %}<span>${{ row.mistery|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.ecv %}<span>${{ row.ecv|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.auditoria %}<span>${{ row.auditoria|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.rotacion %}<span>${{ row.rotacion|intcomma }}</span>{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+            <td class="text-end col-total">
+              {% if row.total %}${{ row.total|intcomma }}{% else %}<span class="zero">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>TOTAL</td>
+            <td class="text-end">${{ totales.diesel|intcomma }}</td>
+            <td class="text-end">${{ totales.encargado|intcomma }}</td>
+            <td class="text-end">${{ totales.venta|intcomma }}</td>
+            <td class="text-end">${{ totales.mistery|intcomma }}</td>
+            <td class="text-end">${{ totales.ecv|intcomma }}</td>
+            <td class="text-end">${{ totales.auditoria|intcomma }}</td>
+            <td class="text-end">${{ totales.rotacion|intcomma }}</td>
+            <td class="text-end col-total">${{ totales.total|intcomma }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="fas fa-inbox fa-2x mb-2"></i>
+      <p class="mb-0">No hay registros de incentivos en el período seleccionado.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const picker   = document.getElementById('semana-picker');
+  const iniInput = document.getElementById('fecha-ini-input');
+  const finInput = document.getElementById('fecha-fin-input');
+
+  function semanaAFechas(val) {
+    if (!val) return;
+    const [yearStr, wStr] = val.split('-W');
+    const year = parseInt(yearStr, 10);
+    const week = parseInt(wStr, 10);
+    const jan4  = new Date(year, 0, 4);
+    const lunes = new Date(jan4);
+    lunes.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (week - 1) * 7);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    const fmt = d => d.toISOString().slice(0, 10);
+    iniInput.value = fmt(lunes);
+    finInput.value = fmt(domingo);
+  }
+
+  picker.addEventListener('change', function () {
+    semanaAFechas(this.value);
+    document.getElementById('form-desglose').submit();
+  });
+})();
+</script>
+{% endblock %}

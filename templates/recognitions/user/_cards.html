@@ -115,15 +115,16 @@
         <div class="row g-2 mt-3 px-2">
           {% for m in all_media %}
             {% with url=m.file.url|lower %}
-              {% if ".pdf" in url or ".doc" in url or ".docx" in url or ".xls" in url or ".xlsx" in url %}
+              {% if ".pdf" in url or ".doc" in url or ".docx" in url or ".xls" in url or ".xlsx" in url or ".ppt" in url or ".pptx" in url %}
                 <div class="col-md-3 col-6">
-                  <a href="{{ m.file.url }}" target="_blank" 
-                    class="btn btn-sm btn-outline-primary w-100 d-flex flex-column align-items-center p-2 h-100 shadow-sm"
-                    title="{{ m.file.name }}"> {# Icono dinámico #}
+                  <a href="{{ m.file.url }}" target="_blank"
+                    class="btn btn-sm btn-outline-primary w-100 d-flex flex-column align-items-center p-2 h-100 shadow-sm doc-link"> {# Icono dinámico #}
                     {% if ".pdf" in url %}
                       <i class="fas fa-file-pdf text-danger fa-2x mb-1"></i>
                     {% elif ".xls" in url or ".xlsx" in url %}
                       <i class="fas fa-file-excel text-success fa-2x mb-1"></i>
+                    {% elif ".ppt" in url or ".pptx" in url %}
+                      <i class="fas fa-file-powerpoint text-warning fa-2x mb-1"></i>
                     {% else %}
                       <i class="fas fa-file-word text-primary fa-2x mb-1"></i>
                     {% endif %}
@@ -329,6 +330,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (items.length <= 1) {
             carousel.querySelectorAll('.carousel-control-prev, .carousel-control-next').forEach(el => el.remove());
         }
+    });
+
+    // Mostrar solo el nombre del archivo en el tooltip de documentos
+    document.querySelectorAll('a.doc-link').forEach(a => {
+        a.title = a.href.split('/').pop();
     });
 });
 </script>

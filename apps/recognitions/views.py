@@ -775,6 +775,17 @@ def recognition_edit_admin(request, pk):
         rec.category  = category
         rec.is_priority = is_priority
         rec.is_public = is_public
+
+        # Actualizar fecha de publicación si el comunicado está programado
+        if rec.status == 'scheduled':
+            new_publish_at = _parse_datetime_local(request.POST.get('publish_at'))
+            if new_publish_at:
+                rec.publish_at = new_publish_at
+            else:
+                # Si se dejó vacío, convertir a borrador
+                rec.publish_at = None
+                rec.status = 'draft'
+
         rec.save()
 
         if not is_public:

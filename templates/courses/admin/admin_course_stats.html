@@ -14,7 +14,7 @@
 
     <div class="row mb-4">
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 rounded-4">
+            <div class="card shadow-sm border-0 rounded-4 stat-filter-card active-stat-filter" data-filter="all" role="button" style="cursor:pointer; transition: box-shadow .2s, border .2s;">
                 <div class="card-body text-center">
                     <h6>Total asignados</h6>
                     <h3>{{ total_users }}</h3>
@@ -22,7 +22,7 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 rounded-4">
+            <div class="card shadow-sm border-0 rounded-4 stat-filter-card" data-filter="completed" role="button" style="cursor:pointer; transition: box-shadow .2s, border .2s;">
                 <div class="card-body text-center">
                     <h6>Completaron curso</h6>
                     <h3>{{ completed_users }}</h3>
@@ -30,7 +30,7 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 rounded-4">
+            <div class="card shadow-sm border-0 rounded-4 stat-filter-card" data-filter="approved" role="button" style="cursor:pointer; transition: box-shadow .2s, border .2s;">
                 <div class="card-body text-center">
                     <h6>Aprobaron evaluación</h6>
                     <h3>{{ approved_users }}</h3>
@@ -51,7 +51,7 @@
         <div class="card-body">
             <h5 class="fw-bold mb-3">Detalle por usuario</h5>
             <div class="table-responsive">
-                <table class="table table-bordered table-hover">
+                <table class="table table-bordered table-hover" id="stats-table">
                     <thead class="table-light">
                         <tr>
                             <th>Nombre</th>
@@ -63,7 +63,7 @@
                     </thead>
                     <tbody>
                         {% for record in user_progress %}
-                        <tr>
+                        <tr data-completed="{% if record.attempts > 0 %}1{% else %}0{% endif %}" data-approved="{% if record.passed %}1{% else %}0{% endif %}">
                             <td>{{ record.employee_name }}</td>
                             <td>{{ record.user.email }}</td>
                             <td>{{ record.attempts }}</td>
@@ -90,4 +90,43 @@
         </div>
     </div>
 </div>
+
+<style>
+.active-stat-filter {
+    border: 2px solid #0d6efd !important;
+    box-shadow: 0 0 0 3px rgba(13,110,253,.2) !important;
+}
+.stat-filter-card:hover {
+    box-shadow: 0 4px 16px rgba(13,110,253,.25) !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const cards = document.querySelectorAll('.stat-filter-card');
+    const rows  = document.querySelectorAll('#stats-table tbody tr[data-completed]');
+    const emptyRow = document.querySelector('#stats-table tbody tr td[colspan]')?.closest('tr');
+
+    function applyFilter(filter) {
+        let visible = 0;
+        rows.forEach(function (row) {
+            let show = false;
+            if (filter === 'all')       show = true;
+            else if (filter === 'completed') show = row.dataset.completed === '1';
+            else if (filter === 'approved')  show = row.dataset.approved  === '1';
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        if (emptyRow) emptyRow.style.display = (visible === 0 && rows.length > 0) ? '' : 'none';
+    }
+
+    cards.forEach(function (card) {
+        card.addEventListener('click', function () {
+            cards.forEach(c => c.classList.remove('active-stat-filter'));
+            card.classList.add('active-stat-filter');
+            applyFilter(card.dataset.filter);
+        });
+    });
+});
+</script>
 {% endblock %}

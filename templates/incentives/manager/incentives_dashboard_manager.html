@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block page_title %}Incentivos — Gerente{% endblock %}
-{% block title %}Incentivos — {{ department.name|default:"Mi Departamento" }}{% endblock %}
+{% block title %}Incentivos — {{ station_name|default:"Mi Departamento" }}{% endblock %}
 
 {% block content %}
 
@@ -13,7 +13,7 @@
 <div class="card mb-4">
   <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-      <h4 class="mb-0">Incentivos — {{ department.name|default:"Mi Departamento" }}</h4>
+      <h4 class="mb-0">Incentivos — {{ station_name|default:"Mi Departamento" }}</h4>
       <small class="text-muted">Semana {{ week_start|date:"W" }} — del {{ week_start|date:"d/m/Y" }} al {{ week_end|date:"d/m/Y" }}</small>
     </div>
     <div class="d-flex align-items-center gap-2">
@@ -52,20 +52,59 @@
 
 {% if colaboradores %}
 
+{# ── Selector evaluado Mistery (fuera de la tabla, solo visible si la estación ganó) ── #}
+<div id="mistery-evaluado-row" class="d-none mb-4 px-3 py-2 d-flex align-items-center gap-2 flex-wrap"
+     style="background:#f5f0ff; border:1px solid #ddd6fe; border-radius:6px;">
+  <span style="font-size:13px; font-weight:600; color:#5b21b6;">
+    <i class="fas fa-star me-1"></i>Evaluado Mistery:
+  </span>
+  <select id="mistery-evaluado-select" class="form-select form-select-sm"
+          style="width:auto; min-width:230px;"
+          {% if periodo_cerrado %}disabled{% endif %}>
+    <option value="">— Sin asignar —</option>
+    {% for emp in colaboradores %}
+    <option value="{{ emp.id }}">{{ emp.last_name }} {{ emp.first_name }}</option>
+    {% endfor %}
+  </select>
+</div>
+
 {# ── Selector de colaborador ── #}
 <div class="card mb-4">
   <div class="card-body p-3">
     <label class="form-label fw-semibold mb-1">Colaborador</label>
     <select id="selector-colaborador" class="form-select">
       {% for emp in colaboradores %}
-      {% with initials=emp.first_name|slice:":1"|add:emp.last_name|slice:":1" %}
+      {% with initials=emp.first_name|slice:":1"|add:emp.last_name|slice:":1" title=emp.job_position.title|default:""|lower %}
+      {% if 'gerente de estaci' in title or 'gerente de estacion' in title %}
       <option
         value="{{ emp.id }}"
         data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
         data-puesto="{{ emp.job_position.title|default:'—' }}"
         data-num="{{ emp.employee_number }}"
         data-iniciales="{{ initials|upper }}"
+        data-es-manager="true"
+        style="background-color:#dbeafe; color:#1e3a5f; font-weight:600;"
       >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
+      {% elif 'subgerente de estaci' in title or 'subgerente de estacion' in title %}
+      <option
+        value="{{ emp.id }}"
+        data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
+        data-puesto="{{ emp.job_position.title|default:'—' }}"
+        data-num="{{ emp.employee_number }}"
+        data-iniciales="{{ initials|upper }}"
+        data-es-manager="true"
+        style="background-color:#e0f2fe; color:#0c4a6e; font-weight:500;"
+      >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
+      {% else %}
+      <option
+        value="{{ emp.id }}"
+        data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
+        data-puesto="{{ emp.job_position.title|default:'—' }}"
+        data-num="{{ emp.employee_number }}"
+        data-iniciales="{{ initials|upper }}"
+        data-es-manager="false"
+      >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
+      {% endif %}
       {% endwith %}
       {% endfor %}
     </select>
@@ -142,29 +181,31 @@
               </span>
             </td>
             <td>—</td>
-            <td class="text-center text-muted">—</td>
+            <td class="text-center fw-semibold text-muted" id="venta-total-manager">—</td>
           </tr>
           {% elif tipo == "Mistery" %}
           <tr>
             <td class="fw-semibold">Mistery</td>
-            <td colspan="7" class="py-2 px-3">
-              <div id="mistery-status-cell" class="text-center">
+            <td colspan="7" class="text-center py-2 px-3">
+              <div id="mistery-status-cell">
                 <span class="text-muted" style="font-size:12px;">
                   <i class="fas fa-circle-notch fa-spin me-1"></i>Verificando…
                 </span>
               </div>
-              <div id="mistery-evaluado-row" class="d-none mt-2 d-flex align-items-center gap-2 justify-content-center flex-wrap">
-                <span style="font-size:12px;font-weight:600;">Persona evaluada:</span>
-                <select id="mistery-evaluado-select" class="form-select form-select-sm" style="width:auto;min-width:220px;" {% if periodo_cerrado %}disabled{% endif %}>
-                  <option value="">— Sin asignar —</option>
-                  {% for emp in colaboradores %}
-                  <option value="{{ emp.id }}">{{ emp.last_name }} {{ emp.first_name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
             </td>
             <td>—</td>
             <td class="text-center fw-semibold text-muted" id="mistery-total-cell">—</td>
+          </tr>
+          {% elif tipo == "ECV" or tipo == "Auditoría" or tipo == "Rotación" %}
+          <tr class="text-muted tipo-manager-only d-none">
+            <td class="fw-semibold">{{ tipo }}</td>
+            {% for day in days %}
+            <td class="text-center {% if day == today %}day-today{% endif %}">
+              <input type="checkbox" class="form-check-input" disabled>
+            </td>
+            {% endfor %}
+            <td>—</td>
+            <td class="text-center">—</td>
           </tr>
           {% else %}
           <tr class="text-muted">
@@ -214,6 +255,8 @@
     var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
     var CFG_ENC_INCREMENTO = {{ cfg.encargado_incremento }};
     var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
+    var CFG_MISTERY_MONTO = {{ cfg.mistery_monto }};
+    var CFG_MISTERY_MONTO_EVALUADO = {{ cfg.mistery_monto_evaluado }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

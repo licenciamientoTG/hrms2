@@ -44,6 +44,9 @@
         <i class="fas fa-lock-open" style="font-size:1.6rem; color:#28a745;"></i>
       </button>
       {% endif %}
+      <a href="{% url 'desglose_bonos' %}?fecha_ini={{ week_start|date:'Y-m-d' }}&fecha_fin={{ week_end|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm ms-2" title="Desglose de bonos">
+        <i class="fas fa-table"></i>
+      </a>
       <a href="{% url 'configuracion_incentivos' %}" class="btn btn-outline-secondary btn-sm ms-2" title="Configurar montos de incentivos">
         <i class="fas fa-sliders-h"></i>
       </a>
@@ -100,9 +103,29 @@
               {% endif %}
             </td>
           </tr>
-          <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}">
+          <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}" data-team-key="{{ item.team_key }}">
             <td colspan="4" class="p-0">
               <div class="incentives-detail-container px-3 py-2">
+
+                {# ── Selector de evaluado Mistery (solo si la estación ganó) ── #}
+                <div id="mistery-evaluado-admin-{{ forloop.counter }}"
+                     class="d-none mb-2 px-3 py-2 d-flex align-items-center gap-2 flex-wrap"
+                     style="background:#f5f0ff; border:1px solid #ddd6fe; border-radius:6px;">
+                  <span style="font-size:13px; font-weight:600; color:#5b21b6;">
+                    <i class="fas fa-star me-1"></i>Evaluado Mistery:
+                  </span>
+                  <select class="mistery-evaluado-admin-select form-select form-select-sm"
+                          style="width:auto; min-width:230px;"
+                          data-team-key="{{ item.team_key }}"
+                          data-dept-id="{{ forloop.counter }}"
+                          {% if periodo_cerrado %}disabled{% endif %}>
+                    <option value="">— Sin asignar —</option>
+                    {% for emp in item.employees %}
+                    <option value="{{ emp.id }}">{{ emp.last_name }} {{ emp.first_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
                 <table class="table table-sm mb-0 zona-emp-table">
                   <thead class="table-light">
                     <tr>
@@ -208,12 +231,15 @@
     var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
     var CFG_ENC_INCREMENTO = {{ cfg.encargado_incremento }};
     var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
+    var CFG_MISTERY_MONTO = {{ cfg.mistery_monto }};
+    var CFG_MISTERY_MONTO_EVALUADO = {{ cfg.mistery_monto_evaluado }};
     var DIAS = [
       {% for day in days %}
       {"fecha":"{{ day|date:'Y-m-d' }}","nombre":"{{ day|date:'D'|slice:':3'|upper }}","display":"{{ day|date:'d/m' }}","esHoy":{% if day == today %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}
       {% endfor %}
     ];
     var TIPOS = {{ tipos|safe }};
+    var TIPOS_MANAGER = {{ tipos_manager|safe }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

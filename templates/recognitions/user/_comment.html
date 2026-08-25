@@ -9,12 +9,12 @@
     </div>
   {% endif %}
   {% endwith %}
-  <div class="flex-grow-1">
+  <div class="flex-grow-1" style="min-width:0;">
     <div class="small text-muted">
       <span class="fw-semibold">{{ c.author.get_full_name|default:c.author.username }}</span>
       · {{ c.created_at|timesince }} atrás
     </div>
-    <div>{{ c.body|linebreaksbr }}</div>
+    <div style="overflow-wrap:break-word;word-break:break-word;min-width:0;">{{ c.body|linebreaksbr }}</div>
   </div>
 
   {% if request.user == c.author or perms.recognitions.delete_recognitioncomment %}
