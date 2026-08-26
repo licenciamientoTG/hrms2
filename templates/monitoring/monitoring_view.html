@@ -12,91 +12,418 @@
   <h2 class="mb-0">Panel de Monitoreo</h2>
 </div>
 
-<div class="card p-3">
-  <!-- Buscador (mismo estilo que Políticas) -->
-  <form class="mb-3" method="get">
-    <div class="d-flex gap-2">
-      <input id="monitoring-search"
-            type="text"
-            name="q"
-            value="{{ q }}"
-            class="form-control"
-            placeholder="🔍 Buscar por nombre o usuario">
-    </div>
-  </form>
+<!-- Pestañas -->
+<ul class="nav nav-tabs mb-3" id="monitoringTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-usuarios-btn" data-bs-toggle="tab"
+            data-bs-target="#tab-usuarios" type="button" role="tab">
+      Usuarios
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-modulos-btn" data-bs-toggle="tab"
+            data-bs-target="#tab-modulos" type="button" role="tab">
+      Uso de módulos
+    </button>
+  </li>
+</ul>
 
-  <!-- Tabla con mismas clases que Políticas -->
-  <div class="table-responsive">
-    <table class="table table-hover align-middle" id="admin-monitoring-table">
-      <thead>
-        <tr>
-          <th>Puesto</th>
-          <th>Departamento</th>
-          <th>Nombre</th>
-          <th>Usuario</th>
-          <th>Último lugar de acceso</th>
-          <th>Última Sesión Hace</th>
-          <th>Uso a la semana</th>
-          <th>Sesión</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in rows %}
-        <tr>
-          <td>{{ row.position }}
-          <td>{{ row.department }}</td>
-          <td>{{ row.nombre }}</td>
-          <td>{{ row.username }}</td>
-          <td>{{ row.locations }}</td>
-          <td>{{ row.last_seen_human }}</td>
-          <td>
-            <div class="usage-week">
-              {% for cell in row.week_cells %}
-                <span class="day {% if cell.used %}on{% endif %}" title="{{ cell.label }}"></span>
-              {% endfor %}
-            </div>
-          </td>
-          <td>
-            {% if row.session_open %}
-              <span class="badge bg-success">Abierta</span>
-            {% else %}
-              <span class="badge bg-secondary">Cerrada</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="6" class="text-center">Sin resultados.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="tab-content" id="monitoringTabContent">
+
+  <!-- ===================== PESTAÑA USUARIOS ===================== -->
+  <div class="tab-pane fade show active" id="tab-usuarios" role="tabpanel">
+    <div class="card p-3">
+      <form class="mb-3" method="get">
+        <div class="d-flex gap-2">
+          <input id="monitoring-search" type="text" name="q" value="{{ q }}"
+                 class="form-control" placeholder="🔍 Buscar por nombre o usuario">
+        </div>
+      </form>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle" id="admin-monitoring-table">
+          <thead>
+            <tr>
+              <th>Puesto</th>
+              <th>Departamento</th>
+              <th>Nombre</th>
+              <th>Usuario</th>
+              <th>Último lugar de acceso</th>
+              <th>Última Sesión Hace</th>
+              <th>Uso a la semana</th>
+              <th>Sesión</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td>{{ row.position }}</td>
+              <td>{{ row.department }}</td>
+              <td>{{ row.nombre }}</td>
+              <td>{{ row.username }}</td>
+              <td>{{ row.locations }}</td>
+              <td>{{ row.last_seen_human }}</td>
+              <td>
+                <div class="usage-week">
+                  {% for cell in row.week_cells %}
+                    <span class="day {% if cell.used %}on{% endif %}" title="{{ cell.label }}"></span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                {% if row.session_open %}
+                  <span class="badge bg-success">Abierta</span>
+                {% else %}
+                  <span class="badge bg-secondary">Cerrada</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="text-center">Sin resultados.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj and page_obj.paginator.num_pages > 1 %}
+      <nav aria-label="Paginación" class="mt-3">
+        <ul class="pagination mb-0">
+          {% if page_obj.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}&q={{ q }}">« Anterior</a>
+            </li>
+          {% endif %}
+          <li class="page-item disabled">
+            <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+          </li>
+          {% if page_obj.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}&q={{ q }}">Siguiente »</a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- Paginación dentro de la card para mantener el “cuadro blanco” -->
-  {% if page_obj and page_obj.paginator.num_pages > 1 %}
-  <nav aria-label="Paginación" class="mt-3">
-    <ul class="pagination mb-0">
-      {% if page_obj.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}&q={{ q }}">« Anterior</a>
-        </li>
-      {% endif %}
-      <li class="page-item disabled">
-        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-      </li>
-      {% if page_obj.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}&q={{ q }}">Siguiente »</a>
-        </li>
-      {% endif %}
-    </ul>
-  </nav>
-  {% endif %}
+  <!-- ===================== PESTAÑA MÓDULOS ===================== -->
+  <div class="tab-pane fade" id="tab-modulos" role="tabpanel">
 
-</div>
+    <!-- Filtro de fechas -->
+    <form method="get" class="card p-3 mb-3" id="mod-filter-form">
+      <input type="hidden" name="tab" value="modulos">
+      <div class="d-flex gap-2 align-items-end flex-wrap">
+        <div>
+          <label class="form-label mb-1 small">Desde</label>
+          <input type="date" name="mod_from" value="{{ mod_from }}" class="form-control form-control-sm">
+        </div>
+        <div>
+          <label class="form-label mb-1 small">Hasta</label>
+          <input type="date" name="mod_to" value="{{ mod_to }}" class="form-control form-control-sm">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+      </div>
+    </form>
+
+    <!-- Tarjetas resumen -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+          <div class="fs-2 fw-bold text-primary">{{ mod_unique_pages }}</div>
+          <div class="small text-muted">Módulos visitados</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+          <div class="fs-2 fw-bold text-success">{{ mod_active_users }}</div>
+          <div class="small text-muted">Usuarios activos</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+          <div class="fs-2 fw-bold text-info">{{ mod_total_visits }}</div>
+          <div class="small text-muted">Visitas totales</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+          <div class="fs-2 fw-bold text-warning">{{ mod_unused_count }}</div>
+          <div class="small text-muted">Módulos sin uso</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+
+      <!-- Panel 1: Usuarios más activos -->
+      <div class="col-md-6">
+        <div class="card p-3 h-100">
+          <h6 class="fw-bold mb-3">Usuarios más activos</h6>
+          <div id="panel-top-users" class="panel-body"></div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Módulos más visitados -->
+      <div class="col-md-6">
+        <div class="card p-3 h-100">
+          <h6 class="fw-bold mb-3">Módulos más visitados</h6>
+          <div id="panel-top-modules" class="panel-body"></div>
+        </div>
+      </div>
+
+      <!-- Panel 3: Módulos con más alcance -->
+      <div class="col-md-6">
+        <div class="card p-3 h-100">
+          <h6 class="fw-bold mb-3">Módulos con más alcance <small class="text-muted fw-normal">(usuarios únicos)</small></h6>
+          <div id="panel-top-reach" class="panel-body"></div>
+        </div>
+      </div>
+
+      <!-- Panel 4: Módulos sin uso en el período -->
+      <div class="col-md-6">
+        <div class="card p-3 h-100">
+          <h6 class="fw-bold mb-3">Módulos sin uso en el período</h6>
+          <div id="panel-unused" class="panel-body"></div>
+        </div>
+      </div>
+
+    </div><!-- /row paneles -->
+  </div><!-- /tab-modulos -->
+
+</div><!-- /tab-content -->
 {% endblock %}
 
 {% block scripts %}
 <script src="{% static 'js/monitoring.js' %}"></script>
+<script>
+(function () {
+  const MOD_FROM = "{{ mod_from }}";
+  const MOD_TO   = "{{ mod_to }}";
+
+  // Estado de cada panel: página actual + columna y dirección de orden
+  const state = {
+    top_users:   { page: 1, sort: "total",        order: "desc" },
+    top_modules: { page: 1, sort: "total",         order: "desc" },
+    top_reach:   { page: 1, sort: "unique_users",  order: "desc" },
+    unused:      { page: 1, sort: "days_inactive", order: "desc" },
+  };
+
+  function getDateParams() {
+    const form = document.getElementById("mod-filter-form");
+    if (!form) return { mod_from: MOD_FROM, mod_to: MOD_TO };
+    const fd = new FormData(form);
+    return { mod_from: fd.get("mod_from") || MOD_FROM, mod_to: fd.get("mod_to") || MOD_TO };
+  }
+
+  function spinner() {
+    return '<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>';
+  }
+
+  function sortIcon(col, panelKey) {
+    const s = state[panelKey];
+    if (s.sort !== col) return `<span class="text-muted opacity-50 ms-1" style="font-size:.7rem">⇅</span>`;
+    return s.order === "asc"
+      ? `<span class="ms-1" style="font-size:.75rem">↑</span>`
+      : `<span class="ms-1" style="font-size:.75rem">↓</span>`;
+  }
+
+  function th(label, col, panelKey, extraClass = "") {
+    return `<th class="sort-col ${extraClass}" style="cursor:pointer;user-select:none;white-space:nowrap"
+              data-panel="${panelKey}" data-sort="${col}">${label}${sortIcon(col, panelKey)}</th>`;
+  }
+
+  function pagination(data, panelKey) {
+    if (data.total_pages <= 1) return "";
+    const prev = data.page > 1
+      ? `<li class="page-item"><a class="page-link" href="#" data-panel="${panelKey}" data-page="${data.page - 1}">«</a></li>`
+      : `<li class="page-item disabled"><span class="page-link">«</span></li>`;
+    const next = data.page < data.total_pages
+      ? `<li class="page-item"><a class="page-link" href="#" data-panel="${panelKey}" data-page="${data.page + 1}">»</a></li>`
+      : `<li class="page-item disabled"><span class="page-link">»</span></li>`;
+    return `<nav class="mt-2">
+      <ul class="pagination pagination-sm mb-0 align-items-center">
+        ${prev}
+        <li class="page-item disabled"><span class="page-link text-muted">${data.page} / ${data.total_pages}</span></li>
+        ${next}
+      </ul>
+    </nav>`;
+  }
+
+  function renderTopUsers(data) {
+    if (!data.rows.length) return "<p class='text-muted small'>Sin datos en el período.</p>";
+    const k = "top_users";
+    const rows = data.rows.map(r => `<tr>
+      <td>${r.nombre}</td>
+      <td class="text-end fw-bold">${r.total}</td>
+      <td class="text-end text-muted">${r.distinct_modules}</td>
+      <td class="text-end text-muted">${r.last_visit}</td>
+    </tr>`).join("");
+    return `<div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr>
+          ${th("Usuario", "nombre", k)}
+          ${th("Visitas", "total", k, "text-end")}
+          ${th("Módulos", "distinct_modules", k, "text-end")}
+          ${th("Última visita", "last_visit", k, "text-end")}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>${pagination(data, k)}`;
+  }
+
+  function renderTopModules(data) {
+    if (!data.rows.length) return "<p class='text-muted small'>Sin datos en el período.</p>";
+    const k = "top_modules";
+    const rows = data.rows.map(r => `<tr>
+      <td>${r.module}</td>
+      <td class="text-end fw-bold">${r.total}</td>
+      <td class="text-end text-muted">${r.unique_users}</td>
+      <td style="width:100px"><div class="progress" style="height:8px"><div class="progress-bar bg-primary" style="width:${r.pct}%"></div></div></td>
+    </tr>`).join("");
+    return `<div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr>
+          ${th("Módulo", "module", k)}
+          ${th("Visitas", "total", k, "text-end")}
+          ${th("Usuarios", "unique_users", k, "text-end")}
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>${pagination(data, k)}`;
+  }
+
+  function renderTopReach(data) {
+    if (!data.rows.length) return "<p class='text-muted small'>Sin datos en el período.</p>";
+    const k = "top_reach";
+    const rows = data.rows.map(r => `<tr>
+      <td>${r.module}</td>
+      <td class="text-end fw-bold">${r.unique_users}</td>
+      <td class="text-end text-muted">${r.total}</td>
+      <td style="width:100px"><div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width:${r.pct}%"></div></div></td>
+    </tr>`).join("");
+    return `<div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr>
+          ${th("Módulo", "module", k)}
+          ${th("Usuarios", "unique_users", k, "text-end")}
+          ${th("Visitas", "total", k, "text-end")}
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>${pagination(data, k)}`;
+  }
+
+  function renderUnused(data) {
+    if (!data.rows.length) return "<p class='text-muted small'>Todos los módulos fueron visitados en este período.</p>";
+    const k = "unused";
+    const rows = data.rows.map(r => `<tr>
+      <td>${r.module}</td>
+      <td class="text-muted small">${r.last_date}</td>
+      <td><span class="badge bg-${r.badge}">${r.days_inactive}d</span></td>
+    </tr>`).join("");
+    return `<div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr>
+          ${th("Módulo", "module", k)}
+          ${th("Última visita", "last_date", k)}
+          ${th("Inactividad", "days_inactive", k)}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>${pagination(data, k)}`;
+  }
+
+  const PANELS = {
+    "top_users":   { id: "panel-top-users",   render: renderTopUsers },
+    "top_modules": { id: "panel-top-modules",  render: renderTopModules },
+    "top_reach":   { id: "panel-top-reach",    render: renderTopReach },
+    "unused":      { id: "panel-unused",        render: renderUnused },
+  };
+
+  function loadPanel(key) {
+    const p = PANELS[key];
+    const s = state[key];
+    if (!p || !s) return;
+    const el = document.getElementById(p.id);
+    if (!el) return;
+    el.innerHTML = spinner();
+    const dates = getDateParams();
+    const params = new URLSearchParams({
+      panel: key, page: s.page,
+      sort: s.sort, order: s.order,
+      mod_from: dates.mod_from, mod_to: dates.mod_to,
+    });
+    fetch("/monitoring/api/panel/?" + params)
+      .then(r => r.json())
+      .then(data => { el.innerHTML = p.render(data); })
+      .catch(() => { el.innerHTML = "<p class='text-muted small'>Error al cargar.</p>"; });
+  }
+
+  function loadAllPanels() {
+    Object.keys(PANELS).forEach(k => { state[k].page = 1; loadPanel(k); });
+  }
+
+  // Delegación de eventos: paginación y ordenamiento
+  document.addEventListener("click", function (e) {
+    // Paginación
+    const a = e.target.closest("a[data-panel][data-page]");
+    if (a) {
+      e.preventDefault();
+      const key = a.dataset.panel;
+      state[key].page = parseInt(a.dataset.page);
+      loadPanel(key);
+      return;
+    }
+    // Ordenamiento por columna
+    const thEl = e.target.closest("th.sort-col[data-panel]");
+    if (thEl) {
+      const key  = thEl.dataset.panel;
+      const sort = thEl.dataset.sort;
+      if (state[key].sort === sort) {
+        state[key].order = state[key].order === "asc" ? "desc" : "asc";
+      } else {
+        state[key].sort  = sort;
+        state[key].order = "desc";
+      }
+      state[key].page = 1;
+      loadPanel(key);
+    }
+  });
+
+  // Cargar al mostrar la pestaña
+  let loaded = false;
+  const tabBtn = document.getElementById("tab-modulos-btn");
+  if (tabBtn) {
+    tabBtn.addEventListener("shown.bs.tab", function () {
+      if (!loaded) { loaded = true; loadAllPanels(); }
+    });
+  }
+
+  // Si viene con tab=modulos en la URL, cargar al inicio
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("tab") === "modulos") {
+    const btn = document.getElementById("tab-modulos-btn");
+    if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    loaded = true;
+    document.addEventListener("DOMContentLoaded", loadAllPanels);
+  }
+
+  // Mantener pestaña activa al filtrar fechas
+  const form = document.getElementById("mod-filter-form");
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "modulos");
+      url.searchParams.set("mod_from", fd.get("mod_from") || "");
+      url.searchParams.set("mod_to", fd.get("mod_to") || "");
+      history.pushState({}, "", url);
+      loaded = true;
+      loadAllPanels();
+    });
+  }
+})();
+</script>
 {% endblock %}

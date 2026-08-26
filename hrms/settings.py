@@ -88,6 +88,7 @@ MIDDLEWARE = [
     'authapp.middleware.CheckTermsMiddleware',                   # ← Nuevo Middleware de Términos
     'apps.monitoring.middleware.IdleTimeoutMiddleware',          # ← tus middlewares
     'apps.monitoring.middleware.DailyUsageMiddleware',           # ← van DESPUÉS de Auth
+    'apps.monitoring.middleware.ModuleVisitMiddleware',          # ← tracking de módulos
     'apps.users.middleware.ForcePasswordChangeMiddleware',       # ← si lo usas, aquí está bien
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

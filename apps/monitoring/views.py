@@ -1,15 +1,16 @@
-from datetime import timedelta, datetime, timezone as dt_timezone
+from datetime import timedelta, datetime, timezone as dt_timezone, date as date_type
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import OuterRef, Subquery, Case, When, IntegerField
+from django.db.models import OuterRef, Subquery, Case, When, IntegerField, Sum, Count, Max
 from django.db.models.functions import Coalesce
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.db.models import Q, Value
 from django.core.exceptions import FieldError
 
-from apps.monitoring.models import SessionEvent, UserDailyUse
+from apps.monitoring.models import SessionEvent, UserDailyUse, ModuleVisit
 from django.conf import settings
 from django.contrib.sessions.models import Session
 
@@ -248,9 +249,168 @@ def monitoring_view(request):
             "session_open": session_open,
         })
 
+    # ---- DATOS PESTAÑA MÓDULOS (solo resúmenes para tarjetas) ----
+    mod_from_str = request.GET.get("mod_from", "")
+    mod_to_str   = request.GET.get("mod_to", "")
+    try:
+        mod_from = date_type.fromisoformat(mod_from_str)
+    except ValueError:
+        mod_from = today - timedelta(days=29)
+    try:
+        mod_to = date_type.fromisoformat(mod_to_str)
+    except ValueError:
+        mod_to = today
+
+    mod_qs = ModuleVisit.objects.filter(date__range=(mod_from, mod_to))
+
+    mod_unique_pages  = mod_qs.values("module").distinct().count()
+    mod_active_users  = mod_qs.values("user").distinct().count()
+    mod_total_visits  = mod_qs.aggregate(t=Sum("count"))["t"] or 0
+    modules_in_period = set(mod_qs.values_list("module", flat=True).distinct())
+    all_modules       = set(ModuleVisit.objects.values_list("module", flat=True).distinct())
+    mod_unused_count  = len(all_modules - modules_in_period)
+
     return render(request, "monitoring/monitoring_view.html", {
+        # Pestaña usuarios
         "rows": rows,
         "page_obj": page_obj,
         "q": q,
         "page_size": page_size,
+        # Pestaña módulos — solo tarjetas resumen; paneles se cargan vía AJAX
+        "mod_from": mod_from.isoformat(),
+        "mod_to": mod_to.isoformat(),
+        "mod_unique_pages": mod_unique_pages,
+        "mod_active_users": mod_active_users,
+        "mod_total_visits": mod_total_visits,
+        "mod_unused_count": mod_unused_count,
+    })
+
+
+# ---- API paginada para paneles de módulos ----
+PANEL_PAGE_SIZE = 20
+
+@user_passes_test(lambda u: u.is_staff)
+def module_panel_api(request):
+    panel = request.GET.get("panel", "")
+    try:
+        page = max(1, int(request.GET.get("page", 1)))
+    except ValueError:
+        page = 1
+
+    today = timezone.localdate()
+    try:
+        mod_from = date_type.fromisoformat(request.GET.get("mod_from", ""))
+    except ValueError:
+        mod_from = today - timedelta(days=29)
+    try:
+        mod_to = date_type.fromisoformat(request.GET.get("mod_to", ""))
+    except ValueError:
+        mod_to = today
+
+    mod_qs  = ModuleVisit.objects.filter(date__range=(mod_from, mod_to))
+    offset  = (page - 1) * PANEL_PAGE_SIZE
+    sort    = request.GET.get("sort", "")
+    order   = request.GET.get("order", "desc")
+    prefix  = "" if order == "asc" else "-"
+
+    if panel == "top_users":
+        SORT_MAP = {
+            "nombre":           ["user__last_name", "user__first_name"],
+            "total":            ["total"],
+            "distinct_modules": ["distinct_modules"],
+            "last_visit":       ["last_visit"],
+        }
+        sort_key = sort if sort in SORT_MAP else "total"
+        orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
+
+        qs = (
+            mod_qs.values("user__first_name", "user__last_name", "user__username")
+            .annotate(
+                total=Sum("count"),
+                distinct_modules=Count("module", distinct=True),
+                last_visit=Max("date"),
+            )
+            .order_by(*orm_order)
+        )
+        total = qs.count()
+        rows = []
+        for u in qs[offset:offset + PANEL_PAGE_SIZE]:
+            nombre = f"{u['user__first_name']} {u['user__last_name']}".strip()
+            rows.append({
+                "nombre": nombre or u["user__username"],
+                "total": u["total"],
+                "distinct_modules": u["distinct_modules"],
+                "last_visit": str(u["last_visit"]),
+            })
+
+    elif panel == "top_modules":
+        SORT_MAP = {"module": ["module"], "total": ["total"], "unique_users": ["unique_users"]}
+        sort_key = sort if sort in SORT_MAP else "total"
+        orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
+
+        qs = (
+            mod_qs.values("module")
+            .annotate(total=Sum("count"), unique_users=Count("user", distinct=True))
+            .order_by(*orm_order)
+        )
+        total = qs.count()
+        top   = qs.order_by("-total").first()
+        max_val = top["total"] if top else 1
+        rows = [
+            {"module": r["module"], "total": r["total"], "unique_users": r["unique_users"],
+             "pct": int(r["total"] * 100 / max_val)}
+            for r in qs[offset:offset + PANEL_PAGE_SIZE]
+        ]
+
+    elif panel == "top_reach":
+        SORT_MAP = {"module": ["module"], "unique_users": ["unique_users"], "total": ["total"]}
+        sort_key = sort if sort in SORT_MAP else "unique_users"
+        orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
+
+        qs = (
+            mod_qs.values("module")
+            .annotate(total=Sum("count"), unique_users=Count("user", distinct=True))
+            .order_by(*orm_order)
+        )
+        total = qs.count()
+        top   = qs.order_by("-unique_users").first()
+        max_val = top["unique_users"] if top else 1
+        rows = [
+            {"module": r["module"], "total": r["total"], "unique_users": r["unique_users"],
+             "pct": int(r["unique_users"] * 100 / max_val)}
+            for r in qs[offset:offset + PANEL_PAGE_SIZE]
+        ]
+
+    elif panel == "unused":
+        modules_in_period = set(mod_qs.values_list("module", flat=True).distinct())
+        all_modules       = set(ModuleVisit.objects.values_list("module", flat=True).distinct())
+        unused_names      = list(all_modules - modules_in_period)
+        total = len(unused_names)
+
+        # Construir lista completa con metadatos para poder ordenar
+        all_rows = []
+        for mod_name in unused_names:
+            last = ModuleVisit.objects.filter(module=mod_name).order_by("-date").values("date").first()
+            if last:
+                days_inactive = (today - last["date"]).days
+                badge = "danger" if days_inactive > 30 else ("warning" if days_inactive > 7 else "secondary")
+                all_rows.append({
+                    "module": mod_name,
+                    "last_date": str(last["date"]),
+                    "days_inactive": days_inactive,
+                    "badge": badge,
+                })
+
+        SORT_KEYS = {"module": "module", "last_date": "last_date", "days_inactive": "days_inactive"}
+        sort_key  = SORT_KEYS.get(sort, "days_inactive")
+        all_rows.sort(key=lambda x: x[sort_key], reverse=(order == "desc"))
+        rows = all_rows[offset:offset + PANEL_PAGE_SIZE]
+    else:
+        return JsonResponse({"error": "panel inválido"}, status=400)
+
+    return JsonResponse({
+        "rows": rows,
+        "page": page,
+        "total_pages": max(1, -(-total // PANEL_PAGE_SIZE)),
+        "total": total,
     })
