@@ -132,25 +132,25 @@
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3">
         <div class="card text-center p-3">
-          <div class="fs-2 fw-bold text-primary">{{ mod_unique_pages }}</div>
+          <div id="stat-unique-pages" class="fs-2 fw-bold text-primary">{{ mod_unique_pages }}</div>
           <div class="small text-muted">Módulos visitados</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="card text-center p-3">
-          <div class="fs-2 fw-bold text-success">{{ mod_active_users }}</div>
+          <div id="stat-active-users" class="fs-2 fw-bold text-success">{{ mod_active_users }}</div>
           <div class="small text-muted">Usuarios activos</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="card text-center p-3">
-          <div class="fs-2 fw-bold text-info">{{ mod_total_visits }}</div>
+          <div id="stat-total-visits" class="fs-2 fw-bold text-info">{{ mod_total_visits }}</div>
           <div class="small text-muted">Visitas totales</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="card text-center p-3">
-          <div class="fs-2 fw-bold text-warning">{{ mod_unused_count }}</div>
+          <div id="stat-unused-count" class="fs-2 fw-bold text-warning">{{ mod_unused_count }}</div>
           <div class="small text-muted">Módulos sin uso</div>
         </div>
       </div>
@@ -194,6 +194,21 @@
   </div><!-- /tab-modulos -->
 
 </div><!-- /tab-content -->
+
+<!-- Modal desglose de módulos por usuario -->
+<div class="modal fade" id="modalUserModules" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Módulos visitados — <span id="modal-user-nombre"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-user-body">
+        <div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -256,7 +271,7 @@
     if (!data.rows.length) return "<p class='text-muted small'>Sin datos en el período.</p>";
     const k = "top_users";
     const rows = data.rows.map(r => `<tr>
-      <td>${r.nombre}</td>
+      <td><a href="#" class="user-modules-link text-decoration-none" data-user-id="${r.user_id}" data-nombre="${r.nombre}">${r.nombre}</a></td>
       <td class="text-end fw-bold">${r.total}</td>
       <td class="text-end text-muted">${r.distinct_modules}</td>
       <td class="text-end text-muted">${r.last_visit}</td>
@@ -341,13 +356,13 @@
     "unused":      { id: "panel-unused",        render: renderUnused },
   };
 
-  function loadPanel(key) {
+  function loadPanel(key, silent = false) {
     const p = PANELS[key];
     const s = state[key];
     if (!p || !s) return;
     const el = document.getElementById(p.id);
     if (!el) return;
-    el.innerHTML = spinner();
+    if (!silent) el.innerHTML = spinner();
     const dates = getDateParams();
     const params = new URLSearchParams({
       panel: key, page: s.page,
@@ -357,14 +372,19 @@
     fetch("/monitoring/api/panel/?" + params)
       .then(r => r.json())
       .then(data => { el.innerHTML = p.render(data); })
-      .catch(() => { el.innerHTML = "<p class='text-muted small'>Error al cargar.</p>"; });
+      .catch(() => { if (!silent) el.innerHTML = "<p class='text-muted small'>Error al cargar.</p>"; });
   }
 
   function loadAllPanels() {
     Object.keys(PANELS).forEach(k => { state[k].page = 1; loadPanel(k); });
   }
 
-  // Delegación de eventos: paginación y ordenamiento
+  // Recarga silenciosa (sin spinner, sin reset de página) disparada por el polling en vivo
+  document.addEventListener("mod:refresh-silent", function () {
+    Object.keys(PANELS).forEach(k => loadPanel(k, true));
+  });
+
+  // Delegación de eventos: paginación, ordenamiento y desglose de usuario
   document.addEventListener("click", function (e) {
     // Paginación
     const a = e.target.closest("a[data-panel][data-page]");
@@ -388,6 +408,53 @@
       }
       state[key].page = 1;
       loadPanel(key);
+      return;
+    }
+    // Desglose de módulos por usuario
+    const link = e.target.closest("a.user-modules-link");
+    if (link) {
+      e.preventDefault();
+      const userId = link.dataset.userId;
+      const nombre = link.dataset.nombre;
+      document.getElementById("modal-user-nombre").textContent = nombre;
+      document.getElementById("modal-user-body").innerHTML =
+        '<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById("modalUserModules")).show();
+
+      const dates = getDateParams();
+      const params = new URLSearchParams({ user_id: userId, mod_from: dates.mod_from, mod_to: dates.mod_to });
+      fetch("/monitoring/api/user-modules/?" + params)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.rows.length) {
+            document.getElementById("modal-user-body").innerHTML = "<p class='text-muted small'>Sin datos en el período.</p>";
+            return;
+          }
+          const maxVal = data.rows[0].total || 1;
+          const filas = data.rows.map(r => `<tr>
+            <td>${r.module}</td>
+            <td class="text-end fw-bold">${r.total}</td>
+            <td class="text-end text-muted">${r.last_visit}</td>
+            <td style="width:90px"><div class="progress" style="height:7px">
+              <div class="progress-bar bg-primary" style="width:${Math.round(r.total*100/maxVal)}%"></div>
+            </div></td>
+          </tr>`).join("");
+          document.getElementById("modal-user-body").innerHTML = `
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead><tr>
+                  <th>Módulo</th>
+                  <th class="text-end">Visitas</th>
+                  <th class="text-end">Última visita</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>${filas}</tbody>
+              </table>
+            </div>`;
+        })
+        .catch(() => {
+          document.getElementById("modal-user-body").innerHTML = "<p class='text-muted small'>Error al cargar.</p>";
+        });
     }
   });
 
@@ -424,6 +491,95 @@
       loadAllPanels();
     });
   }
+})();
+</script>
+
+<script>
+// ── Polling en vivo para pestaña de módulos ──────────────────────────────────
+(function () {
+  let lastId = null;
+  let liveTimer = null;
+
+  function getDateParams() {
+    const form = document.getElementById("mod-filter-form");
+    if (!form) return {};
+    const fd = new FormData(form);
+    return { mod_from: fd.get("mod_from") || "", mod_to: fd.get("mod_to") || "" };
+  }
+
+  function flashEl(el) {
+    el.style.transition = "color 0.3s";
+    el.style.color = "#0d6efd";
+    setTimeout(() => { el.style.color = ""; }, 800);
+  }
+
+  function updateStat(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = parseInt(el.textContent, 10);
+    if (current !== value) {
+      el.textContent = value;
+      flashEl(el);
+    }
+  }
+
+  function pollLive() {
+    const dates = getDateParams();
+    const params = new URLSearchParams(dates);
+    fetch("/monitoring/api/live/?" + params)
+      .then(r => r.json())
+      .then(data => {
+        updateStat("stat-unique-pages", data.unique_pages);
+        updateStat("stat-active-users", data.active_users);
+        updateStat("stat-total-visits", data.total_visits);
+        updateStat("stat-unused-count", data.unused_count);
+
+        // Si hubo nuevos registros, recargar los paneles silenciosamente
+        if (lastId !== null && data.last_id !== lastId) {
+          reloadPanelsSilent();
+        }
+        lastId = data.last_id;
+      })
+      .catch(() => {});
+  }
+
+  // Recarga paneles sin spinner ni reset de página
+  function reloadPanelsSilent() {
+    // Disparar evento para que el script de paneles recargue sin alterar scroll/paginación
+    document.dispatchEvent(new CustomEvent("mod:refresh-silent"));
+  }
+
+  function startLive() {
+    if (liveTimer) return;
+    pollLive(); // primera llamada inmediata
+    liveTimer = setInterval(pollLive, 5000);
+  }
+
+  function stopLive() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  }
+
+  // Activar al mostrar la pestaña de módulos
+  const tabBtn = document.getElementById("tab-modulos-btn");
+  if (tabBtn) {
+    tabBtn.addEventListener("shown.bs.tab", startLive);
+    tabBtn.addEventListener("hidden.bs.tab", stopLive);
+  }
+
+  // Si ya está en la pestaña de módulos al cargar
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("tab") === "modulos") {
+    document.addEventListener("DOMContentLoaded", startLive);
+  }
+
+  // Pausar si el usuario cambia de pestaña del navegador
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { stopLive(); }
+    else {
+      const activeTab = document.querySelector("#tab-modulos-btn.active");
+      if (activeTab) startLive();
+    }
+  });
 })();
 </script>
 {% endblock %}
