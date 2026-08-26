@@ -324,7 +324,7 @@ def module_panel_api(request):
         orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
 
         qs = (
-            mod_qs.values("user__first_name", "user__last_name", "user__username")
+            mod_qs.values("user", "user__first_name", "user__last_name", "user__username")
             .annotate(
                 total=Sum("count"),
                 distinct_modules=Count("module", distinct=True),
@@ -337,6 +337,7 @@ def module_panel_api(request):
         for u in qs[offset:offset + PANEL_PAGE_SIZE]:
             nombre = f"{u['user__first_name']} {u['user__last_name']}".strip()
             rows.append({
+                "user_id": u["user"],
                 "nombre": nombre or u["user__username"],
                 "total": u["total"],
                 "distinct_modules": u["distinct_modules"],
@@ -413,4 +414,73 @@ def module_panel_api(request):
         "page": page,
         "total_pages": max(1, -(-total // PANEL_PAGE_SIZE)),
         "total": total,
+    })
+
+
+@user_passes_test(lambda u: u.is_staff)
+def user_modules_api(request):
+    """Desglose de módulos visitados por un usuario en el período."""
+    try:
+        user_id = int(request.GET.get("user_id", 0))
+    except ValueError:
+        return JsonResponse({"error": "user_id inválido"}, status=400)
+
+    today = timezone.localdate()
+    try:
+        mod_from = date_type.fromisoformat(request.GET.get("mod_from", ""))
+    except ValueError:
+        mod_from = today - timedelta(days=29)
+    try:
+        mod_to = date_type.fromisoformat(request.GET.get("mod_to", ""))
+    except ValueError:
+        mod_to = today
+
+    qs = (
+        ModuleVisit.objects
+        .filter(user_id=user_id, date__range=(mod_from, mod_to))
+        .values("module")
+        .annotate(total=Sum("count"), last_visit=Max("date"))
+        .order_by("-total")
+    )
+
+    rows = [
+        {"module": r["module"], "total": r["total"], "last_visit": str(r["last_visit"])}
+        for r in qs
+    ]
+    return JsonResponse({"rows": rows})
+
+
+@user_passes_test(lambda u: u.is_staff)
+def live_stats_api(request):
+    """Endpoint liviano para polling en vivo: solo devuelve números de resumen y el timestamp del último registro."""
+    today = timezone.localdate()
+    try:
+        mod_from = date_type.fromisoformat(request.GET.get("mod_from", ""))
+    except ValueError:
+        mod_from = today - timedelta(days=29)
+    try:
+        mod_to = date_type.fromisoformat(request.GET.get("mod_to", ""))
+    except ValueError:
+        mod_to = today
+
+    mod_qs = ModuleVisit.objects.filter(date__range=(mod_from, mod_to))
+
+    agg = mod_qs.aggregate(total=Sum("count"))
+    mod_total_visits = agg["total"] or 0
+    mod_unique_pages = mod_qs.values("module").distinct().count()
+    mod_active_users = mod_qs.values("user").distinct().count()
+    modules_in_period = set(mod_qs.values_list("module", flat=True).distinct())
+    all_modules = set(ModuleVisit.objects.values_list("module", flat=True).distinct())
+    mod_unused_count = len(all_modules - modules_in_period)
+
+    # Timestamp del registro más reciente (para detectar cambios en el cliente)
+    latest = ModuleVisit.objects.order_by("-id").values("id").first()
+    last_id = latest["id"] if latest else 0
+
+    return JsonResponse({
+        "unique_pages": mod_unique_pages,
+        "active_users": mod_active_users,
+        "total_visits": mod_total_visits,
+        "unused_count": mod_unused_count,
+        "last_id": last_id,
     })
