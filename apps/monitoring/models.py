@@ -41,3 +41,18 @@ class UserDailyUse(models.Model):
     class Meta:
         unique_together = ("user", "date")           # <- 1 fila por usuario/día
         indexes = [models.Index(fields=["user", "date"])]
+
+
+class ModuleVisit(models.Model):
+    """Conteo de visitas por usuario, módulo y día (upsert automático desde middleware)."""
+    user   = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    module = models.CharField(max_length=64, db_index=True)
+    date   = models.DateField(db_index=True)
+    count  = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("user", "module", "date")
+        indexes = [
+            models.Index(fields=["module", "date"]),
+            models.Index(fields=["user", "date"]),
+        ]
