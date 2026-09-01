@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
@@ -408,7 +408,8 @@ def incentives_dashboard_manager(request):
     try:
         gerente_emp = Employee.objects.select_related('department').get(user=request.user)
         department = gerente_emp.department
-        station_name = STATION_TEAMS.get((gerente_emp.team or '').strip(), department.name if department else '')
+        team_key = (gerente_emp.team or '').strip()
+        station_name = STATION_TEAMS.get(team_key, department.name if department else '')
         colaboradores = _deduplicar_por_tsa(list(
             Employee.objects
             .filter(department=department, is_active=True)
@@ -416,10 +417,15 @@ def incentives_dashboard_manager(request):
             .select_related('job_position')
             .order_by('last_name', 'first_name')
         ))
+        # Tiene diesel si hay presupuesto de diesel para esta estación
+        from apps.incentives.models import PresupuestoVenta as _PV
+        tiene_diesel = _PV.objects.filter(team_key=team_key, diesel__gt=0).exists()
     except Employee.DoesNotExist:
         department = None
+        team_key = ''
         station_name = ''
         colaboradores = Employee.objects.none()
+        tiene_diesel = False
 
     TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
 
@@ -432,6 +438,8 @@ def incentives_dashboard_manager(request):
         'delta': delta,
         'days': days,
         'department': department,
+        'team_key': team_key,
+        'tiene_diesel': tiene_diesel,
         'station_name': station_name,
         'colaboradores': colaboradores,
         'tipos': TIPOS,
@@ -1332,7 +1340,8 @@ def sync_venta_semana(request):
                     resultado[team_key] = {'verde': None, 'sin_presupuesto': True, 'fuente': 'override'}
                     continue
                 verde = vs_total >= ps_total_ov
-                resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override'}
+                resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override',
+                                       'verde_gas': verde, 'verde_diesel': None}
                 empleados = list(Employee.objects.filter(is_active=True, team=team_key).values('id', 'seniority_raw'))
                 if empleados:
                     if verde:
@@ -1367,6 +1376,7 @@ def sync_venta_semana(request):
             verde = vs_total >= ps_total
             resultado[team_key] = {
                 'verde': verde, 'vs': vs_total, 'ps': ps_total, 'fuente': 'sheets',
+                'verde_gas': verde, 'verde_diesel': None,
             }
             empleados = list(
                 Employee.objects
@@ -1399,15 +1409,21 @@ def sync_venta_semana(request):
         # ── Resto de estaciones: override semanal tiene prioridad sobre proporcional mensual ──
         override = PresupuestoVentaSemanal.objects.filter(team_key=team_key, semana=week_start).first()
         if override:
-            ps_total = float(override.total)
+            ps_total   = float(override.total)
+            ps_gas     = float(override.gas)
+            ps_diesel  = float(override.diesel)
         else:
-            ps_total = 0.0
+            ps_total = ps_gas_f = ps_diesel_f = 0.0
             for m in meses:
                 ppto = PresupuestoVenta.objects.filter(team_key=team_key, mes=m['mes']).first()
                 if ppto and m['dias_mes'] > 0:
                     m_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0))
                     m_diesel = float(ppto.diesel or 0)
-                    ps_total += ((m_gas + m_diesel) / m['dias_mes']) * m['dias_en_rango']
+                    ps_total    += ((m_gas + m_diesel) / m['dias_mes']) * m['dias_en_rango']
+                    ps_gas_f    += (m_gas    / m['dias_mes']) * m['dias_en_rango']
+                    ps_diesel_f += (m_diesel / m['dias_mes']) * m['dias_en_rango']
+            ps_gas    = round(ps_gas_f)
+            ps_diesel = round(ps_diesel_f)
 
         if ps_total == 0:
             resultado[team_key] = {'verde': None, 'sin_presupuesto': True}
@@ -1418,9 +1434,17 @@ def sync_venta_semana(request):
             resultado[team_key] = {'verde': None, 'sin_datos': True}
             continue
 
-        vs_total = venta_sg12['total']
-        verde = vs_total >= round(ps_total)
-        resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': round(ps_total)}
+        vs_total   = venta_sg12['total']
+        vs_gas     = venta_sg12['gas']
+        vs_diesel  = venta_sg12['diesel']
+        verde      = vs_total >= round(ps_total)
+        verde_gas  = (vs_gas >= ps_gas)    if ps_gas    > 0 else None
+        verde_diesel = (vs_diesel >= ps_diesel) if ps_diesel > 0 else None
+        resultado[team_key] = {
+            'verde': verde, 'vs': vs_total, 'ps': round(ps_total),
+            'verde_gas': verde_gas, 'vs_gas': vs_gas, 'ps_gas': round(ps_gas),
+            'verde_diesel': verde_diesel, 'vs_diesel': vs_diesel, 'ps_diesel': round(ps_diesel),
+        }
 
         empleados = list(
             Employee.objects
@@ -1950,6 +1974,20 @@ def configuracion_incentivos(request):
             cfg.mistery_monto_evaluado = mistery_monto_evaluado
             cfg.actualizado_por        = request.user
             cfg.save()
+
+            # Guardar indicadores ECV
+            from decimal import Decimal, InvalidOperation
+            for ind in IndicadorECV.objects.select_related('categoria').all():
+                prefix = f'ecv_{ind.categoria.id}_{ind.nombre}'
+                try:
+                    ind.ponderacion      = Decimal(request.POST[f'{prefix}_ponderacion'])
+                    ind.umbral_minimo    = Decimal(request.POST[f'{prefix}_minimo'])
+                    ind.umbral_objetivo  = Decimal(request.POST[f'{prefix}_objetivo'])
+                    ind.umbral_excelente = Decimal(request.POST[f'{prefix}_excelente'])
+                    ind.save()
+                except (KeyError, InvalidOperation):
+                    pass
+
             guardado = True
 
     # Calcular tope y escala para mostrar en la UI
@@ -1960,6 +1998,8 @@ def configuracion_incentivos(request):
     encargado_tope = encargado_escala[-1] if encargado_escala else 0
     diesel_tope    = cfg.diesel_por_dia * cfg.diesel_max_dias
 
+    categorias_ecv = CategoriaECV.objects.prefetch_related('indicadores').order_by('nombre')
+
     return render(request, 'incentives/admin/configuracion_incentivos.html', {
         'cfg': cfg,
         'encargado_escala': encargado_escala,
@@ -1967,4 +2007,5 @@ def configuracion_incentivos(request):
         'diesel_tope': diesel_tope,
         'errores': errores,
         'guardado': guardado,
+        'categorias_ecv': categorias_ecv,
     })

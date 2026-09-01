@@ -323,8 +323,17 @@ def module_panel_api(request):
         sort_key = sort if sort in SORT_MAP else "total"
         orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
 
+        q_search = request.GET.get("q", "").strip()
+        filtered_qs = mod_qs
+        if q_search:
+            filtered_qs = filtered_qs.filter(
+                Q(user__first_name__icontains=q_search) |
+                Q(user__last_name__icontains=q_search) |
+                Q(user__username__icontains=q_search)
+            )
+
         qs = (
-            mod_qs.values("user", "user__first_name", "user__last_name", "user__username")
+            filtered_qs.values("user", "user__first_name", "user__last_name", "user__username")
             .annotate(
                 total=Sum("count"),
                 distinct_modules=Count("module", distinct=True),
@@ -349,8 +358,11 @@ def module_panel_api(request):
         sort_key = sort if sort in SORT_MAP else "total"
         orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
 
+        q_search = request.GET.get("q", "").strip()
+        filtered_qs = mod_qs.filter(module__icontains=q_search) if q_search else mod_qs
+
         qs = (
-            mod_qs.values("module")
+            filtered_qs.values("module")
             .annotate(total=Sum("count"), unique_users=Count("user", distinct=True))
             .order_by(*orm_order)
         )
@@ -368,8 +380,11 @@ def module_panel_api(request):
         sort_key = sort if sort in SORT_MAP else "unique_users"
         orm_order = [f"{prefix}{f}" for f in SORT_MAP[sort_key]]
 
+        q_search = request.GET.get("q", "").strip()
+        filtered_qs = mod_qs.filter(module__icontains=q_search) if q_search else mod_qs
+
         qs = (
-            mod_qs.values("module")
+            filtered_qs.values("module")
             .annotate(total=Sum("count"), unique_users=Count("user", distinct=True))
             .order_by(*orm_order)
         )
@@ -386,6 +401,9 @@ def module_panel_api(request):
         modules_in_period = set(mod_qs.values_list("module", flat=True).distinct())
         all_modules       = set(ModuleVisit.objects.values_list("module", flat=True).distinct())
         unused_names      = list(all_modules - modules_in_period)
+        q_search = request.GET.get("q", "").strip()
+        if q_search:
+            unused_names = [n for n in unused_names if q_search.lower() in n.lower()]
         total = len(unused_names)
 
         # Construir lista completa con metadatos para poder ordenar
@@ -448,6 +466,54 @@ def user_modules_api(request):
         for r in qs
     ]
     return JsonResponse({"rows": rows})
+
+
+MODULE_USERS_PAGE_SIZE = 20
+
+@user_passes_test(lambda u: u.is_staff)
+def module_users_api(request):
+    """Desglose de usuarios que visitaron un módulo en el período, con paginación."""
+    module_name = request.GET.get("module", "").strip()
+    if not module_name:
+        return JsonResponse({"error": "module requerido"}, status=400)
+
+    today = timezone.localdate()
+    try:
+        mod_from = date_type.fromisoformat(request.GET.get("mod_from", ""))
+    except ValueError:
+        mod_from = today - timedelta(days=29)
+    try:
+        mod_to = date_type.fromisoformat(request.GET.get("mod_to", ""))
+    except ValueError:
+        mod_to = today
+    try:
+        page = max(1, int(request.GET.get("page", 1)))
+    except ValueError:
+        page = 1
+
+    qs = (
+        ModuleVisit.objects
+        .filter(module=module_name, date__range=(mod_from, mod_to))
+        .values("user", "user__first_name", "user__last_name", "user__username")
+        .annotate(total=Sum("count"), last_visit=Max("date"))
+        .order_by("-total")
+    )
+
+    total = qs.count()
+    total_pages = max(1, -(-total // MODULE_USERS_PAGE_SIZE))
+    offset = (page - 1) * MODULE_USERS_PAGE_SIZE
+
+    rows = []
+    for r in qs[offset:offset + MODULE_USERS_PAGE_SIZE]:
+        nombre = f"{r['user__first_name']} {r['user__last_name']}".strip()
+        rows.append({
+            "user_id": r["user"],
+            "nombre": nombre or r["user__username"],
+            "username": r["user__username"],
+            "total": r["total"],
+            "last_visit": str(r["last_visit"]),
+        })
+    return JsonResponse({"rows": rows, "module": module_name, "page": page, "total_pages": total_pages, "total": total})
 
 
 @user_passes_test(lambda u: u.is_staff)

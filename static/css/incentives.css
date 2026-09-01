@@ -107,6 +107,21 @@
   animation: slideDown .15s ease-out;
 }
 
+/* ECV — indicadores de cumplimiento */
+.ecv-indicador {
+  transition: background .2s, color .2s, box-shadow .2s;
+  user-select: none;
+}
+.ecv-indicador.activo {
+  background: #198754 !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 2px #19875440;
+}
+.ecv-indicador.inactivo {
+  background: #e9ecef !important;
+  color: #6c757d !important;
+}
+
 /* Avatar en el encabezado de la tabla */
 .emp-avatar-header {
   width: 44px;

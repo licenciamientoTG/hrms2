@@ -120,6 +120,7 @@
                     <tr class="zona-emp-row {% if "gerente de estaci" in title or "subgerente de estaci" in title or "gerente de estacion" in title or "subgerente de estacion" in title %}emp-manager-row{% endif %}"
                         style="cursor:pointer;"
                         data-emp-id="{{ emp.id }}"
+                        data-team-key="{{ item.team_key }}"
                         data-loaded="0">
                       <td class="text-center">
                         <i class="fas fa-chevron-right zona-emp-toggle" style="font-size:10px; color:#888; transition:transform .2s;"></i>

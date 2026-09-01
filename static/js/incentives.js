@@ -104,6 +104,24 @@ function buildEmpTable(empId) {
             + ' data-emp="' + empId + '" data-tipo="Mistery" data-fecha="' + SEMANA_INICIO + '"'
             + ' disabled>';
       html += '</td>';
+    } else if (tipo === 'ECV') {
+      var indEcv = [
+        { id: 'venta_gas',    icon: 'fa-gas-pump',       label: 'Venta Gasolina'       },
+        { id: 'venta_diesel', icon: 'fa-oil-can',         label: 'Venta Di\u00e9sel'    },
+        { id: 'mistery',      icon: 'fa-user-secret',     label: 'Mistery Shopper'      },
+        { id: 'faltante',     icon: 'fa-balance-scale',   label: 'Faltante'             },
+        { id: 'incidencia',   icon: 'fa-cut',             label: 'Incidencia en cortes' },
+      ];
+      html += '<td colspan="' + DIAS.length + '" class="py-2 px-3">';
+      html += '<div class="d-flex flex-wrap gap-2 align-items-center">';
+      indEcv.forEach(function(ind) {
+        html += '<span class="ecv-indicador badge rounded-pill inactivo"'
+              + ' id="ecv-ind-' + ind.id + '-' + empId + '" data-ind="' + ind.id + '"'
+              + ' style="font-size:12px;padding:6px 12px;cursor:default;">'
+              + '<i class="fas ' + ind.icon + ' me-1"></i>' + ind.label
+              + '</span>';
+      });
+      html += '</div></td>';
     } else {
       DIAS.forEach(function(dia) {
         html += '<td class="text-center' + (dia.esHoy ? ' day-today' : '') + ' incentivo-cell-zona"'
@@ -238,6 +256,8 @@ function cargarSemana(empId) {
       });
       actualizarBadgeVenta(empId, tieneVenta, ventaMonto);
       actualizarBadgeMistery(empId, tieneMistery, misteryMonto);
+      _actualizarECVVentaEmp(empId);
+      actualizarIndicadorECV('mistery', tieneMistery, empId);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -424,6 +444,7 @@ function actualizarGranTotal() {
 }
 
 function actualizarBadgeMisteryManager(ganado, monto) {
+  actualizarIndicadorECV('mistery', ganado ? true : false);
   var cell = document.getElementById('mistery-status-cell');
   var evaluadoRow = document.getElementById('mistery-evaluado-row');
   if (!cell) return;
@@ -565,11 +586,70 @@ function actualizarTabla(select) {
 
 // ── Sincronización automática del bono de Venta ──────────────────────────────
 
+// ── Actualiza un indicador ECV (activo/inactivo) ─────────────────────────────
+
+function actualizarIndicadorECV(indId, activo, empId, pct) {
+  // Manager: id="ecv-ind-venta-gas"  (sin empId)
+  // Admin/zona: id="ecv-ind-venta_gas-123"  (con empId)
+  var elId = empId ? ('ecv-ind-' + indId + '-' + empId) : ('ecv-ind-' + indId);
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove('activo', 'inactivo');
+  el.style.background = '';
+  el.style.color = '';
+  el.style.boxShadow = '';
+  if (activo === null || activo === undefined) return; // sin datos
+  if (activo === true) {
+    el.classList.add('activo');
+  } else {
+    // Rojo intenso → rojo claro según % alcanzado (0%=rojo oscuro, 99%=rosado claro)
+    var ratio = (pct !== null && pct !== undefined) ? Math.min(Math.max(pct, 0), 99) / 99 : 0;
+    // Lightness: 35% (rojo intenso) → 80% (rosado claro)
+    var lightness = Math.round(35 + ratio * 45);
+    var bg = 'hsl(354,' + (70 - ratio * 20) + '%,' + lightness + '%)';
+    var textColor = lightness < 60 ? '#fff' : '#7a1a24';
+    el.style.background = bg;
+    el.style.color = textColor;
+    el.style.boxShadow = '0 0 0 2px hsla(354,60%,' + lightness + '%,0.4)';
+  }
+}
+
+function _pct(vs, ps) {
+  return (ps && ps > 0) ? Math.round(vs / ps * 100) : null;
+}
+
+function _actualizarECVVentaEmp(empId) {
+  if (!window._ecvEstaciones) return;
+  var row = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
+  if (!row) return;
+  var teamKey = row.dataset.teamKey;
+  if (!teamKey) return;
+  var est = window._ecvEstaciones[teamKey];
+  if (!est) return;
+  var pctGas = _pct(est.vs_gas, est.ps_gas);
+  actualizarIndicadorECV('venta_gas', est.verde_gas, empId, pctGas);
+  if (est.verde_diesel !== null && est.verde_diesel !== undefined) {
+    var pctDiesel = _pct(est.vs_diesel, est.ps_diesel);
+    actualizarIndicadorECV('venta_diesel', est.verde_diesel, empId, pctDiesel);
+  }
+}
+
 function syncVentaSemana() {
   fetch('/incentives/sync-venta/?semana=' + SEMANA_INICIO)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok) return;
+
+      // Vista gerente: actualizar indicadores ECV de venta_gas y venta_diesel
+      if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
+        var est = (data.estaciones || {})[MANAGER_TEAM_KEY];
+        if (est) {
+          actualizarIndicadorECV('venta-gas', est.verde_gas, null, _pct(est.vs_gas, est.ps_gas));
+          if (typeof MANAGER_TIENE_DIESEL !== 'undefined' && MANAGER_TIENE_DIESEL) {
+            actualizarIndicadorECV('venta-diesel', est.verde_diesel, null, _pct(est.vs_diesel, est.ps_diesel));
+          }
+        }
+      }
 
       // Vista gerente: recargar el colaborador para que muestre el monto correcto
       var colSelVenta = document.getElementById('selector-colaborador');
@@ -577,10 +657,12 @@ function syncVentaSemana() {
         cargarSemanaManager(colSelVenta.value);
       }
 
-      // Vista admin/zona: actualizar badges de Venta de empleados ya expandidos
+      // Vista admin/zona: guardar estaciones para uso en cargarSemana y actualizar expandidos
+      window._ecvEstaciones = data.estaciones || {};
       document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
         var empId = row.dataset.empId;
         if (!empId) return;
+        _actualizarECVVentaEmp(empId);
         fetch('/incentives/semana/?emp=' + empId + '&semana=' + SEMANA_INICIO)
           .then(function(r) { return r.json(); })
           .then(function(sd) {

@@ -147,6 +147,103 @@
         </div>
       </div>
 
+      <!-- ECV -->
+      {% if categorias_ecv %}
+      <div class="card mb-4">
+        <div class="card-header bg-light fw-semibold">
+          <i class="fas fa-trophy me-2"></i>ECV — Indicadores por Categoría
+        </div>
+        <div class="card-body p-0">
+          <!-- Tabs de categorías -->
+          <ul class="nav nav-tabs px-3 pt-2" id="ecv-tabs">
+            {% for cat in categorias_ecv %}
+            <li class="nav-item">
+              <button class="nav-link {% if forloop.first %}active{% endif %}"
+                      data-bs-toggle="tab" data-bs-target="#ecv-cat-{{ cat.id }}" type="button">
+                Categoría {{ cat.nombre }}
+                <span class="text-muted fw-normal" style="font-size:11px;">— {{ cat.descripcion }}</span>
+              </button>
+            </li>
+            {% endfor %}
+          </ul>
+          <div class="tab-content px-3 pb-3 pt-2">
+            {% for cat in categorias_ecv %}
+            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="ecv-cat-{{ cat.id }}">
+              <div class="table-responsive mt-2">
+                <table class="table table-bordered table-sm align-middle mb-0" style="font-size:13px;">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="min-width:160px;">Indicador</th>
+                      <th class="text-center" style="min-width:110px;">Ponderación (%)</th>
+                      <th class="text-center" style="min-width:120px;">Mínimo (80%)</th>
+                      <th class="text-center" style="min-width:120px;">Objetivo (100%)</th>
+                      <th class="text-center" style="min-width:120px;">Excelente (120%)</th>
+                      <th class="text-center" style="min-width:90px;">Unidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for ind in cat.indicadores.all %}
+                    {% with prefix="ecv_"|add:cat.id|stringformat:"s"|add:"_"|add:ind.nombre %}
+                    <tr>
+                      <td class="fw-semibold">{{ ind.get_nombre_display }}</td>
+                      <td class="text-center">
+                        <input type="number" step="0.01" min="0" max="100"
+                               name="{{ prefix }}_ponderacion"
+                               value="{{ ind.ponderacion }}"
+                               class="form-control form-control-sm text-center"
+                               style="width:80px; margin:auto;">
+                      </td>
+                      <td class="text-center">
+                        <input type="number" step="0.01"
+                               name="{{ prefix }}_minimo"
+                               value="{{ ind.umbral_minimo }}"
+                               class="form-control form-control-sm text-center"
+                               style="width:90px; margin:auto;">
+                      </td>
+                      <td class="text-center">
+                        <input type="number" step="0.01"
+                               name="{{ prefix }}_objetivo"
+                               value="{{ ind.umbral_objetivo }}"
+                               class="form-control form-control-sm text-center"
+                               style="width:90px; margin:auto;">
+                      </td>
+                      <td class="text-center">
+                        <input type="number" step="0.01"
+                               name="{{ prefix }}_excelente"
+                               value="{{ ind.umbral_excelente }}"
+                               class="form-control form-control-sm text-center"
+                               style="width:90px; margin:auto;">
+                      </td>
+                      <td class="text-center text-muted">{{ ind.get_unidad_display }}</td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                  </tbody>
+                  <tfoot class="table-light">
+                    <tr>
+                      <td class="fw-semibold">Total ponderación</td>
+                      <td class="text-center fw-semibold" colspan="5">
+                        {{ cat.indicadores.all|length }} indicador{{ cat.indicadores.all|length|pluralize }}
+                        &nbsp;·&nbsp;
+                        <span class="text-muted" style="font-size:12px;">
+                          {% for ind in cat.indicadores.all %}{{ ind.ponderacion }}{% if not forloop.last %}+{% endif %}{% endfor %} = 100%
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p class="text-muted small mt-2 mb-0">
+                <i class="fas fa-info-circle me-1"></i>
+                Para Faltante e Incidencia en cortes, <strong>menor es mejor</strong> — el umbral Mínimo es el valor más alto permitido.
+              </p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       {% if cfg.actualizado_por %}
       <p class="text-muted small mb-3">
         Última actualización: {{ cfg.updated_at|date:"d/m/Y H:i" }} por {{ cfg.actualizado_por.get_full_name|default:cfg.actualizado_por.username }}

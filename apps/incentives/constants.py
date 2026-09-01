@@ -1,3 +1,24 @@
+# Estaciones que tienen bomba de Diésel — determina si aplica Categoría B del ECV
+# (las que NO están aquí usan Categoría A, sin indicador de Venta Diésel)
+# Pendientes de confirmar: Misiones, Tecnológico, Ejército Nacional, Satélite,
+#   Las Fuentes, Clara, Solis, Santiago Troncoso, Jarudo
+DIESEL_TEAM_KEYS = {
+    '4188',           # Gemela Grande
+    '4179',           # Gemela Chica
+    '5465',           # Aztecas
+    '9893',           # Anapra
+    '6947',           # Puerto de Palos
+    '8244',           # Permuta
+    '9191',           # Electrolux
+    '9235',           # Aeronáutica
+    '2172',           # Parral
+    '1376',           # Delicias
+    'Picachos',       # Picachos
+    'San Rafael',     # San Rafael
+    'Villahumada',    # Villa Ahumada
+    'Travel Center',  # Travel Center
+}
+
 # Team keys de estaciones del Bajío (reciben $240 de bono de venta, sin importar antigüedad)
 BAJIO_TEAM_KEYS = {
     '11007',           # Independencia/Aguascalientes
