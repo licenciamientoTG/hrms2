@@ -269,6 +269,54 @@ class IndicadorECV(models.Model):
         return f"{self.categoria} — {self.get_nombre_display()} ({self.ponderacion}%)"
 
 
+class PrenominaUpload(models.Model):
+    """Carga de prenómina semanal subida por staff/admin."""
+    semana = models.DateField(verbose_name='Semana (lunes)')
+    subido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='prenominas_subidas', verbose_name='Subido por',
+    )
+    subido_el = models.DateTimeField(auto_now_add=True)
+    total_registros = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Carga de prenómina'
+        verbose_name_plural = 'Cargas de prenómina'
+        ordering = ['-semana']
+
+    def __str__(self):
+        return f"Prenómina semana {self.semana} ({self.total_registros} registros)"
+
+
+class PrenominaRegistro(models.Model):
+    """Registro individual de un empleado dentro de una carga de prenómina."""
+    upload = models.ForeignKey(
+        PrenominaUpload, on_delete=models.CASCADE, related_name='registros',
+    )
+    numero = models.CharField(max_length=20, verbose_name='#')
+    nombre = models.CharField(max_length=200, verbose_name='Nombre')
+    horas_ordinarias = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    horas_dobles = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    horas_triples = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    dias_falta = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    dias_permiso_sg = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    dias_vacaciones = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    dias_incapacidad = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    horas_festivo = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    horas_descanso_trab = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    equipo = models.CharField(max_length=100, blank=True, verbose_name='Equipo')
+    puesto = models.CharField(max_length=200, blank=True, verbose_name='Puesto')
+    estatus = models.CharField(max_length=50, blank=True, verbose_name='Estatus')
+    neto = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Neto')
+
+    class Meta:
+        verbose_name = 'Registro de prenómina'
+        verbose_name_plural = 'Registros de prenómina'
+
+    def __str__(self):
+        return f"{self.numero} — {self.nombre}"
+
+
 class ComentarioSemana(models.Model):
     """Comentario del gerente para un tipo de incentivo en una semana."""
     employee = models.ForeignKey(

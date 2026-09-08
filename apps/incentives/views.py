@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
@@ -254,6 +254,11 @@ def incentives_dashboard_admin(request):
     )
     total_estaciones = len(dept_data)
 
+    semanas_con_prenomina = list(
+        PrenominaUpload.objects.order_by('semana').values_list('semana', flat=True)
+    )
+    semanas_con_prenomina_json = json.dumps([s.isoformat() for s in semanas_con_prenomina])
+
     return render(request, 'incentives/admin/incentives_dashboard_admin.html', {
         'dept_data': dept_data,
         'week_start': week_start,
@@ -268,6 +273,7 @@ def incentives_dashboard_admin(request):
         'estaciones_con_captura': estaciones_con_captura,
         'total_estaciones': total_estaciones,
         'cfg': cfg,
+        'semanas_con_prenomina_json': semanas_con_prenomina_json,
     })
 
 
@@ -759,6 +765,120 @@ def ventas_sg12_json(request):
         'ventas': ventas,
         'sheets_error': sheets_error,
     })
+
+@login_required
+@require_POST
+def parsear_prenomina(request):
+    """Recibe un Excel de prenómina, lo parsea y devuelve vista previa."""
+    if _get_rol_incentivos(request.user) != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        return JsonResponse({'ok': False, 'error': 'No se recibió archivo'}, status=400)
+
+    try:
+        import csv, io
+
+        def to_num(val):
+            if val is None or val == '':
+                return 0.0
+            try:
+                return float(str(val).replace(',', '').strip())
+            except (ValueError, TypeError):
+                return 0.0
+
+        raw = archivo.read()
+        for enc in ('utf-8-sig', 'latin-1', 'cp1252'):
+            try:
+                contenido = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            return JsonResponse({'ok': False, 'error': 'No se pudo detectar el encoding del archivo'}, status=400)
+        reader = csv.reader(io.StringIO(contenido))
+        next(reader, None)  # saltar encabezado
+
+        filas = []
+        for row in reader:
+            if not any(row):
+                continue
+            numero = str(row[0]).strip() if len(row) > 0 else ''
+            nombre = str(row[1]).strip() if len(row) > 1 else ''
+            if not numero and not nombre:
+                continue
+            filas.append({
+                'numero':              numero,
+                'nombre':              nombre,
+                'horas_ordinarias':    to_num(row[2]  if len(row) > 2  else ''),
+                'horas_dobles':        to_num(row[3]  if len(row) > 3  else ''),
+                'horas_triples':       to_num(row[4]  if len(row) > 4  else ''),
+                'dias_falta':          to_num(row[5]  if len(row) > 5  else ''),
+                'dias_permiso_sg':     to_num(row[6]  if len(row) > 6  else ''),
+                'dias_vacaciones':     to_num(row[7]  if len(row) > 7  else ''),
+                'dias_incapacidad':    to_num(row[8]  if len(row) > 8  else ''),
+                'horas_festivo':       to_num(row[9]  if len(row) > 9  else ''),
+                'horas_descanso_trab': to_num(row[10] if len(row) > 10 else ''),
+                'equipo':              str(row[11]).strip() if len(row) > 11 else '',
+                'puesto':              str(row[12]).strip() if len(row) > 12 else '',
+                'estatus':             str(row[13]).strip() if len(row) > 13 else '',
+                'neto':                to_num(row[14] if len(row) > 14 else ''),
+            })
+
+        return JsonResponse({'ok': True, 'total': len(filas), 'muestra': filas[:5], 'filas': filas})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def guardar_prenomina(request):
+    """Guarda la prenómina parseada para una semana. Reemplaza si ya existía."""
+    if _get_rol_incentivos(request.user) != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        from datetime import date
+        data = json.loads(request.body)
+        semana_str = data.get('semana')
+        filas = data.get('filas', [])
+        if not semana_str or not filas:
+            return JsonResponse({'ok': False, 'error': 'Datos incompletos'}, status=400)
+        semana = date.fromisoformat(semana_str)
+        # Reemplazar si ya existe para esa semana
+        PrenominaUpload.objects.filter(semana=semana).delete()
+        upload = PrenominaUpload.objects.create(
+            semana=semana,
+            subido_por=request.user,
+            total_registros=len(filas),
+        )
+        registros = [
+            PrenominaRegistro(
+                upload=upload,
+                numero=f['numero'],
+                nombre=f['nombre'],
+                horas_ordinarias=f['horas_ordinarias'],
+                horas_dobles=f['horas_dobles'],
+                horas_triples=f['horas_triples'],
+                dias_falta=f['dias_falta'],
+                dias_permiso_sg=f['dias_permiso_sg'],
+                dias_vacaciones=f['dias_vacaciones'],
+                dias_incapacidad=f['dias_incapacidad'],
+                horas_festivo=f['horas_festivo'],
+                horas_descanso_trab=f['horas_descanso_trab'],
+                equipo=f['equipo'],
+                puesto=f['puesto'],
+                estatus=f['estatus'],
+                neto=f['neto'],
+            )
+            for f in filas
+        ]
+        PrenominaRegistro.objects.bulk_create(registros)
+        return JsonResponse({'ok': True, 'total': len(registros)})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
 
 @login_required
 @require_POST

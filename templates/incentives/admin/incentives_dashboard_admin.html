@@ -50,6 +50,11 @@
       <a href="{% url 'configuracion_incentivos' %}" class="btn btn-outline-secondary btn-sm ms-2" title="Configurar montos de incentivos">
         <i class="fas fa-sliders-h"></i>
       </a>
+      <button class="btn btn-outline-primary btn-sm ms-2" type="button"
+              data-bs-toggle="modal" data-bs-target="#modal-prenomina"
+              title="Cargar prenómina semanal">
+        <i class="fas fa-file-upload me-1"></i>Prenómina
+      </button>
     </div>
   </div>
 </div>
@@ -219,6 +224,71 @@
   </div>
 </div>
 
+{# ── Modal carga de prenómina ── #}
+<div class="modal fade" id="modal-prenomina" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2 bg-light">
+        <h6 class="modal-title fw-semibold">
+          <i class="fas fa-file-upload me-2 text-primary"></i>Cargar Prenómina Semanal
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold mb-1">
+            <span class="badge bg-primary rounded-pill me-1">1</span> Selecciona la semana
+          </label>
+          <input type="date" id="prenomina-semana" class="form-control form-control-sm" style="max-width:200px;">
+          <div id="prenomina-semana-warning" class="alert alert-warning py-2 px-3 mt-2 d-none" style="max-width:480px;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Esta semana ya tiene prenómina cargada. Si subes un nuevo archivo <strong>se reemplazará</strong>.
+          </div>
+        </div>
+        <div id="prenomina-upload-wrapper" class="d-none mb-3">
+          <label class="form-label fw-semibold mb-1">
+            <span class="badge bg-primary rounded-pill me-1">2</span> Sube el archivo Excel
+          </label>
+          <label class="ops-upload-zone" style="max-width:480px;display:block;border:2px dashed #dee2e6;border-radius:8px;padding:2rem;text-align:center;cursor:pointer;" id="prenomina-upload-zone" for="prenomina-input-excel">
+            <i class="fas fa-upload fa-2x mb-2" style="color:#adb5bd;" id="prenomina-upload-icon"></i>
+            <div class="fw-semibold text-muted" id="prenomina-upload-label">Haz clic para seleccionar el archivo Excel</div>
+            <div class="text-muted" style="font-size:12px;">.csv</div>
+            <input type="file" id="prenomina-input-excel" accept=".csv" class="d-none">
+          </label>
+          <div id="prenomina-upload-error" class="alert alert-danger mt-2 py-2 d-none" style="max-width:480px;"></div>
+        </div>
+        <div id="prenomina-preview-card" class="d-none">
+          <hr class="my-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 fw-semibold">Vista previa (primeros 5 registros)</h6>
+            <span id="prenomina-preview-badge" class="badge bg-primary"></span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0" style="font-size:11px;">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th><th>Nombre</th><th>Equipo</th><th>Puesto</th><th>Estatus</th>
+                  <th class="text-end">H. Ord.</th><th class="text-end">Faltas</th><th class="text-end">Neto</th>
+                </tr>
+              </thead>
+              <tbody id="prenomina-preview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer py-2 justify-content-between">
+        <small class="text-muted" id="prenomina-footer-msg"></small>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+          <button class="btn btn-primary btn-sm d-none" id="prenomina-btn-confirmar">
+            <i class="fas fa-check me-1"></i>Confirmar y guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
   <script>
@@ -243,4 +313,117 @@
     var TIPOS_MANAGER = {{ tipos_manager|safe }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
+  <script>
+  (function () {
+    const CSRF  = "{{ csrf_token }}";
+    const URL_PARSEAR  = "{% url 'parsear_prenomina' %}";
+    const URL_GUARDAR  = "{% url 'guardar_prenomina' %}";
+    const fmt = n => (n || 0).toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    // Semanas con prenómina cargada (para advertencia de sobreescritura)
+    const SEMANAS_CON_PRENOMINA = new Set({{ semanas_con_prenomina_json|safe }});
+
+    let _filasParsadas = null;
+
+    function resetModal() {
+      document.getElementById('prenomina-semana').value = '';
+      document.getElementById('prenomina-semana-warning').classList.add('d-none');
+      document.getElementById('prenomina-upload-wrapper').classList.add('d-none');
+      document.getElementById('prenomina-preview-card').classList.add('d-none');
+      document.getElementById('prenomina-btn-confirmar').classList.add('d-none');
+      document.getElementById('prenomina-footer-msg').textContent = '';
+      document.getElementById('prenomina-upload-icon').className = 'fas fa-upload fa-2x mb-2';
+      document.getElementById('prenomina-upload-icon').style.color = '#adb5bd';
+      document.getElementById('prenomina-upload-label').textContent = 'Haz clic para seleccionar el archivo Excel';
+      document.getElementById('prenomina-input-excel').value = '';
+      document.getElementById('prenomina-upload-error').classList.add('d-none');
+      _filasParsadas = null;
+    }
+
+    document.getElementById('modal-prenomina')?.addEventListener('show.bs.modal', resetModal);
+
+    document.getElementById('prenomina-semana')?.addEventListener('change', function () {
+      const val = this.value;
+      const wrapper  = document.getElementById('prenomina-upload-wrapper');
+      const warning  = document.getElementById('prenomina-semana-warning');
+      document.getElementById('prenomina-preview-card').classList.add('d-none');
+      document.getElementById('prenomina-btn-confirmar').classList.add('d-none');
+      _filasParsadas = null;
+      if (!val) { wrapper.classList.add('d-none'); warning.classList.add('d-none'); return; }
+      SEMANAS_CON_PRENOMINA.has(val) ? warning.classList.remove('d-none') : warning.classList.add('d-none');
+      wrapper.classList.remove('d-none');
+    });
+
+    document.getElementById('prenomina-input-excel')?.addEventListener('change', async function () {
+      if (!this.files.length) return;
+      const file   = this.files[0];
+      const icon   = document.getElementById('prenomina-upload-icon');
+      const label  = document.getElementById('prenomina-upload-label');
+      const errEl  = document.getElementById('prenomina-upload-error');
+      errEl.classList.add('d-none');
+      icon.className = 'fas fa-spinner fa-spin fa-2x mb-2';
+      icon.style.color = '#0d6efd';
+      label.textContent = 'Procesando…';
+      document.getElementById('prenomina-preview-card').classList.add('d-none');
+
+      const fd = new FormData();
+      fd.append('archivo', file);
+      try {
+        const res  = await fetch(URL_PARSEAR, { method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Error al procesar');
+        icon.className = 'fas fa-file-excel fa-2x mb-2';
+        icon.style.color = '#198754';
+        label.textContent = file.name;
+        _filasParsadas = data.filas;
+        // Preview
+        const tbody = document.getElementById('prenomina-preview-tbody');
+        tbody.innerHTML = data.muestra.map(f => `<tr>
+          <td>${f.numero}</td><td>${f.nombre}</td><td>${f.equipo}</td>
+          <td>${f.puesto}</td><td>${f.estatus}</td>
+          <td class="text-end">${f.horas_ordinarias}</td>
+          <td class="text-end">${f.dias_falta}</td>
+          <td class="text-end">${fmt(f.neto)}</td>
+        </tr>`).join('');
+        document.getElementById('prenomina-preview-badge').textContent = `${data.total} registros`;
+        document.getElementById('prenomina-preview-card').classList.remove('d-none');
+        document.getElementById('prenomina-btn-confirmar').classList.remove('d-none');
+        document.getElementById('prenomina-footer-msg').textContent = `${data.total} registros listos para guardar.`;
+      } catch (e) {
+        icon.className = 'fas fa-upload fa-2x mb-2';
+        icon.style.color = '#adb5bd';
+        label.textContent = 'Haz clic para seleccionar el archivo Excel';
+        errEl.textContent = e.message;
+        errEl.classList.remove('d-none');
+      }
+    });
+
+    document.getElementById('prenomina-btn-confirmar')?.addEventListener('click', async function () {
+      const btn    = this;
+      const semana = document.getElementById('prenomina-semana').value;
+      if (!semana) { alert('Selecciona la semana.'); return; }
+      if (!_filasParsadas) return;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando…';
+      try {
+        const res  = await fetch(URL_GUARDAR, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ semana, filas: _filasParsadas }),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Error al guardar');
+        document.getElementById('prenomina-footer-msg').innerHTML =
+          `<i class="fas fa-check-circle text-success me-1"></i>${data.total} registros guardados correctamente.`;
+        btn.classList.add('d-none');
+        SEMANAS_CON_PRENOMINA.add(semana);
+      } catch (e) {
+        document.getElementById('prenomina-footer-msg').innerHTML =
+          `<i class="fas fa-exclamation-triangle text-danger me-1"></i>${e.message}`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirmar y guardar';
+      }
+    });
+  })();
+  </script>
 {% endblock %}
