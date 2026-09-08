@@ -23,6 +23,8 @@ from .views import (
     guardar_presupuesto_semana,
     configuracion_incentivos,
     desglose_bonos,
+    parsear_prenomina,
+    guardar_prenomina,
 )
 
 urlpatterns = [
@@ -49,4 +51,6 @@ urlpatterns = [
     path('guardar-presupuesto-semana/', guardar_presupuesto_semana, name='guardar_presupuesto_semana'),
     path('configuracion/', configuracion_incentivos, name='configuracion_incentivos'),
     path('desglose/', desglose_bonos, name='desglose_bonos'),
+    path('parsear-prenomina/', parsear_prenomina, name='parsear_prenomina'),
+    path('guardar-prenomina/', guardar_prenomina, name='guardar_prenomina'),
 ]

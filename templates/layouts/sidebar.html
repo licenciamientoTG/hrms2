@@ -133,8 +133,7 @@
                 </li>
             {% endif %}
 
-            {% comment %} {% if not user.is_staff or perms.org_chart.Modulo_organigrama %} {% endcomment %}
-            {% if perms.org_chart.Modulo_organigrama %}
+            {% if not user.is_staff or perms.org_chart.Modulo_organigrama %}
                 <li class="sidebar-item {% if 'org_chart' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i>
@@ -252,14 +251,14 @@
                 </li>
             {% endif %}
 
-            {% if perms.incentives.Modulo_incentivos %}
+            {% comment %} {% if perms.incentives.Modulo_incentivos %}
                 <li class="sidebar-item {% if 'incentive' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'incentives_dashboard' %}">
                         <i class="fa-solid fa-gift"></i>
                         <span class="align-middle">Incentivos</span>
                     </a>
                 </li>
-            {% endif %}
+            {% endif %} {% endcomment %}
 
             {% comment %} {% if not user.is_staff or perms.policies.view_policy %} {% endcomment %}
             {% if perms.policies.view_policy %}    

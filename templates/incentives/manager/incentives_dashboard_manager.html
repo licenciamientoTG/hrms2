@@ -196,7 +196,39 @@
             <td>—</td>
             <td class="text-center fw-semibold text-muted" id="mistery-total-cell">—</td>
           </tr>
-          {% elif tipo == "ECV" or tipo == "Auditoría" or tipo == "Rotación" %}
+          {% elif tipo == "ECV" %}
+          <tr class="tipo-manager-only d-none" id="fila-ecv">
+            <td class="fw-semibold">ECV</td>
+            <td colspan="7" class="py-2 px-3">
+              <div class="d-flex flex-wrap gap-2 align-items-center" id="ecv-indicadores">
+                <span class="ecv-indicador badge rounded-pill" id="ecv-ind-venta-gas" data-ind="venta_gas"
+                      style="background:#e9ecef; color:#6c757d; font-size:12px; padding:6px 12px; cursor:default;">
+                  <i class="fas fa-gas-pump me-1"></i>Venta Gasolina
+                </span>
+                {% if tiene_diesel %}
+                <span class="ecv-indicador badge rounded-pill" id="ecv-ind-venta-diesel" data-ind="venta_diesel"
+                      style="background:#e9ecef; color:#6c757d; font-size:12px; padding:6px 12px; cursor:default;">
+                  <i class="fas fa-oil-can me-1"></i>Venta Diésel
+                </span>
+                {% endif %}
+                <span class="ecv-indicador badge rounded-pill" id="ecv-ind-mistery" data-ind="mistery"
+                      style="background:#e9ecef; color:#6c757d; font-size:12px; padding:6px 12px; cursor:default;">
+                  <i class="fas fa-user-secret me-1"></i>Mistery Shopper
+                </span>
+                <span class="ecv-indicador badge rounded-pill" id="ecv-ind-faltante" data-ind="faltante"
+                      style="background:#e9ecef; color:#6c757d; font-size:12px; padding:6px 12px; cursor:default;">
+                  <i class="fas fa-balance-scale me-1"></i>Faltante
+                </span>
+                <span class="ecv-indicador badge rounded-pill" id="ecv-ind-incidencia" data-ind="incidencia"
+                      style="background:#e9ecef; color:#6c757d; font-size:12px; padding:6px 12px; cursor:default;">
+                  <i class="fas fa-cut me-1"></i>Incidencia en cortes
+                </span>
+              </div>
+            </td>
+            <td>—</td>
+            <td class="text-center fw-semibold text-muted" id="ecv-total-cell">—</td>
+          </tr>
+          {% elif tipo == "Auditoría" or tipo == "Rotación" %}
           <tr class="text-muted tipo-manager-only d-none">
             <td class="fw-semibold">{{ tipo }}</td>
             {% for day in days %}
@@ -257,6 +289,8 @@
     var CFG_ENC_MAX_DIAS = {{ cfg.encargado_max_dias }};
     var CFG_MISTERY_MONTO = {{ cfg.mistery_monto }};
     var CFG_MISTERY_MONTO_EVALUADO = {{ cfg.mistery_monto_evaluado }};
+    var MANAGER_TEAM_KEY = "{{ team_key }}";
+    var MANAGER_TIENE_DIESEL = {{ tiene_diesel|yesno:"true,false" }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

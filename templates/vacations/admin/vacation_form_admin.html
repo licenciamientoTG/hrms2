@@ -41,8 +41,8 @@
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>
                 {% endif %}
 
-                <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Finalizadas</option>
-                <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>Rechazadas</option>
+                <option value="approved" {% if estado == 'approved' %}selected{% endif %}>Autorizadas</option>
+                <option value="rejected" {% if estado == 'rejected' %}selected{% endif %}>No autorizadas</option>
                 <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todas</option>
             </select>
         </div>
@@ -112,7 +112,7 @@
                     {% else %} bg-secondary {% endif %}">
 
                     {% if st == 'approved' %}
-                        Finalizada
+                        Autorizada
                         {% if s.zona_approver %}
                             <br><small style="font-size:0.75em">(Aut: {{ s.zona_approver.first_name }} {{ s.zona_approver.last_name }})</small>
                         {% elif s.manager_approver %}
@@ -120,7 +120,7 @@
                         {% endif %}
 
                     {% elif st == 'rejected' %}
-                        Rechazada
+                        No autorizada
 
                     {% elif st == 'authorized' %}
                         {% with puesto=s.get_approver_job_position %}
@@ -147,7 +147,7 @@
                     {% if s.status == 'pending' or s.status == 'zona_pending' and s.zona_approver == request.user %}
                         <button type="button" class="btn btn-sm btn-primary btn-atender"
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
-                            Autorizar / Rechazar
+                            Autorizar / No autorizar
                         </button>
                     {% else %}
                         <button class="btn btn-sm btn-outline-secondary btn-ver-detalle"
@@ -289,7 +289,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button name="accion" value="rechazar" class="btn btn-danger me-auto" type="submit">Rechazar</button>
+        <button name="accion" value="rechazar" class="btn btn-danger me-auto" type="submit">No autorizar</button>
         <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
         
         {% if role == 'manager' %}
@@ -470,9 +470,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const tieneLider = tr.getAttribute('data-lider') && tr.getAttribute('data-lider').trim() !== '';
             const zonaApprover = tr.getAttribute('data-zona-approver') || '';
             const labels = {
-                approved: 'Finalizada',
+                approved: 'Autorizada',
                 authorized: tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado',
-                rejected: 'Rechazada',
+                rejected: 'No autorizada',
                 pending: 'Pendiente de Jefe',
                 zona_pending: zonaApprover ? `Pend. Jefe de Zona (${zonaApprover})` : 'Pendiente de Jefe de Zona'
             };

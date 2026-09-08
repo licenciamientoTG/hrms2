@@ -161,7 +161,10 @@
       <!-- Panel 1: Usuarios más activos -->
       <div class="col-md-6">
         <div class="card p-3 h-100">
-          <h6 class="fw-bold mb-3">Usuarios más activos</h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Usuarios más activos</h6>
+            <input type="text" id="filter-top-users" class="form-control form-control-sm w-auto" placeholder="🔍 Usuario..." style="max-width:160px">
+          </div>
           <div id="panel-top-users" class="panel-body"></div>
         </div>
       </div>
@@ -169,7 +172,10 @@
       <!-- Panel 2: Módulos más visitados -->
       <div class="col-md-6">
         <div class="card p-3 h-100">
-          <h6 class="fw-bold mb-3">Módulos más visitados</h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Módulos más visitados</h6>
+            <input type="text" id="filter-top-modules" class="form-control form-control-sm w-auto" placeholder="🔍 Módulo..." style="max-width:160px">
+          </div>
           <div id="panel-top-modules" class="panel-body"></div>
         </div>
       </div>
@@ -177,7 +183,10 @@
       <!-- Panel 3: Módulos con más alcance -->
       <div class="col-md-6">
         <div class="card p-3 h-100">
-          <h6 class="fw-bold mb-3">Módulos con más alcance <small class="text-muted fw-normal">(usuarios únicos)</small></h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Módulos con más alcance <small class="text-muted fw-normal">(usuarios únicos)</small></h6>
+            <input type="text" id="filter-top-reach" class="form-control form-control-sm w-auto" placeholder="🔍 Módulo..." style="max-width:160px">
+          </div>
           <div id="panel-top-reach" class="panel-body"></div>
         </div>
       </div>
@@ -185,7 +194,10 @@
       <!-- Panel 4: Módulos sin uso en el período -->
       <div class="col-md-6">
         <div class="card p-3 h-100">
-          <h6 class="fw-bold mb-3">Módulos sin uso en el período</h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Módulos sin uso en el período</h6>
+            <input type="text" id="filter-unused" class="form-control form-control-sm w-auto" placeholder="🔍 Módulo..." style="max-width:160px">
+          </div>
           <div id="panel-unused" class="panel-body"></div>
         </div>
       </div>
@@ -194,6 +206,21 @@
   </div><!-- /tab-modulos -->
 
 </div><!-- /tab-content -->
+
+<!-- Modal desglose de usuarios por módulo -->
+<div class="modal fade" id="modalModuleUsers" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Usuarios del módulo — <span id="modal-module-nombre"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-module-body">
+        <div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal desglose de módulos por usuario -->
 <div class="modal fade" id="modalUserModules" tabindex="-1" aria-hidden="true">
@@ -292,7 +319,7 @@
     if (!data.rows.length) return "<p class='text-muted small'>Sin datos en el período.</p>";
     const k = "top_modules";
     const rows = data.rows.map(r => `<tr>
-      <td>${r.module}</td>
+      <td><a href="#" class="module-users-link text-decoration-none" data-module="${encodeURIComponent(r.module)}" data-module-name="${r.module}">${r.module}</a></td>
       <td class="text-end fw-bold">${r.total}</td>
       <td class="text-end text-muted">${r.unique_users}</td>
       <td style="width:100px"><div class="progress" style="height:8px"><div class="progress-bar bg-primary" style="width:${r.pct}%"></div></div></td>
@@ -350,10 +377,10 @@
   }
 
   const PANELS = {
-    "top_users":   { id: "panel-top-users",   render: renderTopUsers },
-    "top_modules": { id: "panel-top-modules",  render: renderTopModules },
-    "top_reach":   { id: "panel-top-reach",    render: renderTopReach },
-    "unused":      { id: "panel-unused",        render: renderUnused },
+    "top_users":   { id: "panel-top-users",   render: renderTopUsers,   filterInputId: "filter-top-users" },
+    "top_modules": { id: "panel-top-modules",  render: renderTopModules, filterInputId: "filter-top-modules" },
+    "top_reach":   { id: "panel-top-reach",    render: renderTopReach,   filterInputId: "filter-top-reach" },
+    "unused":      { id: "panel-unused",        render: renderUnused,     filterInputId: "filter-unused" },
   };
 
   function loadPanel(key, silent = false) {
@@ -364,11 +391,15 @@
     if (!el) return;
     if (!silent) el.innerHTML = spinner();
     const dates = getDateParams();
-    const params = new URLSearchParams({
+    const filterEl = p.filterInputId ? document.getElementById(p.filterInputId) : null;
+    const search = filterEl ? filterEl.value.trim() : "";
+    const paramObj = {
       panel: key, page: s.page,
       sort: s.sort, order: s.order,
       mod_from: dates.mod_from, mod_to: dates.mod_to,
-    });
+    };
+    if (search) paramObj.q = search;
+    const params = new URLSearchParams(paramObj);
     fetch("/monitoring/api/panel/?" + params)
       .then(r => r.json())
       .then(data => { el.innerHTML = p.render(data); })
@@ -379,10 +410,87 @@
     Object.keys(PANELS).forEach(k => { state[k].page = 1; loadPanel(k); });
   }
 
+  // Debounce para filtros de búsqueda individuales
+  const _debounceTimers = {};
+  function wireFilterInputs() {
+    Object.entries(PANELS).forEach(([key, p]) => {
+      if (!p.filterInputId) return;
+      const el = document.getElementById(p.filterInputId);
+      if (!el) return;
+      el.addEventListener("input", function () {
+        clearTimeout(_debounceTimers[key]);
+        _debounceTimers[key] = setTimeout(() => {
+          state[key].page = 1;
+          loadPanel(key);
+        }, 350);
+      });
+    });
+  }
+
   // Recarga silenciosa (sin spinner, sin reset de página) disparada por el polling en vivo
   document.addEventListener("mod:refresh-silent", function () {
     Object.keys(PANELS).forEach(k => loadPanel(k, true));
   });
+
+  function loadModuleUsers(moduleName, page) {
+    document.getElementById("modal-module-nombre").textContent = moduleName;
+    document.getElementById("modal-module-body").innerHTML =
+      '<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>';
+    window._moduleUsersState = { module: moduleName, page: page };
+
+    const dates = getDateParams();
+    const params = new URLSearchParams({ module: moduleName, mod_from: dates.mod_from, mod_to: dates.mod_to, page: page });
+    fetch("/monitoring/api/module-users/?" + params)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.rows.length) {
+          document.getElementById("modal-module-body").innerHTML = "<p class='text-muted small'>Sin datos en el período.</p>";
+          return;
+        }
+        const maxVal = data.rows[0].total || 1;
+        const filas = data.rows.map(r => `<tr>
+          <td>${r.nombre}</td>
+          <td class="text-muted small">${r.username}</td>
+          <td class="text-end fw-bold">${r.total}</td>
+          <td class="text-end text-muted">${r.last_visit}</td>
+          <td style="width:90px"><div class="progress" style="height:7px">
+            <div class="progress-bar bg-primary" style="width:${Math.round(r.total*100/maxVal)}%"></div>
+          </div></td>
+        </tr>`).join("");
+
+        const prev = data.page > 1
+          ? `<li class="page-item"><a class="page-link module-users-page-link" href="#" data-page="${data.page - 1}">«</a></li>`
+          : `<li class="page-item disabled"><span class="page-link">«</span></li>`;
+        const next = data.page < data.total_pages
+          ? `<li class="page-item"><a class="page-link module-users-page-link" href="#" data-page="${data.page + 1}">»</a></li>`
+          : `<li class="page-item disabled"><span class="page-link">»</span></li>`;
+        const paginacion = data.total_pages > 1 ? `
+          <nav class="mt-2">
+            <ul class="pagination pagination-sm mb-0 align-items-center">
+              ${prev}
+              <li class="page-item disabled"><span class="page-link text-muted">${data.page} / ${data.total_pages} — ${data.total} usuarios</span></li>
+              ${next}
+            </ul>
+          </nav>` : `<p class="text-muted small mt-2 mb-0">${data.total} usuario${data.total !== 1 ? 's' : ''}</p>`;
+
+        document.getElementById("modal-module-body").innerHTML = `
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead><tr>
+                <th>Usuario</th>
+                <th class="text-muted">Login</th>
+                <th class="text-end">Visitas</th>
+                <th class="text-end">Última visita</th>
+                <th></th>
+              </tr></thead>
+              <tbody>${filas}</tbody>
+            </table>
+          </div>${paginacion}`;
+      })
+      .catch(() => {
+        document.getElementById("modal-module-body").innerHTML = "<p class='text-muted small'>Error al cargar.</p>";
+      });
+  }
 
   // Delegación de eventos: paginación, ordenamiento y desglose de usuario
   document.addEventListener("click", function (e) {
@@ -410,6 +518,25 @@
       loadPanel(key);
       return;
     }
+    // Desglose de usuarios por módulo
+    const modLink = e.target.closest("a.module-users-link");
+    if (modLink) {
+      e.preventDefault();
+      const moduleName = decodeURIComponent(modLink.dataset.module);
+      window._moduleUsersState = { module: moduleName, page: 1 };
+      loadModuleUsers(moduleName, 1);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById("modalModuleUsers")).show();
+      return;
+    }
+    // Paginación del modal de usuarios por módulo
+    const modPageLink = e.target.closest("a.module-users-page-link");
+    if (modPageLink) {
+      e.preventDefault();
+      const s = window._moduleUsersState;
+      if (s) loadModuleUsers(s.module, parseInt(modPageLink.dataset.page));
+      return;
+    }
+
     // Desglose de módulos por usuario
     const link = e.target.closest("a.user-modules-link");
     if (link) {
@@ -463,7 +590,7 @@
   const tabBtn = document.getElementById("tab-modulos-btn");
   if (tabBtn) {
     tabBtn.addEventListener("shown.bs.tab", function () {
-      if (!loaded) { loaded = true; loadAllPanels(); }
+      if (!loaded) { loaded = true; wireFilterInputs(); loadAllPanels(); }
     });
   }
 
@@ -473,7 +600,7 @@
     const btn = document.getElementById("tab-modulos-btn");
     if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
     loaded = true;
-    document.addEventListener("DOMContentLoaded", loadAllPanels);
+    document.addEventListener("DOMContentLoaded", function () { wireFilterInputs(); loadAllPanels(); });
   }
 
   // Mantener pestaña activa al filtrar fechas
