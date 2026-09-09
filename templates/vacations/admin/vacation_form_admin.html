@@ -24,7 +24,7 @@
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
         <div class="col-12 col-md-5">
-            <input name="q" type="text" class="form-control" placeholder="Buscar por empleado..." value="{{ q }}">
+            <input name="q" type="text" class="form-control" placeholder="Buscar por colaborador..." value="{{ q }}">
         </div>
         
         <div class="col-12 col-md-3">
@@ -56,8 +56,7 @@
       <table id="vac-table" class="table table-sm table-hover align-middle mb-0">
         <thead class="table">
           <tr>
-            <th>#</th>
-            <th>Empleado</th>
+            <th>Colaborador</th>
             <th>Tipo</th>
             <th>Fechas</th>
             <th>Días</th>
@@ -66,8 +65,15 @@
           </tr>
         </thead>
         <tbody>
-          {% for s in page_obj.object_list %}
-          <tr data-id="{{ s.id }}"
+          {% if week_groups %}
+            {% for group in week_groups %}
+            <tr class="table-active">
+              <td colspan="6" class="fw-semibold text-secondary py-2 ps-2" style="font-size:0.8rem;letter-spacing:.04em;text-transform:uppercase;border-top:2px solid #dee2e6;">
+                <i class="fa-regular fa-calendar me-1"></i>{{ group.label }}
+              </td>
+            </tr>
+            {% for s in group.requests %}
+            <tr data-id="{{ s.id }}"
               data-empleado="{{ s.user.get_full_name|default:s.user.username }}"
               data-tipo="{{ s.tipo_solicitud }}"
               data-dias="{{ s.total_days }}"
@@ -83,7 +89,6 @@
               data-documento="{% if s.documento %}{{ s.documento.url }}{% endif %}"
               data-documento-lider="{% if s.documento_lider %}{{ s.documento_lider.url }}{% endif %}">
             
-            <td>{{ s.id }}</td>
             <td>{{ s.user.get_full_name|default:s.user.username }}</td>
             <td>{{ s.tipo_solicitud }}</td>
             <td>
@@ -173,9 +178,11 @@
               </div>
             </td>
           </tr>
-          {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-3">No hay solicitudes en esta categoría.</td></tr>
-          {% endfor %}
+            {% endfor %}
+            {% endfor %}
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-3">No hay solicitudes en esta categoría.</td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
@@ -250,7 +257,7 @@
     <form class="modal-content" id="formAtender" enctype="multipart/form-data" method="post">
       {% csrf_token %}
       <div class="modal-header">
-        <h5 class="modal-title">Atender solicitud <span id="att-id-label"></span></h5>
+        <h5 class="modal-title">Atender solicitud</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -279,13 +286,21 @@
           </div>
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">Comprobante (PDF o imagen, opcional)</label>
-          <input type="file" name="pdf_respuesta" accept="application/pdf,image/jpeg,image/png,image/jpg" class="form-control">
+        <div class="mb-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100"
+                  onclick="this.classList.add('d-none'); document.getElementById('att-extras').classList.remove('d-none');">
+            <i class="fa-solid fa-plus me-1"></i> Agregar comprobante o comentario
+          </button>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Comentario (opcional)</label>
-          <textarea name="comentario" rows="3" class="form-control" placeholder="Escribe un comentario..."></textarea>
+        <div id="att-extras" class="d-none">
+          <div class="mb-3">
+            <label class="form-label">Comprobante (PDF o imagen, opcional)</label>
+            <input type="file" name="pdf_respuesta" accept="application/pdf,image/jpeg,image/png,image/jpg" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comentario (opcional)</label>
+            <textarea name="comentario" rows="3" class="form-control" placeholder="Escribe un comentario..."></textarea>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -399,8 +414,13 @@ document.addEventListener('DOMContentLoaded', function() {
         modalAtender.addEventListener('show.bs.modal', function(event) {
             const tr = event.relatedTarget.closest('tr');
 
+            // Resetear sección extras
+            const extras = document.getElementById('att-extras');
+            const btnExtras = extras.previousElementSibling.querySelector('button');
+            extras.classList.add('d-none');
+            btnExtras.classList.remove('d-none');
+
             document.getElementById('att-id').value = tr.getAttribute('data-id');
-            document.getElementById('att-id-label').textContent = '#' + tr.getAttribute('data-id');
 
             const nombreColab = tr.getAttribute('data-empleado') || '';
             const nombreLider = tr.getAttribute('data-lider') || '';

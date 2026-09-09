@@ -150,7 +150,7 @@
             {% endif %}
 
             {% comment %} {% if not user.is_staff or perms.vacations.Modulo_vacaciones %} {% endcomment %}
-            {% if perms.vacations.Modulo_vacaciones %}
+            {% if user.is_authenticated and not ocultar_vacaciones %}
                 <li class="sidebar-item {% if 'vacation' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
                         <i class="fa-solid fa-calendar-days"></i>

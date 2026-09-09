@@ -198,12 +198,12 @@
               <td class="text-start">
                 {% with st=r.status %}
                   <span class="badge
-                    {% if st == 'approved' %} bg-success
+                    {% if st == 'approved' or st == 'authorized' %} bg-success
                     {% elif st == 'rejected' %} bg-danger
                     {% elif st == 'pending' %} bg-warning text-dark
                     {% else %} bg-secondary {% endif %}">
-                    {% if st == 'approved' %}
-                      Autorizada
+                    {% if st == 'approved' or st == 'authorized' %}
+                      Aprobada
                     {% elif st == 'rejected' %}
                       No autorizada
                     {% elif st == 'pending' %}
@@ -278,13 +278,19 @@
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label fw-semibold">Selecciona los días que vas a tomar</label>
-            <input
-              type="text"
-              id="calendario-vacaciones"
-              class="form-control"
-              placeholder="Haz clic para abrir el calendario…"
-              readonly
-            >
+            <div class="input-group">
+              <input
+                type="text"
+                id="calendario-vacaciones"
+                class="form-control"
+                placeholder="Selecciona los días…"
+                readonly
+              >
+              <button type="button" class="btn btn-outline-secondary"
+                      onclick="document.getElementById('calendario-vacaciones')._flatpickr.open()">
+                <i class="fa-regular fa-calendar"></i>
+              </button>
+            </div>
             <input type="hidden" name="dias_seleccionados" id="dias-seleccionados-input">
             <div id="contador-dias-vac">0 días seleccionados</div>
           </div>

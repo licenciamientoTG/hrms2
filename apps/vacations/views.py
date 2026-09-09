@@ -3,7 +3,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from apps.employee.models import Employee
 from .models import VacationRequest
 from django.contrib import messages
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from itertools import groupby
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.models import User
@@ -373,12 +374,12 @@ def vacation_form_user(request):
 
     # GET
     pending_requests = VacationRequest.objects.filter(
-        user=request.user, status__in=['pending', 'zona_pending', 'authorized']
+        user=request.user, status__in=['pending', 'zona_pending']
     ).order_by('-created_at')
 
     finished_requests = VacationRequest.objects.filter(
         user=request.user
-    ).exclude(status__in=['pending', 'authorized']).order_by('-created_at')
+    ).exclude(status__in=['pending', 'zona_pending']).order_by('-created_at')
 
     try:
         emp = Employee.objects.get(user=request.user)
@@ -476,6 +477,16 @@ def vacation_form_manager(request):
                 req.save()
                 msg = 'autorizada por Jefe de Zona. Se envió a Capital Humano.'
                 try:
+                    Notification.objects.create(
+                        user=req.user,
+                        title="Solicitud Aprobada",
+                        body=f"Tu solicitud de {req.tipo_solicitud} fue aprobada por {nombre_actor}.",
+                        url="/vacations/mis-solicitudes/?tab=completados",
+                        module="vacaciones"
+                    )
+                except Exception as e:
+                    print(f"Error notificando empleado: {e}")
+                try:
                     rh_users = User.objects.filter(is_active=True).filter(
                         Q(is_superuser=True) |
                         Q(is_staff=True, user_permissions__codename='Modulo_vacaciones') |
@@ -532,12 +543,32 @@ def vacation_form_manager(request):
                         req.save()
                         msg = 'autorizada. Se envió a Capital Humano (jefe de zona no encontrado).'
                         print(f"[Vacaciones] OSC sin jefe de zona para gerente {request.user.username}, enviando directo a RH.")
+                        try:
+                            Notification.objects.create(
+                                user=req.user,
+                                title="Solicitud Aprobada",
+                                body=f"Tu solicitud de {req.tipo_solicitud} fue aprobada por {nombre_actor}.",
+                                url="/vacations/mis-solicitudes/?tab=completados",
+                                module="vacaciones"
+                            )
+                        except Exception as e:
+                            print(f"Error notificando empleado: {e}")
                         _notificar_rh(req, nombre_actor, nombre_empleado)
                 else:
                     # Flujo normal: gerente → RH
                     req.status = 'authorized'
                     req.save()
                     msg = 'autorizada. Se envió a Capital Humano.'
+                    try:
+                        Notification.objects.create(
+                            user=req.user,
+                            title="Solicitud Aprobada",
+                            body=f"Tu solicitud de {req.tipo_solicitud} fue aprobada por {nombre_actor}.",
+                            url="/vacations/mis-solicitudes/?tab=completados",
+                            module="vacaciones"
+                        )
+                    except Exception as e:
+                        print(f"Error notificando empleado: {e}")
                     _notificar_rh(req, nombre_actor, nombre_empleado)
         # ------------------------------------------------------------------
 
@@ -551,7 +582,7 @@ def vacation_form_manager(request):
     qs = VacationRequest.objects.filter(
         Q(user__employee__in=_employees_of_leader(request.user)) |
         Q(zona_approver=request.user)
-    ).select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('-created_at')
+    ).select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
     if estado == 'activos':
         qs = qs.filter(status__in=['pending', 'zona_pending'])
@@ -561,8 +592,15 @@ def vacation_form_manager(request):
     if q:
         qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
+    page_obj = Paginator(qs, 50).get_page(request.GET.get('page'))
+    week_groups = [
+        {'label': label, 'requests': list(grp)}
+        for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
+    ]
+
     context = {
-        'page_obj': Paginator(qs, 20).get_page(request.GET.get('page')),
+        'page_obj': page_obj,
+        'week_groups': week_groups,
         'role': 'manager',
         'q': q,
         'estado': estado,
@@ -573,7 +611,21 @@ def vacation_form_manager(request):
 # ==========================================
 # 4. VISTA DE RH (ADMIN)
 # ==========================================
-@login_required
+def _semana_label(start_date):
+    today = date.today()
+    monday_today = today - timedelta(days=today.weekday())
+    monday_req = start_date - timedelta(days=start_date.weekday())
+    diff = (monday_req - monday_today).days // 7
+    if diff < 0:
+        return 'Semanas anteriores'
+    if diff == 0:
+        return 'Esta semana'
+    if diff == 1:
+        return 'Próxima semana'
+    sunday_req = monday_req + timedelta(days=6)
+    return f'Semana del {monday_req.strftime("%-d %b")} al {sunday_req.strftime("%-d %b")}'
+
+
 @user_passes_test(lambda u: u.is_staff)
 def vacation_form_rh(request):
     if request.method == 'POST':
@@ -592,41 +644,27 @@ def vacation_form_rh(request):
         notif_cuerpo = ""
 
         if accion == 'aprobar':
-            req.status = 'approved' # ESTADO FINAL
+            req.status = 'approved'
             msg = 'registrada y finalizada.'
-            
-            # Datos para notificación al usuario
-            notif_titulo = "Solicitud Aprobada"
-            notif_cuerpo = f"Tu solicitud de {req.tipo_solicitud} ha sido APROBADA y registrada por Capital Humano."
 
         elif accion == 'rechazar':
             req.status = 'rejected'
             msg = 'rechazada.'
-            
-            # Datos para notificación al usuario
-            notif_titulo = "Solicitud Rechazada"
-            notif_cuerpo = f"Tu solicitud de {req.tipo_solicitud} ha sido RECHAZADA por Capital Humano."
-        
+            try:
+                Notification.objects.create(
+                    user=req.user,
+                    title="Solicitud Rechazada",
+                    body=f"Tu solicitud de {req.tipo_solicitud} ha sido RECHAZADA por Capital Humano.",
+                    url="/vacations/mis-solicitudes/?tab=completados",
+                    module="vacaciones"
+                )
+            except Exception as e:
+                print(f"Error enviando notificación al usuario: {e}")
+
         if pdf: req.documento = pdf
         if comentario: req.comentario_rh = comentario
 
         req.save()
-
-        # ---------------------------------------------------------
-        # NOTIFICACIÓN FINAL AL USUARIO (EMPLEADO)
-        # ---------------------------------------------------------
-        try:
-            Notification.objects.create(
-                user=req.user,
-                title=notif_titulo,
-                body=notif_cuerpo,
-                url="/vacations/mis-solicitudes/?tab=completados",
-                module="vacaciones"
-            )
-            print(f"DEBUG: Notificación final enviada al usuario {req.user.username}")
-        except Exception as e:
-            print(f"Error enviando notificación al usuario: {e}")
-        # ---------------------------------------------------------
 
         messages.success(request, f'Solicitud #{req.id} {msg}')
         return redirect('vacation_form_rh')
@@ -636,7 +674,7 @@ def vacation_form_rh(request):
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
 
-    qs = VacationRequest.objects.select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('-created_at')
+    qs = VacationRequest.objects.select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
     if estado and estado != 'todos':
         qs = qs.filter(status=estado)
@@ -645,8 +683,15 @@ def vacation_form_rh(request):
     if q:
         qs = qs.filter(Q(id__icontains=q) | Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
+    page_obj = Paginator(qs, 50).get_page(request.GET.get('page'))
+    week_groups = [
+        {'label': label, 'requests': list(grp)}
+        for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
+    ]
+
     context = {
-        'page_obj': Paginator(qs, 20).get_page(request.GET.get('page')),
+        'page_obj': page_obj,
+        'week_groups': week_groups,
         'role': 'rh',
         'estado': estado,
         'tipo': tipo,
