@@ -16,6 +16,9 @@ $(function () {
   const nodeMap   = {};
   const parentMap = {};
 
+  // Toggle: mostrar iguales (compañeros del mismo jefe)
+  let showPeers = false;
+
   // =====================================================
   //  Construye los mapas planos recorriendo el árbol
   // =====================================================
@@ -34,7 +37,7 @@ $(function () {
   // =====================================================
   //  Construye el árbol de 3 niveles para la búsqueda
   //  Nivel 1: jefe (si existe)
-  //  Nivel 2: persona encontrada
+  //  Nivel 2: persona encontrada (+ iguales si showPeers)
   //  Nivel 3: colaboradores directos (sin sus hijos)
   // =====================================================
   function getFilteredTree(matchNode) {
@@ -49,8 +52,17 @@ $(function () {
     });
 
     if (parent) {
-      // Devolvemos padre con un único hijo: la persona buscada
-      return $.extend({}, parent, { children: [filteredNode] });
+      var childrenToShow;
+      if (showPeers) {
+        // Todos los hijos del jefe: iguales sin subordinados + yo con subordinados directos
+        childrenToShow = (parent.children || []).map(function (sibling) {
+          if (sibling.id === matchNode.id) return filteredNode;
+          return $.extend({}, sibling, { children: [] });
+        });
+      } else {
+        childrenToShow = [filteredNode];
+      }
+      return $.extend({}, parent, { children: childrenToShow });
     }
     return filteredNode;
   }
@@ -257,6 +269,27 @@ $(function () {
       $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
       $me.addClass('orgchart-highlight');
       scrollToNode($me);
+    });
+
+    // =========================
+    //  BOTÓN TOGGLE IGUALES
+    // =========================
+    $('#oc-toggle-peers').on('click', function (e) {
+      e.preventDefault();
+      showPeers = !showPeers;
+      $(this).toggleClass('oc-btn-active', showPeers);
+
+      // Re-renderizar si hay un nodo "yo" conocido
+      if (!meNode) return;
+      var filteredTree = getFilteredTree(meNode);
+      renderChart(filteredTree, true, meNode.id);
+
+      // Resaltar "yo" después del render
+      setTimeout(function () {
+        var $me = $container.find('.node[data-empno="' + myEmpNo + '"]').first();
+        $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
+        if ($me.length) $me.addClass('orgchart-highlight');
+      }, 200);
     });
 
     $('#profile-close').on('click', function () {

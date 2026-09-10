@@ -213,6 +213,15 @@
   box-shadow: 0 4px 12px rgba(0,0,0,.18);
 }
 
+.orgchart-controls .oc-btn.oc-btn-active {
+  background: #004085;
+  box-shadow: 0 6px 18px rgba(0,64,133,.35);
+}
+
+.orgchart-controls .oc-btn.oc-btn-active i {
+  color: #ffffff;
+}
+
 /* --- TARJETA FLOTANTE (DRAGGABLE CARD) --- */
 .profile-panel {
     position: fixed;
