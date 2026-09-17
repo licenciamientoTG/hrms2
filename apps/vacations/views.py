@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
 import re
+import json
 
 # ==========================================
 # HELPERS: Lógica de líder (campo leader)
@@ -103,46 +104,65 @@ def _find_leader_employee(leader_raw):
     return qs.select_related('user').first()
 
 
+def _normalize(s):
+    """Normaliza texto a minúsculas sin espacios dobles."""
+    return ' '.join((s or '').split()).lower()
+
+
 def _employees_of_leader(user):
     """
     Retorna queryset de Employee cuyos registros apuntan a este usuario
-    en el campo leader, usando búsqueda flexible por nombre (maneja
-    los distintos formatos y truncados del campo).
+    en el campo leader. Usa la misma lógica de matching que el organigrama:
+    match exacto o por prefijo del nombre completo extraído, evitando
+    falsos positivos por subcadenas comunes.
     """
     try:
-        emp = Employee.objects.get(user=user)
-        last = emp.last_name.strip()
-        first = emp.first_name.strip()
+        emp_user = Employee.objects.get(user=user)
+        first = (emp_user.first_name or '').strip()
+        last  = (emp_user.last_name  or '').strip()
     except Employee.DoesNotExist:
         return Employee.objects.none()
 
-    if not last and not first:
+    if not first and not last:
         return Employee.objects.none()
 
-    first_prefix = first[:4] if first else ''
-    last_word = last.split()[0] if last else ''
+    # Todas las formas normalizadas del nombre del líder
+    name_fl       = _normalize(f'{first} {last}')       # "manuel alejandro martinez velez"
+    name_lf_comma = _normalize(f'{last}, {first}')      # "martinez velez, manuel alejandro"
+    name_lf       = _normalize(f'{last} {first}')       # "martinez velez manuel alejandro"
+    leader_keys   = {name_fl, name_lf_comma, name_lf}
 
-    def _build_qs(last_prefix):
-        q = Q()
-        if last_prefix:
-            q &= Q(leader__icontains=last_prefix)
-        if first_prefix:
-            q &= Q(leader__icontains=first_prefix)
-        return Employee.objects.filter(q)
+    matching_ids = []
+    candidates = Employee.objects.filter(
+        is_active=True
+    ).exclude(leader='').exclude(leader__isnull=True)
 
-    # Intento 1: prefijo largo (7 chars) — menos falsos positivos
-    qs = _build_qs(last_word[:7])
-    if qs.exists():
-        return qs
+    for emp in candidates:
+        raw = _extract_leader_name(emp.leader or '')
+        if not raw:
+            continue
+        key = _normalize(raw)
 
-    # Intento 2: prefijo corto (3 chars) — cubre campos leader truncados
-    # ej: "Villahumada - Lorenzo Ivan Flo" donde "Flores" quedó como "Flo"
-    if len(last_word) > 3:
-        qs = _build_qs(last_word[:3])
-        if qs.exists():
-            return qs
+        # 1. Match exacto en cualquier formato
+        if key in leader_keys:
+            matching_ids.append(emp.pk)
+            continue
 
-    return Employee.objects.none()
+        # 2. Formato "Apellidos, Nombres" → voltear y reintentar
+        if ',' in key:
+            lp, fp = key.split(',', 1)
+            flipped = _normalize(f'{fp.strip()} {lp.strip()}')
+            if flipped in leader_keys:
+                matching_ids.append(emp.pk)
+                continue
+
+        # 3. Prefijo: el campo leader puede estar truncado,
+        #    por lo que name_fl debe EMPEZAR con la cadena extraída
+        #    ej: "Lorenzo Ivan Flo" → "lorenzo ivan flores".startswith("lorenzo ivan flo")
+        if name_fl.startswith(key) and len(key) >= 6:
+            matching_ids.append(emp.pk)
+
+    return Employee.objects.filter(pk__in=matching_ids)
 
 
 def get_manager_name(user):
@@ -192,7 +212,7 @@ def _notificar_rh(req, nombre_actor, nombre_empleado):
 # ==========================================
 @login_required
 def vacation_dashboard(request):
-    if request.user.is_staff:
+    if request.user.is_staff and request.user.has_perm('vacations.Modulo_vacaciones'):
         return redirect('vacation_form_rh')
 
     tiene_pendientes = is_manager(request.user) and VacationRequest.objects.filter(
@@ -215,7 +235,31 @@ def vacation_form_user(request):
     if request.method == 'POST':
         tipo = request.POST.get('tipo_solicitud')
         observaciones = request.POST.get('observaciones', '').strip()
+
+        if tipo in ('Home Office', 'Permiso sin Goce de Sueldo'):
+            if len(observaciones) < 20:
+                messages.error(request, 'La razón del movimiento debe tener al menos 20 caracteres.')
+                return redirect('vacation_form_user')
+            if len(observaciones) > 500:
+                messages.error(request, 'La razón del movimiento no puede superar los 500 caracteres.')
+                return redirect('vacation_form_user')
+
+        if tipo == 'Vacaciones' and len(observaciones) > 1000:
+            messages.error(request, 'Las observaciones no pueden superar los 1000 caracteres.')
+            return redirect('vacation_form_user')
         documento = request.FILES.get('documento')
+
+        if documento:
+            allowed_types = {'application/pdf', 'image/jpeg', 'image/png'}
+            allowed_exts  = {'.pdf', '.jpg', '.jpeg', '.png'}
+            import os
+            ext = os.path.splitext(documento.name)[1].lower()
+            if documento.content_type not in allowed_types or ext not in allowed_exts:
+                messages.error(request, 'El documento debe ser PDF, JPG o PNG.')
+                return redirect('vacation_form_user')
+            if documento.size > 10 * 1024 * 1024:  # 10 MB
+                messages.error(request, 'El documento no puede superar los 10 MB.')
+                return redirect('vacation_form_user')
 
         # Soporte para días individuales (modal Vacaciones) y rango clásico (otros modales)
         dias_seleccionados_raw = request.POST.get('dias_seleccionados', '').strip()
@@ -239,6 +283,16 @@ def vacation_form_user(request):
                 messages.error(request, 'Debes seleccionar al menos un día.')
                 return redirect('vacation_form_user')
 
+            pasadas = [d.strftime('%d/%m/%Y') for d in fechas if d < date.today()]
+            if pasadas:
+                messages.error(request, f'No puedes seleccionar fechas pasadas: {", ".join(pasadas)}.')
+                return redirect('vacation_form_user')
+
+            fines_semana = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
+            if fines_semana:
+                messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines_semana)}.')
+                return redirect('vacation_form_user')
+
             start_date = fechas[0]
             end_date   = fechas[-1]
             selected_dates_csv = ','.join(d.strftime('%Y-%m-%d') for d in fechas)
@@ -255,6 +309,22 @@ def vacation_form_user(request):
             if end_date < start_date:
                 messages.error(request, 'La fecha fin no puede ser menor a la fecha inicio.')
                 return redirect('vacation_form_user')
+
+            if tipo == 'Home Office':
+                if start_date < date.today():
+                    messages.error(request, 'No puedes solicitar Home Office para una fecha pasada.')
+                    return redirect('vacation_form_user')
+                if start_date.weekday() >= 5:
+                    messages.error(request, 'No puedes solicitar Home Office en sábado o domingo.')
+                    return redirect('vacation_form_user')
+
+            if tipo == 'Permiso sin Goce de Sueldo':
+                if start_date < date.today():
+                    messages.error(request, 'No puedes solicitar Permiso sin Goce de Sueldo para una fecha pasada.')
+                    return redirect('vacation_form_user')
+                if start_date.weekday() >= 5:
+                    messages.error(request, 'No puedes solicitar Permiso sin Goce de Sueldo en sábado o domingo.')
+                    return redirect('vacation_form_user')
 
             dias_solicitados = (end_date - start_date).days + 1
 
@@ -377,9 +447,10 @@ def vacation_form_user(request):
         user=request.user, status__in=['pending', 'zona_pending']
     ).order_by('-created_at')
 
-    finished_requests = VacationRequest.objects.filter(
+    finished_qs = VacationRequest.objects.filter(
         user=request.user
     ).exclude(status__in=['pending', 'zona_pending']).order_by('-created_at')
+    finished_page = Paginator(finished_qs, 10).get_page(request.GET.get('page_finished'))
 
     try:
         emp = Employee.objects.get(user=request.user)
@@ -404,11 +475,18 @@ def vacation_form_user(request):
 
     soy_jefe = is_manager(request.user)
 
+    try:
+        titulo = request.user.employee.job_position.title if request.user.employee.job_position else ''
+        es_jefe_zona = 'jefe de zona' in titulo.lower()
+    except Exception:
+        es_jefe_zona = False
+
     context = {
         'pending_requests': pending_requests,
-        'finished_requests': finished_requests,
+        'finished_page': finished_page,
         'saldo_total': saldo_total,
         'is_manager': soy_jefe,
+        'es_jefe_zona': es_jefe_zona,
         'enviada_a': enviada_a,
         'puesto_lider': puesto_lider,
     }
@@ -420,8 +498,11 @@ def vacation_form_user(request):
 # ==========================================
 @login_required
 def vacation_form_manager(request):
+    # Calcular subordinados una sola vez y reutilizar en todo el view
+    mis_empleados = _employees_of_leader(request.user)
+
     # Seguridad: gerentes, staff, o jefes de zona con solicitudes asignadas
-    if not is_manager(request.user) and not request.user.is_staff and not _has_zona_pending(request.user):
+    if not mis_empleados.exists() and not request.user.is_staff and not _has_zona_pending(request.user):
         return redirect('vacation_form_user')
 
     if request.method == 'POST':
@@ -578,25 +659,89 @@ def vacation_form_manager(request):
     # --- GET: Listar Historial ---
     estado = request.GET.get('estado', 'activos')
     q = request.GET.get('q', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
 
     qs = VacationRequest.objects.filter(
-        Q(user__employee__in=_employees_of_leader(request.user)) |
+        Q(user__employee__in=mis_empleados) |
         Q(zona_approver=request.user)
-    ).select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
+    ).select_related('user', 'user__employee', 'user__employee__department', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
     if estado == 'activos':
         qs = qs.filter(status__in=['pending', 'zona_pending'])
     elif estado and estado != 'todos':
         qs = qs.filter(status=estado)
 
+    if tipo:
+        qs = qs.filter(tipo_solicitud=tipo)
+
     if q:
         qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
-    page_obj = Paginator(qs, 50).get_page(request.GET.get('page'))
+    page_obj = Paginator(qs, 20).get_page(request.GET.get('page'))
     week_groups = [
         {'label': label, 'requests': list(grp)}
         for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
     ]
+
+    # Calendario: pendientes del líder y aprobadas/autorizadas (verde desde que el líder aprueba)
+    cal_qs = VacationRequest.objects.filter(
+        user__employee__in=mis_empleados,
+        status__in=['pending', 'authorized', 'approved']
+    ).select_related('user', 'user__employee', 'zona_approver')
+
+    _cal_colors = {
+        'pending':    '#6c757d',
+        'authorized': '#0d6efd',
+        'approved':   '#0d6efd',
+    }
+
+    calendar_events = []
+    for r in cal_qs:
+        nombre = r.user.get_full_name() or r.user.username
+        try:
+            lider_name = r.user.employee.get_leader_full_name()
+        except Exception:
+            lider_name = ''
+        zona_name = r.zona_approver.get_full_name() if r.zona_approver else ''
+        props = {
+            'req_id': r.pk,
+            'empleado': nombre,
+            'tipo': r.tipo_solicitud,
+            'dias': r.total_days or 0,
+            'estado': r.status,
+            'razon': r.reason or '',
+            'comentario_lider': r.comentario_lider or '',
+            'comentario_rh': r.comentario_rh or '',
+            'documento': r.documento.url if r.documento else '',
+            'documento_lider': r.documento_lider.url if r.documento_lider else '',
+            'dates_csv': r.selected_dates or '',
+            'lider': lider_name,
+            'zona_approver': zona_name,
+            'inicio': r.dates_display,
+        }
+        color = _cal_colors.get(r.status, '#6c757d')
+        dias_individuales = r.selected_dates_list
+        if dias_individuales:
+            # Un evento por cada día seleccionado individualmente
+            for d in dias_individuales:
+                calendar_events.append({
+                    'id': f'{r.pk}_{d}',
+                    'title': nombre,
+                    'start': d.strftime('%Y-%m-%d'),
+                    'end': (d + timedelta(days=1)).strftime('%Y-%m-%d'),
+                    'color': color,
+                    'extendedProps': props,
+                })
+        else:
+            end_exclusive = (r.end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+            calendar_events.append({
+                'id': r.pk,
+                'title': nombre,
+                'start': r.start_date.strftime('%Y-%m-%d'),
+                'end': end_exclusive,
+                'color': color,
+                'extendedProps': props,
+            })
 
     context = {
         'page_obj': page_obj,
@@ -604,6 +749,8 @@ def vacation_form_manager(request):
         'role': 'manager',
         'q': q,
         'estado': estado,
+        'tipo': tipo,
+        'calendar_events_json': json.dumps(calendar_events),
     }
     return render(request, 'vacations/admin/vacation_form_admin.html', context)
 
@@ -626,7 +773,7 @@ def _semana_label(start_date):
     return f'Semana del {monday_req.strftime("%-d %b")} al {sunday_req.strftime("%-d %b")}'
 
 
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(lambda u: u.is_staff and u.has_perm('vacations.Modulo_vacaciones'))
 def vacation_form_rh(request):
     if request.method == 'POST':
         req_id = request.POST.get('req_id')
@@ -640,12 +787,27 @@ def vacation_form_rh(request):
         if req.status != 'authorized':
              messages.warning(request, 'Atención: Estás procesando una solicitud que no estaba en estatus de "Autorizada por Jefe".')
 
-        notif_titulo = ""
-        notif_cuerpo = ""
-
         if accion == 'aprobar':
             req.status = 'approved'
             msg = 'registrada y finalizada.'
+
+        elif accion == 'cancelar':
+            req.status = 'cancelled'
+            if comentario:
+                req.comentario_rh = comentario
+            req.save()
+            try:
+                Notification.objects.create(
+                    user=req.user,
+                    title="Vacaciones Canceladas",
+                    body=f"Tu solicitud de {req.tipo_solicitud} ({req.dates_display}) ha sido cancelada por Capital Humano.{' Motivo: ' + comentario if comentario else ''}",
+                    url="/vacations/mis-solicitudes/?tab=completados",
+                    module="vacaciones"
+                )
+            except Exception as e:
+                print(f"Error enviando notificación de cancelación: {e}")
+            messages.success(request, f'Solicitud #{req.id} cancelada.')
+            return redirect('vacation_form_rh')
 
         elif accion == 'rechazar':
             req.status = 'rejected'
@@ -674,7 +836,7 @@ def vacation_form_rh(request):
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
 
-    qs = VacationRequest.objects.select_related('user', 'user__employee', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
+    qs = VacationRequest.objects.select_related('user', 'user__employee', 'user__employee__department', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
     if estado and estado != 'todos':
         qs = qs.filter(status=estado)
@@ -683,7 +845,7 @@ def vacation_form_rh(request):
     if q:
         qs = qs.filter(Q(id__icontains=q) | Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
-    page_obj = Paginator(qs, 50).get_page(request.GET.get('page'))
+    page_obj = Paginator(qs, 20).get_page(request.GET.get('page'))
     week_groups = [
         {'label': label, 'requests': list(grp)}
         for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))

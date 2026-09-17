@@ -5,12 +5,17 @@ def auto_incentivos_permission(request):
     if not request.user.is_authenticated or request.user.is_superuser:
         return {}
 
+    if request.user.is_staff:
+        tiene_perm = request.user.has_perm('vacations.Modulo_vacaciones')
+        return {} if tiene_perm else {'ocultar_vacaciones': True}
+
     try:
         emp = request.user.employee
         titulo = emp.job_position.title if emp.is_active and emp.job_position else ''
         titulo_lower = titulo.lower()
         dept_nombre = (emp.department.name if emp.department else '').lower()
         en_estacion = bool(emp.is_active and emp.team and emp.team.strip() in STATION_TEAMS)
+        en_travel_inmo = bool(emp.is_active and emp.team and emp.team.strip() == 'Travel Center Inmo')
         es_gerente_ops = (
             titulo == 'Gerente De Operaciones'
             and 'aqua car club' not in (emp.company or '').lower()
@@ -37,7 +42,8 @@ def auto_incentivos_permission(request):
             request.user._perm_cache = None
             request.user._user_perm_cache = None
 
-    es_jefe_operaciones = es_gerente_ops or es_jefe_zona or es_gerente_estacion
-    ocultar_vacaciones = en_estacion and not es_jefe_operaciones
+    es_jefe_operaciones = es_gerente_ops or es_jefe_zona
+    es_limpieza_corporativo = (titulo == 'Auxiliar De Limpieza' and (emp.team or '').strip() == 'Corporativo')
+    ocultar_vacaciones = ((en_estacion or en_travel_inmo) and not es_jefe_operaciones) or es_limpieza_corporativo
 
     return {'ocultar_vacaciones': ocultar_vacaciones}

@@ -14,30 +14,39 @@
         {% endif %}
     </h2>
 
-    {% if role == 'manager' %}
-    <a href="{% url 'vacation_form_user' %}" class="btn btn-outline-primary">
-        <i class="fa-solid fa-user me-2"></i> Mis Solicitudes Personales
-    </a>
-    {% endif %}
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      {% if role == 'manager' %}
+        <a href="{% url 'vacation_form_user' %}" class="btn btn-outline-primary">
+            <i class="fa-solid fa-user me-2"></i> Mis Solicitudes Personales
+        </a>
+      {% endif %}
+      {% if role == 'manager' %}
+      <div class="btn-group" role="group">
+        <button id="btn-vista-lista" type="button" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-list me-1"></i> Lista
+        </button>
+        <button id="btn-vista-cal" type="button" class="btn btn-outline-primary btn-sm">
+          <i class="fa-regular fa-calendar me-1"></i> Calendario
+        </button>
+      </div>
+      {% endif %}
+    </div>
   </div>
 
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-md-4">
             <input name="q" type="text" class="form-control" placeholder="Buscar por colaborador..." value="{{ q }}">
         </div>
-        
+
         <div class="col-12 col-md-3">
             <select name="estado" class="form-select" onchange="this.form.submit()">
-                
+
                 {% if role == 'rh' %}
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Autorizadas)</option>
                     <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de Jefe</option>
-                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes de Jefe de Zona</option>
                 {% else %}
                     <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Pendientes de aprobar</option>
-                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes (Gerente)</option>
-                    <option value="zona_pending" {% if estado == 'zona_pending' %}selected{% endif %}>Pendientes (Jefe de Zona)</option>
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>
                 {% endif %}
 
@@ -46,7 +55,16 @@
                 <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todas</option>
             </select>
         </div>
-        
+
+        <div class="col-12 col-md-3">
+            <select name="tipo" class="form-select" onchange="this.form.submit()">
+                <option value="">Todos los tipos</option>
+                <option value="Vacaciones" {% if tipo == 'Vacaciones' %}selected{% endif %}>Vacaciones</option>
+                <option value="Home Office" {% if tipo == 'Home Office' %}selected{% endif %}>Home Office</option>
+                <option value="Permiso sin Goce de Sueldo" {% if tipo == 'Permiso sin Goce de Sueldo' %}selected{% endif %}>Permiso sin Goce de Sueldo</option>
+            </select>
+        </div>
+
         <div class="col-12 col-md-2">
             <a href="." class="btn btn-outline-secondary w-100">Limpiar</a>
         </div>
@@ -86,6 +104,11 @@
               data-comentario-lider="{{ s.comentario_lider|default:'' }}"
               data-comentario-rh="{{ s.comentario_rh|default:'' }}"
               data-estado="{{ s.status }}"
+              data-empno="{{ s.user.employee.employee_number|default:'' }}"
+              data-empresa="{{ s.user.employee.company|default:'' }}"
+              data-ingreso="{{ s.user.employee.start_date|date:'d/m/Y'|default:'' }}"
+              data-departamento="{% if s.user.employee.department %}{{ s.user.employee.department }}{% endif %}"
+              data-area="{{ s.user.employee.team|default:'' }}"
               data-documento="{% if s.documento %}{{ s.documento.url }}{% endif %}"
               data-documento-lider="{% if s.documento_lider %}{{ s.documento_lider.url }}{% endif %}">
             
@@ -108,6 +131,7 @@
                 <span class="badge
                     {% if st == 'approved' %} bg-success
                     {% elif st == 'rejected' %} bg-danger
+                    {% elif st == 'cancelled' %} bg-secondary
                     {% elif st == 'authorized' %}
                         {% if s.manager_approver %} bg-info text-dark
                         {% else %} text-dark" style="background-color:#f0c4f0
@@ -123,6 +147,9 @@
                         {% elif s.manager_approver %}
                             <br><small style="font-size:0.75em">(Aut: {{ s.manager_approver.first_name }} {{ s.manager_approver.last_name }})</small>
                         {% endif %}
+
+                    {% elif st == 'cancelled' %}
+                        Cancelada
 
                     {% elif st == 'rejected' %}
                         No autorizada
@@ -165,6 +192,11 @@
                                 data-bs-toggle="modal" data-bs-target="#modalAtender">
                             Finalizar / Subir
                         </button>
+                    {% elif s.status == 'approved' %}
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-cancelar"
+                                data-bs-toggle="modal" data-bs-target="#modalCancelar">
+                            Cancelar
+                        </button>
                     {% elif s.status == 'pending' or s.status == 'zona_pending' %}
                         <span class="badge bg-light text-muted border">Esperando Jefe</span>
                     {% else %}
@@ -187,20 +219,65 @@
       </table>
     </div>
     
-    {% if page_obj.has_other_pages %}
-    <nav class="mt-3">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&estado={{ estado }}&q={{ q }}">Ant</a></li>
-            {% endif %}
-            <li class="page-item disabled"><span class="page-link">{{ page_obj.number }}</span></li>
-            {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&estado={{ estado }}&q={{ q }}">Sig</a></li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
+    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+        <small class="text-muted">
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }} de {{ page_obj.paginator.count }} registros
+        </small>
+        {% if page_obj.has_other_pages %}
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">&laquo;</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">Anterior</a>
+                    </li>
+                {% endif %}
+                <li class="page-item disabled">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">&raquo;</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
 </div>
+
+{% if role == 'manager' %}
+<div id="vac-calendar-wrap" class="card p-3 mt-3" style="display:none;">
+  <!-- Leyenda -->
+  <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
+    <strong class="me-1">Leyenda:</strong>
+    <span class="badge rounded-pill cal-leyenda-btn" data-statuses="pending" style="background:#6c757d; cursor:pointer; user-select:none">Mis pendientes</span>
+    <span class="badge rounded-pill cal-leyenda-btn" data-statuses="authorized,approved" style="background:#0d6efd; cursor:pointer; user-select:none">Autorizada</span>
+  </div>
+  <style>
+  #vac-fullcalendar .fc-day-today {
+    background: transparent !important;
+  }
+  #vac-fullcalendar .fc-day-today .fc-daygrid-day-number {
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+</style>
+<div id="vac-fullcalendar"></div>
+</div>
+{% endif %}
 
 <div class="modal fade" id="modalDetalleVac" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -246,7 +323,13 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <form id="formCalAccion" method="post" class="d-flex gap-2 w-100 align-items-center">
+          {% csrf_token %}
+          <input type="hidden" name="req_id" id="cal-req-id">
+          <button id="cal-btn-rechazar" name="accion" value="rechazar" type="submit" class="btn btn-danger me-auto" style="display:none">No autorizar</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button id="cal-btn-aprobar" name="accion" value="aprobar" type="submit" class="btn btn-primary" style="display:none">Autorizar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -269,6 +352,18 @@
             {% else %}
                 Estás a punto de <strong>Finalizar</strong> esta solicitud (subirla al sistema).
             {% endif %}
+        </div>
+
+        <!-- Datos del colaborador -->
+        <div class="mb-3 p-3 border rounded bg-light">
+          <p class="mb-1 fw-semibold">Datos del colaborador:</p>
+          <div class="row g-1 small text-muted">
+            <div class="col-6"><strong>N° colaborador:</strong> <span id="att-empno">—</span></div>
+            <div class="col-6"><strong>Empresa:</strong> <span id="att-empresa">—</span></div>
+            <div class="col-6"><strong>Fecha ingreso:</strong> <span id="att-ingreso">—</span></div>
+            <div class="col-6"><strong>Departamento:</strong> <span id="att-departamento">—</span></div>
+            <div class="col-12"><strong>Área:</strong> <span id="att-area">—</span></div>
+          </div>
         </div>
 
         <!-- Datos de la solicitud (solo lectura) -->
@@ -317,6 +412,36 @@
   </div>
 </div>
 
+<!-- Modal Cancelar (solo RH) -->
+<div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Cancelar solicitud aprobada</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="req_id" id="cancel-req-id">
+        <div class="alert alert-warning py-2">
+          Estás a punto de <strong>cancelar</strong> una solicitud ya aprobada. Se notificará al colaborador.
+        </div>
+        <p class="mb-1"><strong>Colaborador:</strong> <span id="cancel-empleado"></span></p>
+        <p class="mb-1"><strong>Tipo:</strong> <span id="cancel-tipo"></span></p>
+        <p class="mb-3"><strong>Fechas:</strong> <span id="cancel-fechas"></span></p>
+        <div class="mb-3">
+          <label class="form-label">Motivo de cancelación (opcional)</label>
+          <textarea name="comentario" rows="3" class="form-control" placeholder="Ej: El colaborador solicitó cancelar sus vacaciones..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button name="accion" value="cancelar" type="submit" class="btn btn-danger">Confirmar cancelación</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Modal Ver Fechas (calendario preview) -->
 <div class="modal fade" id="modalVerFechas" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-sm">
@@ -339,8 +464,11 @@
 
 {% block scripts %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/es.global.min.js"></script>
 <style>
   #calendario-preview-container .flatpickr-days,
   #calendario-preview-container .flatpickr-day { pointer-events: none; }
@@ -422,6 +550,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('att-id').value = tr.getAttribute('data-id');
 
+            document.getElementById('att-empno').textContent       = tr.getAttribute('data-empno')       || '—';
+            document.getElementById('att-empresa').textContent     = tr.getAttribute('data-empresa')     || '—';
+            document.getElementById('att-ingreso').textContent     = tr.getAttribute('data-ingreso')     || '—';
+            document.getElementById('att-departamento').textContent = tr.getAttribute('data-departamento') || '—';
+            document.getElementById('att-area').textContent        = tr.getAttribute('data-area')        || '—';
+
             const nombreColab = tr.getAttribute('data-empleado') || '';
             const nombreLider = tr.getAttribute('data-lider') || '';
             document.getElementById('att-nombre-colab').textContent = nombreColab ? `(${nombreColab})` : '';
@@ -453,6 +587,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalDetalle = document.getElementById('modalDetalleVac');
     if (modalDetalle) {
         modalDetalle.addEventListener('show.bs.modal', function(event) {
+            // Si se abre desde el calendario (sin relatedTarget), ya fue poblado por abrirDetalleDesdeProps
+            if (!event.relatedTarget) return;
+            // Ocultar botones de acción (solo visibles desde el calendario)
+            document.getElementById('cal-btn-aprobar').style.display = 'none';
+            document.getElementById('cal-btn-rechazar').style.display = 'none';
             const tr = event.relatedTarget.closest('tr');
 
             document.getElementById('det-id').textContent       = '#' + tr.getAttribute('data-id');
@@ -508,6 +647,183 @@ document.addEventListener('DOMContentLoaded', function() {
             else badge.classList.add('bg-warning');
         });
     }
+
+    // ================================================
+    // Refactor: helper para poblar #modalDetalleVac
+    // desde cualquier fuente (fila de tabla o evento del calendario)
+    // ================================================
+    window.abrirDetalleDesdeProps = function(props) {
+        document.getElementById('det-id').textContent       = '#' + props.req_id;
+        document.getElementById('det-empleado').textContent = props.empleado;
+        document.getElementById('det-tipo').textContent     = props.tipo;
+        document.getElementById('det-dias').textContent     = props.dias;
+
+        const btnFechas   = document.getElementById('det-btn-fechas');
+        const textoFechas = document.getElementById('det-fechas-texto');
+        if (props.dates_csv) {
+            btnFechas.style.display  = '';
+            btnFechas.dataset.dates  = props.dates_csv;
+            btnFechas.dataset.total  = props.dias;
+            textoFechas.textContent  = '';
+        } else {
+            btnFechas.style.display  = 'none';
+            textoFechas.textContent  = props.inicio || '—';
+        }
+
+        document.getElementById('det-nombre-colab').textContent = props.empleado ? `(${props.empleado})` : '';
+        document.getElementById('det-nombre-lider').textContent = props.lider    ? `(${props.lider})`    : '';
+        document.getElementById('det-razon-colab').textContent  = props.razon             || '—';
+        document.getElementById('det-razon-lider').textContent  = props.comentario_lider  || '—';
+        document.getElementById('det-razon-rh').textContent     = props.comentario_rh     || '—';
+        document.getElementById('det-documento').innerHTML       = docLink(props.documento);
+        document.getElementById('det-documento-lider').innerHTML = docLink(props.documento_lider);
+
+        const st    = props.estado;
+        const badge = document.getElementById('det-estado');
+        const tieneLider = !!props.lider;
+        const labels = {
+            approved:     'Autorizada',
+            authorized:   tieneLider ? 'Autorizada por Jefe' : 'Sin líder asignado',
+            rejected:     'No autorizada',
+            pending:      'Pendiente de Jefe',
+            zona_pending: props.zona_approver ? `Pend. Jefe de Zona (${props.zona_approver})` : 'Pendiente de Jefe de Zona'
+        };
+        badge.textContent = labels[st] || st;
+        badge.className = 'badge text-dark';
+        badge.style.backgroundColor = '';
+        if (st === 'approved')        badge.classList.add('bg-success');
+        else if (st === 'rejected')   badge.classList.add('bg-danger');
+        else if (st === 'authorized') { if (tieneLider) badge.classList.add('bg-info'); else badge.style.backgroundColor = '#f0c4f0'; }
+        else                          badge.classList.add('bg-warning');
+
+        // Botones de acción (solo para pendientes)
+        const showActions = (st === 'pending');
+        document.getElementById('cal-req-id').value = props.req_id;
+        document.getElementById('cal-btn-aprobar').style.display  = showActions ? '' : 'none';
+        document.getElementById('cal-btn-rechazar').style.display = showActions ? '' : 'none';
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleVac')).show();
+    };
+
+    // Modal Cancelar
+    const modalCancelar = document.getElementById('modalCancelar');
+    if (modalCancelar) {
+        modalCancelar.addEventListener('show.bs.modal', function(event) {
+            const tr = event.relatedTarget.closest('tr');
+            document.getElementById('cancel-req-id').value            = tr.getAttribute('data-id');
+            document.getElementById('cancel-empleado').textContent    = tr.getAttribute('data-empleado');
+            document.getElementById('cancel-tipo').textContent        = tr.getAttribute('data-tipo');
+            document.getElementById('cancel-fechas').textContent      = tr.getAttribute('data-inicio');
+            modalCancelar.querySelector('textarea').value = '';
+        });
+    }
+
 });
 </script>
+
+{% if role == 'manager' %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ===== Toggle Lista / Calendario =====
+    const btnLista = document.getElementById('btn-vista-lista');
+    const btnCal   = document.getElementById('btn-vista-cal');
+    const wrapLista = document.querySelector('.card.p-3');          // primera card = filtros + tabla
+    const wrapCal   = document.getElementById('vac-calendar-wrap');
+
+    let calInitialized = false;
+    let calendar = null;
+
+    function setVista(vista, guardar = true) {
+        if (vista === 'calendario') {
+            btnLista.classList.remove('btn-primary');
+            btnLista.classList.add('btn-outline-primary');
+            btnCal.classList.remove('btn-outline-primary');
+            btnCal.classList.add('btn-primary');
+            wrapLista.style.display = 'none';
+            wrapCal.style.display   = '';
+            if (!calInitialized) { initCalendar(); calInitialized = true; }
+            else { calendar.updateSize(); }
+        } else {
+            btnCal.classList.remove('btn-primary');
+            btnCal.classList.add('btn-outline-primary');
+            btnLista.classList.remove('btn-outline-primary');
+            btnLista.classList.add('btn-primary');
+            wrapCal.style.display   = 'none';
+            wrapLista.style.display = '';
+        }
+        if (guardar) sessionStorage.setItem('vacVista', vista);
+    }
+
+    btnCal.addEventListener('click', () => setVista('calendario'));
+    btnLista.addEventListener('click', () => setVista('lista'));
+
+    // Restaurar vista después de un submit (ej. autorizar desde el calendario)
+    if (sessionStorage.getItem('vacVista') === 'calendario') {
+        setVista('calendario', false);
+    }
+
+    // ===== FullCalendar =====
+    function initCalendar() {
+        const allEvents = {{ calendar_events_json|safe }};
+        const hiddenStatuses = new Set();
+
+        calendar = new FullCalendar.Calendar(document.getElementById('vac-fullcalendar'), {
+            locale: 'es',
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left:   'prev,next today',
+                center: 'title',
+                right:  '',
+            },
+            buttonText: {
+                today: 'Ir a mes actual',
+            },
+            datesSet: function(info) {
+                const todayBtn = document.querySelector('#vac-fullcalendar .fc-today-button');
+                if (!todayBtn) return;
+                const now = new Date();
+                const isCurrent = info.view.currentStart.getFullYear() === now.getFullYear() &&
+                                  info.view.currentStart.getMonth() === now.getMonth();
+                todayBtn.style.display = isCurrent ? 'none' : '';
+            },
+            events: allEvents,
+            eventClick: function (info) {
+                window.abrirDetalleDesdeProps(info.event.extendedProps);
+            },
+            eventDidMount: function (info) {
+                // Tooltip con nombre y tipo
+                const p = info.event.extendedProps;
+                info.el.setAttribute('title', `${p.empleado} — ${p.tipo} (${p.dias} día/s)`);
+            },
+            dayMaxEvents: true,
+            height: 'auto',
+        });
+
+        calendar.render();
+
+        // Ocultar "Mes actual" al arrancar (ya estamos en el mes actual)
+        const todayBtn = document.querySelector('#vac-fullcalendar .fc-today-button');
+        if (todayBtn) todayBtn.style.display = 'none';
+
+        // ===== Toggle de leyenda =====
+        document.querySelectorAll('.cal-leyenda-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const statuses = this.dataset.statuses.split(',');
+                const ahoraOculto = statuses.every(s => hiddenStatuses.has(s));
+                if (ahoraOculto) {
+                    statuses.forEach(s => hiddenStatuses.delete(s));
+                    this.style.opacity = '1';
+                } else {
+                    statuses.forEach(s => hiddenStatuses.add(s));
+                    this.style.opacity = '0.35';
+                }
+                const filtrados = allEvents.filter(e => !hiddenStatuses.has(e.extendedProps.estado));
+                calendar.removeAllEvents();
+                calendar.addEventSource(filtrados);
+            });
+        });
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

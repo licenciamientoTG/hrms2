@@ -8,12 +8,15 @@ class VacationRequest(models.Model):
         ('authorized', 'Pendiente de RH'),
         ('approved', 'Aprobada / Finalizada'),
         ('rejected', 'Rechazada'),
+        ('cancelled', 'Cancelada por RH'),
     ]
 
     SOLICITUD_CHOICES = [
         ('Descanso médico', 'Descanso médico'),
         ('Días de estudio', 'Días de estudio'),
+        ('Home Office', 'Home Office'),
         ('Licencia por maternidad', 'Licencia por maternidad'),
+        ('Permiso sin Goce de Sueldo', 'Permiso sin Goce de Sueldo'),
         ('Vacaciones', 'Vacaciones'),
     ]
 

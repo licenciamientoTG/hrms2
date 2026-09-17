@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from .forms import LoginForm, RegisterForm
 from apps.courses.models import EnrolledCourse, CourseHeader, CourseAssignment
 from apps.employee.models import Employee
+from apps.recognitions.models import Recognition
 
 
 def login_view(request):
@@ -84,8 +85,13 @@ def home(request):
             is_superuser=False,
         ).count()
 
+        ultimo_comunicado = Recognition.objects.filter(
+            status="published"
+        ).order_by("-published_at").first()
+
         return render(request, "authapp/home.html", {
-            "total_colaboradores": total_colaboradores
+            "total_colaboradores": total_colaboradores,
+            "ultimo_comunicado": ultimo_comunicado,
         })
 
     # --- Dashboard de usuario normal ---

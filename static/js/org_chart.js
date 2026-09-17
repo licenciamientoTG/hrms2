@@ -19,6 +19,9 @@ $(function () {
   // Toggle: mostrar iguales (compañeros del mismo jefe)
   let showPeers = false;
 
+  // Nodo actualmente en foco (el que se muestra como principal en el árbol)
+  let currentFocusNode = null;
+
   // =====================================================
   //  Construye los mapas planos recorriendo el árbol
   // =====================================================
@@ -196,6 +199,7 @@ $(function () {
 
     if (meNode) {
       // Vista inicial: jefe → yo → mis subordinados directos, centrado en mí
+      currentFocusNode = meNode;
       renderChart(getFilteredTree(meNode), true, meNode.id);
     } else {
       renderChart(datasource, false, null);
@@ -279,16 +283,17 @@ $(function () {
       showPeers = !showPeers;
       $(this).toggleClass('oc-btn-active', showPeers);
 
-      // Re-renderizar si hay un nodo "yo" conocido
-      if (!meNode) return;
-      var filteredTree = getFilteredTree(meNode);
-      renderChart(filteredTree, true, meNode.id);
+      // Usar el nodo actualmente en foco (puede ser yo u otro buscado)
+      var focusNode = currentFocusNode || meNode;
+      if (!focusNode) return;
+      var filteredTree = getFilteredTree(focusNode);
+      renderChart(filteredTree, true, focusNode.id);
 
-      // Resaltar "yo" después del render
+      // Resaltar el nodo en foco después del render
       setTimeout(function () {
-        var $me = $container.find('.node[data-empno="' + myEmpNo + '"]').first();
+        var $focus = $container.find('.node[data-employee-id="' + focusNode.id + '"]').first();
         $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
-        if ($me.length) $me.addClass('orgchart-highlight');
+        if ($focus.length) $focus.addClass('orgchart-highlight');
       }, 200);
     });
 
@@ -324,6 +329,7 @@ $(function () {
       }
 
       // Construir árbol de 3 niveles y re-renderizar centrado en la persona
+      currentFocusNode = matchNode;
       var filteredTree = getFilteredTree(matchNode);
       renderChart(filteredTree, true, matchNode.id);
 
