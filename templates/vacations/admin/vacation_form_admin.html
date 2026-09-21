@@ -30,6 +30,12 @@
         </button>
       </div>
       {% endif %}
+      {% if role == 'rh' %}
+        <a href="{% url 'vacation_export_csv' %}?estado={{ estado }}&tipo={{ tipo }}&q={{ q }}"
+           class="btn btn-success">
+            <i class="fa-solid fa-file-csv me-1"></i> Exportar CSV
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -43,8 +49,10 @@
             <select name="estado" class="form-select" onchange="this.form.submit()">
 
                 {% if role == 'rh' %}
-                    <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Autorizadas)</option>
-                    <option value="pending" {% if estado == 'pending' %}selected{% endif %}>Pendientes de Jefe</option>
+                    <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Por procesar (Todas)</option>
+                    <option value="authorized_vacaciones" {% if estado == 'authorized_vacaciones' %}selected{% endif %}>Por procesar (Vacaciones)</option>
+                    <option value="authorized_permiso" {% if estado == 'authorized_permiso' %}selected{% endif %}>Por procesar (Permiso sin Goce de Sueldo)</option>
+                    <option value="authorized_homeoffice" {% if estado == 'authorized_homeoffice' %}selected{% endif %}>Por procesar (Home Office)</option>
                 {% else %}
                     <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Pendientes de aprobar</option>
                     <option value="authorized" {% if estado == 'authorized' %}selected{% endif %}>Mis Autorizadas (Historial)</option>

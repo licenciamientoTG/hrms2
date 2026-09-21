@@ -9,6 +9,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
+from django.http import HttpResponse
+import csv
 import re
 import json
 
@@ -812,10 +814,20 @@ def vacation_form_rh(request):
 
     qs = VacationRequest.objects.select_related('user', 'user__employee', 'user__employee__department', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
-    if estado and estado != 'todos':
-        qs = qs.filter(status=estado)
-    if tipo:
-        qs = qs.filter(tipo_solicitud=tipo)
+    _ESTADO_TIPO_MAP = {
+        'authorized_vacaciones': ('authorized', 'Vacaciones'),
+        'authorized_permiso':    ('authorized', 'Permiso sin Goce de Sueldo'),
+        'authorized_homeoffice': ('authorized', 'Home Office'),
+    }
+
+    if estado in _ESTADO_TIPO_MAP:
+        _status, _tipo_forzado = _ESTADO_TIPO_MAP[estado]
+        qs = qs.filter(status=_status, tipo_solicitud=_tipo_forzado)
+    else:
+        if estado and estado != 'todos':
+            qs = qs.filter(status=estado)
+        if tipo:
+            qs = qs.filter(tipo_solicitud=tipo)
     if q:
         qs = qs.filter(Q(id__icontains=q) | Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
@@ -834,3 +846,78 @@ def vacation_form_rh(request):
         'q': q
     }
     return render(request, 'vacations/admin/vacation_form_admin.html', context)
+
+
+# ==========================================
+# 5. EXPORTAR CSV
+# ==========================================
+@user_passes_test(lambda u: u.is_staff and u.has_perm('vacations.Modulo_vacaciones'))
+def vacation_export_csv(request):
+    estado = request.GET.get('estado', '')
+    tipo   = request.GET.get('tipo', '')
+    q      = request.GET.get('q', '').strip()
+
+    qs = VacationRequest.objects.select_related(
+        'user', 'user__employee'
+    ).order_by('start_date', 'created_at')
+
+    _ESTADO_TIPO_MAP = {
+        'authorized_vacaciones': ('authorized', 'Vacaciones'),
+        'authorized_permiso':    ('authorized', 'Permiso sin Goce de Sueldo'),
+        'authorized_homeoffice': ('authorized', 'Home Office'),
+    }
+
+    if estado in _ESTADO_TIPO_MAP:
+        _status, _tipo_forzado = _ESTADO_TIPO_MAP[estado]
+        qs = qs.filter(status=_status, tipo_solicitud=_tipo_forzado)
+    else:
+        if estado and estado != 'todos':
+            qs = qs.filter(status=estado)
+        if tipo:
+            qs = qs.filter(tipo_solicitud=tipo)
+
+    if q:
+        qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="vacaciones.csv"'
+    response.write('\ufeff')  # BOM para que Excel abra correctamente con acentos
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'Empresa',
+        'Num. Empleado',
+        'Nombre',
+        'Fecha',
+        'FechaRegreso',
+        'Descrip',
+        'DiasPago',
+        'DiasPrima',
+    ])
+
+    for r in qs:
+        try:
+            emp = r.user.employee
+            empresa       = emp.company or ''
+            num_empleado  = emp.employee_number or ''
+            nombre        = f"{emp.first_name} {emp.last_name}".strip()
+        except Exception:
+            empresa      = ''
+            num_empleado = ''
+            nombre       = r.user.get_full_name() or r.user.username
+
+        fecha_salida  = r.start_date.strftime('%d/%m/%Y') if r.start_date else ''
+        fecha_regreso = r.end_date.strftime('%d/%m/%Y') if r.end_date else ''
+
+        writer.writerow([
+            empresa,
+            num_empleado,
+            nombre,
+            fecha_salida,
+            fecha_regreso,
+            r.total_days or '',
+            '',   # Días pago (vacío)
+            '',   # Días prima (vacío)
+        ])
+
+    return response
