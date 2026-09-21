@@ -99,14 +99,9 @@ class VacationRequest(models.Model):
                 return ""
         elif self.status == 'pending':
             try:
-                emp = self.user.employee
-                leader_raw = (emp.leader or '').strip()
-                if leader_raw:
-                    # Usar la función _find_leader_employee del views
-                    from apps.vacations.views import _find_leader_employee
-                    lider_emp = _find_leader_employee(leader_raw)
-                    if lider_emp and lider_emp.job_position:
-                        return lider_emp.job_position.title
+                lider_emp = self.user.employee.leader_fk
+                if lider_emp and lider_emp.job_position:
+                    return lider_emp.job_position.title
             except:
                 pass
             return ""

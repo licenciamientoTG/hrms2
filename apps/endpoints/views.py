@@ -96,6 +96,61 @@ def _is_tsa(company_name):
     """Helper para identificar si la empresa es TSA"""
     return 'tsa' in str(company_name or '').lower()
 
+def _resolve_leader_fk(lider_text):
+    """
+    Dado el nombre del líder como texto (posiblemente con prefijos o formato especial),
+    retorna el Employee correspondiente o None.
+    Misma lógica que el organigrama (org_chart/views.py::find_parent_id):
+    quita el prefijo de estación/código y busca por nombre (activos e inactivos).
+    """
+    import re
+    if not lider_text:
+        return None
+    try:
+        def normalize(s):
+            return " ".join((s or "").split()).strip().lower()
+
+        # Quitar prefijo de código/estación: "9191 - ", "Travel - ", "Solis - "
+        name = re.sub(r'^[\w]+\s*-\s*', '', lider_text.strip()).strip()
+        if not name or name.lower() in ('no aplica', 'desconocido', 'vacante', 'vacant', 'sin jefe', '-'):
+            return None
+
+        key = normalize(name)
+
+        # Construir mapa nombre -> emp (activos e inactivos, igual que el organigrama)
+        name_to_emp = {}
+        for emp in Employee.objects.all().only('id', 'first_name', 'last_name'):
+            first = (emp.first_name or "").strip()
+            last = (emp.last_name or "").strip()
+            for k in (
+                normalize(f"{first} {last}"),
+                normalize(f"{last} {first}"),
+                normalize(f"{last}, {first}"),
+            ):
+                if k:
+                    name_to_emp[k] = emp
+
+        # 1. Match exacto
+        found = name_to_emp.get(key)
+
+        # 2. Voltear "Apellidos, Nombres" -> "Nombres Apellidos"
+        if not found and ',' in name:
+            last_part, first_part = name.split(',', 1)
+            flipped = normalize(f"{first_part.strip()} {last_part.strip()}")
+            found = name_to_emp.get(flipped)
+
+        # 3. Match por prefijo (cubre nombres truncados a 30 chars desde Tress)
+        if not found:
+            for full_key, emp in name_to_emp.items():
+                if full_key.startswith(key):
+                    found = emp
+                    break
+
+        return found
+    except Exception:
+        pass
+    return None
+
 def _create_user_for_employee(employee):
     """
     Crea o reasigna un usuario para un empleado activo.
@@ -422,6 +477,10 @@ def recibir_datos1(request):
                 try:
                     empleado = Employee.objects.create(**incoming_defaults)
                     _apply_seniority(empleado, seniority_raw, overwrite=True)
+                    lider_emp = _resolve_leader_fk(lider)
+                    if lider_emp:
+                        empleado.leader_fk = lider_emp
+                        empleado.save(update_fields=['leader_fk'])
                     user_message = ""
                     if empleado.is_active:
                         user, user_msg = _create_user_for_employee(empleado)
@@ -454,6 +513,11 @@ def recibir_datos1(request):
 
             if not changed_fields:
                 _apply_seniority(existing, seniority_raw, overwrite=True)
+                if existing.leader_fk_id is None and lider:
+                    lider_emp = _resolve_leader_fk(lider)
+                    if lider_emp:
+                        existing.leader_fk = lider_emp
+                        existing.save(update_fields=['leader_fk'])
                 # Si es activo pero perdió el usuario por error previo, recrearlo
                 if existing.is_active and not existing.user:
                     _create_user_for_employee(existing)
@@ -464,6 +528,14 @@ def recibir_datos1(request):
                 setattr(existing, f, incoming_defaults[f])
             existing.save(update_fields=changed_fields)
             _apply_seniority(existing, seniority_raw, overwrite=True)
+            if 'leader' in changed_fields or existing.leader_fk_id is None:
+                lider_emp = _resolve_leader_fk(lider)
+                if lider_emp:
+                    existing.leader_fk = lider_emp
+                    existing.save(update_fields=['leader_fk'])
+                elif not lider and existing.leader_fk_id is not None:
+                    existing.leader_fk = None
+                    existing.save(update_fields=['leader_fk'])
 
             # Manejar usuario
             user_message = ""

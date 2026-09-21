@@ -111,58 +111,14 @@ def _normalize(s):
 
 def _employees_of_leader(user):
     """
-    Retorna queryset de Employee cuyos registros apuntan a este usuario
-    en el campo leader. Usa la misma lógica de matching que el organigrama:
-    match exacto o por prefijo del nombre completo extraído, evitando
-    falsos positivos por subcadenas comunes.
+    Retorna queryset de Employee que tienen a este usuario como líder directo.
+    Usa leader_fk (FK directa) para una consulta SQL instantánea.
     """
     try:
         emp_user = Employee.objects.get(user=user)
-        first = (emp_user.first_name or '').strip()
-        last  = (emp_user.last_name  or '').strip()
     except Employee.DoesNotExist:
         return Employee.objects.none()
-
-    if not first and not last:
-        return Employee.objects.none()
-
-    # Todas las formas normalizadas del nombre del líder
-    name_fl       = _normalize(f'{first} {last}')       # "manuel alejandro martinez velez"
-    name_lf_comma = _normalize(f'{last}, {first}')      # "martinez velez, manuel alejandro"
-    name_lf       = _normalize(f'{last} {first}')       # "martinez velez manuel alejandro"
-    leader_keys   = {name_fl, name_lf_comma, name_lf}
-
-    matching_ids = []
-    candidates = Employee.objects.filter(
-        is_active=True
-    ).exclude(leader='').exclude(leader__isnull=True)
-
-    for emp in candidates:
-        raw = _extract_leader_name(emp.leader or '')
-        if not raw:
-            continue
-        key = _normalize(raw)
-
-        # 1. Match exacto en cualquier formato
-        if key in leader_keys:
-            matching_ids.append(emp.pk)
-            continue
-
-        # 2. Formato "Apellidos, Nombres" → voltear y reintentar
-        if ',' in key:
-            lp, fp = key.split(',', 1)
-            flipped = _normalize(f'{fp.strip()} {lp.strip()}')
-            if flipped in leader_keys:
-                matching_ids.append(emp.pk)
-                continue
-
-        # 3. Prefijo: el campo leader puede estar truncado,
-        #    por lo que name_fl debe EMPEZAR con la cadena extraída
-        #    ej: "Lorenzo Ivan Flo" → "lorenzo ivan flores".startswith("lorenzo ivan flo")
-        if name_fl.startswith(key) and len(key) >= 6:
-            matching_ids.append(emp.pk)
-
-    return Employee.objects.filter(pk__in=matching_ids)
+    return Employee.objects.filter(leader_fk=emp_user, is_active=True)
 
 
 def get_manager_name(user):
@@ -400,12 +356,11 @@ def vacation_form_user(request):
         # ---------------------------------------------------------
         try:
             emp_profile = Employee.objects.get(user=request.user)
-            leader_raw = (emp_profile.leader or '').strip()
             nombre_emp = f"{emp_profile.first_name} {emp_profile.last_name}"
 
-            lider_emp = _find_leader_employee(leader_raw) if leader_raw else None
+            lider_emp = emp_profile.leader_fk
 
-            if lider_emp:
+            if lider_emp and lider_emp.user and lider_emp.user.is_active:
                 Notification.objects.create(
                     user=lider_emp.user,
                     title="Nueva Solicitud de Vacaciones",
@@ -414,8 +369,7 @@ def vacation_form_user(request):
                     module="vacaciones"
                 )
             else:
-                # Sin líder, líder sin cuenta o líder inactivo → saltar al flujo de RH
-                motivo = "sin líder asignado" if not leader_raw else f"líder '{leader_raw}' no encontrado o inactivo"
+                motivo = "sin líder asignado" if not emp_profile.leader_fk else "líder sin usuario activo"
                 print(f"[Vacaciones] Fallback a RH para {nombre_emp}: {motivo}")
 
                 # Marcar como autorizada para que RH la vea en su bandeja normal
@@ -456,14 +410,12 @@ def vacation_form_user(request):
         emp = Employee.objects.get(user=request.user)
         saldo_total = float(emp.vacation_balance or 0)
         # Resolver a quién fue enviada cada solicitud pendiente
-        leader_raw = (emp.leader or '').strip()
-        lider_emp = _find_leader_employee(leader_raw) if leader_raw else None
+        lider_emp = emp.leader_fk
         if lider_emp:
             enviada_a = f"{lider_emp.first_name} {lider_emp.last_name}"
             puesto_lider = lider_emp.job_position.title if lider_emp.job_position else ""
-        elif leader_raw:
-            # Tiene líder en el campo pero no tiene usuario activo
-            enviada_a = f"Capital Humano (líder sin acceso al sistema)"
+        elif (emp.leader or '').strip():
+            enviada_a = "Capital Humano (líder sin acceso al sistema)"
             puesto_lider = ""
         else:
             enviada_a = "Capital Humano (sin líder asignado)"
@@ -594,12 +546,11 @@ def vacation_form_manager(request):
                     necesita_zona = False
 
                 if necesita_zona:
-                    # Buscar jefe de zona (líder del gerente)
+                    # Buscar jefe de zona (líder del gerente) via FK directa
                     zona_emp = None
                     try:
                         emp_mgr = Employee.objects.get(user=request.user)
-                        zona_raw = (emp_mgr.leader or '').strip()
-                        zona_emp = _find_leader_employee(zona_raw) if zona_raw else None
+                        zona_emp = emp_mgr.leader_fk
                     except Employee.DoesNotExist:
                         pass
 
@@ -678,6 +629,28 @@ def vacation_form_manager(request):
         qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
     page_obj = Paginator(qs, 20).get_page(request.GET.get('page'))
+
+    for r in page_obj.object_list:
+        try:
+            lider_fk = r.user.employee.leader_fk
+            r.lider_name = f"{lider_fk.first_name} {lider_fk.last_name}".strip() if lider_fk else (r.user.employee.leader or '')
+        except Exception:
+            r.lider_name = ''
+
+        approver_puesto = ''
+        try:
+            if r.status == 'zona_pending' and r.zona_approver:
+                approver_puesto = r.zona_approver.employee.job_position.title or ''
+            elif r.status == 'pending':
+                lider_fk = r.user.employee.leader_fk
+                if lider_fk and lider_fk.job_position:
+                    approver_puesto = lider_fk.job_position.title or ''
+            elif r.status == 'authorized':
+                approver_puesto = 'Capital Humano'
+        except Exception:
+            pass
+        r.approver_puesto = approver_puesto
+
     week_groups = [
         {'label': label, 'requests': list(grp)}
         for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
@@ -687,7 +660,7 @@ def vacation_form_manager(request):
     cal_qs = VacationRequest.objects.filter(
         user__employee__in=mis_empleados,
         status__in=['pending', 'authorized', 'approved']
-    ).select_related('user', 'user__employee', 'zona_approver')
+    ).select_related('user', 'user__employee', 'user__employee__leader_fk', 'zona_approver')
 
     _cal_colors = {
         'pending':    '#6c757d',
@@ -699,7 +672,8 @@ def vacation_form_manager(request):
     for r in cal_qs:
         nombre = r.user.get_full_name() or r.user.username
         try:
-            lider_name = r.user.employee.get_leader_full_name()
+            lider_fk = r.user.employee.leader_fk
+            lider_name = f"{lider_fk.first_name} {lider_fk.last_name}".strip() if lider_fk else (r.user.employee.leader or '')
         except Exception:
             lider_name = ''
         zona_name = r.zona_approver.get_full_name() if r.zona_approver else ''

@@ -99,7 +99,7 @@
               data-dates-csv="{{ s.selected_dates|default:'' }}"
               data-fin=""
               data-razon="{{ s.reason|default:'' }}"
-              data-lider="{{ s.user.employee.get_leader_full_name }}"
+              data-lider="{{ s.lider_name }}"
               data-zona-approver="{{ s.zona_approver.get_full_name|default:'' }}"
               data-comentario-lider="{{ s.comentario_lider|default:'' }}"
               data-comentario-rh="{{ s.comentario_rh|default:'' }}"
@@ -155,19 +155,13 @@
                         No autorizada
 
                     {% elif st == 'authorized' %}
-                        {% with puesto=s.get_approver_job_position %}
-                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Capital Humano{% endif %}
-                        {% endwith %}
+                        Pendiente: {% if s.approver_puesto %}{{ s.approver_puesto }}{% else %}Capital Humano{% endif %}
 
                     {% elif st == 'zona_pending' %}
-                        {% with puesto=s.get_approver_job_position %}
-                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe de Zona{% endif %}
-                        {% endwith %}
+                        Pendiente: {% if s.approver_puesto %}{{ s.approver_puesto }}{% else %}Jefe de Zona{% endif %}
 
                     {% elif st == 'pending' %}
-                        {% with puesto=s.get_approver_job_position %}
-                            Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe{% endif %}
-                        {% endwith %}
+                        Pendiente: {% if s.approver_puesto %}{{ s.approver_puesto }}{% else %}Jefe{% endif %}
                     {% endif %}
                 </span>
                 {% endwith %}
