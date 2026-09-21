@@ -78,11 +78,26 @@
                   <div class="text-muted" style="font-size:0.78rem;">{{ ultimo_comunicado.published_at|timesince }} atrás</div>
                 </div>
               </div>
-              {% if ultimo_comunicado.category %}
-                <span class="badge rounded-pill mb-2" style="background:{{ ultimo_comunicado.category.color_hex }};">
-                  {{ ultimo_comunicado.category.title }}
-                </span>
-              {% endif %}
+              <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                {% if ultimo_comunicado.category %}
+                  <span class="badge rounded-pill" style="background:{{ ultimo_comunicado.category.color_hex }};">
+                    {{ ultimo_comunicado.category.title }}
+                  </span>
+                {% endif %}
+                {% if ultimo_comunicado.is_public %}
+                  <span class="badge rounded-pill bg-secondary">Todos</span>
+                {% else %}
+                  {% with groups=ultimo_comunicado.target_groups.all %}
+                    {% if groups %}
+                      {% for g in groups %}
+                        <span class="badge rounded-pill bg-secondary">{{ g.name }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="badge rounded-pill bg-secondary">Todos</span>
+                    {% endif %}
+                  {% endwith %}
+                {% endif %}
+              </div>
               {% if ultimo_comunicado.message %}
                 <p class="mb-0" style="font-size:0.9rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
                   {{ ultimo_comunicado.message }}
