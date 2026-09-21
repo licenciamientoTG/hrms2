@@ -12,33 +12,36 @@
 <div class="background-wrapper p-4">
   <div class="row mb-4">
     <div class="col-md-3 mb-1">
-      <div class="quick-access-card">
-        <h6>Totál de colaboradores</h6>
-        <p>{{ total_colaboradores|default:"0" }}</p>
-        {% if perms.users.Modulo_usuarios%}
-            <a href="{% url 'user_dashboard' %}" class="btn btn-success btn-sm">Ir →</a>
-        {% endif %}
-      </div>
+      {% if perms.users.Modulo_usuarios %}
+        <a href="{% url 'user_dashboard' %}" class="text-decoration-none">
+          <div class="quick-access-card" style="cursor: pointer;">
+            <h6>Totál de colaboradores</h6>
+            <h2>{{ total_colaboradores|default:"0" }}</h2>
+          </div>
+        </a>
+      {% else %}
+        <div class="quick-access-card">
+          <h6>Totál de colaboradores</h6>
+          <h2>{{ total_colaboradores|default:"0" }}</h2>
+        </div>
+      {% endif %}
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Rotación anual</h6>
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm">Ir →</a>
       </div>
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Antigüedad promedio</h6>
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm">Ir →</a>
       </div>
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Ausentismos del mes</h6>
         <p>próximamente</p>
-        <a href="#" class="btn btn-success btn-sm mt-2">Ir →</a>
       </div>
     </div>
   </div>
@@ -46,12 +49,52 @@
   <div class="row">
     <!-- Comunicados -->
     <div class="col-md-6">
-      <h5>Comunicados</h5>
-      <div class="notification-card">
-        <p><strong>Nombre de usuario</strong> | Hace 15 minutos</p>
-        <p>Estimado equipo,<br>Descripción del comunicado.</p>
-      </div>
-      <!-- Puedes repetir más comunicados -->
+      <h5>Último comunicado publicado</h5>
+      {% if ultimo_comunicado %}
+        <div class="card shadow-sm mb-3 overflow-hidden">
+            {% with cat=ultimo_comunicado.category %}
+              <div style="height:120px; overflow:hidden;">
+                {% if cat.cover_image %}
+                  <img src="{{ cat.cover_image.url }}" alt="" style="width:100%; height:100%; object-fit:fill; display:block;">
+                {% else %}
+                  <div style="background:{{ cat.color_hex|default:'#f3f4f6' }}; height:100%;"></div>
+                {% endif %}
+              </div>
+            {% endwith %}
+            <div class="card-body">
+              {% if ultimo_comunicado.image %}
+                <img src="{{ ultimo_comunicado.image.url }}" alt="" style="width:100%; object-fit:contain; display:block; border-radius:8px; margin-bottom:12px;">
+              {% else %}
+                {% with first_media=ultimo_comunicado.media.first %}
+                  {% if first_media %}
+                    <img src="{{ first_media.file.url }}" alt="" style="width:100%; object-fit:contain; display:block; border-radius:8px; margin-bottom:12px;">
+                  {% endif %}
+                {% endwith %}
+              {% endif %}
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="post-avatar" style="background:#b8d37c;color:#fff; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:bold; flex-shrink:0;">CI</div>
+                <div>
+                  <div class="fw-semibold" style="font-size:0.9rem;">Comunicación Interna</div>
+                  <div class="text-muted" style="font-size:0.78rem;">{{ ultimo_comunicado.published_at|timesince }} atrás</div>
+                </div>
+              </div>
+              {% if ultimo_comunicado.category %}
+                <span class="badge rounded-pill mb-2" style="background:{{ ultimo_comunicado.category.color_hex }};">
+                  {{ ultimo_comunicado.category.title }}
+                </span>
+              {% endif %}
+              {% if ultimo_comunicado.message %}
+                <p class="mb-0" style="font-size:0.9rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
+                  {{ ultimo_comunicado.message }}
+                </p>
+              {% endif %}
+            </div>
+          </div>
+      {% else %}
+        <div class="notification-card">
+          <p class="text-muted">No hay comunicados publicados aún.</p>
+        </div>
+      {% endif %}
     </div>
 
     <!-- Últimas notificaciones -->

@@ -50,7 +50,7 @@
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
         <h6>Días de vacaciones disponibles</h6>
-        <p><strong>{{ vacation_balance|floatformat:"-2" }}</strong> días</p>
+        <h2>{{ vacation_balance|floatformat:"-2" }} <small style="font-size: 0.5em;">días</small></h2>
         {% comment %} <a  class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
       </div>
     </div>
@@ -62,13 +62,12 @@
       </div>
     </div>
     <div class="col-md-3 mb-1">
-      <div class="quick-access-card">
-        <h6>Cursos activos</h6>
-        {% comment %} <h2>{{in_progress_courses_count}}</h2> {% endcomment %}
-        <p>próximamente</p>
-        {% comment %} <a href="#" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
-        {% comment %} <a href="{% url 'course_wizard' %}" class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
-      </div>
+      <a href="{% url 'course_wizard' %}" class="text-decoration-none">
+        <div class="quick-access-card" style="cursor: pointer;">
+          <h6>Capacitaciones activas</h6>
+          <h2>{{ in_progress_courses_count }}</h2>
+        </div>
+      </a>
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">

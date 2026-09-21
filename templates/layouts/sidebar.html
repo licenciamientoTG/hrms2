@@ -11,6 +11,13 @@
         </a>
 
         <ul class="sidebar-nav">
+            <li class="sidebar-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                <a class="sidebar-link" href="{% url 'home' %}">
+                    <i class="fa-solid fa-house"></i>
+                    <span class="align-middle">Inicio</span>
+                </a>
+            </li>
+
             {% if perms.monitoring.Modulo_monitoreo %}
                 <li class="sidebar-item {% if 'monitoring' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'monitoring_view' %}">
@@ -122,7 +129,7 @@
                     <a class="sidebar-link" href="{% url 'course_wizard' %}">
                         <i class="fa-solid fa-graduation-cap"></i>
                         <span class="align-middle">
-                            Cursos
+                            Capacitación
                             {% with notif_module_counts.cursos as c %}
                                 {% if c %}
                                     <span class="badge bg-danger ms-1">{{ c }}</span>
@@ -149,8 +156,48 @@
                 </li>
             {% endif %}
 
+            {% if not user.is_staff or perms.tools.Modulo_herramientas %}
+                <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
+                    <a class="sidebar-link d-flex justify-content-between align-items-center {% if 'calculator' not in request.resolver_match.url_name %}collapsed{% endif %}"
+                       data-bs-toggle="collapse"
+                       data-bs-target="#menu-tools"
+                       href="#menu-tools"
+                       role="button"
+                       aria-expanded="{% if 'calculator' in request.resolver_match.url_name %}true{% else %}false{% endif %}"
+                       aria-controls="menu-tools">
+                        <span class="align-middle">
+                            <i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas
+                            {% with notif_module_counts.prestamos as c %}
+                                {% if c %}
+                                    <span class="badge bg-danger ms-1">{{ c }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </span>
+                        <i class="fa-solid fa-chevron-down small"></i>
+                    </a>
+
+                    <div class="collapse submenu {% if 'calculator' in request.resolver_match.url_name %}show{% endif %}" id="menu-tools">
+                        <ul class="list-unstyled ps-4 py-2 m-0">
+                            <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
+                                <a class="sidebar-link" href="{% url 'calculator_view' %}">
+                                    <i class="fa-solid fa-calculator me-2"></i>
+                                    <span class="align-middle">
+                                        Calculadora de préstamo
+                                        {% with notif_module_counts.prestamos as c %}
+                                            {% if c %}
+                                                <span class="badge bg-danger ms-1">{{ c }}</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+             {% endif %}
+
             {% comment %} {% if not user.is_staff or perms.vacations.Modulo_vacaciones %} {% endcomment %}
-            {% if perms.vacations.Modulo_vacaciones %}
+            {% comment %} {% if user.is_authenticated and not ocultar_vacaciones %}
                 <li class="sidebar-item {% if 'vacation' in request.resolver_match.url_name %}active{% endif %}">
                     <a class="sidebar-link" href="{% url 'vacation_dashboard' %}">
                         <i class="fa-solid fa-calendar-days"></i>
@@ -164,7 +211,7 @@
                         </span>
                     </a>
                 </li>
-            {% endif %}
+            {% endif %}  {% endcomment %}
 
             {% comment %} {% if not user.is_staff or perms.objectives.Modulo_objetivos %} {% endcomment %}
             {% if perms.objectives.Modulo_objetivos %}
@@ -310,46 +357,6 @@
                     </a>
                 </li>
             {% endif %}
-
-            {% if not user.is_staff or perms.tools.Modulo_herramientas %}
-                <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
-                    <a class="sidebar-link d-flex justify-content-between align-items-center {% if 'calculator' not in request.resolver_match.url_name %}collapsed{% endif %}"
-                       data-bs-toggle="collapse" 
-                       data-bs-target="#menu-tools" 
-                       href="#menu-tools"
-                       role="button" 
-                       aria-expanded="{% if 'calculator' in request.resolver_match.url_name %}true{% else %}false{% endif %}" 
-                       aria-controls="menu-tools">
-                        <span class="align-middle">
-                            <i class="fa-solid fa-screwdriver-wrench me-2"></i>Herramientas
-                            {% with notif_module_counts.prestamos as c %}
-                                {% if c %}
-                                    <span class="badge bg-danger ms-1">{{ c }}</span>
-                                {% endif %}
-                            {% endwith %}
-                        </span>
-                        <i class="fa-solid fa-chevron-down small"></i>
-                    </a>
-
-                    <div class="collapse submenu {% if 'calculator' in request.resolver_match.url_name %}show{% endif %}" id="menu-tools">
-                        <ul class="list-unstyled ps-4 py-2 m-0">
-                            <li class="sidebar-item {% if 'calculator' in request.resolver_match.url_name %}active{% endif %}">
-                                <a class="sidebar-link" href="{% url 'calculator_view' %}">
-                                    <i class="fa-solid fa-calculator me-2"></i> 
-                                    <span class="align-middle">
-                                        Calculadora de préstamo
-                                        {% with notif_module_counts.prestamos as c %}
-                                            {% if c %}
-                                                <span class="badge bg-danger ms-1">{{ c }}</span>
-                                            {% endif %}
-                                        {% endwith %}
-                                    </span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </li>
-             {% endif %}
 
         </div>
     </nav>

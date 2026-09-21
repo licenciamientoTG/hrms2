@@ -16,6 +16,12 @@ $(function () {
   const nodeMap   = {};
   const parentMap = {};
 
+  // Toggle: mostrar iguales (compañeros del mismo jefe)
+  let showPeers = false;
+
+  // Nodo actualmente en foco (el que se muestra como principal en el árbol)
+  let currentFocusNode = null;
+
   // =====================================================
   //  Construye los mapas planos recorriendo el árbol
   // =====================================================
@@ -34,7 +40,7 @@ $(function () {
   // =====================================================
   //  Construye el árbol de 3 niveles para la búsqueda
   //  Nivel 1: jefe (si existe)
-  //  Nivel 2: persona encontrada
+  //  Nivel 2: persona encontrada (+ iguales si showPeers)
   //  Nivel 3: colaboradores directos (sin sus hijos)
   // =====================================================
   function getFilteredTree(matchNode) {
@@ -49,8 +55,17 @@ $(function () {
     });
 
     if (parent) {
-      // Devolvemos padre con un único hijo: la persona buscada
-      return $.extend({}, parent, { children: [filteredNode] });
+      var childrenToShow;
+      if (showPeers) {
+        // Todos los hijos del jefe: iguales sin subordinados + yo con subordinados directos
+        childrenToShow = (parent.children || []).map(function (sibling) {
+          if (sibling.id === matchNode.id) return filteredNode;
+          return $.extend({}, sibling, { children: [] });
+        });
+      } else {
+        childrenToShow = [filteredNode];
+      }
+      return $.extend({}, parent, { children: childrenToShow });
     }
     return filteredNode;
   }
@@ -184,6 +199,7 @@ $(function () {
 
     if (meNode) {
       // Vista inicial: jefe → yo → mis subordinados directos, centrado en mí
+      currentFocusNode = meNode;
       renderChart(getFilteredTree(meNode), true, meNode.id);
     } else {
       renderChart(datasource, false, null);
@@ -259,6 +275,28 @@ $(function () {
       scrollToNode($me);
     });
 
+    // =========================
+    //  BOTÓN TOGGLE IGUALES
+    // =========================
+    $('#oc-toggle-peers').on('click', function (e) {
+      e.preventDefault();
+      showPeers = !showPeers;
+      $(this).toggleClass('oc-btn-active', showPeers);
+
+      // Usar el nodo actualmente en foco (puede ser yo u otro buscado)
+      var focusNode = currentFocusNode || meNode;
+      if (!focusNode) return;
+      var filteredTree = getFilteredTree(focusNode);
+      renderChart(filteredTree, true, focusNode.id);
+
+      // Resaltar el nodo en foco después del render
+      setTimeout(function () {
+        var $focus = $container.find('.node[data-employee-id="' + focusNode.id + '"]').first();
+        $container.find('.node.orgchart-highlight').removeClass('orgchart-highlight');
+        if ($focus.length) $focus.addClass('orgchart-highlight');
+      }, 200);
+    });
+
     $('#profile-close').on('click', function () {
       $('#profile-panel').fadeOut(200);
       currentProfileId = null;
@@ -291,6 +329,7 @@ $(function () {
       }
 
       // Construir árbol de 3 niveles y re-renderizar centrado en la persona
+      currentFocusNode = matchNode;
       var filteredTree = getFilteredTree(matchNode);
       renderChart(filteredTree, true, matchNode.id);
 

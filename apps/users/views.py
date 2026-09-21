@@ -70,6 +70,7 @@ def user_dashboard(request):
 @require_POST
 def upload_user_photo(request, user_id):
     import os
+    import time
     import traceback
     from django.core.files.storage import default_storage
     from django.core.files.base import ContentFile
@@ -83,15 +84,21 @@ def upload_user_photo(request, user_id):
         if not photo:
             return JsonResponse({'status': 'error', 'message': 'No se recibió ninguna foto'}, status=400)
 
+        # Eliminar la foto anterior del empleado (cualquier path que tenga)
+        if employee.photo:
+            old_path = employee.photo.name
+            if old_path and default_storage.exists(old_path):
+                default_storage.delete(old_path)
+
         ext = os.path.splitext(photo.name)[1].lower()
-        filename = f'collaborators/{user_id}{ext}'
+        # Incluir timestamp para que la URL siempre cambie y no haya caché
+        timestamp = int(time.time())
+        filename = f'collaborators/{user_id}_{timestamp}{ext}'
 
         # Asegurar que la carpeta existe con permisos correctos
         folder = os.path.join(default_storage.location, 'collaborators')
         os.makedirs(folder, mode=0o775, exist_ok=True)
 
-        if default_storage.exists(filename):
-            default_storage.delete(filename)
         saved_path = default_storage.save(filename, ContentFile(photo.read()))
         employee.photo = saved_path
         employee.save(update_fields=['photo'])
