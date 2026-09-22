@@ -448,6 +448,143 @@ def vacation_form_user(request):
 
 
 # ==========================================
+# 2b. EDITAR SOLICITUD (por el propio usuario, solo pending)
+# ==========================================
+@login_required
+def vacation_edit_user(request, pk):
+    if request.method != 'POST':
+        return redirect('vacation_form_user')
+
+    req = get_object_or_404(VacationRequest, pk=pk, user=request.user)
+
+    if req.status != 'pending':
+        messages.error(request, 'Solo puedes editar solicitudes que aún no han sido autorizadas.')
+        return redirect('vacation_form_user')
+
+    tipo = req.tipo_solicitud
+    observaciones = request.POST.get('observaciones', '').strip()
+    documento = request.FILES.get('documento')
+
+    if tipo in ('Home Office', 'Permiso sin Goce de Sueldo'):
+        if len(observaciones) < 20:
+            messages.error(request, 'La razón del movimiento debe tener al menos 20 caracteres.')
+            return redirect('vacation_form_user')
+
+    if documento:
+        import os
+        allowed_types = {'application/pdf', 'image/jpeg', 'image/png'}
+        allowed_exts  = {'.pdf', '.jpg', '.jpeg', '.png'}
+        ext = os.path.splitext(documento.name)[1].lower()
+        if documento.content_type not in allowed_types or ext not in allowed_exts:
+            messages.error(request, 'El documento debe ser PDF, JPG o PNG.')
+            return redirect('vacation_form_user')
+        if documento.size > 10 * 1024 * 1024:
+            messages.error(request, 'El documento no puede superar los 10 MB.')
+            return redirect('vacation_form_user')
+
+    dias_seleccionados_raw = request.POST.get('dias_seleccionados', '').strip()
+    fecha_inicio = request.POST.get('fecha_inicio')
+    fecha_fin    = request.POST.get('fecha_fin')
+
+    if dias_seleccionados_raw:
+        try:
+            fechas = sorted([
+                datetime.strptime(d.strip(), '%Y-%m-%d').date()
+                for d in dias_seleccionados_raw.split(',') if d.strip()
+            ])
+        except ValueError:
+            messages.error(request, 'Las fechas seleccionadas no son válidas.')
+            return redirect('vacation_form_user')
+
+        if not fechas:
+            messages.error(request, 'Debes seleccionar al menos un día.')
+            return redirect('vacation_form_user')
+
+        pasadas = [d.strftime('%d/%m/%Y') for d in fechas if d < date.today()]
+        if pasadas:
+            messages.error(request, f'No puedes seleccionar fechas pasadas: {", ".join(pasadas)}.')
+            return redirect('vacation_form_user')
+
+        fines = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
+        if fines:
+            messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines)}.')
+            return redirect('vacation_form_user')
+
+        if tipo == 'Vacaciones':
+            try:
+                emp = Employee.objects.get(user=request.user)
+                saldo = float(emp.vacation_balance or 0)
+            except Employee.DoesNotExist:
+                saldo = 0.0
+            if len(fechas) > saldo:
+                messages.error(request, 'No tienes saldo suficiente de vacaciones.')
+                return redirect('vacation_form_user')
+
+        req.start_date = fechas[0]
+        req.end_date   = fechas[-1]
+        req.selected_dates = ','.join(d.strftime('%Y-%m-%d') for d in fechas)
+
+    else:
+        try:
+            start_date = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            end_date   = datetime.strptime(fecha_fin,    '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            messages.error(request, 'Las fechas no son válidas.')
+            return redirect('vacation_form_user')
+
+        if end_date < start_date:
+            messages.error(request, 'La fecha fin no puede ser menor a la fecha inicio.')
+            return redirect('vacation_form_user')
+
+        req.start_date = start_date
+        req.end_date   = end_date
+        req.selected_dates = None
+
+    req.reason = observaciones
+    if documento:
+        req.documento = documento
+    req.save()
+
+    messages.success(request, 'Solicitud actualizada correctamente.')
+    return redirect('vacation_form_user')
+
+
+# ==========================================
+# 2c. CANCELAR SOLICITUD (por el propio usuario)
+# ==========================================
+@login_required
+def vacation_cancel_user(request, pk):
+    if request.method != 'POST':
+        return redirect('vacation_form_user')
+
+    req = get_object_or_404(VacationRequest, pk=pk, user=request.user)
+
+    if req.status != 'pending':
+        messages.error(request, 'Solo puedes cancelar solicitudes que aún no han sido autorizadas.')
+        return redirect('vacation_form_user')
+
+    # Eliminar notificación enviada al jefe para esta solicitud
+    try:
+        emp_profile = Employee.objects.get(user=request.user)
+        lider_emp = emp_profile.leader_fk
+        if lider_emp and lider_emp.user:
+            Notification.objects.filter(
+                user=lider_emp.user,
+                module='vacaciones',
+                url='/vacations/gestion/',
+                body__icontains=f"{emp_profile.first_name} {emp_profile.last_name}",
+            ).filter(
+                body__icontains=req.tipo_solicitud,
+            ).delete()
+    except Exception:
+        pass
+
+    req.delete()
+    messages.success(request, 'Solicitud eliminada correctamente.')
+    return redirect('vacation_form_user')
+
+
+# ==========================================
 # 3. VISTA DE JEFE (RESPONSABLE)
 # ==========================================
 @login_required

@@ -144,15 +144,36 @@
                 <small class="text-muted">{{ r.dates_display }}</small>
               {% endif %}
             </h5>
-            {% if r.status == 'zona_pending' %}
-              {% with puesto=r.zona_approver.employee.job_position.title %}
-                <span class="badge bg-warning text-dark">Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe de Zona{% endif %}</span>
-              {% endwith %}
-            {% elif r.status == 'authorized' %}
-              <span class="badge bg-info text-dark">Pendiente: Capital Humano</span>
-            {% else %}
-              <span class="badge bg-warning text-dark">Pendiente: {% if puesto_lider %}{{ puesto_lider }}{% else %}Jefe{% endif %}</span>
-            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+              {% if r.status == 'zona_pending' %}
+                {% with puesto=r.zona_approver.employee.job_position.title %}
+                  <span class="badge bg-warning text-dark">Pendiente: {% if puesto %}{{ puesto }}{% else %}Jefe de Zona{% endif %}</span>
+                {% endwith %}
+              {% elif r.status == 'authorized' %}
+                <span class="badge bg-info text-dark">Pendiente: Capital Humano</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pendiente: {% if puesto_lider %}{{ puesto_lider }}{% else %}Jefe{% endif %}</span>
+              {% endif %}
+              {% if r.status == 'pending' %}
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-editar-solicitud"
+                        title="Editar solicitud"
+                        data-pk="{{ r.pk }}"
+                        data-tipo="{{ r.tipo_solicitud }}"
+                        data-dates="{{ r.selected_dates|default:'' }}"
+                        data-fecha-inicio="{{ r.start_date|date:'Y-m-d' }}"
+                        data-fecha-fin="{{ r.end_date|date:'Y-m-d' }}"
+                        data-reason="{{ r.reason|default:'' }}"
+                        data-url="{% url 'vacation_edit_user' r.pk %}"
+                        data-bs-toggle="modal" data-bs-target="#modalEditarSolicitud">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-cancelar-solicitud"
+                        data-url="{% url 'vacation_cancel_user' r.pk %}"
+                        title="Cancelar solicitud">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              {% endif %}
+            </div>
           </div>
 
           <div class="row mt-3 text-start">
@@ -277,6 +298,64 @@
     {% endif %}
   </div>
 
+</div>
+
+<!-- Modal Editar Solicitud -->
+<div class="modal fade" id="modalEditarSolicitud" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="formEditarSolicitud" method="post" enctype="multipart/form-data" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Editar solicitud — <span id="edit-tipo-label"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Vacaciones: selector de días múltiples -->
+        <div id="edit-bloque-vacaciones" class="d-none">
+          <label class="form-label fw-semibold">Selecciona los días</label>
+          <div class="input-group">
+            <input type="text" id="edit-calendario-vac" class="form-control" placeholder="Selecciona los días…" readonly>
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="document.getElementById('edit-calendario-vac')._flatpickr.open()">
+              <i class="fa-regular fa-calendar"></i>
+            </button>
+          </div>
+          <input type="hidden" name="dias_seleccionados" id="edit-dias-input">
+          <div id="edit-contador-dias" class="mt-1" style="font-size:.85rem;color:#6c757d;">0 días seleccionados</div>
+        </div>
+
+        <!-- Home Office / Permiso sin Goce: fecha única -->
+        <div id="edit-bloque-fecha" class="d-none">
+          <label class="form-label fw-semibold">Fecha efectiva</label>
+          <div class="input-group">
+            <input type="text" id="edit-fecha-picker" class="form-control" placeholder="Selecciona una fecha…" readonly>
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="document.getElementById('edit-fecha-picker')._flatpickr.open()">
+              <i class="fa-regular fa-calendar"></i>
+            </button>
+          </div>
+          <input type="hidden" name="fecha_inicio" id="edit-fecha-inicio">
+          <input type="hidden" name="fecha_fin" id="edit-fecha-fin">
+        </div>
+
+        <!-- Razón / Observaciones -->
+        <div id="edit-bloque-razon" class="mt-3">
+          <label class="form-label fw-semibold" id="edit-razon-label">Motivo / Observaciones</label>
+          <textarea class="form-control" name="observaciones" id="edit-observaciones" rows="3" maxlength="1000"></textarea>
+          <div class="d-flex justify-content-between mt-1">
+            <small id="edit-razon-aviso" class="text-muted"></small>
+            <small id="edit-razon-contador" class="text-muted"></small>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="edit-btn-guardar">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Modal Ver Fechas (calendario preview) -->
@@ -729,6 +808,160 @@
       btnExtras.classList.remove('d-none');
       extras.querySelector('textarea').value = '';
       extras.querySelector('input[type="file"]').value = '';
+    });
+  });
+  </script>
+
+  <script>
+  // ====== Editar solicitud ======
+  (function () {
+    let editFp = null;
+    let editFechaFp = null;
+
+    const modalEl = document.getElementById('modalEditarSolicitud');
+    if (!modalEl) return;
+
+    modalEl.addEventListener('show.bs.modal', function (e) {
+      const btn = e.relatedTarget;
+      if (!btn) return;
+
+      const tipo        = btn.dataset.tipo;
+      const dates       = (btn.dataset.dates || '').split(',').map(d => d.trim()).filter(Boolean);
+      const fechaInicio = btn.dataset.fechaInicio;
+      const fechaFin    = btn.dataset.fechaFin;
+      const reason      = btn.dataset.reason || '';
+      const url         = btn.dataset.url;
+
+      document.getElementById('formEditarSolicitud').action = url;
+      document.getElementById('edit-tipo-label').textContent = tipo;
+      document.getElementById('edit-observaciones').value = reason;
+
+      const bloqueVac   = document.getElementById('edit-bloque-vacaciones');
+      const bloqueFecha = document.getElementById('edit-bloque-fecha');
+      const razonAviso  = document.getElementById('edit-razon-aviso');
+      const razonContador = document.getElementById('edit-razon-contador');
+      const razonLabel  = document.getElementById('edit-razon-label');
+
+      bloqueVac.classList.add('d-none');
+      bloqueFecha.classList.add('d-none');
+
+      if (tipo === 'Vacaciones') {
+        bloqueVac.classList.remove('d-none');
+        razonLabel.textContent = 'Motivo / Observaciones (opcional)';
+        razonAviso.textContent = '';
+        razonContador.textContent = '';
+
+        modalEl.addEventListener('shown.bs.modal', function initVac() {
+          if (editFp) { editFp.destroy(); editFp = null; }
+          const saldo = {{ saldo_total|floatformat:"-2" }};
+          const contador = document.getElementById('edit-contador-dias');
+          const hiddenInput = document.getElementById('edit-dias-input');
+
+          editFp = flatpickr('#edit-calendario-vac', {
+            mode: 'multiple',
+            dateFormat: 'Y-m-d',
+            minDate: 'today',
+            locale: 'es',
+            disableMobile: true,
+            defaultDate: dates,
+            disable: [function(d) { return d.getDay() === 0 || d.getDay() === 6; }],
+            onChange: function (sel) {
+              const fechas = sel.map(d => d.toISOString().split('T')[0]).sort();
+              hiddenInput.value = fechas.join(',');
+              const n = fechas.length;
+              contador.textContent = n === 0 ? '0 días seleccionados' : `${n} día(s) seleccionado(s)`;
+              contador.style.color = n > saldo ? '#dc3545' : '#0d6efd';
+              if (n > saldo) contador.textContent += ` — ⚠️ supera tu saldo (${saldo} días)`;
+            }
+          });
+          // Pre-cargar contador
+          hiddenInput.value = dates.join(',');
+          const n = dates.length;
+          contador.textContent = n > 0 ? `${n} día(s) seleccionado(s)` : '0 días seleccionados';
+          contador.style.color = n > 0 ? '#0d6efd' : '#6c757d';
+        }, { once: true });
+
+      } else {
+        // Home Office / Permiso sin Goce / otros: fecha única
+        bloqueFecha.classList.remove('d-none');
+        razonLabel.textContent = 'Razón del movimiento';
+        razonAviso.textContent = 'Mínimo 20 caracteres';
+        razonAviso.className = 'text-muted';
+        razonContador.textContent = `${reason.length} / 500`;
+
+        if (editFechaFp) { editFechaFp.destroy(); editFechaFp = null; }
+        editFechaFp = flatpickr('#edit-fecha-picker', {
+          dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'd/m/Y',
+          minDate: 'today',
+          locale: 'es',
+          disableMobile: true,
+          defaultDate: fechaInicio,
+          disable: [function(d) { return d.getDay() === 0 || d.getDay() === 6; }],
+          onChange: function (_, dateStr) {
+            document.getElementById('edit-fecha-inicio').value = dateStr;
+            document.getElementById('edit-fecha-fin').value = dateStr;
+          }
+        });
+        document.getElementById('edit-fecha-inicio').value = fechaInicio;
+        document.getElementById('edit-fecha-fin').value = fechaFin;
+      }
+    });
+
+    // Contador de caracteres en razón
+    document.getElementById('edit-observaciones').addEventListener('input', function () {
+      const len = this.value.length;
+      const aviso   = document.getElementById('edit-razon-aviso');
+      const contador = document.getElementById('edit-razon-contador');
+      if (!aviso.textContent && !contador.textContent) return; // Vacaciones no usa contador
+      contador.textContent = `${len} / 500`;
+      if (len < 20) {
+        aviso.textContent = `Mínimo 20 caracteres (${20 - len} restantes)`;
+        aviso.className = 'text-danger';
+      } else {
+        aviso.textContent = '✓ Longitud correcta';
+        aviso.className = 'text-success';
+      }
+    });
+
+    // Limpiar al cerrar
+    modalEl.addEventListener('hidden.bs.modal', function () {
+      if (editFp) { editFp.destroy(); editFp = null; }
+      if (editFechaFp) { editFechaFp.destroy(); editFechaFp = null; }
+      document.getElementById('edit-dias-input').value = '';
+      document.getElementById('edit-fecha-inicio').value = '';
+      document.getElementById('edit-fecha-fin').value = '';
+    });
+  })();
+
+  // ====== Cancelar solicitud ======
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-cancelar-solicitud');
+    if (!btn) return;
+    const url = btn.dataset.url;
+    Swal.fire({
+      title: '¿Cancelar solicitud?',
+      text: 'Esta acción eliminará tu solicitud permanentemente.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'No, regresar',
+    }).then(function (result) {
+      if (!result.isConfirmed) return;
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = url;
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'csrfmiddlewaretoken';
+      input.value = csrf.value;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
     });
   });
   </script>

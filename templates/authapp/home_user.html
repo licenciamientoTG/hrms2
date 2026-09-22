@@ -48,11 +48,12 @@
 
   <div class="row mb-4">
     <div class="col-md-3 mb-1">
-      <div class="quick-access-card">
-        <h6>Días de vacaciones disponibles</h6>
-        <h2>{{ vacation_balance|floatformat:"-2" }} <small style="font-size: 0.5em;">días</small></h2>
-        {% comment %} <a  class="btn btn-success btn-sm">Ir →</a> {% endcomment %}
-      </div>
+      <a href="{% url 'vacation_form_user' %}" class="text-decoration-none">
+        <div class="quick-access-card" style="cursor: pointer;">
+          <h6>Días de vacaciones disponibles</h6>
+          <h2>{{ vacation_balance|floatformat:"-2" }} <small style="font-size: 0.5em;">días</small></h2>
+        </div>
+      </a>
     </div>
     <div class="col-md-3 mb-1">
       <div class="quick-access-card">
