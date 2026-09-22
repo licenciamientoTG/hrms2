@@ -117,9 +117,20 @@ def _resolve_leader_fk(lider_text):
 
         key = normalize(name)
 
-        # Construir mapa nombre -> emp (activos e inactivos, igual que el organigrama)
+        # Construir mapa nombre -> emp: activos primero, inactivos como fallback
+        # (si hay duplicados de nombre, el activo gana porque se carga al final)
         name_to_emp = {}
-        for emp in Employee.objects.all().only('id', 'first_name', 'last_name'):
+        for emp in Employee.objects.filter(is_active=False).only('id', 'first_name', 'last_name'):
+            first = (emp.first_name or "").strip()
+            last = (emp.last_name or "").strip()
+            for k in (
+                normalize(f"{first} {last}"),
+                normalize(f"{last} {first}"),
+                normalize(f"{last}, {first}"),
+            ):
+                if k:
+                    name_to_emp[k] = emp
+        for emp in Employee.objects.filter(is_active=True).only('id', 'first_name', 'last_name'):
             first = (emp.first_name or "").strip()
             last = (emp.last_name or "").strip()
             for k in (
