@@ -881,6 +881,44 @@ def guardar_prenomina(request):
 
 
 @login_required
+def prenomina_semana_json(request):
+    """Devuelve los registros de prenómina ya guardados para una semana dada."""
+    if _get_rol_incentivos(request.user) != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    from datetime import date as date_type
+    semana_str = request.GET.get('semana')
+    if not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+    try:
+        semana = date_type.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    try:
+        upload = PrenominaUpload.objects.get(semana=semana)
+    except PrenominaUpload.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Sin datos para esa semana'}, status=404)
+
+    registros = list(upload.registros.values(
+        'numero', 'nombre', 'equipo', 'puesto', 'estatus',
+        'horas_ordinarias', 'dias_falta', 'neto',
+    ))
+    for r in registros:
+        r['horas_ordinarias'] = float(r['horas_ordinarias'])
+        r['dias_falta']       = float(r['dias_falta'])
+        r['neto']             = float(r['neto'])
+
+    return JsonResponse({
+        'ok': True,
+        'total': upload.total_registros,
+        'subido_el': upload.subido_el.strftime('%d/%m/%Y %H:%M'),
+        'subido_por': upload.subido_por.get_full_name() if upload.subido_por else '—',
+        'registros': registros,
+    })
+
+
+@login_required
 @require_POST
 def parsear_excel_ventas(request):
     """Recibe un Excel de presupuesto de ventas, lo parsea y devuelve vista previa."""

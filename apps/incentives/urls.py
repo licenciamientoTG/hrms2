@@ -25,6 +25,7 @@ from .views import (
     desglose_bonos,
     parsear_prenomina,
     guardar_prenomina,
+    prenomina_semana_json,
 )
 
 urlpatterns = [
@@ -53,4 +54,5 @@ urlpatterns = [
     path('desglose/', desglose_bonos, name='desglose_bonos'),
     path('parsear-prenomina/', parsear_prenomina, name='parsear_prenomina'),
     path('guardar-prenomina/', guardar_prenomina, name='guardar_prenomina'),
+    path('prenomina-semana/', prenomina_semana_json, name='prenomina_semana_json'),
 ]

@@ -1,9 +1,11 @@
 from django.shortcuts import render, redirect
 from apps.employee.models import Employee, JobPosition, Department
+from apps.org_chart.models import OrgChartViewState
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from collections import defaultdict
+import json
 import re
 
 
@@ -30,7 +32,9 @@ def org_chart_view(request):
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def org_chart_admin(request):
-    return render(request, 'org_chart/admin/org_chart_admin.html')
+    return render(request, 'org_chart/admin/org_chart_admin.html', {
+        'is_superuser': request.user.is_superuser,
+    })
 
 
 # vista usuario
@@ -140,17 +144,22 @@ def org_chart_data_1(request):
             "team": getattr(emp, "team", "") or "",
             "responsible": leader_raw or "",
             "employee_number": emp.employee_number or "",
+            "org_chart_order": emp.org_chart_order,
         }
 
     # --- construir árbol -------------------------------------
     children_by_parent = defaultdict(list)
     for node in nodes.values():
         pid = node["parent_id"]
-        # 🔴 por seguridad: si el padre es el mismo, lo anulamos
+        # por seguridad: si el padre es el mismo, lo anulamos
         if pid and pid in nodes and pid != node["id"]:
             children_by_parent[pid].append(node)
         else:
             node["parent_id"] = None
+
+    # Ordenar hermanos por org_chart_order
+    for pid in children_by_parent:
+        children_by_parent[pid].sort(key=lambda n: n["org_chart_order"])
 
     roots = [n for n in nodes.values() if n["parent_id"] is None]
 
@@ -224,3 +233,116 @@ def api_move_position(request):
         return JsonResponse({'error': 'Empleado no encontrado'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def api_reorder_node(request):
+    """
+    Reordena visualmente un nodo entre sus hermanos (mismo padre).
+    Recibe: moved_id, sibling_ids (lista ordenada de todos los hermanos incluido el movido).
+    """
+    import json
+    try:
+        body = json.loads(request.body)
+        moved_id = body.get('moved_id')
+        sibling_ids = body.get('sibling_ids', [])
+
+        if not moved_id or not sibling_ids:
+            return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+        # Validar que todos sean enteros
+        sibling_ids = [int(sid) for sid in sibling_ids]
+        int(moved_id)
+
+        # Asignar org_chart_order según la posición en la lista
+        employees = Employee.objects.filter(pk__in=sibling_ids)
+        emp_map = {emp.pk: emp for emp in employees}
+
+        for order, sid in enumerate(sibling_ids):
+            emp = emp_map.get(sid)
+            if emp:
+                emp.org_chart_order = order
+                emp.save(update_fields=['org_chart_order'])
+
+        return JsonResponse({'status': 'success'})
+
+    except (ValueError, TypeError) as e:
+        return JsonResponse({'error': f'IDs inválidos: {e}'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def api_view_state(request):
+    """
+    GET  → devuelve la posición visual del canvas (pública para todos los staff).
+    POST → guarda la posición (solo superadmin).
+    """
+    if request.method == 'GET':
+        state = OrgChartViewState.objects.first()
+        if state:
+            try:
+                node_y_offsets = json.loads(state.node_y_offsets or '{}')
+            except (ValueError, TypeError):
+                node_y_offsets = {}
+            return JsonResponse({
+                'chart_left': state.chart_left,
+                'chart_top': state.chart_top,
+                'scale': state.scale,
+                'node_y_offsets': node_y_offsets,
+            })
+        return JsonResponse({'chart_left': 0, 'chart_top': 0, 'scale': 1.0, 'node_y_offsets': {}})
+
+    if request.method == 'POST':
+        if not request.user.is_superuser:
+            return JsonResponse({'error': 'Forbidden'}, status=403)
+        try:
+            body = json.loads(request.body)
+            chart_left = float(body.get('chart_left', 0))
+            chart_top  = float(body.get('chart_top',  0))
+            scale      = float(body.get('scale', 1.0))
+            scale      = max(0.5, min(2.5, scale))
+
+            state, _ = OrgChartViewState.objects.get_or_create(pk=1)
+            state.chart_left = chart_left
+            state.chart_top  = chart_top
+            state.scale      = scale
+            state.save()
+            return JsonResponse({'status': 'ok'})
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def api_node_y_offset(request):
+    """
+    Guarda el desplazamiento vertical visual de un nodo (sin cambiar jerarquía).
+    Body JSON: { "employee_id": 123, "offset": 80 }
+    """
+    try:
+        body = json.loads(request.body)
+        emp_id = str(int(body['employee_id']))
+        offset = int(body.get('offset', 0))
+
+        state, _ = OrgChartViewState.objects.get_or_create(pk=1)
+        try:
+            offsets = json.loads(state.node_y_offsets or '{}')
+        except (ValueError, TypeError):
+            offsets = {}
+
+        if offset == 0:
+            offsets.pop(emp_id, None)
+        else:
+            offsets[emp_id] = offset
+
+        state.node_y_offsets = json.dumps(offsets)
+        state.save(update_fields=['node_y_offsets'])
+        return JsonResponse({'status': 'ok'})
+    except (KeyError, ValueError, TypeError) as e:
+        return JsonResponse({'error': str(e)}, status=400)

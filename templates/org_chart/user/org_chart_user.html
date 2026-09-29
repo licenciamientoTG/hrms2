@@ -10,8 +10,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/css/jquery.orgchart.min.css">
 {% endblock %}
 
-{% block page_title %}Organigrama{% endblock %}
-{% block title %}Organigrama{% endblock %}
+{% block page_title %}Estructura organizacional{% endblock %}
+{% block title %}Estructura organizacional{% endblock %}
 
 {% block content %}
 
@@ -97,7 +97,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/js/jquery.orgchart.min.js"></script>
 <script>
-  window.ORGCHART_DATA_URL = "{% url 'org_chart_data_1' %}";
+  window.ORGCHART_DATA_URL       = "{% url 'org_chart_data_1' %}";
+  window.ORGCHART_VIEW_STATE_URL = "{% url 'api_view_state' %}";
   window.ORGCHART_ME_EMPLOYEE_NUMBER = "{{ request.user.employee.employee_number|default_if_none:'' }}";
 </script>
 

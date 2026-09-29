@@ -50,7 +50,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.forms import modelformset_factory
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.db.models import Prefetch, Count, Avg, Q, Max
+from django.db.models import Prefetch, Count, Avg, Q, Max, Subquery, OuterRef, BooleanField, Value, Case, When, Exists
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.lib.pagesizes import letter
@@ -1346,9 +1346,10 @@ def admin_course_stats(request, course_id):
         assignment_type="all_users"
     ).exists()
 
+    base_filter = dict(is_staff=False, is_superuser=False, is_active=True)
+
     if is_all_users:
-        # Incluir a todos los usuarios normales
-        users = User.objects.filter(is_staff=False, is_superuser=False)
+        users = User.objects.filter(**base_filter)
 
     else:
         # Acumular usuarios segmentados
@@ -1377,52 +1378,73 @@ def admin_course_stats(request, course_id):
                     ).values_list("id", flat=True)
                 )
 
-        users = User.objects.filter(id__in=user_ids, is_staff=False, is_superuser=False)
+        users = User.objects.filter(id__in=user_ids, **base_filter)
 
     total_users = users.count()
 
-    # Obtener intentos de cuestionario
-    quiz = Quiz.objects.filter(course_header=course).first()
-    quiz_attempts = (
-        QuizAttempt.objects.filter(course=course)
-        if quiz
-        else QuizAttempt.objects.none()
+    # Subqueries para anotar directamente en el queryset
+    attempts_qs = QuizAttempt.objects.filter(course=course, user=OuterRef("pk"))
+    passed_qs   = QuizAttempt.objects.filter(course=course, user=OuterRef("pk"), passed=True)
+
+    users = users.select_related("employee__department").annotate(
+        attempt_count=Count(
+            "quizattempt",
+            filter=Q(quizattempt__course=course),
+            distinct=True,
+        ),
+        last_score=Max(
+            "quizattempt__percentage",
+            filter=Q(quizattempt__course=course),
+        ),
+        passed=Exists(passed_qs),
     )
 
-    # Mapa de intentos por usuario
-    attempt_map = {}
-    if quiz:
-        for a in quiz_attempts.values("user_id").annotate(
-            count=Count("id"), last_score=Max("percentage")
-        ):
-            uid = a["user_id"]
-            attempt_map[uid] = {
-                "count": a["count"],
-                "last_score": a["last_score"],
-                "passed": quiz_attempts.filter(user_id=uid, passed=True).exists(),
-            }
-
-    approved_users = quiz_attempts.filter(passed=True).values("user").distinct().count()
-    avg_attempts = (
-        quiz_attempts.values("user")
-        .annotate(n=Count("id"))
-        .aggregate(avg=Avg("n"))["avg"]
-        or 0
+    # Contadores para las tarjetas (sobre todos, sin filtrar página)
+    quiz_attempts_qs = QuizAttempt.objects.filter(course=course)
+    completed_users  = quiz_attempts_qs.values("user").distinct().count()
+    approved_users   = quiz_attempts_qs.filter(passed=True).values("user").distinct().count()
+    avg_attempts     = (
+        quiz_attempts_qs.values("user").annotate(n=Count("id")).aggregate(avg=Avg("n"))["avg"] or 0
     )
 
+    # Lista de departamentos para el dropdown (query ligera)
+    departments = sorted(
+        users.values_list("employee__department__name", flat=True)
+        .distinct()
+        .exclude(employee__department__name=None)
+    )
+
+    # Filtros GET
+    dept_filter   = request.GET.get("dept", "")
+    status_filter = request.GET.get("status", "all")
+
+    if dept_filter:
+        users = users.filter(employee__department__name=dept_filter)
+    if status_filter == "completed":
+        users = users.filter(attempt_count__gt=0)
+    elif status_filter == "approved":
+        users = users.filter(passed=True)
+
+    users = users.order_by("first_name", "last_name")
+
+    paginator = Paginator(users, 20)
+    page_obj  = paginator.get_page(request.GET.get("page"))
+
+    # Construir lista solo para la página actual (20 registros)
     user_progress = []
-    for user in users:
-        data = attempt_map.get(user.id, {})
-        user_progress.append(
-            {
-                "user": user,
-                "employee_name": user.get_full_name(),
-                "progress": 0,
-                "attempts": data.get("count", 0),
-                "last_score": round(data.get("last_score", 0), 1),
-                "passed": data.get("passed", False),
-            }
-        )
+    for user in page_obj:
+        try:
+            department = user.employee.department.name if user.employee and user.employee.department else "—"
+        except Exception:
+            department = "—"
+        user_progress.append({
+            "user": user,
+            "employee_name": user.get_full_name(),
+            "department": department,
+            "attempts": user.attempt_count or 0,
+            "last_score": round(user.last_score or 0, 1),
+            "passed": user.passed,
+        })
 
     return render(
         request,
@@ -1430,10 +1452,14 @@ def admin_course_stats(request, course_id):
         {
             "course": course,
             "total_users": total_users,
-            "completed_users": quiz_attempts.values("user").distinct().count(),
+            "completed_users": completed_users,
             "approved_users": approved_users,
             "avg_attempts": round(avg_attempts, 1),
             "user_progress": user_progress,
+            "page_obj": page_obj,
+            "departments": departments,
+            "dept_filter": dept_filter,
+            "status_filter": status_filter,
         },
     )
 
