@@ -969,6 +969,13 @@ def vacation_form_rh(request):
         qs = qs.filter(Q(id__icontains=q) | Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
     page_obj = Paginator(qs, 20).get_page(request.GET.get('page'))
+
+    for r in page_obj.object_list:
+        if r.manager_approver:
+            r.lider_name = r.manager_approver.get_full_name() or r.manager_approver.username
+        else:
+            r.lider_name = ''
+
     week_groups = [
         {'label': label, 'requests': list(grp)}
         for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
@@ -988,6 +995,34 @@ def vacation_form_rh(request):
 # ==========================================
 # 5. EXPORTAR CSV
 # ==========================================
+def _get_week_segments(r):
+    """
+    Divide una solicitud en segmentos por semana (lunes-domingo).
+    Retorna lista de (fecha_inicio, fecha_fin, dias_en_semana).
+    """
+    if r.selected_dates:
+        days = sorted([
+            datetime.strptime(d.strip(), '%Y-%m-%d').date()
+            for d in r.selected_dates.split(',') if d.strip()
+        ])
+    else:
+        days = []
+        d = r.start_date
+        while d <= r.end_date:
+            if d.weekday() < 5:  # solo lunes a viernes
+                days.append(d)
+            d += timedelta(days=1)
+
+    if not days:
+        return [(r.start_date, r.end_date, r.total_days or 0)]
+
+    segments = []
+    for _, group in groupby(days, key=lambda d: d.isocalendar()[:2]):
+        week_days = list(group)
+        segments.append((week_days[0], week_days[-1], len(week_days)))
+    return segments
+
+
 @user_passes_test(lambda u: u.is_staff and u.has_perm('vacations.Modulo_vacaciones'))
 def vacation_export_csv(request):
     estado = request.GET.get('estado', '')
@@ -1035,26 +1070,27 @@ def vacation_export_csv(request):
     for r in qs:
         try:
             emp = r.user.employee
-            empresa       = emp.company or ''
-            num_empleado  = emp.employee_number or ''
-            nombre        = f"{emp.first_name} {emp.last_name}".strip()
+            empresa      = emp.company or ''
+            num_empleado = emp.employee_number or ''
+            nombre       = f"{emp.first_name} {emp.last_name}".strip()
         except Exception:
             empresa      = ''
             num_empleado = ''
             nombre       = r.user.get_full_name() or r.user.username
 
-        fecha_salida  = r.start_date.strftime('%d/%m/%Y') if r.start_date else ''
-        fecha_regreso = r.end_date.strftime('%d/%m/%Y') if r.end_date else ''
-
-        writer.writerow([
-            empresa,
-            num_empleado,
-            nombre,
-            fecha_salida,
-            fecha_regreso,
-            r.total_days or '',
-            '',   # Días pago (vacío)
-            '',   # Días prima (vacío)
-        ])
+        total_dias = r.total_days or ''
+        for seg_inicio, seg_fin, seg_dias in _get_week_segments(r):
+            # Si el segmento es de un solo día, el reingreso es el día siguiente
+            fecha_reingreso = seg_fin + timedelta(days=1) if seg_dias == 1 else seg_fin
+            writer.writerow([
+                empresa,
+                num_empleado,
+                nombre,
+                seg_inicio.strftime('%d/%m/%Y'),
+                fecha_reingreso.strftime('%d/%m/%Y'),
+                total_dias,
+                seg_dias,
+                '',  # DiasPrima
+            ])
 
     return response

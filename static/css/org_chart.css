@@ -23,7 +23,8 @@
     border: none;
     box-shadow: none;
     padding: 0;
-    
+    position: relative;
+
     /* Espaciado vital */
     width: 180px !important;
     margin: 0 15px !important;
@@ -375,7 +376,31 @@
 /* IMPORTANTE: Quitamos el estilo cuadrado amarillo/azul por defecto */
 .orgchart .node.orgchart-highlight,
 .orgchart .node.focused { /* Agregamos .focused por si la librería lo activa solo */
-    box-shadow: none !important; 
+    box-shadow: none !important;
     border-color: transparent !important;
     background-color: transparent !important; /* <--- ESTA ES LA CLAVE */
+}
+
+/* Línea vertical de conexión generada al desplazar un nodo hacia abajo (Alt+drag) */
+.oc-y-connector {
+    display: block;
+    width: 1px;
+    background-color: #777;
+    margin: 0 auto;
+}
+
+/* Superadmin: nota de ayuda flotante en la esquina del chart */
+#oc-ydrag-hint {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 200;
+    white-space: nowrap;
 }

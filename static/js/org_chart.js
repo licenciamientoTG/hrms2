@@ -1,8 +1,12 @@
 // static/js/org_chart.js
 $(function () {
-  const csrftoken = window.ORGCHART_CSRF;
-  const dataUrl   = window.ORGCHART_DATA_URL;
-  const moveUrl   = window.ORGCHART_MOVE_URL;
+  const csrftoken      = window.ORGCHART_CSRF;
+  const dataUrl        = window.ORGCHART_DATA_URL;
+  const moveUrl        = window.ORGCHART_MOVE_URL;
+  const reorderUrl      = window.ORGCHART_REORDER_URL       || null;
+  const viewStateUrl    = window.ORGCHART_VIEW_STATE_URL    || null;
+  const nodeYOffsetUrl  = window.ORGCHART_NODE_Y_OFFSET_URL || null;
+  const isSuperuser     = !!window.ORGCHART_IS_SUPERUSER;
 
   // Número de empleado del usuario actual (lo manda Django)
   const myEmpNo   = (window.ORGCHART_ME_EMPLOYEE_NUMBER || '').toString().trim();
@@ -21,6 +25,216 @@ $(function () {
 
   // Nodo actualmente en foco (el que se muestra como principal en el árbol)
   let currentFocusNode = null;
+
+  // =====================================================
+  //  Estado de vista (posición del canvas)
+  // =====================================================
+  let savedViewState   = null;
+  let viewSaveTimer    = null;
+
+  // Offsets verticales por nodo: { "123": 80, "45": 40, ... }
+  let nodeYOffsets = {};
+
+  // Copia completa del datasource para re-renderizar tras reordenar
+  var fullDatasource = null;
+
+  // Variables para el pan personalizado
+  let isPanning      = false;
+  let panStartX      = 0;
+  let panStartY      = 0;
+  let panStartLeft   = 0;
+  let panStartTop    = 0;
+
+  function getChartPosition() {
+    return {
+      chart_left: $container.scrollLeft(),
+      chart_top:  $container.scrollTop(),
+      scale: currentScale
+    };
+  }
+
+  function applyChartPosition(state) {
+    if (!state) return;
+    currentScale = state.scale || 1;
+    if (oc && oc.$chart) {
+      oc.$chart.css('transform', 'scale(' + currentScale + ')');
+    }
+    $container.scrollLeft(state.chart_left || 0);
+    $container.scrollTop(state.chart_top   || 0);
+  }
+
+  // =====================================================
+  //  Aplica desplazamiento vertical a nodos específicos
+  //  Funciona añadiendo padding-top al <td> contenedor
+  //  de cada nodo, lo que "estira" visualmente el cable
+  //  sin cambiar la jerarquía.
+  // =====================================================
+  // =====================================================
+  //  Aplica el offset vertical a un <td> dibujando una
+  //  línea visual de conexión en lugar de usar padding-top.
+  //  Así el nodo baja pero la línea conectora lo sigue.
+  // =====================================================
+  function setTdYOffset($td, px) {
+    px = Math.max(0, Math.round(px));
+    $td.attr('data-y-offset', px);
+    $td.css('padding-top', '0');
+    var $conn = $td.find('> .oc-y-connector');
+    if (px > 0) {
+      if ($conn.length) {
+        $conn.css('height', px + 'px');
+      } else {
+        $('<div class="oc-y-connector"></div>')
+          .css('height', px + 'px')
+          .prependTo($td);
+      }
+    } else {
+      $conn.remove();
+    }
+  }
+
+  function applyNodeYOffsets(offsets) {
+    if (!offsets) return;
+    $.each(offsets, function (empId, px) {
+      if (!px) return;
+      var $node = $container.find('.node[data-employee-id="' + empId + '"]').first();
+      if (!$node.length) return;
+      // Subir al <td> contenedor en la fila de hijos del padre
+      var $td = $node.closest('table').closest('td');
+      if ($td.length) {
+        setTdYOffset($td, px);
+      }
+    });
+  }
+
+  // =====================================================
+  //  Drag vertical de nodos (solo superadmin)
+  //  Al arrastrar hacia arriba/abajo, ajusta el offset
+  //  del <td> contenedor y guarda el offset en el servidor.
+  // =====================================================
+  var yDragSaveTimer = null;
+
+  function saveNodeYOffset(empId, px) {
+    if (!nodeYOffsetUrl || !csrftoken) return;
+    clearTimeout(yDragSaveTimer);
+    yDragSaveTimer = setTimeout(function () {
+      nodeYOffsets[empId] = px;
+      $.ajax({
+        url: nodeYOffsetUrl,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { 'X-CSRFToken': csrftoken },
+        data: JSON.stringify({ employee_id: empId, offset: px })
+      });
+    }, 600);
+  }
+
+  function setupNodeYDrag() {
+    if (!isSuperuser) return;
+
+    // Limpiar handlers previos (evita duplicados al re-renderizar)
+    $container.off('mousedown.ydrag');
+    $(document).off('mousemove.ydrag mouseup.ydrag');
+
+    var yDragActive      = false;
+    var yDragEmpId       = null;
+    var yDragStartY      = 0;
+    var yDragStartOffset = 0;
+    var $yDragTd         = null;
+
+    $container.on('mousedown.ydrag', '.node', function (e) {
+      if (!e.altKey || e.which !== 1) return;
+      var $td = $(this).closest('table').closest('td');
+      if (!$td.length) return;   // nodo raíz, sin <td> contenedor
+
+      e.stopPropagation();
+      e.preventDefault();
+
+      yDragActive      = true;
+      yDragEmpId       = $(this).attr('data-employee-id');
+      yDragStartY      = e.clientY;
+      $yDragTd         = $td;
+      yDragStartOffset = parseInt($td.attr('data-y-offset') || '0', 10);
+      $container.css('cursor', 'ns-resize');
+    });
+
+    $(document).on('mousemove.ydrag', function (e) {
+      if (!yDragActive || !$yDragTd) return;
+      var dy        = e.clientY - yDragStartY;
+      var newOffset = Math.max(0, yDragStartOffset + dy);
+      setTdYOffset($yDragTd, newOffset);
+    });
+
+    $(document).on('mouseup.ydrag', function () {
+      if (!yDragActive) return;
+      yDragActive = false;
+      $container.css('cursor', 'grab');
+      var finalOffset = parseInt($yDragTd ? $yDragTd.attr('data-y-offset') || '0' : '0', 10);
+      saveNodeYOffset(yDragEmpId, finalOffset);
+      $yDragTd = null;
+    });
+  }
+
+  function saveViewState() {
+    if (!isSuperuser || !viewStateUrl || !csrftoken) return;
+    clearTimeout(viewSaveTimer);
+    viewSaveTimer = setTimeout(function () {
+      var state = getChartPosition();
+      $.ajax({
+        url: viewStateUrl,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { 'X-CSRFToken': csrftoken },
+        data: JSON.stringify(state)
+      });
+    }, 800);
+  }
+
+  // =====================================================
+  //  Pan personalizado (reemplaza pan:true de orgchart
+  //  que conflictúa con draggable:true de jQuery UI)
+  // =====================================================
+  function setupCustomPan() {
+    $container.off('mousedown.orgpan');
+    $(document).off('mousemove.orgpan mouseup.orgpan');
+
+    $container.css('cursor', 'grab');
+
+    $container.on('mousedown.orgpan', function (e) {
+      if ($(e.target).closest('.oc-btn, #profile-panel').length) return;
+      // Arrastra un nodo solo si es superuser con draggable activo — en ese caso
+      // el movimiento pequeño se interpreta como click; uno grande como drag de nodo.
+      // Para pan siempre iniciamos, luego el threshold decide.
+      isPanning    = false;   // se confirmará al mover más de 5px
+      panStartX    = e.clientX;
+      panStartY    = e.clientY;
+      panStartLeft = $container.scrollLeft();
+      panStartTop  = $container.scrollTop();
+    });
+
+    $(document).on('mousemove.orgpan', function (e) {
+      var dx = e.clientX - panStartX;
+      var dy = e.clientY - panStartY;
+      if (!isPanning && (Math.abs(dx) > 5 || Math.abs(dy) > 5) && panStartX !== 0) {
+        // Solo activar pan si NO es un nodo siendo arrastrado (draggable)
+        if (!$(e.target).closest('.node').length) {
+          isPanning = true;
+          $container.css('cursor', 'grabbing');
+        }
+      }
+      if (!isPanning) return;
+      $container.scrollLeft(panStartLeft - dx);
+      $container.scrollTop(panStartTop  - dy);
+    });
+
+    $(document).on('mouseup.orgpan', function () {
+      if (isPanning) {
+        isPanning = false;
+        $container.css('cursor', 'grab');
+        if (isSuperuser) saveViewState();
+      }
+      panStartX = 0;
+    });
+  }
 
   // =====================================================
   //  Construye los mapas planos recorriendo el árbol
@@ -99,17 +313,48 @@ $(function () {
   }
 
   // =====================================================
-  //  Opciones del orgchart (reutilizadas en renderChart)
+  //  Helpers para el drag & drop de reordenamiento
   // =====================================================
+
+  // Devuelve el id numérico del nodo a partir del elemento DOM .node
+  function getNodeId($node) {
+    return $node.attr('data-employee-id');
+  }
+
+  // Devuelve los hermanos del nodo en el DOM (misma fila del orgchart)
+  // jquery.orgchart genera: table > tr > td.node (por cada hermano)
+  function getSiblingIds($node) {
+    // En jquery.orgchart los hermanos comparten la misma <tr> de la tabla padre
+    var $siblings = $node.closest('td').siblings('td').addBack()
+      .map(function () { return $(this).find('> .node').first(); })
+      .filter(function () { return $(this).length && getNodeId($(this)); });
+
+    var ids = [];
+    $siblings.each(function () {
+      var id = getNodeId($(this));
+      if (id) ids.push(id);
+    });
+    return ids;
+  }
+
+  // Obtiene el id del padre de un nodo en el DOM
+  function getParentNodeId($node) {
+    // El padre está en el <tr> de arriba → la celda del conector → la tabla de arriba → el nodo padre
+    var $parentNode = $node.closest('table').closest('td').closest('tr').closest('table')
+      .closest('td').closest('tr').prev('tr')
+      .find('> td > .node').first();
+    return getNodeId($parentNode) || null;
+  }
+
   function getOrgChartOptions(data) {
     return {
       data: data,
       nodeId: 'id',
       nodeTitle: 'name',
       nodeContent: 'title',
-      pan: true,
+      pan: false,  // deshabilitado — usamos setupCustomPan()
       zoom: true,
-      draggable: !!moveUrl,   // drag sólo en admin (cuando moveUrl está definido)
+      draggable: false,  // requiere jQuery UI que no está cargado
       createNode: function ($node, nodeData) {
         $node.attr('data-employee-id', nodeData.id);
         if (nodeData.employee_number) {
@@ -158,8 +403,14 @@ $(function () {
     $container.empty();
     oc = $container.orgchart(getOrgChartOptions(data));
     $container.orgchart('expandAll');
+    setupCustomPan();
+    setupNodeYDrag();
+    // Aplicar offsets verticales solo cuando se muestran compañeros
+    if (showPeers && Object.keys(nodeYOffsets).length > 0) {
+      applyNodeYOffsets(nodeYOffsets);
+    }
 
-    // Centrar el nodo indicado (o la raíz) después de que el DOM se pinte
+    // Centrar el nodo indicado (o la raíz) via scroll
     setTimeout(function () {
       var $target;
       if (centerNodeId) {
@@ -180,10 +431,34 @@ $(function () {
   }
 
   // =====================================================
+  //  Carga del estado de vista (independiente, no bloquea el chart)
+  // =====================================================
+  if (viewStateUrl) {
+    $.ajax({
+      url: viewStateUrl,
+      method: 'GET',
+      dataType: 'json',
+      success: function (s) {
+        savedViewState = s;
+        if (s.node_y_offsets && typeof s.node_y_offsets === 'object') {
+          nodeYOffsets = s.node_y_offsets;
+        }
+        // Si el chart ya está renderizado cuando llega la respuesta,
+        // aplicar los offsets inmediatamente (cubre el caso donde el AJAX
+        // llega después del timeout de 400ms)
+        if (showPeers && Object.keys(nodeYOffsets).length > 0 && $container.find('.node').length > 0) {
+          applyNodeYOffsets(nodeYOffsets);
+        }
+      },
+      error: function () { /* ignorar si falla */ }
+    });
+  }
+
+  // =====================================================
   //  Carga de datos
   // =====================================================
   $.getJSON(dataUrl, function (datasource) {
-
+    fullDatasource = datasource;
     buildMaps(datasource, null);
 
     // Buscar al usuario actual por número de empleado para vista inicial
@@ -197,13 +472,36 @@ $(function () {
       });
     }
 
+    // Ocultar el container antes del primer render para evitar el flash
+    // de estados intermedios (escala 1 → escala guardada, scroll → scroll guardado)
+    $container.css('opacity', '0');
+
     if (meNode) {
-      // Vista inicial: jefe → yo → mis subordinados directos, centrado en mí
       currentFocusNode = meNode;
       renderChart(getFilteredTree(meNode), true, meNode.id);
     } else {
       renderChart(datasource, false, null);
     }
+
+    // Aplicar posición guardada y offsets verticales después del render,
+    // luego revelar el chart de una sola vez (sin flash intermedio)
+    setTimeout(function () {
+      // El zoom/pan guardado solo aplica al superadmin
+      if (savedViewState && isSuperuser) {
+        var sl = savedViewState.chart_left || 0;
+        var st = savedViewState.chart_top  || 0;
+        var sc = savedViewState.scale      || 1;
+        if ((sl > 0 || st > 0 || sc !== 1) && sc >= 0.5 && sc <= 2.5) {
+          applyChartPosition(savedViewState);
+        }
+      }
+      // Los offsets visuales solo aplican cuando se muestran compañeros
+      if (showPeers && Object.keys(nodeYOffsets).length > 0) {
+        applyNodeYOffsets(nodeYOffsets);
+      }
+      // Revelar el chart con un fade suave una vez que todo está listo
+      $container.css({ transition: 'opacity 0.25s ease', opacity: '1' });
+    }, 400);
 
     // ========================
     //  Helper: centrar un nodo
@@ -238,6 +536,7 @@ $(function () {
       } else {
         oc.$chart.css('transform', 'scale(' + currentScale + ')');
       }
+      if (isSuperuser) saveViewState();
     }
 
     $('#oc-zoom-in').on('click', function (e) {

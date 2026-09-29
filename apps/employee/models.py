@@ -244,6 +244,12 @@ class Employee(models.Model):
         verbose_name='Líder (FK)',
         help_text='Referencia directa al empleado que es líder de este colaborador'
     )
+    org_chart_order = models.IntegerField(
+        default=0,
+        verbose_name=_("Orden en organigrama"),
+        help_text=_("Posición visual entre hermanos del mismo nivel en el organigrama")
+    )
+
     separation_gratuity = models.DecimalField(  # Grat. Separación
         max_digits=12,
         decimal_places=2,

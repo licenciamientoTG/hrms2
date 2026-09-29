@@ -9,8 +9,8 @@
 {% endblock %}
 
 
-{% block page_title %}Organigrama{% endblock %}
-{% block title %}Organigrama{% endblock %}
+{% block page_title %}Estructura organizacional{% endblock %}
+{% block title %}Estructura organizacional{% endblock %}
 
 {% block content %}
 <div class="orgchart-search"
@@ -35,6 +35,10 @@
 
 
   {% include "org_chart/_base_chart.html" %}
+
+  {% if is_superuser %}
+  <div id="oc-ydrag-hint">Alt + arrastrar ↑ ↓ para ajustar altura del colaborador</div>
+  {% endif %}
 
   <!-- Controles flotantes de zoom / vista -->
   <div class="orgchart-controls">
@@ -98,9 +102,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/orgchart/2.1.3/js/jquery.orgchart.min.js"></script>
 
   <script>
-    window.ORGCHART_DATA_URL = "{% url 'org_chart_data_1' %}";
-    window.ORGCHART_MOVE_URL = "{% url 'api_move_position' %}";
-    window.ORGCHART_CSRF = "{{ csrf_token }}";
+    window.ORGCHART_DATA_URL        = "{% url 'org_chart_data_1' %}";
+    window.ORGCHART_MOVE_URL        = "{% url 'api_move_position' %}";
+    window.ORGCHART_REORDER_URL     = "{% url 'api_reorder_node' %}";
+    window.ORGCHART_VIEW_STATE_URL  = "{% url 'api_view_state' %}";
+    window.ORGCHART_NODE_Y_OFFSET_URL = "{% url 'api_node_y_offset' %}";
+    window.ORGCHART_CSRF            = "{{ csrf_token }}";
+    window.ORGCHART_IS_SUPERUSER    = {{ is_superuser|yesno:"true,false" }};
+    {% if is_superuser %}document.body.classList.add('superuser');{% endif %}
 
     window.ORGCHART_ME_EMPLOYEE_NUMBER =
       "{{ request.user.employee.employee_number|default_if_none:'' }}";
