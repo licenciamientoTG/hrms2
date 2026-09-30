@@ -161,6 +161,34 @@
         <p class="text-muted small mb-3">
           Las filas <span class="badge bg-warning text-dark">resaltadas</span> son los campos que cambiarán.
         </p>
+
+        {# Foto antes / después #}
+        <div class="d-flex gap-4 justify-content-center mb-3">
+          <div class="text-center">
+            <div class="text-muted small mb-1 fw-semibold">Foto actual (antes)</div>
+            {% if c.foto_antes_url %}
+              <img src="{{ c.foto_antes_url }}" alt="Foto antes"
+                   class="rounded border" style="width:90px;height:90px;object-fit:cover;">
+            {% else %}
+              <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted"
+                   style="width:90px;height:90px;font-size:.75rem;">Sin foto</div>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center text-muted fs-4">
+            <i class="fas fa-arrow-right"></i>
+          </div>
+          <div class="text-center">
+            <div class="text-muted small mb-1 fw-semibold">Foto nueva (después)</div>
+            {% if c.foto_despues_url %}
+              <img src="{{ c.foto_despues_url }}" alt="Foto después"
+                   class="rounded border" style="width:90px;height:90px;object-fit:cover;">
+            {% else %}
+              <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted"
+                   style="width:90px;height:90px;font-size:.75rem;">Sin foto</div>
+            {% endif %}
+          </div>
+        </div>
+
         <table class="table table-bordered table-sm align-middle">
           <thead class="table-light">
             <tr>

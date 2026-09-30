@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from apps.employee.models import Employee
-from .models import VacationRequest
+from .models import VacationRequest, DiaInhabil
 from django.contrib import messages
 from datetime import datetime, date, timedelta
 from itertools import groupby
@@ -995,6 +995,13 @@ def vacation_form_rh(request):
 # ==========================================
 # 5. EXPORTAR CSV
 # ==========================================
+def _siguiente_dia_habil(d, dias_inhabiles):
+    """Avanza d mientras caiga en un día inhábil oficial."""
+    while d in dias_inhabiles:
+        d += timedelta(days=1)
+    return d
+
+
 def _get_week_segments(r):
     """
     Divide una solicitud en segmentos por semana (lunes-domingo).
@@ -1051,15 +1058,15 @@ def vacation_export_csv(request):
     if q:
         qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
 
+    dias_inhabiles = set(DiaInhabil.objects.values_list('fecha', flat=True))
+
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="vacaciones.csv"'
     response.write('\ufeff')  # BOM para que Excel abra correctamente con acentos
 
     writer = csv.writer(response)
     writer.writerow([
-        'Empresa',
-        'Num. Empleado',
-        'Nombre',
+        'Empleado',
         'Fecha',
         'FechaRegreso',
         'Descrip',
@@ -1070,27 +1077,20 @@ def vacation_export_csv(request):
     for r in qs:
         try:
             emp = r.user.employee
-            empresa      = emp.company or ''
             num_empleado = emp.employee_number or ''
-            nombre       = f"{emp.first_name} {emp.last_name}".strip()
         except Exception:
-            empresa      = ''
             num_empleado = ''
-            nombre       = r.user.get_full_name() or r.user.username
 
         total_dias = r.total_days or ''
         for seg_inicio, seg_fin, seg_dias in _get_week_segments(r):
-            # Si el segmento es de un solo día, el reingreso es el día siguiente
-            fecha_reingreso = seg_fin + timedelta(days=1) if seg_dias == 1 else seg_fin
+            fecha_reingreso = _siguiente_dia_habil(seg_fin + timedelta(days=1), dias_inhabiles)
             writer.writerow([
-                empresa,
                 num_empleado,
-                nombre,
                 seg_inicio.strftime('%d/%m/%Y'),
                 fecha_reingreso.strftime('%d/%m/%Y'),
                 total_dias,
                 seg_dias,
-                '',  # DiasPrima
+                '',
             ])
 
     return response
