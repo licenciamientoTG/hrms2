@@ -31,7 +31,7 @@
       </div>
       {% endif %}
       {% if role == 'rh' %}
-        <a href="{% url 'vacation_export_csv' %}?estado={{ estado }}&tipo={{ tipo }}&q={{ q }}"
+        <a href="{% url 'vacation_export_csv' %}?estado={{ estado }}&tipo={{ tipo }}&q={{ q }}&company={{ company }}"
            class="btn btn-success">
             <i class="fa-solid fa-file-csv me-1"></i> Exportar CSV
         </a>
@@ -41,11 +41,11 @@
 
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
             <input name="q" type="text" class="form-control" placeholder="Buscar por colaborador..." value="{{ q }}">
         </div>
 
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
             <select name="estado" class="form-select" onchange="this.form.submit()">
 
                 {% if role == 'rh' %}
@@ -64,7 +64,7 @@
             </select>
         </div>
 
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
             <select name="tipo" class="form-select" onchange="this.form.submit()">
                 <option value="">Todos los tipos</option>
                 <option value="Vacaciones" {% if tipo == 'Vacaciones' %}selected{% endif %}>Vacaciones</option>
@@ -72,6 +72,17 @@
                 <option value="Permiso sin Goce de Sueldo" {% if tipo == 'Permiso sin Goce de Sueldo' %}selected{% endif %}>Permiso sin Goce de Sueldo</option>
             </select>
         </div>
+
+        {% if role == 'rh' %}
+        <div class="col-12 col-md-3">
+            <select name="company" class="form-select" onchange="this.form.submit()">
+                <option value="">Todas las empresas</option>
+                {% for c in companies %}
+                    <option value="{{ c }}" {% if company == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
 
         <div class="col-12 col-md-2">
             <a href="." class="btn btn-outline-secondary w-100">Limpiar</a>
@@ -228,10 +239,10 @@
             <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">&laquo;</a>
+                        <a class="page-link" href="?page=1&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}&company={{ company }}">&laquo;</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">Anterior</a>
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}&company={{ company }}">Anterior</a>
                     </li>
                 {% endif %}
                 <li class="page-item disabled">
@@ -239,10 +250,10 @@
                 </li>
                 {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">Siguiente</a>
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}&company={{ company }}">Siguiente</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}">&raquo;</a>
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&estado={{ estado }}&q={{ q }}&tipo={{ tipo }}&company={{ company }}">&raquo;</a>
                     </li>
                 {% endif %}
             </ul>
