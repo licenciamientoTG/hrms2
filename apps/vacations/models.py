@@ -116,3 +116,16 @@ class VacationRequest(models.Model):
             ("can_approve_vacation", "Puede aprobar o rechazar solicitudes"),
             ("can_view_all_requests", "Puede ver todas las solicitudes"),
         ]
+
+
+class DiaInhabil(models.Model):
+    fecha = models.DateField(unique=True)
+    descripcion = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.fecha} — {self.descripcion}"
+
+    class Meta:
+        verbose_name = "Día Inhábil"
+        verbose_name_plural = "Días Inhábiles"
+        ordering = ['fecha']

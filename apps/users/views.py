@@ -624,6 +624,10 @@ def user_inconsistencias_view(request):
                     'cambio':  cambio,
                 })
 
+            foto_antes_url = (clean_emp.photo.url if clean_emp and clean_emp.photo else None)
+            # Si el emp nuevo no tiene foto pero el viejo sí, el resultado final será la del viejo
+            foto_despues_url = (emp.photo.url if emp.photo else foto_antes_url)
+
             sufijo_cases.append({
                 'emp': emp,
                 'username_actual':   emp.user.username,
@@ -633,6 +637,8 @@ def user_inconsistencias_view(request):
                 'es_misma_persona':  es_misma_persona,
                 'diferencias':       diferencias,
                 'preview':           preview_rows,
+                'foto_antes_url':    foto_antes_url,
+                'foto_despues_url':  foto_despues_url,
             })
 
     return render(request, "users/inconsistencias.html", {
@@ -670,8 +676,12 @@ def corregir_inconsistencia_view(request, emp_id):
             if emp_viejo:
                 Employee.objects.filter(id=emp_viejo.id).update(is_active=False, user=None)
 
-            # 2. Asignar clean_user al emp nuevo
-            Employee.objects.filter(id=emp_nuevo.id).update(user=clean_user)
+            # 2. Asignar clean_user al emp nuevo; heredar foto del viejo si el nuevo no tiene
+            foto_heredada = (emp_viejo.photo.name if emp_viejo and emp_viejo.photo and not emp_nuevo.photo else None)
+            update_fields = {'user': clean_user}
+            if foto_heredada:
+                update_fields['photo'] = foto_heredada
+            Employee.objects.filter(id=emp_nuevo.id).update(**update_fields)
 
             # 3. Borrar usuario sufijado
             suffix_user.delete()
