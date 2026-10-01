@@ -31,6 +31,9 @@
       </div>
       {% endif %}
       {% if role == 'rh' %}
+        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalDiasFestivos">
+            <i class="fa-solid fa-calendar-days me-1"></i> Días Festivos
+        </button>
         <a href="{% url 'vacation_export_csv' %}?estado={{ estado }}&tipo={{ tipo }}&q={{ q }}&company={{ company }}"
            class="btn btn-success">
             <i class="fa-solid fa-file-csv me-1"></i> Exportar CSV
@@ -731,6 +734,185 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 </script>
+
+{% if role == 'rh' %}
+<!-- ============================================================ -->
+<!-- MODAL DÍAS FESTIVOS                                          -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalDiasFestivos" tabindex="-1" aria-labelledby="modalDiasFestivosLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalDiasFestivosLabel">
+          <i class="fa-solid fa-calendar-days me-2 text-warning"></i>Días Festivos / Inhábiles
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">
+          Haz clic en un día vacío para agregarlo como festivo. Haz clic en un día ya marcado para eliminarlo.
+        </p>
+        <div id="festivos-calendar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mini modal: descripción al agregar -->
+<div class="modal fade" id="modalAgregarFestivo" tabindex="-1" aria-hidden="true" style="z-index:1060">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0">Agregar día festivo</h6>
+        <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1 small text-muted" id="festivo-fecha-label"></p>
+        <input type="text" id="festivo-descripcion" class="form-control form-control-sm" placeholder="Descripción (ej. Año Nuevo)" maxlength="100">
+        <div id="festivo-error" class="text-danger small mt-1" style="display:none"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning btn-sm" id="festivo-guardar-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mini modal: confirmar eliminación -->
+<div class="modal fade" id="modalEliminarFestivo" tabindex="-1" aria-hidden="true" style="z-index:1060">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0">Eliminar día festivo</h6>
+        <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0 small">¿Eliminar <strong id="eliminar-festivo-desc"></strong> (<span id="eliminar-festivo-fecha"></span>)?</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="festivo-eliminar-btn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    const API_URL    = "{% url 'dias_festivos_api' %}";
+    const DELETE_URL = id => `/vacations/capital-humano/dias-festivos/${id}/`;
+    const CSRF       = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+    let festivoCal = null;
+    let festivosData = {};   // fecha ISO -> {id, descripcion}
+    let pendingDate = null;
+    let pendingDeleteId = null;
+
+    const modalPrincipal   = document.getElementById('modalDiasFestivos');
+    const modalAgregar     = new bootstrap.Modal(document.getElementById('modalAgregarFestivo'), {backdrop: false});
+    const modalEliminar    = new bootstrap.Modal(document.getElementById('modalEliminarFestivo'), {backdrop: false});
+
+    async function cargarFestivos() {
+        const res  = await fetch(API_URL);
+        const data = await res.json();
+        festivosData = {};
+        data.dias.forEach(d => { festivosData[d.fecha] = {id: d.id, descripcion: d.descripcion}; });
+        return data.dias.map(d => ({
+            id:    'f_' + d.id,
+            title: d.descripcion,
+            start: d.fecha,
+            allDay: true,
+            color: '#f59e0b',
+            textColor: '#1a1a1a',
+            extendedProps: { festivo_id: d.id, descripcion: d.descripcion },
+        }));
+    }
+
+    modalPrincipal.addEventListener('shown.bs.modal', function () {
+        if (festivoCal) { festivoCal.updateSize(); return; }
+
+        cargarFestivos().then(events => {
+            festivoCal = new FullCalendar.Calendar(document.getElementById('festivos-calendar'), {
+                locale: 'es',
+                initialView: 'dayGridMonth',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+                buttonText: { today: 'Mes actual' },
+                height: 'auto',
+                events: events,
+                dateClick: function (info) {
+                    const fecha = info.dateStr;
+                    if (festivosData[fecha]) return; // ya marcado → solo eventClick lo maneja
+                    pendingDate = fecha;
+                    document.getElementById('festivo-fecha-label').textContent = formatFecha(fecha);
+                    document.getElementById('festivo-descripcion').value = '';
+                    document.getElementById('festivo-error').style.display = 'none';
+                    modalAgregar.show();
+                    setTimeout(() => document.getElementById('festivo-descripcion').focus(), 300);
+                },
+                eventClick: function (info) {
+                    const props = info.event.extendedProps;
+                    pendingDeleteId = props.festivo_id;
+                    document.getElementById('eliminar-festivo-desc').textContent  = props.descripcion;
+                    document.getElementById('eliminar-festivo-fecha').textContent = formatFecha(info.event.startStr);
+                    modalEliminar.show();
+                },
+            });
+            festivoCal.render();
+        });
+    });
+
+    // Guardar nuevo festivo
+    document.getElementById('festivo-guardar-btn').addEventListener('click', async function () {
+        const desc = document.getElementById('festivo-descripcion').value.trim();
+        const errEl = document.getElementById('festivo-error');
+        if (!desc) { errEl.textContent = 'Escribe una descripción.'; errEl.style.display = ''; return; }
+
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ fecha: pendingDate, descripcion: desc }),
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error || 'Error al guardar.'; errEl.style.display = ''; return; }
+
+        festivosData[data.fecha] = { id: data.id, descripcion: data.descripcion };
+        festivoCal.addEvent({
+            id: 'f_' + data.id,
+            title: data.descripcion,
+            start: data.fecha,
+            allDay: true,
+            color: '#f59e0b',
+            textColor: '#1a1a1a',
+            extendedProps: { festivo_id: data.id, descripcion: data.descripcion },
+        });
+        modalAgregar.hide();
+    });
+
+    // Eliminar festivo
+    document.getElementById('festivo-eliminar-btn').addEventListener('click', async function () {
+        const res = await fetch(DELETE_URL(pendingDeleteId), {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': CSRF },
+        });
+        if (!res.ok) return;
+
+        const ev = festivoCal.getEventById('f_' + pendingDeleteId);
+        if (ev) {
+            delete festivosData[ev.startStr.substring(0, 10)];
+            ev.remove();
+        }
+        modalEliminar.hide();
+    });
+
+    function formatFecha(iso) {
+        const [y, m, d] = iso.split('-');
+        const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        return `${parseInt(d)} de ${meses[parseInt(m)-1]} de ${y}`;
+    }
+})();
+</script>
+{% endif %}
 
 {% if role == 'manager' %}
 <script>

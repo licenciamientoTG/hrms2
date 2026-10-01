@@ -57,6 +57,25 @@ def _safe_str(v, default=''):
     s = (v or '').strip() if isinstance(v, str) else (str(v).strip() if v is not None else '')
     return s if s else default
 
+def _birth_date_from_curp(curp):
+    """
+    Extrae la fecha de nacimiento de la CURP.
+    Estructura: APELLYYMMDDH...
+    Posiciones 4-5: año (YY), 6-7: mes, 8-9: día.
+    El año se interpreta: >= 25 -> 1900s, < 25 -> 2000s.
+    Devuelve un objeto date o None si no se puede parsear.
+    """
+    if not curp or len(curp) < 10:
+        return None
+    try:
+        yy = int(curp[4:6])
+        mm = int(curp[6:8])
+        dd = int(curp[8:10])
+        year = (1900 + yy) if yy >= 25 else (2000 + yy)
+        return date(year, mm, dd)
+    except (ValueError, IndexError):
+        return None
+
 def _diff_instance(current, incoming_dict, field_names):
     """
     Compara valores actuales vs entrantes y devuelve:
@@ -434,7 +453,7 @@ def recibir_datos1(request):
             "company": company_name,
             "education_level": _safe_str(data.get("Estudios", "sin dato")),
             "email": email if email else "",
-            "birth_date": date(1991, 1, 1),
+            "birth_date": _birth_date_from_curp(_safe_str(data.get('CURP'))),
             "notes": "Sincronizado con Tress",
             "saving_fund": fondo_ahorro,
             "daily_salary": salario_diario,

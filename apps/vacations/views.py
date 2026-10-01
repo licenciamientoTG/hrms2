@@ -9,7 +9,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_http_methods
 import csv
 import re
 import json
@@ -1109,3 +1110,44 @@ def vacation_export_csv(request):
             ])
 
     return response
+
+
+# ==========================================
+# DÍAS FESTIVOS / INHÁBILES — API JSON
+# ==========================================
+
+@user_passes_test(lambda u: u.is_staff)
+@require_http_methods(['GET', 'POST'])
+def dias_festivos_api(request):
+    if request.method == 'GET':
+        dias = list(
+            DiaInhabil.objects.values('id', 'fecha', 'descripcion').order_by('fecha')
+        )
+        for d in dias:
+            d['fecha'] = d['fecha'].strftime('%Y-%m-%d')
+        return JsonResponse({'dias': dias})
+
+    # POST — crear
+    try:
+        data = json.loads(request.body)
+        fecha = datetime.strptime(data['fecha'], '%Y-%m-%d').date()
+        descripcion = data.get('descripcion', '').strip()
+        if not descripcion:
+            return JsonResponse({'error': 'La descripción es requerida.'}, status=400)
+        dia, created = DiaInhabil.objects.get_or_create(
+            fecha=fecha,
+            defaults={'descripcion': descripcion},
+        )
+        if not created:
+            return JsonResponse({'error': 'Esa fecha ya está registrada como día festivo.'}, status=400)
+        return JsonResponse({'id': dia.id, 'fecha': dia.fecha.strftime('%Y-%m-%d'), 'descripcion': dia.descripcion})
+    except (KeyError, ValueError) as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@user_passes_test(lambda u: u.is_staff)
+@require_http_methods(['DELETE'])
+def dia_festivo_delete(request, pk):
+    dia = get_object_or_404(DiaInhabil, pk=pk)
+    dia.delete()
+    return JsonResponse({'ok': True})
