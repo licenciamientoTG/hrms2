@@ -1,3 +1,4 @@
+# ECV = Esquema de Compensación Variable
 # Estaciones que tienen bomba de Diésel — determina si aplica Categoría B del ECV
 # (las que NO están aquí usan Categoría A, sin indicador de Venta Diésel)
 # Pendientes de confirmar: Misiones, Tecnológico, Ejército Nacional, Satélite,

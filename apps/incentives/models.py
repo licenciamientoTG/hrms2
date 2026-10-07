@@ -210,7 +210,7 @@ class FaltaEmpleado(models.Model):
 
 
 class CategoriaECV(models.Model):
-    """Categoría del incentivo ECV (p. ej. A = sin diésel, B = con diésel)."""
+    """Categoría del incentivo ECV — Esquema de Compensación Variable (p. ej. A = sin diésel, B = con diésel)."""
     nombre = models.CharField(max_length=10, unique=True, verbose_name='Nombre')
     descripcion = models.CharField(max_length=200, blank=True, verbose_name='Descripción')
 

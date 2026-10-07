@@ -117,6 +117,9 @@ def org_chart_data_1(request):
 
         return found if found and found != self_id else None
 
+    from datetime import date
+    today = date.today()
+
     nodes = {}
     for emp in employees:
         first, last = get_first_last(emp)
@@ -133,6 +136,9 @@ def org_chart_data_1(request):
         leader_raw = (getattr(emp, "leader", "") or "").strip()
         parent_id = find_parent_id(leader_raw, emp.id)
 
+        bd = getattr(emp, "birth_date", None)
+        is_birthday = bool(bd and bd.month == today.month and bd.day == today.day)
+
         nodes[emp.id] = {
             "id": emp.id,
             "name": full_name,
@@ -145,6 +151,7 @@ def org_chart_data_1(request):
             "responsible": leader_raw or "",
             "employee_number": emp.employee_number or "",
             "org_chart_order": emp.org_chart_order,
+            "is_birthday": is_birthday,
         }
 
     # --- construir árbol -------------------------------------

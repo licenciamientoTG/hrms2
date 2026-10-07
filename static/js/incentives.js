@@ -204,7 +204,7 @@ function actualizarBadgeMistery(empId, ganado, monto) {
 
 // ── Actualiza el badge visual del bono de Venta para un empleado ─────────────
 
-function actualizarBadgeVenta(empId, ganado, monto) {
+function actualizarBadgeVenta(empId, ganado, monto, noAplica) {
   var badgeId = 'venta-badge-emp-' + empId;
   var cell = document.getElementById(badgeId);
   var totalCell = document.getElementById('total-' + empId + '-Venta');
@@ -216,6 +216,13 @@ function actualizarBadgeVenta(empId, ganado, monto) {
       + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
       + ' data-badge-id="' + badgeId + '" data-monto="' + (monto || 0) + '" disabled checked>';
     if (totalCell) { totalCell.textContent = monto ? '$' + monto : '—'; totalCell.classList.remove('text-muted'); }
+  } else if (noAplica) {
+    cell.innerHTML = '<span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;padding:4px 12px;font-size:12px;">'
+      + '<i class="fas fa-minus-circle me-1"></i>No aplica</span>'
+      + '<input type="checkbox" class="incentivo-check d-none"'
+      + ' data-emp="' + empId + '" data-tipo="Venta" data-fecha="' + SEMANA_INICIO + '"'
+      + ' data-badge-id="' + badgeId + '" data-monto="0" disabled>';
+    if (totalCell) { totalCell.textContent = '—'; totalCell.classList.add('text-muted'); }
   } else {
     cell.innerHTML = '<span style="display:inline-block;background:#f3f4f6;color:#6b7280;border-radius:6px;padding:4px 12px;font-size:12px;">'
       + '<i class="fas fa-times-circle me-1"></i>Sin bono esta semana</span>'
@@ -254,7 +261,7 @@ function cargarSemana(empId) {
         );
         if (cb) cb.checked = true;
       });
-      actualizarBadgeVenta(empId, tieneVenta, ventaMonto);
+      actualizarBadgeVenta(empId, tieneVenta, ventaMonto, data.venta_no_aplica);
       actualizarBadgeMistery(empId, tieneMistery, misteryMonto);
       _actualizarECVVentaEmp(empId);
       actualizarIndicadorECV('mistery', tieneMistery, empId);
@@ -668,7 +675,7 @@ function syncVentaSemana() {
           .then(function(sd) {
             if (!sd.ok) return;
             var ventaReg = sd.registros.find(function(r) { return r.tipo === 'Venta'; });
-            actualizarBadgeVenta(empId, !!ventaReg, ventaReg ? ventaReg.monto : null);
+            actualizarBadgeVenta(empId, !!ventaReg, ventaReg ? ventaReg.monto : null, sd.venta_no_aplica);
           });
       });
     })

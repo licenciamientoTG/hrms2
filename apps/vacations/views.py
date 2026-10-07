@@ -9,7 +9,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.models import User
 from apps.notifications.models import Notification
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_http_methods
 import csv
 import re
 import json
@@ -948,6 +949,7 @@ def vacation_form_rh(request):
     estado = request.GET.get('estado', 'authorized')
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
+    company = request.GET.get('company', '').strip()
 
     qs = VacationRequest.objects.select_related('user', 'user__employee', 'user__employee__department', 'manager_approver', 'manager_approver__employee', 'zona_approver', 'zona_approver__employee').order_by('start_date', 'created_at')
 
@@ -967,6 +969,15 @@ def vacation_form_rh(request):
             qs = qs.filter(tipo_solicitud=tipo)
     if q:
         qs = qs.filter(Q(id__icontains=q) | Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
+    if company:
+        qs = qs.filter(user__employee__company=company)
+
+    companies = (
+        Employee.objects
+        .exclude(company__isnull=True).exclude(company='')
+        .values_list('company', flat=True)
+        .distinct().order_by('company')
+    )
 
     page_obj = Paginator(qs, 20).get_page(request.GET.get('page'))
 
@@ -987,7 +998,9 @@ def vacation_form_rh(request):
         'role': 'rh',
         'estado': estado,
         'tipo': tipo,
-        'q': q
+        'q': q,
+        'company': company,
+        'companies': companies,
     }
     return render(request, 'vacations/admin/vacation_form_admin.html', context)
 
@@ -1032,9 +1045,10 @@ def _get_week_segments(r):
 
 @user_passes_test(lambda u: u.is_staff and u.has_perm('vacations.Modulo_vacaciones'))
 def vacation_export_csv(request):
-    estado = request.GET.get('estado', '')
-    tipo   = request.GET.get('tipo', '')
-    q      = request.GET.get('q', '').strip()
+    estado  = request.GET.get('estado', '')
+    tipo    = request.GET.get('tipo', '')
+    q       = request.GET.get('q', '').strip()
+    company = request.GET.get('company', '').strip()
 
     qs = VacationRequest.objects.select_related(
         'user', 'user__employee'
@@ -1057,6 +1071,8 @@ def vacation_export_csv(request):
 
     if q:
         qs = qs.filter(Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q))
+    if company:
+        qs = qs.filter(user__employee__company=company)
 
     dias_inhabiles = set(DiaInhabil.objects.values_list('fecha', flat=True))
 
@@ -1094,3 +1110,44 @@ def vacation_export_csv(request):
             ])
 
     return response
+
+
+# ==========================================
+# DÍAS FESTIVOS / INHÁBILES — API JSON
+# ==========================================
+
+@user_passes_test(lambda u: u.is_staff)
+@require_http_methods(['GET', 'POST'])
+def dias_festivos_api(request):
+    if request.method == 'GET':
+        dias = list(
+            DiaInhabil.objects.values('id', 'fecha', 'descripcion').order_by('fecha')
+        )
+        for d in dias:
+            d['fecha'] = d['fecha'].strftime('%Y-%m-%d')
+        return JsonResponse({'dias': dias})
+
+    # POST — crear
+    try:
+        data = json.loads(request.body)
+        fecha = datetime.strptime(data['fecha'], '%Y-%m-%d').date()
+        descripcion = data.get('descripcion', '').strip()
+        if not descripcion:
+            return JsonResponse({'error': 'La descripción es requerida.'}, status=400)
+        dia, created = DiaInhabil.objects.get_or_create(
+            fecha=fecha,
+            defaults={'descripcion': descripcion},
+        )
+        if not created:
+            return JsonResponse({'error': 'Esa fecha ya está registrada como día festivo.'}, status=400)
+        return JsonResponse({'id': dia.id, 'fecha': dia.fecha.strftime('%Y-%m-%d'), 'descripcion': dia.descripcion})
+    except (KeyError, ValueError) as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@user_passes_test(lambda u: u.is_staff)
+@require_http_methods(['DELETE'])
+def dia_festivo_delete(request, pk):
+    dia = get_object_or_404(DiaInhabil, pk=pk)
+    dia.delete()
+    return JsonResponse({'ok': True})

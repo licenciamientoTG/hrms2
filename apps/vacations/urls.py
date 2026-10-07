@@ -7,6 +7,8 @@ from .views import (
     vacation_export_csv,
     vacation_cancel_user,
     vacation_edit_user,
+    dias_festivos_api,
+    dia_festivo_delete,
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path('gestion/', vacation_form_manager, name='vacation_form_manager'), # Manager (No admin)
     path('capital-humano/', vacation_form_rh, name='vacation_form_rh'),   # RH (Superuser)
     path('capital-humano/exportar/', vacation_export_csv, name='vacation_export_csv'),
+    path('capital-humano/dias-festivos/', dias_festivos_api, name='dias_festivos_api'),
+    path('capital-humano/dias-festivos/<int:pk>/', dia_festivo_delete, name='dia_festivo_delete'),
 ]
