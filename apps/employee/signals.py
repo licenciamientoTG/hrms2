@@ -21,6 +21,16 @@ def create_user_for_employee(sender, instance, created, **kwargs):
 
     # ✅ Si es nuevo y activo → crear usuario
     if created and instance.user is None and instance.is_active:
+        # Copiar foto de un registro inactivo con el mismo nombre si existe
+        if not instance.photo:
+            duplicado = Employee.objects.filter(
+                is_active=False,
+                first_name__iexact=instance.first_name,
+                last_name__iexact=instance.last_name,
+            ).exclude(photo='').exclude(photo__isnull=True).first()
+            if duplicado:
+                instance.photo = duplicado.photo
+
         birth_date_part = instance.curp[4:10] if instance.curp and len(instance.curp) >= 11 else "000000"
         username = emp_number
         password = f"{emp_number}{birth_date_part}"

@@ -87,8 +87,10 @@ def leer_ventas_praxedis_colosio(week_start):
 
         # 2. Buscar la pestaña por nombre normalizado (sin importar espacios ni mayúsculas)
         base = _tab_name(week_start)
-        # Variantes posibles: "Semana 27-26" y "Semana 27 - 26"
-        norm_candidates = {_normalizar(c) for c in [base, base.replace('-', ' - ')]}
+        iso = week_start.isocalendar()
+        base_sin_año = f"Semana {iso[1]}"
+        # Variantes posibles: con año ("Semana 27-26", "Semana 27 - 26") y sin año ("Semana 27")
+        norm_candidates = {_normalizar(c) for c in [base, base.replace('-', ' - '), base_sin_año]}
         # Mapeo: nombre_normalizado → nombre_real_de_la_pestaña
         norm_to_real = {_normalizar(t): t for t in available}
         tab_name = next(

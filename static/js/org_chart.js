@@ -371,6 +371,9 @@ $(function () {
           html += '<div class="direct-reports-badge" title="' + directReports + ' subordinados directos">';
           html += '<span>' + directReports + '</span></div>';
         }
+        if (nodeData.is_birthday) {
+          html += '<div class="birthday-badge" title="¡Hoy es su cumpleaños!">🎂</div>';
+        }
         html += '</div>';
         html += '<div class="node-name">' + (nodeData.name || 'Sin Nombre') + '</div>';
         if (nodeData.title) {

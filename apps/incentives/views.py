@@ -10,6 +10,21 @@ from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCe
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
+def _monto_proporcional_prenomina(employee_number, prenomina_lookup, monto_base):
+    """Calcula el monto proporcional según días trabajados en prenómina.
+
+    Regla: floor(dias_vacaciones) + floor(dias_incapacidad) por separado = días ausentes.
+    Si el empleado no está en el lookup se devuelve el monto completo.
+    """
+    import math
+    if employee_number not in prenomina_lookup:
+        return monto_base
+    dias_vac, dias_inc = prenomina_lookup[employee_number]
+    dias_ausentes = math.floor(dias_vac) + math.floor(dias_inc)
+    dias_trabajados = max(0, 6 - dias_ausentes)
+    return round(monto_base / 6 * dias_trabajados)
+
+
 def _parsear_seniority(seniority_raw):
     """Parsea 'DD/MM/YYYY' a date; devuelve None si no es válido."""
     from datetime import datetime
@@ -875,6 +890,45 @@ def guardar_prenomina(request):
             for f in filas
         ]
         PrenominaRegistro.objects.bulk_create(registros)
+
+        # Recalcular montos de Mistery para esta semana según la prenómina recién guardada
+        prenomina_lookup = {
+            f['numero']: (float(f['dias_vacaciones']), float(f['dias_incapacidad']))
+            for f in filas
+        }
+        cfg = ConfiguracionIncentivos.get()
+        emp_numbers = {
+            e['id']: e['employee_number']
+            for e in Employee.objects.values('id', 'employee_number')
+        }
+        # Recalcular Mistery
+        mistery_regs = IncentivoRegistro.objects.filter(tipo='Mistery', fecha=semana)
+        for reg in mistery_regs:
+            if reg.monto == cfg.mistery_monto_evaluado:
+                continue  # no tocar al evaluado
+            monto = _monto_proporcional_prenomina(
+                emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto,
+            )
+            if reg.monto != monto:
+                reg.monto = monto
+                reg.save(update_fields=['monto'])
+
+        # Recalcular Venta
+        emp_data = {
+            e['id']: (e['employee_number'], e['team'], e['seniority_raw'])
+            for e in Employee.objects.values('id', 'employee_number', 'team', 'seniority_raw')
+        }
+        venta_regs = IncentivoRegistro.objects.filter(tipo='Venta', fecha=semana)
+        for reg in venta_regs:
+            emp_num, team_key, seniority_raw = emp_data.get(reg.employee_id, ('', '', ''))
+            monto_base = _calcular_monto_venta(team_key, seniority_raw, cfg)
+            if monto_base is None:
+                continue
+            monto = _monto_proporcional_prenomina(emp_num, prenomina_lookup, monto_base)
+            if reg.monto != monto:
+                reg.monto = monto
+                reg.save(update_fields=['monto'])
+
         return JsonResponse({'ok': True, 'total': len(registros)})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=400)
@@ -1241,6 +1295,14 @@ def semana_data(request):
         ).values('tipo', 'comentario')
     }
 
+    # Verificar si el empleado no califica para el bono de Venta por reglas de antigüedad
+    venta_no_aplica = False
+    try:
+        emp_obj = Employee.objects.only('team', 'seniority_raw').get(pk=emp_id)
+        venta_no_aplica = (_calcular_monto_venta(emp_obj.team or '', emp_obj.seniority_raw) is None)
+    except Employee.DoesNotExist:
+        pass
+
     return JsonResponse({
         'ok': True,
         'registros': [
@@ -1252,6 +1314,7 @@ def semana_data(request):
             for r in registros
         ],
         'comentarios': comentarios,
+        'venta_no_aplica': venta_no_aplica,
     })
 
 
@@ -1485,6 +1548,23 @@ def sync_venta_semana(request):
     cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
+    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad)
+    prenomina_lookup = {}
+    try:
+        upload = PrenominaUpload.objects.get(semana=week_start)
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+            prenomina_lookup[reg['numero']] = (
+                float(reg['dias_vacaciones']),
+                float(reg['dias_incapacidad']),
+            )
+    except PrenominaUpload.DoesNotExist:
+        pass
+
+    emp_numbers = {
+        e['id']: e['employee_number']
+        for e in Employee.objects.values('id', 'employee_number')
+    }
+
     for team_key in team_keys:
 
         # ── Praxedis y Colosio: presupuesto y venta desde Google Sheets ──────
@@ -1504,10 +1584,13 @@ def sync_venta_semana(request):
                 if empleados:
                     if verde:
                         for emp in empleados:
-                            monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                            if monto is None:
+                            monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                            if monto_base is None:
                                 IncentivoRegistro.objects.filter(employee_id=emp['id'], tipo='Venta', fecha=week_start).delete()
                                 continue
+                            monto = _monto_proporcional_prenomina(
+                                emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                            )
                             obj, created = IncentivoRegistro.objects.get_or_create(
                                 employee_id=emp['id'], tipo='Venta', fecha=week_start,
                                 defaults={'registrado_por': request.user, 'monto': monto},
@@ -1544,12 +1627,15 @@ def sync_venta_semana(request):
             if empleados:
                 if verde:
                     for emp in empleados:
-                        monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                        if monto is None:
+                        monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                        if monto_base is None:
                             IncentivoRegistro.objects.filter(
                                 employee_id=emp['id'], tipo='Venta', fecha=week_start,
                             ).delete()
                             continue
+                        monto = _monto_proporcional_prenomina(
+                            emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                        )
                         obj, created = IncentivoRegistro.objects.get_or_create(
                             employee_id=emp['id'], tipo='Venta', fecha=week_start,
                             defaults={'registrado_por': request.user, 'monto': monto},
@@ -1614,14 +1700,17 @@ def sync_venta_semana(request):
 
         if verde:
             for emp in empleados:
-                monto = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                if monto is None:
+                monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                if monto_base is None:
                     IncentivoRegistro.objects.filter(
                         employee_id=emp['id'],
                         tipo='Venta',
                         fecha=week_start,
                     ).delete()
                     continue
+                monto = _monto_proporcional_prenomina(
+                    emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                )
                 obj, created = IncentivoRegistro.objects.get_or_create(
                     employee_id=emp['id'],
                     tipo='Venta',
@@ -1688,6 +1777,23 @@ def sync_mistery_semana(request):
     cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
+    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad)
+    prenomina_lookup = {}
+    try:
+        upload = PrenominaUpload.objects.get(semana=week_start)
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+            prenomina_lookup[reg['numero']] = (
+                float(reg['dias_vacaciones']),
+                float(reg['dias_incapacidad']),
+            )
+    except PrenominaUpload.DoesNotExist:
+        pass
+
+    emp_numbers = {
+        e['id']: e['employee_number']
+        for e in Employee.objects.values('id', 'employee_number')
+    }
+
     for codgas, qualification in rows:
         team_key = SG12_COD_TO_TEAM_KEY.get(codgas)
         if not team_key:
@@ -1709,16 +1815,18 @@ def sync_mistery_semana(request):
 
         if ganador:
             for emp_id in empleados:
+                monto = _monto_proporcional_prenomina(
+                    emp_numbers.get(emp_id, ''), prenomina_lookup, cfg.mistery_monto,
+                )
                 obj, created = IncentivoRegistro.objects.get_or_create(
                     employee_id=emp_id,
                     tipo='Mistery',
                     fecha=week_start,
-                    defaults={'registrado_por': request.user, 'monto': cfg.mistery_monto},
+                    defaults={'registrado_por': request.user, 'monto': monto},
                 )
                 if not created and obj.monto != cfg.mistery_monto_evaluado:
-                    # Actualizar monto si cambió en config (sin tocar al evaluado)
-                    if obj.monto != cfg.mistery_monto:
-                        obj.monto = cfg.mistery_monto
+                    if obj.monto != monto:
+                        obj.monto = monto
                         obj.save(update_fields=['monto'])
         else:
             IncentivoRegistro.objects.filter(
@@ -1881,12 +1989,36 @@ def marcar_evaluado_mistery(request):
 
     cfg = ConfiguracionIncentivos.get()
 
-    # Resetear todos a monto general
-    IncentivoRegistro.objects.filter(
+    # Construir lookup de prenómina para calcular montos proporcionales al resetear
+    prenomina_lookup = {}
+    try:
+        upload = PrenominaUpload.objects.get(semana=week_start)
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+            prenomina_lookup[reg['numero']] = (
+                float(reg['dias_vacaciones']),
+                float(reg['dias_incapacidad']),
+            )
+    except PrenominaUpload.DoesNotExist:
+        pass
+
+    emp_numbers = {
+        e['id']: e['employee_number']
+        for e in Employee.objects.filter(id__in=emp_ids).values('id', 'employee_number')
+    }
+
+    # Resetear todos a monto proporcional según prenómina
+    regs_a_resetear = IncentivoRegistro.objects.filter(
         employee_id__in=emp_ids,
         tipo='Mistery',
         fecha=week_start,
-    ).update(monto=cfg.mistery_monto)
+    )
+    for reg in regs_a_resetear:
+        monto = _monto_proporcional_prenomina(
+            emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto,
+        )
+        if reg.monto != monto:
+            reg.monto = monto
+            reg.save(update_fields=['monto'])
 
     # Si se seleccionó un evaluado, asignarle el monto especial
     if emp_id:
