@@ -510,6 +510,20 @@ def terms_audit_export_view(request):
 
 
 @login_required
+def my_profile(request):
+    from apps.incentives.constants import STATION_TEAMS
+    try:
+        employee = request.user.employee
+    except Exception:
+        employee = None
+    station_name = STATION_TEAMS.get(str(employee.team), '') if employee and employee.team else ''
+    return render(request, 'users/my_profile.html', {
+        'employee': employee,
+        'station_name': station_name,
+    })
+
+
+@login_required
 @user_passes_test(lambda u: u.username.upper() in ('SUPERUSER', 'JOSE'))
 def user_inconsistencias_view(request):
     # Empleados activos con username != employee_number (tienen sufijo)

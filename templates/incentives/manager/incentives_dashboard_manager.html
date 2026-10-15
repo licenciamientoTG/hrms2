@@ -142,7 +142,7 @@
         <tbody>
           {% for tipo in tipos %}
           {% if tipo == "Diesel" or tipo == "Encargado" %}
-          <tr>
+          <tr class="tipo-empleado-only">
             <td class="fw-semibold">{{ tipo }}</td>
             {% for day in days %}
             <td class="text-center incentivo-cell {% if day == today %}day-today{% endif %}"
@@ -173,7 +173,7 @@
             <td class="text-center fw-semibold total-col" data-tipo="{{ tipo }}">$0</td>
           </tr>
           {% elif tipo == "Venta" %}
-          <tr>
+          <tr class="tipo-empleado-only" id="fila-venta-manager">
             <td class="fw-semibold">Venta</td>
             <td colspan="7" class="text-center py-2" id="venta-status-cell">
               <span class="text-muted" style="font-size:12px;">
@@ -184,7 +184,7 @@
             <td class="text-center fw-semibold text-muted" id="venta-total-manager">—</td>
           </tr>
           {% elif tipo == "Mistery" %}
-          <tr>
+          <tr class="tipo-empleado-only" id="fila-mistery-manager">
             <td class="fw-semibold">Mistery</td>
             <td colspan="7" class="text-center py-2 px-3">
               <div id="mistery-status-cell">
@@ -228,28 +228,7 @@
             <td>—</td>
             <td class="text-center fw-semibold text-muted" id="ecv-total-cell">—</td>
           </tr>
-          {% elif tipo == "Auditoría" or tipo == "Rotación" %}
-          <tr class="text-muted tipo-manager-only d-none">
-            <td class="fw-semibold">{{ tipo }}</td>
-            {% for day in days %}
-            <td class="text-center {% if day == today %}day-today{% endif %}">
-              <input type="checkbox" class="form-check-input" disabled>
-            </td>
-            {% endfor %}
-            <td>—</td>
-            <td class="text-center">—</td>
-          </tr>
-          {% else %}
-          <tr class="text-muted">
-            <td class="fw-semibold">{{ tipo }}</td>
-            {% for day in days %}
-            <td class="text-center {% if day == today %}day-today{% endif %}">
-              <input type="checkbox" class="form-check-input" disabled>
-            </td>
-            {% endfor %}
-            <td>—</td>
-            <td class="text-center">—</td>
-          </tr>
+          {# TODO: agregar cuando estén listos: Auditoría, Rotación, Inventario, Otros #}
           {% endif %}
           {% endfor %}
         </tbody>

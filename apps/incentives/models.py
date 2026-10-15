@@ -317,6 +317,51 @@ class PrenominaRegistro(models.Model):
         return f"{self.numero} — {self.nombre}"
 
 
+class IncidenciaUpload(models.Model):
+    """Carga de incidencias en cortes semanal importada desde Gmail (Excel adjunto)."""
+    semana = models.DateField(verbose_name='Semana (domingo o lunes de corte)')
+    subido_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='incidencias_subidas', verbose_name='Subido por',
+    )
+    subido_el = models.DateTimeField(auto_now_add=True)
+    total_registros = models.IntegerField(default=0)
+    gmail_msg_id = models.CharField(max_length=50, blank=True, default='', verbose_name='Gmail message ID')
+
+    class Meta:
+        verbose_name = 'Carga de incidencias'
+        verbose_name_plural = 'Cargas de incidencias'
+        ordering = ['-semana']
+
+    def __str__(self):
+        return f"Incidencias semana {self.semana} ({self.total_registros} registros)"
+
+
+class IncidenciaRegistro(models.Model):
+    """Registro individual de una incidencia/corrección de corte."""
+    upload = models.ForeignKey(
+        IncidenciaUpload, on_delete=models.CASCADE, related_name='registros',
+    )
+    problema = models.CharField(max_length=100, verbose_name='Problema')
+    fecha = models.DateField(null=True, blank=True, verbose_name='Fecha')
+    estacion_key = models.CharField(max_length=50, verbose_name='Estación (clave)')
+    turno = models.SmallIntegerField(null=True, blank=True, verbose_name='Turno')
+    tipo_incidencia = models.CharField(max_length=100, blank=True, verbose_name='Tipo de incidencia')
+    sub_detalle = models.CharField(max_length=200, blank=True, verbose_name='Sub-detalle')
+    detalle = models.CharField(max_length=500, blank=True, verbose_name='Detalle')
+    semana = models.DateField(null=True, blank=True, verbose_name='Semana')
+    nombre_estacion = models.CharField(max_length=100, blank=True, verbose_name='Nombre estación')
+    mes = models.DateField(null=True, blank=True, verbose_name='Mes')
+    zona = models.CharField(max_length=50, blank=True, verbose_name='Zona')
+
+    class Meta:
+        verbose_name = 'Registro de incidencia'
+        verbose_name_plural = 'Registros de incidencias'
+
+    def __str__(self):
+        return f"{self.estacion_key} — {self.problema} — {self.fecha}"
+
+
 class ComentarioSemana(models.Model):
     """Comentario del gerente para un tipo de incentivo en una semana."""
     employee = models.ForeignKey(

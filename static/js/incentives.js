@@ -265,6 +265,7 @@ function cargarSemana(empId) {
       actualizarBadgeMistery(empId, tieneMistery, misteryMonto);
       _actualizarECVVentaEmp(empId);
       actualizarIndicadorECV('mistery', tieneMistery, empId);
+      _actualizarIncidenciasEmp(empId, window._incidenciasEstaciones);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -292,7 +293,9 @@ function _doToggleFetch(cb, empId, tipo) {
     if (!data.ok) {
       cbRef.checked = !cbRef.checked;
       if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
-      if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
+      else if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
+      else if (data.duplicado_estacion) Swal.fire({ icon: 'warning', title: 'Ya asignado', text: data.error, confirmButtonColor: '#0d6efd' });
+      else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
     } else {
       actualizarBadge(empId);
       actualizarTotalTipo(empId, tipo);
@@ -581,11 +584,12 @@ function actualizarTabla(select) {
   // Mostrar filas exclusivas de gerente/subgerente según el empleado seleccionado
   var esManager = opt.dataset.esManager === 'true';
   document.querySelectorAll('.tipo-manager-only').forEach(function(row) {
-    if (esManager) {
-      row.classList.remove('d-none');
-    } else {
-      row.classList.add('d-none');
-    }
+    if (esManager) row.classList.remove('d-none');
+    else row.classList.add('d-none');
+  });
+  document.querySelectorAll('.tipo-empleado-only').forEach(function(row) {
+    if (!esManager) row.classList.remove('d-none');
+    else row.classList.add('d-none');
   });
 
   cargarSemanaManager(empId);
@@ -605,7 +609,7 @@ function actualizarIndicadorECV(indId, activo, empId, pct) {
   el.style.background = '';
   el.style.color = '';
   el.style.boxShadow = '';
-  if (activo === null || activo === undefined) return; // sin datos
+  if (activo === null || activo === undefined) { el.classList.add('inactivo'); return; } // sin datos → gris neutro
   if (activo === true) {
     el.classList.add('activo');
   } else {
@@ -745,14 +749,56 @@ function syncMisterySemana() {
     });
 }
 
+// ── Sincronización de Incidencias en cortes ──────────────────────────────────
+
+function _actualizarIncidenciasEmp(empId, estaciones) {
+  var row = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
+  if (!row) return;
+  var teamKey = row.dataset.teamKey;
+  if (!teamKey || !estaciones) return;
+  var est = estaciones[teamKey];
+  if (!est) return;
+  var logro = est.logro;
+  var verde = est.verde;
+  var pct = logro !== null ? Math.round(logro * 100) : null;
+  actualizarIndicadorECV('incidencia', verde === true ? true : (logro === null ? null : false), empId, pct);
+}
+
+function syncIncidenciasSemana() {
+  fetch('/incentives/sync-incidencias/?semana=' + SEMANA_INICIO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+      var estaciones = data.estaciones || {};
+
+      // Vista gerente: actualizar badge de incidencia
+      if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
+        var est = estaciones[MANAGER_TEAM_KEY];
+        if (est) {
+          var logro = est.logro;
+          var pct = logro !== null ? Math.round(logro * 100) : null;
+          actualizarIndicadorECV('incidencia', est.verde ? true : (logro === null ? null : false), null, pct);
+        }
+      }
+
+      // Vista admin/zona: actualizar filas ya expandidas
+      window._incidenciasEstaciones = estaciones;
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (empId) _actualizarIncidenciasEmp(empId, estaciones);
+      });
+    });
+}
+
 // ── DOM Ready ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
 
-  // Sincronizar bono de Venta y Mistery según datos externos
+  // Sincronizar bono de Venta, Mistery e Incidencias según datos externos
   if (typeof SEMANA_INICIO !== 'undefined') {
     syncVentaSemana();
     syncMisterySemana();
+    syncIncidenciasSemana();
   }
 
   // Accordion de estaciones
@@ -983,7 +1029,9 @@ document.addEventListener('DOMContentLoaded', function () {
           if (!data.ok) {
             cbRef.checked = !cbRef.checked;
             if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
-            if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
+            else if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
+            else if (data.duplicado_estacion) Swal.fire({ icon: 'warning', title: 'Ya asignado', text: data.error, confirmButtonColor: '#0d6efd' });
+            else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
           } else {
             actualizarTotal(tipo);
           }
