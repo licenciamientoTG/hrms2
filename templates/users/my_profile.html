@@ -1,0 +1,84 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block page_title %}Mi Perfil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <h2 class="mb-4">Mi Perfil</h2>
+
+    {% if not employee %}
+      <div class="alert alert-warning">No tienes un registro de empleado asociado a tu cuenta.</div>
+    {% else %}
+    <div class="row g-4">
+
+      <!-- Columna izquierda: foto + datos de identidad -->
+      <div class="col-md-4">
+        <div class="card text-center p-4">
+          {% if employee.photo %}
+            <img src="{{ employee.photo.url }}" alt="Foto" class="rounded-circle mx-auto d-block mb-3"
+                 style="width:120px;height:120px;object-fit:cover;">
+          {% else %}
+            <div class="rounded-circle mx-auto d-block mb-3 bg-secondary d-flex align-items-center justify-content-center"
+                 style="width:120px;height:120px;">
+              <i data-feather="user" style="width:60px;height:60px;color:#fff;"></i>
+            </div>
+          {% endif %}
+          <h5 class="mb-0">{{ employee.first_name }} {{ employee.last_name }}</h5>
+          <p class="text-muted mb-1">{{ employee.job_position.title|default:"—" }}</p>
+          <span class="badge {% if employee.is_active %}bg-success{% else %}bg-danger{% endif %}">
+            {% if employee.is_active %}Activo{% else %}Inactivo{% endif %}
+          </span>
+        </div>
+      </div>
+
+      <!-- Columna derecha: detalles -->
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-body">
+
+            <h6 class="card-subtitle mb-3 text-muted text-uppercase">Información laboral</h6>
+            <dl class="row mb-4">
+              <dt class="col-sm-5">No. Empleado</dt>
+              <dd class="col-sm-7">{{ employee.employee_number|default:"—" }}</dd>
+
+              <dt class="col-sm-5">Razón Social</dt>
+              <dd class="col-sm-7">{{ employee.company|default:"—" }}</dd>
+
+              <dt class="col-sm-5">Departamento</dt>
+              <dd class="col-sm-7">
+                {% if employee.department %}
+                  {{ employee.department.name }}
+                {% else %}—{% endif %}
+              </dd>
+
+              <dt class="col-sm-5">Puesto</dt>
+              <dd class="col-sm-7">{{ employee.job_position.title|default:"—" }}</dd>
+
+              <dt class="col-sm-5">Estación / Sucursal</dt>
+              <dd class="col-sm-7">
+                {% if station_name %}
+                  {{ employee.team }} / {{ station_name }}
+                {% else %}
+                  {{ employee.station|default:"—" }}
+                {% endif %}
+              </dd>
+
+              <dt class="col-sm-5">Equipo</dt>
+              <dd class="col-sm-7">{{ employee.team|default:"—" }}</dd>
+
+              <dt class="col-sm-5">Fecha de ingreso</dt>
+              <dd class="col-sm-7">{{ employee.start_date|date:"d/m/Y"|default:"—" }}</dd>
+            </dl>
+
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
