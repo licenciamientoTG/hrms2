@@ -6,20 +6,23 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
-def _monto_proporcional_prenomina(employee_number, prenomina_lookup, monto_base):
+def _monto_proporcional_prenomina(employee_number, prenomina_lookup, monto_base, check_faltas=False):
     """Calcula el monto proporcional según días trabajados en prenómina.
 
     Regla: floor(dias_vacaciones) + floor(dias_incapacidad) por separado = días ausentes.
     Si el empleado no está en el lookup se devuelve el monto completo.
+    Si check_faltas=True y el empleado tiene >= 1 falta, devuelve 0.
     """
     import math
     if employee_number not in prenomina_lookup:
         return monto_base
-    dias_vac, dias_inc = prenomina_lookup[employee_number]
+    dias_vac, dias_inc, dias_falta = prenomina_lookup[employee_number]
+    if check_faltas and dias_falta >= 1:
+        return 0
     dias_ausentes = math.floor(dias_vac) + math.floor(dias_inc)
     dias_trabajados = max(0, 6 - dias_ausentes)
     return round(monto_base / 6 * dias_trabajados)
@@ -75,6 +78,84 @@ def _deduplicar_por_tsa(employees):
             if is_tsa and not existing_is_tsa:
                 result[idx] = emp  # reemplazar con el de TSA
     return result
+
+
+def _calcular_incidencias_semana(week_start):
+    """
+    Calcula el indicador de incidencias en cortes para todas las estaciones
+    en la semana dada.
+
+    El domingo de la semana (week_start + 6) es la clave usada en
+    IncidenciaRegistro.semana, ya que el periodo del bono va viernes→jueves
+    y ese domingo siempre cae dentro de él.
+
+    Returns:
+        {
+          'semana_cargada': bool,
+          'semana_domingo': date,
+          'estaciones': {
+              team_key: {
+                  'count':  int,
+                  'logro':  Decimal | None,   # None si la semana no está cargada
+                  'puntos': Decimal | None,
+              }
+          }
+        }
+    """
+    from datetime import timedelta
+    from decimal import Decimal
+    from django.db.models import Count as _Count
+    from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
+
+    semana_domingo = week_start + timedelta(days=6)
+    semana_cargada = IncidenciaUpload.objects.filter(semana=semana_domingo).exists()
+
+    # Conteo por estación para ese domingo
+    conteos = {}
+    if semana_cargada:
+        conteos = {
+            row['estacion_key']: row['total']
+            for row in IncidenciaRegistro.objects
+            .filter(semana=semana_domingo)
+            .values('estacion_key')
+            .annotate(total=_Count('id'))
+        }
+
+    # Cargar indicadores de incidencia (cat A y B)
+    indicadores = {}
+    for ind in IndicadorECV.objects.filter(nombre='incidencia').select_related('categoria'):
+        indicadores[ind.categoria.nombre] = ind
+
+    def _logro(n, ind):
+        n = Decimal(n)
+        if n <= ind.umbral_excelente:
+            return Decimal('1.2')
+        if n <= ind.umbral_objetivo:
+            return Decimal('1.0')
+        if n <= ind.umbral_minimo:
+            return Decimal('0.8')
+        return Decimal('0.0')
+
+    estaciones = {}
+    for team_key in STATION_TEAMS:
+        cat = 'B' if team_key in DIESEL_TEAM_KEYS else 'A'
+        ind = indicadores.get(cat)
+        if ind is None:
+            continue
+        count = conteos.get(team_key, 0)
+        if semana_cargada:
+            logro  = _logro(count, ind)
+            puntos = logro * (ind.ponderacion / Decimal('100'))
+        else:
+            logro  = None
+            puntos = None
+        estaciones[team_key] = {'count': count, 'logro': logro, 'puntos': puntos}
+
+    return {
+        'semana_cargada': semana_cargada,
+        'semana_domingo': semana_domingo,
+        'estaciones':     estaciones,
+    }
 
 
 def _otorgar_permiso_incentivos(user):
@@ -176,8 +257,10 @@ def incentives_dashboard_admin(request):
     week_end = week_start + timedelta(days=6)
     days = [week_start + timedelta(days=i) for i in range(7)]
 
-    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'Inventario', 'Otros']
-    TIPOS_MANAGER = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    # TODO: agregar cuando estén listos: 'Inventario', 'Otros'
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery']
+    # TODO: agregar cuando estén listos: 'Auditoría', 'Rotación', 'Inventario', 'Otros'
+    TIPOS_MANAGER = ['ECV']
     from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     teams = {
@@ -312,8 +395,10 @@ def incentives_dashboard_zona(request):
     week_end = week_start + timedelta(days=6)
     days = [week_start + timedelta(days=i) for i in range(7)]
 
-    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'Inventario', 'Otros']
-    TIPOS_MANAGER = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    # TODO: agregar cuando estén listos: 'Inventario', 'Otros'
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery']
+    # TODO: agregar cuando estén listos: 'Auditoría', 'Rotación', 'Inventario', 'Otros'
+    TIPOS_MANAGER = ['ECV']
     from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     try:
@@ -434,7 +519,6 @@ def incentives_dashboard_manager(request):
         colaboradores = _deduplicar_por_tsa(list(
             Employee.objects
             .filter(department=department, is_active=True)
-            .exclude(user=request.user)
             .select_related('job_position')
             .order_by('last_name', 'first_name')
         ))
@@ -448,7 +532,8 @@ def incentives_dashboard_manager(request):
         colaboradores = Employee.objects.none()
         tiene_diesel = False
 
-    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV', 'Auditoría', 'Rotación', 'Inventario', 'Otros']
+    # TODO: agregar cuando estén listos: 'Auditoría', 'Rotación', 'Inventario', 'Otros'
+    TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV']
 
     periodo_cerrado = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
@@ -551,7 +636,7 @@ def incentives_dashboard_user(request):
         'venta_monto': venta_monto,
         'mistery_ganada': mistery_ganada,
         'mistery_monto': mistery_monto,
-        'otros_tipos': ['Inventario', 'Otros'],
+        'otros_tipos': [],  # TODO: agregar cuando estén listos: 'Inventario', 'Otros'
     })
 
 
@@ -893,7 +978,7 @@ def guardar_prenomina(request):
 
         # Recalcular montos de Mistery para esta semana según la prenómina recién guardada
         prenomina_lookup = {
-            f['numero']: (float(f['dias_vacaciones']), float(f['dias_incapacidad']))
+            f['numero']: (float(f['dias_vacaciones']), float(f['dias_incapacidad']), float(f['dias_falta']))
             for f in filas
         }
         cfg = ConfiguracionIncentivos.get()
@@ -907,7 +992,7 @@ def guardar_prenomina(request):
             if reg.monto == cfg.mistery_monto_evaluado:
                 continue  # no tocar al evaluado
             monto = _monto_proporcional_prenomina(
-                emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto,
+                emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto, check_faltas=True,
             )
             if reg.monto != monto:
                 reg.monto = monto
@@ -1235,6 +1320,15 @@ def toggle_incentivo(request):
 
     cfg = ConfiguracionIncentivos.get()
 
+    # Gerentes y subgerentes no reciben Diesel ni Mistery
+    if tipo in ('Diesel', 'Mistery'):
+        titulo_emp = (emp.job_position.title if emp.job_position else '').lower()
+        if 'gerente de estaci' in titulo_emp or 'subgerente de estaci' in titulo_emp:
+            return JsonResponse(
+                {'ok': False, 'error': f'Gerentes y subgerentes no aplican para {tipo}'},
+                status=400,
+            )
+
     # Límite de días por semana para Diesel
     if tipo == 'Diesel':
         dias_semana = IncentivoRegistro.objects.filter(
@@ -1248,7 +1342,6 @@ def toggle_incentivo(request):
                 {'ok': False, 'error': f'Máximo {cfg.diesel_max_dias} días de Diesel por semana (${diesel_max})', 'max_diesel': True},
                 status=400,
             )
-
     # Límite de días por semana para Encargado
     if tipo == 'Encargado':
         dias_semana = IncentivoRegistro.objects.filter(
@@ -1262,6 +1355,19 @@ def toggle_incentivo(request):
                 {'ok': False, 'error': f'Máximo {cfg.encargado_max_dias} días de Encargado por semana (${encargado_max})', 'max_encargado': True},
                 status=400,
             )
+        # Solo una persona por estación por día
+        if emp.team:
+            otro = IncentivoRegistro.objects.filter(
+                tipo='Encargado',
+                fecha=fecha_date,
+                employee__team=emp.team,
+            ).exclude(employee=emp).select_related('employee').first()
+            if otro:
+                nombre = f"{otro.employee.first_name} {otro.employee.last_name}".strip()
+                return JsonResponse(
+                    {'ok': False, 'error': f'Ya está marcado Encargado para {nombre} en esta fecha', 'duplicado_estacion': True},
+                    status=400,
+                )
 
     IncentivoRegistro.objects.create(employee=emp, tipo=tipo, fecha=fecha, registrado_por=request.user)
     return JsonResponse({'ok': True, 'estado': 'creado'})
@@ -1548,14 +1654,15 @@ def sync_venta_semana(request):
     cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
-    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad)
+    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad, dias_falta)
     prenomina_lookup = {}
     try:
         upload = PrenominaUpload.objects.get(semana=week_start)
-        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad', 'dias_falta'):
             prenomina_lookup[reg['numero']] = (
                 float(reg['dias_vacaciones']),
                 float(reg['dias_incapacidad']),
+                float(reg['dias_falta']),
             )
     except PrenominaUpload.DoesNotExist:
         pass
@@ -1777,14 +1884,15 @@ def sync_mistery_semana(request):
     cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
-    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad)
+    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad, dias_falta)
     prenomina_lookup = {}
     try:
         upload = PrenominaUpload.objects.get(semana=week_start)
-        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad', 'dias_falta'):
             prenomina_lookup[reg['numero']] = (
                 float(reg['dias_vacaciones']),
                 float(reg['dias_incapacidad']),
+                float(reg['dias_falta']),
             )
     except PrenominaUpload.DoesNotExist:
         pass
@@ -1808,7 +1916,10 @@ def sync_mistery_semana(request):
         resultado[team_key] = {'qualification': cal, 'ganador': ganador}
 
         empleados = list(
-            Employee.objects.filter(is_active=True, team=team_key).values_list('id', flat=True)
+            Employee.objects.filter(is_active=True, team=team_key)
+            .exclude(job_position__title__icontains='gerente de estaci')
+            .exclude(job_position__title__icontains='subgerente de estaci')
+            .values_list('id', flat=True)
         )
         if not empleados:
             continue
@@ -1816,7 +1927,7 @@ def sync_mistery_semana(request):
         if ganador:
             for emp_id in empleados:
                 monto = _monto_proporcional_prenomina(
-                    emp_numbers.get(emp_id, ''), prenomina_lookup, cfg.mistery_monto,
+                    emp_numbers.get(emp_id, ''), prenomina_lookup, cfg.mistery_monto, check_faltas=True,
                 )
                 obj, created = IncentivoRegistro.objects.get_or_create(
                     employee_id=emp_id,
@@ -1993,10 +2104,11 @@ def marcar_evaluado_mistery(request):
     prenomina_lookup = {}
     try:
         upload = PrenominaUpload.objects.get(semana=week_start)
-        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad'):
+        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad', 'dias_falta'):
             prenomina_lookup[reg['numero']] = (
                 float(reg['dias_vacaciones']),
                 float(reg['dias_incapacidad']),
+                float(reg['dias_falta']),
             )
     except PrenominaUpload.DoesNotExist:
         pass
@@ -2014,7 +2126,7 @@ def marcar_evaluado_mistery(request):
     )
     for reg in regs_a_resetear:
         monto = _monto_proporcional_prenomina(
-            emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto,
+            emp_numbers.get(reg.employee_id, ''), prenomina_lookup, cfg.mistery_monto, check_faltas=True,
         )
         if reg.monto != monto:
             reg.monto = monto
@@ -2298,4 +2410,32 @@ def configuracion_incentivos(request):
         'errores': errores,
         'guardado': guardado,
         'categorias_ecv': categorias_ecv,
+    })
+
+
+@login_required
+def sync_incidencias_semana(request):
+    """API: devuelve el conteo y logro de incidencias por estación para la semana."""
+    from datetime import date
+    semana_str = request.GET.get('semana', '')
+    try:
+        week_start = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Semana inválida'})
+
+    resultado = _calcular_incidencias_semana(week_start)
+
+    estaciones_json = {}
+    for team_key, datos in resultado['estaciones'].items():
+        logro = float(datos['logro']) if datos['logro'] is not None else None
+        estaciones_json[team_key] = {
+            'count': datos['count'],
+            'logro': logro,
+            'verde': (logro is not None and logro > 0),
+        }
+
+    return JsonResponse({
+        'ok': True,
+        'semana_cargada': resultado['semana_cargada'],
+        'estaciones': estaciones_json,
     })
