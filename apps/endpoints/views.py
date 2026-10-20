@@ -400,6 +400,7 @@ def recibir_datos1(request):
         fondo_ahorro = _as_decimal(data.get('FondoAhorro'), '0')
         salario_diario = _as_decimal(data.get('SalarioDiario'), '0')
         responsable = _safe_str(data.get('Responsable'))
+        lider_key_present = 'Lider' in data
         lider = _safe_str(data.get('Lider'))
 
         grat_separacion = _as_decimal(data.get('Grat.Separacion'), '0')
@@ -425,6 +426,9 @@ def recibir_datos1(request):
         start_date = _as_date(data.get('FechaIngreso'))
         termination_date = _as_date(data.get('FechaBaja'))
         if termination_date and termination_date.year <= 1901:
+            termination_date = None
+        # Baja anterior al ingreso = fecha del puesto anterior, no de éste
+        if termination_date and start_date and termination_date < start_date:
             termination_date = None
 
         incoming_is_active = _as_bool(data.get('Activo'))
@@ -458,7 +462,7 @@ def recibir_datos1(request):
             "saving_fund": fondo_ahorro,
             "daily_salary": salario_diario,
             "responsible": responsable,
-            "leader": lider,
+            **({"leader": lider} if lider_key_present else {}),
             "separation_gratuity": grat_separacion,
             "indemnification": indemnizacion,
             "seniority_bonus": prima_antig, 
@@ -563,7 +567,7 @@ def recibir_datos1(request):
                 if lider_emp:
                     existing.leader_fk = lider_emp
                     existing.save(update_fields=['leader_fk'])
-                elif not lider and existing.leader_fk_id is not None:
+                elif not lider and lider_key_present and existing.leader_fk_id is not None:
                     existing.leader_fk = None
                     existing.save(update_fields=['leader_fk'])
 

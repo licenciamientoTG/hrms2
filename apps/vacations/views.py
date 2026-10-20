@@ -138,6 +138,27 @@ def is_manager(user):
     return _employees_of_leader(user).exists()
 
 
+def _saldo_virtual(user, saldo_real):
+    """
+    Saldo disponible real = saldo de nóminas − días comprometidos en solicitudes
+    activas (pending/zona_pending/authorized) cuyas fechas aún no han pasado.
+    Las 'approved' no se restan porque nóminas ya las procesó en el saldo.
+    """
+    hoy = date.today()
+    dias_comprometidos = 0
+    for r in VacationRequest.objects.filter(
+        user=user,
+        tipo_solicitud='Vacaciones',
+        status__in=['pending', 'zona_pending', 'authorized']
+    ):
+        if r.selected_dates:
+            dias_comprometidos += sum(1 for d in r.selected_dates_list if d >= hoy)
+        elif r.end_date >= hoy:
+            inicio = max(r.start_date, hoy)
+            dias_comprometidos += (r.end_date - inicio).days + 1
+    return max(0.0, float(saldo_real) - dias_comprometidos), dias_comprometidos
+
+
 def _needs_zona_approval(emp):
     """Retorna True si el puesto del empleado es Oficial de Servicio al Cliente."""
     if not emp.job_position:
@@ -289,7 +310,7 @@ def vacation_form_user(request):
 
         # Validaciones
         ya_pendiente = VacationRequest.objects.filter(
-            user=request.user, tipo_solicitud=tipo, status__in=['pending', 'zona_pending', 'authorized']
+            user=request.user, tipo_solicitud=tipo, status__in=['pending', 'zona_pending']
         ).exists()
 
         if ya_pendiente:
@@ -335,7 +356,7 @@ def vacation_form_user(request):
         if tipo == 'Vacaciones':
             try:
                 emp = Employee.objects.get(user=request.user)
-                saldo = float(emp.vacation_balance or 0)
+                saldo, _ = _saldo_virtual(request.user, emp.vacation_balance or 0)
             except Employee.DoesNotExist:
                 saldo = 0.0
 
@@ -412,6 +433,7 @@ def vacation_form_user(request):
     try:
         emp = Employee.objects.get(user=request.user)
         saldo_total = float(emp.vacation_balance or 0)
+        saldo_disponible, dias_comprometidos = _saldo_virtual(request.user, saldo_total)
         # Resolver a quién fue enviada cada solicitud pendiente
         lider_emp = emp.leader_fk
         if lider_emp:
@@ -425,6 +447,8 @@ def vacation_form_user(request):
             puesto_lider = ""
     except Employee.DoesNotExist:
         saldo_total = 0
+        saldo_disponible = 0
+        dias_comprometidos = 0
         enviada_a = "Capital Humano"
         puesto_lider = ""
 
@@ -436,14 +460,38 @@ def vacation_form_user(request):
     except Exception:
         es_jefe_zona = False
 
+    # Fechas ocupadas para marcar en el calendario de solicitud
+    _en_proceso = set()
+    _aprobadas = set()
+    for _r in VacationRequest.objects.filter(
+        user=request.user,
+        status__in=['pending', 'zona_pending', 'authorized', 'approved']
+    ):
+        if _r.selected_dates:
+            _dates = [d.strip() for d in _r.selected_dates.split(',') if d.strip()]
+        else:
+            _dates = []
+            _d = _r.start_date
+            while _d <= _r.end_date:
+                _dates.append(_d.strftime('%Y-%m-%d'))
+                _d += timedelta(days=1)
+        if _r.status in ('pending', 'zona_pending'):
+            _en_proceso.update(_dates)
+        else:  # authorized, approved
+            _aprobadas.update(_dates)
+
     context = {
         'pending_requests': pending_requests,
         'finished_page': finished_page,
         'saldo_total': saldo_total,
+        'saldo_disponible': saldo_disponible,
+        'dias_comprometidos': dias_comprometidos,
         'is_manager': soy_jefe,
         'es_jefe_zona': es_jefe_zona,
         'enviada_a': enviada_a,
         'puesto_lider': puesto_lider,
+        'fechas_en_proceso_json': json.dumps(list(_en_proceso)),
+        'fechas_aprobadas_json': json.dumps(list(_aprobadas)),
     }
     return render(request, 'vacations/user/vacation_form_user.html', context)
 
