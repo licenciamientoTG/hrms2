@@ -60,7 +60,10 @@ def _filtrar_empleados_por_semana(employees, week_end, inactivos_con_registro=No
 
 
 def _deduplicar_por_tsa(employees):
-    """Si un CURP aparece en dos empresas, conserva solo el registro de TSA."""
+    """Si un CURP aparece en dos empresas, conserva solo el registro de TSA.
+    Si ninguno es TSA, gana el de start_date más reciente (puesto actual).
+    """
+    from datetime import date as _date
     seen = {}   # curp -> índice en result
     result = []
     for emp in employees:
@@ -77,6 +80,12 @@ def _deduplicar_por_tsa(employees):
             existing_is_tsa = 'tsa' in (result[idx].company or '').lower()
             if is_tsa and not existing_is_tsa:
                 result[idx] = emp  # reemplazar con el de TSA
+            elif not is_tsa and not existing_is_tsa:
+                # Ninguno es TSA: gana el de start_date más reciente
+                emp_start = emp.start_date or _date.min
+                existing_start = result[idx].start_date or _date.min
+                if emp_start > existing_start:
+                    result[idx] = emp
     return result
 
 
