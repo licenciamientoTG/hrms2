@@ -462,7 +462,7 @@ def recibir_datos1(request):
             "saving_fund": fondo_ahorro,
             "daily_salary": salario_diario,
             "responsible": responsable,
-            **({"leader": lider} if lider_key_present else {}),
+            **({"leader": lider} if lider_key_present and lider else {}),
             "separation_gratuity": grat_separacion,
             "indemnification": indemnizacion,
             "seniority_bonus": prima_antig, 
@@ -566,9 +566,6 @@ def recibir_datos1(request):
                 lider_emp = _resolve_leader_fk(lider)
                 if lider_emp:
                     existing.leader_fk = lider_emp
-                    existing.save(update_fields=['leader_fk'])
-                elif not lider and lider_key_present and existing.leader_fk_id is not None:
-                    existing.leader_fk = None
                     existing.save(update_fields=['leader_fk'])
 
             # Manejar usuario

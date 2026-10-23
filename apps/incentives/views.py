@@ -525,12 +525,24 @@ def incentives_dashboard_manager(request):
         department = gerente_emp.department
         team_key = (gerente_emp.team or '').strip()
         station_name = STATION_TEAMS.get(team_key, department.name if department else '')
-        colaboradores = _deduplicar_por_tsa(list(
-            Employee.objects
-            .filter(department=department, is_active=True)
-            .select_related('job_position')
-            .order_by('last_name', 'first_name')
-        ))
+        from django.db.models import Q
+        inactivos_con_registro = set(
+            IncentivoRegistro.objects
+            .filter(fecha__range=(week_start, week_end), employee__is_active=False,
+                    employee__team=team_key)
+            .values_list('employee_id', flat=True)
+        )
+        colaboradores = _filtrar_empleados_por_semana(
+            _deduplicar_por_tsa(list(
+                Employee.objects
+                .filter(team=team_key)
+                .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
+                .select_related('job_position')
+                .order_by('last_name', 'first_name')
+            )),
+            week_end,
+            inactivos_con_registro,
+        )
         # Tiene diesel si hay presupuesto de diesel para esta estación
         from apps.incentives.models import PresupuestoVenta as _PV
         tiene_diesel = _PV.objects.filter(team_key=team_key, diesel__gt=0).exists()
