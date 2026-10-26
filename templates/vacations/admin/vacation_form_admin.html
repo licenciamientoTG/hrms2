@@ -31,6 +31,14 @@
       </div>
       {% endif %}
       {% if role == 'rh' %}
+        <div class="btn-group" role="group">
+          <button id="btn-vista-lista" type="button" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-list me-1"></i> Lista
+          </button>
+          <button id="btn-vista-cal" type="button" class="btn btn-outline-primary btn-sm">
+            <i class="fa-regular fa-calendar me-1"></i> Calendario
+          </button>
+        </div>
         <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalDiasFestivos">
             <i class="fa-solid fa-calendar-days me-1"></i> Días Festivos
         </button>
@@ -265,13 +273,18 @@
     </div>
 </div>
 
-{% if role == 'manager' %}
+{% if role == 'manager' or role == 'rh' %}
 <div id="vac-calendar-wrap" class="card p-3 mt-3" style="display:none;">
   <!-- Leyenda -->
   <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
     <strong class="me-1">Leyenda:</strong>
+    {% if role == 'manager' %}
     <span class="badge rounded-pill cal-leyenda-btn" data-statuses="pending" style="background:#6c757d; cursor:pointer; user-select:none">Mis pendientes</span>
     <span class="badge rounded-pill cal-leyenda-btn" data-statuses="authorized,approved" style="background:#0d6efd; cursor:pointer; user-select:none">Autorizada</span>
+    {% else %}
+    <span class="badge rounded-pill" style="background:#0d6efd;">Autorizada por jefe</span>
+    <span class="badge rounded-pill" style="background:#198754;">Aprobada (RH)</span>
+    {% endif %}
   </div>
   <style>
   #vac-fullcalendar .fc-day-today {
@@ -914,7 +927,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 
-{% if role == 'manager' %}
+{% if role == 'manager' or role == 'rh' %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // ===== Toggle Lista / Calendario =====

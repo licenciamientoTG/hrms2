@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from apps.employee.models import Employee
 from .models import VacationRequest, DiaInhabil
+from .emails import send_vacation_request_email
 from django.contrib import messages
 from datetime import datetime, date, timedelta
 from itertools import groupby
@@ -268,10 +269,17 @@ def vacation_form_user(request):
                 messages.error(request, f'No puedes seleccionar fechas pasadas: {", ".join(pasadas)}.')
                 return redirect('vacation_form_user')
 
-            fines_semana = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
-            if fines_semana:
-                messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines_semana)}.')
-                return redirect('vacation_form_user')
+            try:
+                _dept = Employee.objects.get(user=request.user).department
+                _es_aqua = _dept and _dept.name == 'Misiones Aqua'
+            except Employee.DoesNotExist:
+                _es_aqua = False
+
+            if not _es_aqua:
+                fines_semana = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
+                if fines_semana:
+                    messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines_semana)}.')
+                    return redirect('vacation_form_user')
 
             start_date = fechas[0]
             end_date   = fechas[-1]
@@ -392,6 +400,13 @@ def vacation_form_user(request):
                     url="/vacations/gestion/",
                     module="vacaciones"
                 )
+                send_vacation_request_email(
+                    lider_emp,
+                    nombre_emp,
+                    tipo,
+                    nueva_solicitud.dates_display,
+                    fecha_list=nueva_solicitud.selected_dates_list or [],
+                )
             else:
                 motivo = "sin líder asignado" if not emp_profile.leader_fk else "líder sin usuario activo"
                 print(f"[Vacaciones] Fallback a RH para {nombre_emp}: {motivo}")
@@ -439,18 +454,22 @@ def vacation_form_user(request):
         if lider_emp:
             enviada_a = f"{lider_emp.first_name} {lider_emp.last_name}"
             puesto_lider = lider_emp.job_position.title if lider_emp.job_position else ""
+            correo_lider = lider_emp.corporate_email or ""
         elif (emp.leader or '').strip():
             enviada_a = "Capital Humano (líder sin acceso al sistema)"
             puesto_lider = ""
+            correo_lider = ""
         else:
             enviada_a = "Capital Humano (sin líder asignado)"
             puesto_lider = ""
+            correo_lider = ""
     except Employee.DoesNotExist:
         saldo_total = 0
         saldo_disponible = 0
         dias_comprometidos = 0
         enviada_a = "Capital Humano"
         puesto_lider = ""
+        correo_lider = ""
 
     soy_jefe = is_manager(request.user)
 
@@ -459,6 +478,12 @@ def vacation_form_user(request):
         es_jefe_zona = 'jefe de zona' in titulo.lower()
     except Exception:
         es_jefe_zona = False
+
+    try:
+        _dept_emp = request.user.employee.department
+        es_aqua = _dept_emp and _dept_emp.name == 'Misiones Aqua'
+    except Exception:
+        es_aqua = False
 
     # Fechas ocupadas para marcar en el calendario de solicitud
     _en_proceso = set()
@@ -488,8 +513,10 @@ def vacation_form_user(request):
         'dias_comprometidos': dias_comprometidos,
         'is_manager': soy_jefe,
         'es_jefe_zona': es_jefe_zona,
+        'es_aqua': es_aqua,
         'enviada_a': enviada_a,
         'puesto_lider': puesto_lider,
+        'correo_lider': correo_lider,
         'fechas_en_proceso_json': json.dumps(list(_en_proceso)),
         'fechas_aprobadas_json': json.dumps(list(_aprobadas)),
     }
@@ -1040,6 +1067,54 @@ def vacation_form_rh(request):
         for label, grp in groupby(page_obj.object_list, key=lambda r: _semana_label(r.start_date))
     ]
 
+    # Calendario RH: todas las solicitudes aprobadas/autorizadas
+    cal_qs_rh = VacationRequest.objects.filter(
+        status__in=['authorized', 'approved']
+    ).select_related('user', 'user__employee')
+
+    _cal_colors_rh = {'authorized': '#0d6efd', 'approved': '#198754'}
+    calendar_events_rh = []
+    for r in cal_qs_rh:
+        nombre = r.user.get_full_name() or r.user.username
+        color = _cal_colors_rh.get(r.status, '#0d6efd')
+        props = {
+            'req_id': r.pk,
+            'empleado': nombre,
+            'tipo': r.tipo_solicitud,
+            'dias': r.total_days or 0,
+            'estado': r.status,
+            'razon': r.reason or '',
+            'comentario_lider': r.comentario_lider or '',
+            'comentario_rh': r.comentario_rh or '',
+            'documento': r.documento.url if r.documento else '',
+            'documento_lider': r.documento_lider.url if r.documento_lider else '',
+            'dates_csv': r.selected_dates or '',
+            'lider': '',
+            'zona_approver': '',
+            'inicio': r.dates_display,
+        }
+        dias_individuales = r.selected_dates_list
+        if dias_individuales:
+            for d in dias_individuales:
+                calendar_events_rh.append({
+                    'id': f'{r.pk}_{d}',
+                    'title': nombre,
+                    'start': d.strftime('%Y-%m-%d'),
+                    'end': (d + timedelta(days=1)).strftime('%Y-%m-%d'),
+                    'color': color,
+                    'extendedProps': props,
+                })
+        else:
+            end_exclusive = (r.end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+            calendar_events_rh.append({
+                'id': r.pk,
+                'title': nombre,
+                'start': r.start_date.strftime('%Y-%m-%d'),
+                'end': end_exclusive,
+                'color': color,
+                'extendedProps': props,
+            })
+
     context = {
         'page_obj': page_obj,
         'week_groups': week_groups,
@@ -1049,6 +1124,7 @@ def vacation_form_rh(request):
         'q': q,
         'company': company,
         'companies': companies,
+        'calendar_events_json': json.dumps(calendar_events_rh),
     }
     return render(request, 'vacations/admin/vacation_form_admin.html', context)
 

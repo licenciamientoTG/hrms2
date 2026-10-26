@@ -203,6 +203,7 @@
               <p class="mb-1"><strong>Días:</strong> {{ r.total_days|default:"—" }}</p>
               <p class="mb-1"><strong>Creado:</strong> {{ r.created_at|date:"d/m/Y H:i" }}</p>
               <p class="mb-1"><strong>Enviada a:</strong> <span class="text-muted">{{ enviada_a }}</span></p>
+              {% if correo_lider %}<p class="mb-1"><strong>Correo:</strong> <span class="text-muted">{{ correo_lider }}</span></p>{% endif %}
               {% if puesto_lider %}<p class="mb-1"><strong>Puesto:</strong> <span class="text-muted">{{ puesto_lider }}</span></p>{% endif %}
             </div>
             <div class="col-md-6">
@@ -703,7 +704,7 @@
       locale: 'es',
       disableMobile: true,
       disable: [
-        function(date) { return date.getDay() === 0 || date.getDay() === 6; },
+        {% if not es_aqua %}function(date) { return date.getDay() === 0 || date.getDay() === 6; },{% endif %}
         function(date) {
           const key = _vacFmtDate(date);
           return fechasEnProceso.has(key) || fechasAprobadas.has(key);

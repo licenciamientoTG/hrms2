@@ -143,6 +143,14 @@ class Employee(models.Model):
         help_text=_("Correo de contacto del empleado")
     )
 
+    corporate_email = models.EmailField(
+        max_length=254,
+        null=True,
+        blank=True,
+        verbose_name=_("Correo corporativo"),
+        help_text=_("Correo corporativo del empleado (@totalgas.com)")
+    )
+
     photo = models.ImageField(
         upload_to='employees/photos/',
         null=True,
