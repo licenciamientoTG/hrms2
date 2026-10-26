@@ -12,6 +12,7 @@ from .views import (
     user_inconsistencias_view,
     corregir_inconsistencia_view,
     my_profile,
+    corporate_emails_view,
 )
 from apps.users.views import force_password_change, upload_user_photo
 
@@ -31,4 +32,5 @@ urlpatterns = [
     path('audit/inconsistencias/corregir/<int:emp_id>/', corregir_inconsistencia_view, name='corregir_inconsistencia'),
     path('upload-photo/<int:user_id>/', upload_user_photo, name='upload_user_photo'),
     path('mi-perfil/', my_profile, name='my_profile'),
+    path('correos-corporativos/', corporate_emails_view, name='corporate_emails'),
 ]

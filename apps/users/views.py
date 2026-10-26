@@ -712,3 +712,116 @@ def corregir_inconsistencia_view(request, emp_id):
             messages.success(request, f"{emp_nuevo.first_name} {emp_nuevo.last_name}: username renombrado de '{old_username}' a '{clean_username}'.")
 
     return redirect('user_inconsistencias')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def corporate_emails_view(request):
+    from apps.employee.models import Employee
+    from .directory_service import get_directory_emails
+    import unicodedata
+
+    def _normalize(s):
+        s = unicodedata.normalize('NFD', (s or '').lower())
+        return ''.join(c for c in s if unicodedata.category(c) != 'Mn').strip()
+
+    if request.method == 'POST' and request.POST.get('action') == 'sync':
+        try:
+            directory = get_directory_emails()
+            empleados_activos = list(Employee.objects.filter(is_active=True).select_related('job_position'))
+
+            # Índice inverso: nombre_normalizado -> lista de empleados
+            emp_index = {}
+            for emp in empleados_activos:
+                key = _normalize(f"{emp.first_name} {emp.last_name}")
+                emp_index.setdefault(key, []).append(emp)
+
+            def _match_by_email_prefix(email, empleados):
+                """
+                Intenta encontrar empleados usando el prefijo del correo.
+                ej: veronica.olvera@totalgas.com -> busca quien tenga
+                'veronica' en first_name Y 'olvera' en last_name.
+                """
+                prefix = email.split('@')[0]
+                parts = [_normalize(p) for p in prefix.replace('.', ' ').replace('_', ' ').split() if p]
+                if len(parts) < 2:
+                    return []
+                return [
+                    e for e in empleados
+                    if all(
+                        any(part in _normalize(token) for token in _normalize(e.first_name).split() + _normalize(e.last_name).split())
+                        for part in parts
+                    )
+                ]
+
+            synced = 0
+            no_match = []      # entradas del directorio sin empleado
+
+            for entry in directory:
+                key = _normalize(entry['name'])
+                matches = emp_index.get(key, [])
+
+                # Segundo intento: match por prefijo del correo
+                if not matches:
+                    matches = _match_by_email_prefix(entry['email'], empleados_activos)
+
+                # Si hay más de uno, filtrar OSC/Gerente/Subgerente que no tienen correo corporativo
+                PUESTOS_SIN_EMAIL = {'Gerente De Estación', 'Subgerente De Estacion', 'Oficial de Servicio al Cliente'}
+                if len(matches) > 1:
+                    filtrados = [e for e in matches if not (e.job_position and e.job_position.title in PUESTOS_SIN_EMAIL)]
+                    if len(filtrados) == 1:
+                        matches = filtrados
+
+                if not matches:
+                    no_match.append(entry)
+                elif len(matches) > 1:
+                    pass  # ambiguo sin resolución automática, no se toca
+                else:
+                    emp = matches[0]
+                    emp.corporate_email = entry['email']
+                    emp.save(update_fields=['corporate_email'])
+                    synced += 1
+
+            messages.success(request, f'Sincronización completada: {synced} correo(s) actualizados.')
+
+            # Guardar resultados en sesión para mostrarlos en el GET
+            request.session['sync_no_match'] = no_match
+
+        except Exception as e:
+            messages.error(request, f'Error al sincronizar con Google: {e}')
+
+        return redirect('corporate_emails')
+
+    q = request.GET.get('q', '').strip()
+    filtro = request.GET.get('filtro', '')
+
+    qs = Employee.objects.filter(is_active=True).select_related('job_position').order_by('last_name', 'first_name')
+
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        )
+    if filtro == 'sin_correo':
+        qs = qs.filter(Q(corporate_email__isnull=True) | Q(corporate_email=''))
+    elif filtro == 'con_correo':
+        qs = qs.exclude(Q(corporate_email__isnull=True) | Q(corporate_email=''))
+
+    paginator = Paginator(qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    total = Employee.objects.filter(is_active=True).count()
+    con_correo = Employee.objects.filter(is_active=True).exclude(
+        Q(corporate_email__isnull=True) | Q(corporate_email='')
+    ).count()
+
+    # Resultados de la última sincronización (se limpian al leerlos)
+    sync_no_match = request.session.pop('sync_no_match', None)
+
+    return render(request, 'users/corporate_emails.html', {
+        'page_obj': page_obj,
+        'q': q,
+        'filtro': filtro,
+        'total': total,
+        'con_correo': con_correo,
+        'sync_no_match': sync_no_match,
+    })

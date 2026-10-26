@@ -210,6 +210,7 @@ PASSWORD_RESET_TIMEOUT = 86400
 
 # settings.py
 TEST_NEWS_EMAIL = os.getenv("TEST_NEWS_EMAIL", "").strip()
+TEST_VACATION_EMAIL = os.getenv("TEST_VACATION_EMAIL", "").strip()
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "")
 
