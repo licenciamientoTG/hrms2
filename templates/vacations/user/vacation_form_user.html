@@ -704,7 +704,7 @@
       locale: 'es',
       disableMobile: true,
       disable: [
-        function(date) { return date.getDay() === 0 || date.getDay() === 6; },
+        {% if not es_aqua %}function(date) { return date.getDay() === 0 || date.getDay() === 6; },{% endif %}
         function(date) {
           const key = _vacFmtDate(date);
           return fechasEnProceso.has(key) || fechasAprobadas.has(key);

@@ -269,10 +269,17 @@ def vacation_form_user(request):
                 messages.error(request, f'No puedes seleccionar fechas pasadas: {", ".join(pasadas)}.')
                 return redirect('vacation_form_user')
 
-            fines_semana = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
-            if fines_semana:
-                messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines_semana)}.')
-                return redirect('vacation_form_user')
+            try:
+                _dept = Employee.objects.get(user=request.user).department
+                _es_aqua = _dept and _dept.name == 'Misiones Aqua'
+            except Employee.DoesNotExist:
+                _es_aqua = False
+
+            if not _es_aqua:
+                fines_semana = [d.strftime('%d/%m/%Y') for d in fechas if d.weekday() >= 5]
+                if fines_semana:
+                    messages.error(request, f'No puedes seleccionar sábados ni domingos: {", ".join(fines_semana)}.')
+                    return redirect('vacation_form_user')
 
             start_date = fechas[0]
             end_date   = fechas[-1]
@@ -398,6 +405,7 @@ def vacation_form_user(request):
                     nombre_emp,
                     tipo,
                     nueva_solicitud.dates_display,
+                    fecha_list=nueva_solicitud.selected_dates_list or [],
                 )
             else:
                 motivo = "sin líder asignado" if not emp_profile.leader_fk else "líder sin usuario activo"
@@ -471,6 +479,12 @@ def vacation_form_user(request):
     except Exception:
         es_jefe_zona = False
 
+    try:
+        _dept_emp = request.user.employee.department
+        es_aqua = _dept_emp and _dept_emp.name == 'Misiones Aqua'
+    except Exception:
+        es_aqua = False
+
     # Fechas ocupadas para marcar en el calendario de solicitud
     _en_proceso = set()
     _aprobadas = set()
@@ -499,6 +513,7 @@ def vacation_form_user(request):
         'dias_comprometidos': dias_comprometidos,
         'is_manager': soy_jefe,
         'es_jefe_zona': es_jefe_zona,
+        'es_aqua': es_aqua,
         'enviada_a': enviada_a,
         'puesto_lider': puesto_lider,
         'correo_lider': correo_lider,
