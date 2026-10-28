@@ -300,9 +300,37 @@ def incentives_dashboard_admin(request):
     from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     teams = {
-        team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': []}
+        team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': [], 'jefe_zona': None}
         for team_key, display_name in STATION_TEAMS.items()
     }
+
+    # Nombres válidos de jefes de zona (por puesto), para validar el campo leader
+    from django.db.models import Q as _Q
+    _jefes_zona_nombres = set(
+        f"{e.first_name} {e.last_name}".strip()
+        for e in Employee.objects.filter(
+            _Q(job_position__title__icontains='jefe de zona') |
+            _Q(job_position__title__icontains='gerente de operaciones'),
+            is_active=True,
+        ).select_related('job_position')
+    )
+
+    def _resolver_jefe_zona(emp):
+        """Sigue la cadena leader_fk hasta encontrar un jefe de zona (máx. 2 saltos)."""
+        current = emp
+        for _ in range(2):
+            if current.leader_fk is None:
+                break
+            lf = current.leader_fk
+            nombre = f"{lf.first_name} {lf.last_name}".strip()
+            if nombre in _jefes_zona_nombres:
+                return nombre
+            # Cargar el siguiente nivel si no está ya cargado
+            try:
+                current = Employee.objects.select_related('leader_fk').get(pk=lf.pk)
+            except Employee.DoesNotExist:
+                break
+        return None
 
     # IDs de empleados inactivos que tienen registro en esta semana (para mostrarlos igual)
     inactivos_con_registro = set(
@@ -318,7 +346,7 @@ def incentives_dashboard_admin(request):
             Employee.objects
             .filter(team__in=STATION_TEAMS.keys())
             .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
-            .select_related('job_position')
+            .select_related('job_position', 'leader_fk')
             .order_by('last_name', 'first_name')
         )),
         week_end,
@@ -341,10 +369,15 @@ def incentives_dashboard_admin(request):
         emp.incentivo_count = incentivo_counts.get(emp.id, 0)
         teams[team_key]['employees'].append(emp)
         titulo = (emp.job_position.title if emp.job_position else '').lower()
-        if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
-            teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+        if 'gerente de estaci' in titulo and 'subgerente' not in titulo:
+            if teams[team_key]['gerente'] is None:
+                teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+            if teams[team_key]['jefe_zona'] is None:
+                teams[team_key]['jefe_zona'] = _resolver_jefe_zona(emp)
         elif 'subgerente de estaci' in titulo:
             teams[team_key]['subgerentes'].append(f"{emp.first_name} {emp.last_name}".strip())
+            if teams[team_key]['jefe_zona'] is None:
+                teams[team_key]['jefe_zona'] = _resolver_jefe_zona(emp)
 
     dept_data = sorted(
         [
@@ -352,6 +385,7 @@ def incentives_dashboard_admin(request):
                 'team': data['display'],
                 'gerente': data['gerente'],
                 'subgerentes': data['subgerentes'],
+                'jefe_zona': data['jefe_zona'],
                 'employees': data['employees'],
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
                 'team_key': tk,
@@ -418,7 +452,7 @@ def incentives_dashboard_zona(request):
     if _get_rol_incentivos(request.user) != 'zona':
         return redirect('incentives_dashboard')
     from datetime import date, timedelta
-    from django.db.models import Count
+    from django.db.models import Count, Q
     import json
     today = date.today()
 
@@ -444,18 +478,36 @@ def incentives_dashboard_zona(request):
         primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
         busqueda = f"{jefe.first_name} {primer_apellido}".strip()
 
-        # Estaciones con gerente activo bajo este jefe
+        # ── Nivel 1: gerentes que reportan directamente al jefe (por FK o texto) ──
         teams_con_gerente = set(
             Employee.objects.filter(
                 team__in=STATION_TEAMS.keys(),
                 job_position__title__icontains='gerente de estaci',
-                leader__icontains=busqueda,
                 is_active=True,
             ).exclude(
                 job_position__title__icontains='sub'
+            ).filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda)
             ).values_list('team', flat=True)
         )
-        # Estaciones sin gerente activo: considerar subgerentes activos
+
+        # ── Nivel 2: gerentes/subgerentes que reportan a un intermedio que reporta al jefe ──
+        intermedios_ids = set(
+            Employee.objects.filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda),
+                is_active=True,
+            ).values_list('id', flat=True)
+        )
+        teams_via_intermedio = set(
+            Employee.objects.filter(
+                team__in=STATION_TEAMS.keys(),
+                job_position__title__icontains='gerente de estaci',
+                leader_fk__in=intermedios_ids,
+                is_active=True,
+            ).values_list('team', flat=True)
+        )
+
+        # Estaciones sin gerente activo: buscar vía subgerentes (nivel 1 y 2)
         teams_con_gerente_any = set(
             Employee.objects.filter(
                 team__in=STATION_TEAMS.keys(),
@@ -470,11 +522,13 @@ def incentives_dashboard_zona(request):
             Employee.objects.filter(
                 team__in=teams_sin_gerente,
                 job_position__title__icontains='subgerente de estaci',
-                leader__icontains=busqueda,
                 is_active=True,
+            ).filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda) | Q(leader_fk__in=intermedios_ids)
             ).values_list('team', flat=True)
         )
-        teams_del_jefe = teams_con_gerente | teams_por_subgerente
+
+        teams_del_jefe = teams_con_gerente | teams_via_intermedio | teams_por_subgerente
     except Employee.DoesNotExist:
         teams_del_jefe = set()
 

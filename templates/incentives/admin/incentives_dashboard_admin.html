@@ -85,7 +85,7 @@
       </div>
       <div class="input-group" style="max-width: 300px;">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input type="text" id="incentives-search" class="form-control form-control-sm" placeholder="Buscar estación, gerente...">
+        <input type="text" id="incentives-search" class="form-control form-control-sm" placeholder="Buscar estación, gerente, jefe de zona...">
       </div>
     </div>
 
@@ -96,6 +96,7 @@
             <th style="width:30px;"></th>
             <th>ESTACIÓN</th>
             <th>GERENTE / SUBGERENTE</th>
+            <th>JEFE DE ZONA</th>
             <th style="width:80px;" class="text-center">CAPTURA</th>
           </tr>
         </thead>
@@ -117,6 +118,7 @@
                 -
               {% endif %}
             </td>
+            <td class="text-muted" style="font-size:13px;">{{ item.jefe_zona|default:"-" }}</td>
             <td class="text-center">
               {% if item.tiene_captura %}
                 <span title="Ya hay incentivos registrados esta semana" style="display:inline-block; width:10px; height:10px; background:#28a745; border-radius:50%;"></span>
@@ -124,7 +126,7 @@
             </td>
           </tr>
           <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}" data-team-key="{{ item.team_key }}">
-            <td colspan="4" class="p-0">
+            <td colspan="5" class="p-0">
               <div class="incentives-detail-container px-3 py-2">
 
                 {# ── Selector de evaluado Mistery (solo si la estación ganó) ── #}
@@ -200,7 +202,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-center text-muted">No hay equipos registrados</td>
+            <td colspan="5" class="text-center text-muted">No hay equipos registrados</td>
           </tr>
           {% endfor %}
         </tbody>
