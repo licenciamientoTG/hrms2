@@ -5,7 +5,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
-from apps.incentives.constants import STATION_TEAMS
+from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
 from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
@@ -203,6 +203,30 @@ def _get_rol_incentivos(user):
     return None
 
 
+def _subgerente_tiene_gerente(user):
+    """
+    Retorna True si el usuario es subgerente Y su estación tiene un gerente activo.
+    En ese caso el subgerente NO puede registrar incentivos (el gerente tiene prioridad).
+    """
+    try:
+        emp = Employee.objects.select_related('job_position').get(user=user)
+        titulo = (emp.job_position.title if emp.job_position else '').lower()
+        if 'subgerente de estaci' not in titulo:
+            return False
+        team_key = (emp.team or '').strip()
+        if not team_key:
+            return False
+        return Employee.objects.filter(
+            team=team_key,
+            is_active=True,
+            job_position__title__icontains='gerente de estaci',
+        ).exclude(
+            job_position__title__icontains='subgerente',
+        ).exists()
+    except Employee.DoesNotExist:
+        return False
+
+
 @login_required
 def incentives_dashboard(request):
     if request.user.is_superuser or request.user.is_staff:
@@ -381,6 +405,7 @@ def incentives_dashboard_admin(request):
         'total_estaciones': total_estaciones,
         'cfg': cfg,
         'semanas_con_prenomina_json': semanas_con_prenomina_json,
+        'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
     })
 
 
@@ -415,13 +440,37 @@ def incentives_dashboard_zona(request):
         primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
         busqueda = f"{jefe.first_name} {primer_apellido}".strip()
 
-        teams_del_jefe = set(
+        # Estaciones con gerente activo bajo este jefe
+        teams_con_gerente = set(
             Employee.objects.filter(
                 team__in=STATION_TEAMS.keys(),
                 job_position__title__icontains='gerente de estaci',
                 leader__icontains=busqueda,
+                is_active=True,
+            ).exclude(
+                job_position__title__icontains='sub'
             ).values_list('team', flat=True)
         )
+        # Estaciones sin gerente activo: considerar subgerentes activos
+        teams_con_gerente_any = set(
+            Employee.objects.filter(
+                team__in=STATION_TEAMS.keys(),
+                job_position__title__icontains='gerente de estaci',
+                is_active=True,
+            ).exclude(
+                job_position__title__icontains='sub'
+            ).values_list('team', flat=True)
+        )
+        teams_sin_gerente = set(STATION_TEAMS.keys()) - teams_con_gerente_any
+        teams_por_subgerente = set(
+            Employee.objects.filter(
+                team__in=teams_sin_gerente,
+                job_position__title__icontains='subgerente de estaci',
+                leader__icontains=busqueda,
+                is_active=True,
+            ).values_list('team', flat=True)
+        )
+        teams_del_jefe = teams_con_gerente | teams_por_subgerente
     except Employee.DoesNotExist:
         teams_del_jefe = set()
 
@@ -499,6 +548,7 @@ def incentives_dashboard_zona(request):
         'tipos_manager': json.dumps(TIPOS_MANAGER),
         'periodo_cerrado': periodo_cerrado,
         'cfg': ConfiguracionIncentivos.get(),
+        'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
     })
 
 
@@ -506,6 +556,7 @@ def incentives_dashboard_zona(request):
 def incentives_dashboard_manager(request):
     if _get_rol_incentivos(request.user) != 'gerente':
         return redirect('incentives_dashboard')
+    sin_permiso_subgerente = _subgerente_tiene_gerente(request.user)
     from datetime import date, timedelta
     today = date.today()
 
@@ -543,9 +594,7 @@ def incentives_dashboard_manager(request):
             week_end,
             inactivos_con_registro,
         )
-        # Tiene diesel si hay presupuesto de diesel para esta estación
-        from apps.incentives.models import PresupuestoVenta as _PV
-        tiene_diesel = _PV.objects.filter(team_key=team_key, diesel__gt=0).exists()
+        tiene_diesel = team_key in DIESEL_TEAM_KEYS
     except Employee.DoesNotExist:
         department = None
         team_key = ''
@@ -572,6 +621,7 @@ def incentives_dashboard_manager(request):
         'tipos': TIPOS,
         'periodo_cerrado': periodo_cerrado,
         'cfg': ConfiguracionIncentivos.get(),
+        'sin_permiso_subgerente': sin_permiso_subgerente,
     })
 
 
@@ -1322,6 +1372,13 @@ def toggle_incentivo(request):
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
 
+    # Subgerente bloqueado si su estación tiene gerente activo
+    if _subgerente_tiene_gerente(request.user):
+        return JsonResponse(
+            {'ok': False, 'error': 'Tu estación tiene gerente asignado; solo el gerente puede registrar incentivos.'},
+            status=403,
+        )
+
     # Verificar si la semana está cerrada
     fecha_date = date.fromisoformat(fecha)
     week_start = fecha_date - timedelta(days=fecha_date.weekday())
@@ -1340,6 +1397,13 @@ def toggle_incentivo(request):
         return JsonResponse({'ok': True, 'estado': 'eliminado'})
 
     cfg = ConfiguracionIncentivos.get()
+
+    # Estaciones sin bomba de Diesel no pueden registrar ese incentivo
+    if tipo == 'Diesel' and emp.team not in DIESEL_TEAM_KEYS:
+        return JsonResponse(
+            {'ok': False, 'error': 'Esta estación no tiene bono de Diesel'},
+            status=400,
+        )
 
     # Gerentes y subgerentes no reciben Diesel ni Mistery
     if tipo in ('Diesel', 'Mistery'):

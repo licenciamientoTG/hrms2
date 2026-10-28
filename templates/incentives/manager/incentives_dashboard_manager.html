@@ -50,6 +50,13 @@
 </div>
 {% endif %}
 
+{% if sin_permiso_subgerente %}
+<div class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+  <i class="fas fa-user-slash"></i>
+  <span>Tu estación tiene gerente asignado. Solo el gerente puede registrar incentivos.</span>
+</div>
+{% endif %}
+
 {% if colaboradores %}
 
 {# ── Selector evaluado Mistery (fuera de la tabla, solo visible si la estación ganó) ── #}
@@ -146,7 +153,7 @@
             <td class="fw-semibold">{{ tipo }}</td>
             {% for day in days %}
             <td class="text-center incentivo-cell {% if day == today %}day-today{% endif %}"
-                {% if not periodo_cerrado %}style="cursor:pointer;" onclick="this.querySelector('.incentivo-check').click()"{% endif %}>
+                {% if not periodo_cerrado and not sin_permiso_subgerente %}style="cursor:pointer;" onclick="this.querySelector('.incentivo-check').click()"{% endif %}>
               <input
                 type="checkbox"
                 class="incentivo-check form-check-input"
@@ -155,7 +162,7 @@
                 data-fecha="{{ day|date:'Y-m-d' }}"
                 title="{{ tipo }} — {{ day|date:'d/m/Y' }}"
                 onclick="event.stopPropagation()"
-                {% if periodo_cerrado %}disabled{% endif %}
+                {% if periodo_cerrado or sin_permiso_subgerente %}disabled{% endif %}
               >
             </td>
             {% endfor %}
@@ -167,7 +174,7 @@
                 rows="2"
                 placeholder="Comentario de la semana…"
                 style="font-size:12px; resize:none;"
-                {% if periodo_cerrado %}readonly{% endif %}
+                {% if periodo_cerrado or sin_permiso_subgerente %}readonly{% endif %}
               ></textarea>
             </td>
             <td class="text-center fw-semibold total-col" data-tipo="{{ tipo }}">$0</td>
@@ -261,6 +268,7 @@
   <script>
     var SEMANA_INICIO = "{{ week_start|date:'Y-m-d' }}";
     var PERIODO_CERRADO = {{ periodo_cerrado|yesno:"true,false" }};
+    var SIN_PERMISO_SUBGERENTE = {{ sin_permiso_subgerente|yesno:"true,false" }};
     var CFG_DIESEL_POR_DIA = {{ cfg.diesel_por_dia }};
     var CFG_DIESEL_MAX_DIAS = {{ cfg.diesel_max_dias }};
     var CFG_ENC_PRIMER_DIA = {{ cfg.encargado_primer_dia }};
