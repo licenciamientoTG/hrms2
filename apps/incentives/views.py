@@ -703,13 +703,14 @@ def incentives_dashboard_user(request):
 
     try:
         emp = Employee.objects.get(user=request.user)
+        tiene_diesel = emp.team in DIESEL_TEAM_KEYS
         diesel_fechas = set(
             IncentivoRegistro.objects.filter(
                 employee=emp,
                 tipo='Diesel',
                 fecha__range=(week_start, week_end),
             ).values_list('fecha', flat=True)
-        )
+        ) if tiene_diesel else set()
         diesel_dias = sum(1 for d in days if d in diesel_fechas)
         encargado_fechas = set(
             IncentivoRegistro.objects.filter(
@@ -734,6 +735,7 @@ def incentives_dashboard_user(request):
         mistery_ganada = mistery_reg is not None
         mistery_monto = int(mistery_reg['monto']) if mistery_reg and mistery_reg['monto'] else 0
     except Employee.DoesNotExist:
+        tiene_diesel = False
         diesel_fechas = set()
         diesel_dias = 0
         encargado_fechas = set()
@@ -754,6 +756,7 @@ def incentives_dashboard_user(request):
         'today': today,
         'delta': delta,
         'days': days,
+        'tiene_diesel': tiene_diesel,
         'diesel_fechas': diesel_fechas,
         'diesel_dias': diesel_dias,
         'diesel_total': diesel_total,

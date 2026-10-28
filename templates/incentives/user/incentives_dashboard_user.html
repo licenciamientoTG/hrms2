@@ -57,7 +57,8 @@
           </tr>
         </thead>
         <tbody>
-          {# ── Diesel (activo) ── #}
+          {# ── Diesel (solo si la estación tiene diesel) ── #}
+          {% if tiene_diesel %}
           <tr>
             <td class="fw-semibold">Diesel</td>
             {% for day in days %}
@@ -76,6 +77,7 @@
               {% if diesel_total > 0 %}${{ diesel_total }}{% else %}—{% endif %}
             </td>
           </tr>
+          {% endif %}
           {# ── Encargado ── #}
           <tr>
             <td class="fw-semibold">Encargado</td>
