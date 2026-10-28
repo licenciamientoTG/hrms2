@@ -875,7 +875,7 @@ def vacation_form_manager(request):
     cal_qs = VacationRequest.objects.filter(
         user__employee__in=mis_empleados,
         status__in=['pending', 'authorized', 'approved']
-    ).select_related('user', 'user__employee', 'user__employee__leader_fk', 'zona_approver')
+    ).select_related('user', 'user__employee', 'user__employee__leader_fk', 'zona_approver', 'manager_approver')
 
     _cal_colors = {
         'pending':    '#6c757d',
@@ -906,6 +906,7 @@ def vacation_form_manager(request):
             'dates_csv': r.selected_dates or '',
             'lider': lider_name,
             'zona_approver': zona_name,
+            'autorizador': r.manager_approver.get_full_name() if r.manager_approver else '',
             'inicio': r.dates_display,
         }
         color = _cal_colors.get(r.status, '#6c757d')
@@ -1070,7 +1071,7 @@ def vacation_form_rh(request):
     # Calendario RH: todas las solicitudes aprobadas/autorizadas
     cal_qs_rh = VacationRequest.objects.filter(
         status__in=['authorized', 'approved']
-    ).select_related('user', 'user__employee')
+    ).select_related('user', 'user__employee', 'manager_approver')
 
     _cal_colors_rh = {'authorized': '#0d6efd', 'approved': '#198754'}
     calendar_events_rh = []
@@ -1091,6 +1092,7 @@ def vacation_form_rh(request):
             'dates_csv': r.selected_dates or '',
             'lider': '',
             'zona_approver': '',
+            'autorizador': r.manager_approver.get_full_name() if r.manager_approver else '',
             'inicio': r.dates_display,
         }
         dias_individuales = r.selected_dates_list

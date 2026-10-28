@@ -5,7 +5,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
-from apps.incentives.constants import STATION_TEAMS
+from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
 from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
@@ -203,6 +203,30 @@ def _get_rol_incentivos(user):
     return None
 
 
+def _subgerente_tiene_gerente(user):
+    """
+    Retorna True si el usuario es subgerente Y su estación tiene un gerente activo.
+    En ese caso el subgerente NO puede registrar incentivos (el gerente tiene prioridad).
+    """
+    try:
+        emp = Employee.objects.select_related('job_position').get(user=user)
+        titulo = (emp.job_position.title if emp.job_position else '').lower()
+        if 'subgerente de estaci' not in titulo:
+            return False
+        team_key = (emp.team or '').strip()
+        if not team_key:
+            return False
+        return Employee.objects.filter(
+            team=team_key,
+            is_active=True,
+            job_position__title__icontains='gerente de estaci',
+        ).exclude(
+            job_position__title__icontains='subgerente',
+        ).exists()
+    except Employee.DoesNotExist:
+        return False
+
+
 @login_required
 def incentives_dashboard(request):
     if request.user.is_superuser or request.user.is_staff:
@@ -248,19 +272,22 @@ def incentives_dashboard(request):
 
 @login_required
 def incentives_dashboard_admin(request):
-    if _get_rol_incentivos(request.user) != 'admin':
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('admin', 'operaciones'):
         return redirect('incentives_dashboard')
+    es_solo_lectura = (rol == 'operaciones')
     from datetime import date, timedelta
     from django.db.models import Count
     import json
     today = date.today()
 
+    session_key = 'incentivos_ops_admin_delta' if es_solo_lectura else 'incentivos_admin_delta'
     if 'reset' in request.GET:
-        request.session['incentivos_admin_delta'] = 0
+        request.session[session_key] = 0
     elif 'delta' in request.GET:
-        request.session['incentivos_admin_delta'] = int(request.GET['delta'])
+        request.session[session_key] = int(request.GET['delta'])
 
-    delta = request.session.get('incentivos_admin_delta', 0)
+    delta = request.session.get(session_key, 0)
 
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=delta)
     week_end = week_start + timedelta(days=6)
@@ -273,9 +300,37 @@ def incentives_dashboard_admin(request):
     from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
     teams = {
-        team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': []}
+        team_key: {'display': display_name, 'employees': [], 'gerente': None, 'subgerentes': [], 'jefe_zona': None}
         for team_key, display_name in STATION_TEAMS.items()
     }
+
+    # Nombres válidos de jefes de zona (por puesto), para validar el campo leader
+    from django.db.models import Q as _Q
+    _jefes_zona_nombres = set(
+        f"{e.first_name} {e.last_name}".strip()
+        for e in Employee.objects.filter(
+            _Q(job_position__title__icontains='jefe de zona') |
+            _Q(job_position__title__icontains='gerente de operaciones'),
+            is_active=True,
+        ).select_related('job_position')
+    )
+
+    def _resolver_jefe_zona(emp):
+        """Sigue la cadena leader_fk hasta encontrar un jefe de zona (máx. 2 saltos)."""
+        current = emp
+        for _ in range(2):
+            if current.leader_fk is None:
+                break
+            lf = current.leader_fk
+            nombre = f"{lf.first_name} {lf.last_name}".strip()
+            if nombre in _jefes_zona_nombres:
+                return nombre
+            # Cargar el siguiente nivel si no está ya cargado
+            try:
+                current = Employee.objects.select_related('leader_fk').get(pk=lf.pk)
+            except Employee.DoesNotExist:
+                break
+        return None
 
     # IDs de empleados inactivos que tienen registro en esta semana (para mostrarlos igual)
     inactivos_con_registro = set(
@@ -291,7 +346,7 @@ def incentives_dashboard_admin(request):
             Employee.objects
             .filter(team__in=STATION_TEAMS.keys())
             .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
-            .select_related('job_position')
+            .select_related('job_position', 'leader_fk')
             .order_by('last_name', 'first_name')
         )),
         week_end,
@@ -314,10 +369,15 @@ def incentives_dashboard_admin(request):
         emp.incentivo_count = incentivo_counts.get(emp.id, 0)
         teams[team_key]['employees'].append(emp)
         titulo = (emp.job_position.title if emp.job_position else '').lower()
-        if 'gerente de estaci' in titulo and 'subgerente' not in titulo and teams[team_key]['gerente'] is None:
-            teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+        if 'gerente de estaci' in titulo and 'subgerente' not in titulo:
+            if teams[team_key]['gerente'] is None:
+                teams[team_key]['gerente'] = f"{emp.first_name} {emp.last_name}".strip()
+            if teams[team_key]['jefe_zona'] is None:
+                teams[team_key]['jefe_zona'] = _resolver_jefe_zona(emp)
         elif 'subgerente de estaci' in titulo:
             teams[team_key]['subgerentes'].append(f"{emp.first_name} {emp.last_name}".strip())
+            if teams[team_key]['jefe_zona'] is None:
+                teams[team_key]['jefe_zona'] = _resolver_jefe_zona(emp)
 
     dept_data = sorted(
         [
@@ -325,6 +385,7 @@ def incentives_dashboard_admin(request):
                 'team': data['display'],
                 'gerente': data['gerente'],
                 'subgerentes': data['subgerentes'],
+                'jefe_zona': data['jefe_zona'],
                 'employees': data['employees'],
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
                 'team_key': tk,
@@ -381,6 +442,8 @@ def incentives_dashboard_admin(request):
         'total_estaciones': total_estaciones,
         'cfg': cfg,
         'semanas_con_prenomina_json': semanas_con_prenomina_json,
+        'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
+        'es_solo_lectura': es_solo_lectura,
     })
 
 
@@ -389,7 +452,7 @@ def incentives_dashboard_zona(request):
     if _get_rol_incentivos(request.user) != 'zona':
         return redirect('incentives_dashboard')
     from datetime import date, timedelta
-    from django.db.models import Count
+    from django.db.models import Count, Q
     import json
     today = date.today()
 
@@ -415,13 +478,57 @@ def incentives_dashboard_zona(request):
         primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
         busqueda = f"{jefe.first_name} {primer_apellido}".strip()
 
-        teams_del_jefe = set(
+        # ── Nivel 1: gerentes que reportan directamente al jefe (por FK o texto) ──
+        teams_con_gerente = set(
             Employee.objects.filter(
                 team__in=STATION_TEAMS.keys(),
                 job_position__title__icontains='gerente de estaci',
-                leader__icontains=busqueda,
+                is_active=True,
+            ).exclude(
+                job_position__title__icontains='sub'
+            ).filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda)
             ).values_list('team', flat=True)
         )
+
+        # ── Nivel 2: gerentes/subgerentes que reportan a un intermedio que reporta al jefe ──
+        intermedios_ids = set(
+            Employee.objects.filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda),
+                is_active=True,
+            ).values_list('id', flat=True)
+        )
+        teams_via_intermedio = set(
+            Employee.objects.filter(
+                team__in=STATION_TEAMS.keys(),
+                job_position__title__icontains='gerente de estaci',
+                leader_fk__in=intermedios_ids,
+                is_active=True,
+            ).values_list('team', flat=True)
+        )
+
+        # Estaciones sin gerente activo: buscar vía subgerentes (nivel 1 y 2)
+        teams_con_gerente_any = set(
+            Employee.objects.filter(
+                team__in=STATION_TEAMS.keys(),
+                job_position__title__icontains='gerente de estaci',
+                is_active=True,
+            ).exclude(
+                job_position__title__icontains='sub'
+            ).values_list('team', flat=True)
+        )
+        teams_sin_gerente = set(STATION_TEAMS.keys()) - teams_con_gerente_any
+        teams_por_subgerente = set(
+            Employee.objects.filter(
+                team__in=teams_sin_gerente,
+                job_position__title__icontains='subgerente de estaci',
+                is_active=True,
+            ).filter(
+                Q(leader_fk=jefe) | Q(leader__icontains=busqueda) | Q(leader_fk__in=intermedios_ids)
+            ).values_list('team', flat=True)
+        )
+
+        teams_del_jefe = teams_con_gerente | teams_via_intermedio | teams_por_subgerente
     except Employee.DoesNotExist:
         teams_del_jefe = set()
 
@@ -499,6 +606,7 @@ def incentives_dashboard_zona(request):
         'tipos_manager': json.dumps(TIPOS_MANAGER),
         'periodo_cerrado': periodo_cerrado,
         'cfg': ConfiguracionIncentivos.get(),
+        'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
     })
 
 
@@ -506,6 +614,7 @@ def incentives_dashboard_zona(request):
 def incentives_dashboard_manager(request):
     if _get_rol_incentivos(request.user) != 'gerente':
         return redirect('incentives_dashboard')
+    sin_permiso_subgerente = _subgerente_tiene_gerente(request.user)
     from datetime import date, timedelta
     today = date.today()
 
@@ -543,9 +652,7 @@ def incentives_dashboard_manager(request):
             week_end,
             inactivos_con_registro,
         )
-        # Tiene diesel si hay presupuesto de diesel para esta estación
-        from apps.incentives.models import PresupuestoVenta as _PV
-        tiene_diesel = _PV.objects.filter(team_key=team_key, diesel__gt=0).exists()
+        tiene_diesel = team_key in DIESEL_TEAM_KEYS
     except Employee.DoesNotExist:
         department = None
         team_key = ''
@@ -572,6 +679,7 @@ def incentives_dashboard_manager(request):
         'tipos': TIPOS,
         'periodo_cerrado': periodo_cerrado,
         'cfg': ConfiguracionIncentivos.get(),
+        'sin_permiso_subgerente': sin_permiso_subgerente,
     })
 
 
@@ -595,13 +703,14 @@ def incentives_dashboard_user(request):
 
     try:
         emp = Employee.objects.get(user=request.user)
+        tiene_diesel = emp.team in DIESEL_TEAM_KEYS
         diesel_fechas = set(
             IncentivoRegistro.objects.filter(
                 employee=emp,
                 tipo='Diesel',
                 fecha__range=(week_start, week_end),
             ).values_list('fecha', flat=True)
-        )
+        ) if tiene_diesel else set()
         diesel_dias = sum(1 for d in days if d in diesel_fechas)
         encargado_fechas = set(
             IncentivoRegistro.objects.filter(
@@ -626,6 +735,7 @@ def incentives_dashboard_user(request):
         mistery_ganada = mistery_reg is not None
         mistery_monto = int(mistery_reg['monto']) if mistery_reg and mistery_reg['monto'] else 0
     except Employee.DoesNotExist:
+        tiene_diesel = False
         diesel_fechas = set()
         diesel_dias = 0
         encargado_fechas = set()
@@ -646,6 +756,7 @@ def incentives_dashboard_user(request):
         'today': today,
         'delta': delta,
         'days': days,
+        'tiene_diesel': tiene_diesel,
         'diesel_fechas': diesel_fechas,
         'diesel_dias': diesel_dias,
         'diesel_total': diesel_total,
@@ -1322,6 +1433,13 @@ def toggle_incentivo(request):
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
 
+    # Subgerente bloqueado si su estación tiene gerente activo
+    if _subgerente_tiene_gerente(request.user):
+        return JsonResponse(
+            {'ok': False, 'error': 'Tu estación tiene gerente asignado; solo el gerente puede registrar incentivos.'},
+            status=403,
+        )
+
     # Verificar si la semana está cerrada
     fecha_date = date.fromisoformat(fecha)
     week_start = fecha_date - timedelta(days=fecha_date.weekday())
@@ -1340,6 +1458,13 @@ def toggle_incentivo(request):
         return JsonResponse({'ok': True, 'estado': 'eliminado'})
 
     cfg = ConfiguracionIncentivos.get()
+
+    # Estaciones sin bomba de Diesel no pueden registrar ese incentivo
+    if tipo == 'Diesel' and emp.team not in DIESEL_TEAM_KEYS:
+        return JsonResponse(
+            {'ok': False, 'error': 'Esta estación no tiene bono de Diesel'},
+            status=400,
+        )
 
     # Gerentes y subgerentes no reciben Diesel ni Mistery
     if tipo in ('Diesel', 'Mistery'):

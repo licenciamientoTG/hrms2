@@ -698,7 +698,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         document.getElementById('det-nombre-colab').textContent = props.empleado ? `(${props.empleado})` : '';
-        document.getElementById('det-nombre-lider').textContent = props.lider    ? `(${props.lider})`    : '';
+        document.getElementById('det-nombre-lider').textContent = props.autorizador ? `(${props.autorizador})` : (props.lider ? `(${props.lider})` : '');
         document.getElementById('det-razon-colab').textContent  = props.razon             || '—';
         document.getElementById('det-razon-lider').textContent  = props.comentario_lider  || '—';
         document.getElementById('det-razon-rh').textContent     = props.comentario_rh     || '—';

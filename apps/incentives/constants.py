@@ -1,23 +1,29 @@
 # ECV = Esquema de Compensación Variable
 # Estaciones que tienen bomba de Diésel — determina si aplica Categoría B del ECV
 # (las que NO están aquí usan Categoría A, sin indicador de Venta Diésel)
-# Pendientes de confirmar: Misiones, Tecnológico, Ejército Nacional, Satélite,
-#   Las Fuentes, Clara, Solis, Santiago Troncoso, Jarudo
 DIESEL_TEAM_KEYS = {
-    '4188',           # Gemela Grande
+    '1376',           # Delicias
+    '2172',           # Parral
     '4179',           # Gemela Chica
+    '4188',           # Gemela Grande
     '5465',           # Aztecas
-    '9893',           # Anapra
     '6947',           # Puerto de Palos
     '8244',           # Permuta
     '9191',           # Electrolux
     '9235',           # Aeronáutica
-    '2172',           # Parral
-    '1376',           # Delicias
-    'Picachos',       # Picachos
-    'San Rafael',     # San Rafael
+    '9893',           # Anapra
+    'Ejercito',       # Ejército Nacional
+    'Satelite',       # Satélite
+    'Fuentes',        # Las Fuentes
+    'Clara',          # Clara
+    'Solis',          # Solis
+    'Santiago',       # Santiago Troncoso
+    'Jarudo',         # Jarudo
     'Villahumada',    # Villa Ahumada
     'Travel Center',  # Travel Center
+    'Picachos',       # Picachos
+    'San Rafael',     # San Rafael
+    'Praxedis',       # Praxedis
 }
 
 # Team keys de estaciones del Bajío (reciben $240 de bono de venta, sin importar antigüedad)

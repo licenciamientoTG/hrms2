@@ -35,6 +35,7 @@
         <i class="fas fa-chevron-right"></i>
       </span>
       {% endif %}
+      {% if not es_solo_lectura %}
       {% if periodo_cerrado %}
       <button id="btn-close-period" class="btn btn-sm ms-2 p-0 border-0 bg-transparent" title="Periodo CERRADO — click para reabrir" style="line-height:1;">
         <i class="fas fa-lock" style="font-size:1.6rem; color:#dc3545;"></i>
@@ -44,9 +45,17 @@
         <i class="fas fa-lock-open" style="font-size:1.6rem; color:#28a745;"></i>
       </button>
       {% endif %}
+      {% else %}
+      {% if periodo_cerrado %}
+      <span class="ms-2" title="Semana cerrada">
+        <i class="fas fa-lock" style="font-size:1.6rem; color:#dc3545;"></i>
+      </span>
+      {% endif %}
+      {% endif %}
       <a href="{% url 'desglose_bonos' %}?fecha_ini={{ week_start|date:'Y-m-d' }}&fecha_fin={{ week_end|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm ms-2" title="Desglose de bonos">
         <i class="fas fa-table"></i>
       </a>
+      {% if not es_solo_lectura %}
       <a href="{% url 'configuracion_incentivos' %}" class="btn btn-outline-secondary btn-sm ms-2" title="Configurar montos de incentivos">
         <i class="fas fa-sliders-h"></i>
       </a>
@@ -55,6 +64,12 @@
               title="Cargar prenómina semanal">
         <i class="fas fa-file-upload me-1"></i>Prenómina
       </button>
+      {% endif %}
+      {% if es_solo_lectura %}
+      <a href="{% url 'incentives_dashboard_operaciones' %}" class="btn btn-outline-secondary btn-sm ms-2" title="Volver a Indicadores Operativos">
+        <i class="fas fa-chart-bar me-1"></i>Operativos
+      </a>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -70,7 +85,7 @@
       </div>
       <div class="input-group" style="max-width: 300px;">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input type="text" id="incentives-search" class="form-control form-control-sm" placeholder="Buscar estación, gerente...">
+        <input type="text" id="incentives-search" class="form-control form-control-sm" placeholder="Buscar estación, gerente, jefe de zona...">
       </div>
     </div>
 
@@ -81,6 +96,7 @@
             <th style="width:30px;"></th>
             <th>ESTACIÓN</th>
             <th>GERENTE / SUBGERENTE</th>
+            <th>JEFE DE ZONA</th>
             <th style="width:80px;" class="text-center">CAPTURA</th>
           </tr>
         </thead>
@@ -102,6 +118,7 @@
                 -
               {% endif %}
             </td>
+            <td class="text-muted" style="font-size:13px;">{{ item.jefe_zona|default:"-" }}</td>
             <td class="text-center">
               {% if item.tiene_captura %}
                 <span title="Ya hay incentivos registrados esta semana" style="display:inline-block; width:10px; height:10px; background:#28a745; border-radius:50%;"></span>
@@ -109,7 +126,7 @@
             </td>
           </tr>
           <tr class="incentives-detail-row d-none" data-dept-id="{{ forloop.counter }}" data-team-key="{{ item.team_key }}">
-            <td colspan="4" class="p-0">
+            <td colspan="5" class="p-0">
               <div class="incentives-detail-container px-3 py-2">
 
                 {# ── Selector de evaluado Mistery (solo si la estación ganó) ── #}
@@ -185,7 +202,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-center text-muted">No hay equipos registrados</td>
+            <td colspan="5" class="text-center text-muted">No hay equipos registrados</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -337,6 +354,8 @@
     ];
     var TIPOS = {{ tipos|safe }};
     var TIPOS_MANAGER = {{ tipos_manager|safe }};
+    var DIESEL_TEAM_KEYS = new Set({{ diesel_team_keys_json|safe }});
+    var ES_SOLO_LECTURA = {{ es_solo_lectura|yesno:"true,false" }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
   <script>

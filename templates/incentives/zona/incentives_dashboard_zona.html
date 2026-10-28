@@ -184,6 +184,7 @@
     ];
     var TIPOS = {{ tipos|safe }};
     var TIPOS_MANAGER = {{ tipos_manager|safe }};
+    var DIESEL_TEAM_KEYS = new Set({{ diesel_team_keys_json|safe }});
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

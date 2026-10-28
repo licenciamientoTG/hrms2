@@ -36,9 +36,7 @@ def calculator_user(request):
     current_week = today.isocalendar()[1] #
     target_week = 44  #
     
-    if current_week > target_week: #
-        max_weeks_allowed = 10 #
-    elif current_week == target_week: #
+    if current_week >= target_week: #
         max_weeks_allowed = 0 #
     else: #
         max_weeks_allowed = max(0, min(10, target_week - current_week)) #
@@ -188,9 +186,7 @@ def create_loan_request(request):
         # current_week = 43 # <--- COMENTAR EN PRODUCCIÓN
         target_week = 44
         
-        if current_week > target_week:
-            max_allowed = 10
-        elif current_week == target_week:
+        if current_week >= target_week:
             max_allowed = 0
         else:
             max_allowed = min(10, target_week - current_week)
