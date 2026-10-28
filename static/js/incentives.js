@@ -119,6 +119,12 @@ function buildEmpTable(empId) {
         { id: 'faltante',     icon: 'fa-balance-scale',   label: 'Faltante'             },
         { id: 'incidencia',   icon: 'fa-cut',             label: 'Incidencia en cortes' },
       ];
+      if (typeof DIESEL_TEAM_KEYS !== 'undefined' && detailParent) {
+        var stationTeamKey = detailParent.dataset.teamKey;
+        if (stationTeamKey && !DIESEL_TEAM_KEYS.has(stationTeamKey)) {
+          indEcv = indEcv.filter(function(ind) { return ind.id !== 'venta_diesel'; });
+        }
+      }
       html += '<td colspan="' + DIAS.length + '" class="py-2 px-3">';
       html += '<div class="d-flex flex-wrap gap-2 align-items-center">';
       indEcv.forEach(function(ind) {
@@ -135,7 +141,7 @@ function buildEmpTable(empId) {
               + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '">';
         html += '<input type="checkbox" class="incentivo-check form-check-input"'
               + ' data-emp="' + empId + '" data-tipo="' + tipo + '" data-fecha="' + dia.fecha + '"'
-              + (PERIODO_CERRADO || window.SIN_PERMISO_SUBGERENTE ? ' disabled' : '')
+              + (PERIODO_CERRADO || window.SIN_PERMISO_SUBGERENTE || window.ES_SOLO_LECTURA ? ' disabled' : '')
               + ' onclick="event.stopPropagation()">';
         html += '</td>';
       });
@@ -144,7 +150,7 @@ function buildEmpTable(empId) {
           + '<textarea class="comentario-semana form-control form-control-sm"'
           + ' data-emp="' + empId + '" data-tipo="' + tipo + '"'
           + ' rows="2" placeholder="Comentario…" style="font-size:12px;resize:none;"'
-          + (PERIODO_CERRADO || window.SIN_PERMISO_SUBGERENTE ? ' readonly' : '') + '></textarea>'
+          + (PERIODO_CERRADO || window.SIN_PERMISO_SUBGERENTE || window.ES_SOLO_LECTURA ? ' readonly' : '') + '></textarea>'
           + '</td>';
     if (tipo === 'Diesel' || tipo === 'Encargado') {
       html += '<td class="text-center fw-semibold" id="total-' + empId + '-' + tipo + '">$0</td>';

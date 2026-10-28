@@ -272,19 +272,22 @@ def incentives_dashboard(request):
 
 @login_required
 def incentives_dashboard_admin(request):
-    if _get_rol_incentivos(request.user) != 'admin':
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('admin', 'operaciones'):
         return redirect('incentives_dashboard')
+    es_solo_lectura = (rol == 'operaciones')
     from datetime import date, timedelta
     from django.db.models import Count
     import json
     today = date.today()
 
+    session_key = 'incentivos_ops_admin_delta' if es_solo_lectura else 'incentivos_admin_delta'
     if 'reset' in request.GET:
-        request.session['incentivos_admin_delta'] = 0
+        request.session[session_key] = 0
     elif 'delta' in request.GET:
-        request.session['incentivos_admin_delta'] = int(request.GET['delta'])
+        request.session[session_key] = int(request.GET['delta'])
 
-    delta = request.session.get('incentivos_admin_delta', 0)
+    delta = request.session.get(session_key, 0)
 
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=delta)
     week_end = week_start + timedelta(days=6)
@@ -406,6 +409,7 @@ def incentives_dashboard_admin(request):
         'cfg': cfg,
         'semanas_con_prenomina_json': semanas_con_prenomina_json,
         'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
+        'es_solo_lectura': es_solo_lectura,
     })
 
 
