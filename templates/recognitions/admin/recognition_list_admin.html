@@ -100,12 +100,12 @@
           </th>
           <th>Destinatarios</th>
           <th>
-            {% if order == 'created_at' %}
-              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-up"></i></a>
-            {% elif order == '-created_at' %}
-              <a href="?{{ base_qs }}&order=created_at" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-down"></i></a>
+            {% if order == 'display_date' %}
+              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-display_date' %}
+              <a href="?{{ base_qs }}&order=display_date" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-down"></i></a>
             {% else %}
-              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-muted">Fecha <i class="fa fa-sort"></i></a>
+              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-muted">Fecha <i class="fa fa-sort"></i></a>
             {% endif %}
           </th>
           <th>Acciones</th>

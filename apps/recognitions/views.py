@@ -20,6 +20,7 @@ from django.utils.timezone import now
 from django.utils.timesince import timesince
 from .models import RecognitionLike
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
+from django.db.models.functions import Coalesce
 from .emails import send_recognition_email
 from django.db import transaction
 from datetime import datetime
@@ -715,16 +716,19 @@ def recognition_list_admin(request):
         'status', '-status',
         'category__title', '-category__title',
         'author__first_name', '-author__first_name',
-        'created_at', '-created_at',
+        'display_date', '-display_date',
     }
     if order not in VALID_ORDER_FIELDS:
-        order = '-created_at'
+        order = '-display_date'
 
     qs = (
         Recognition.objects
         .select_related('author', 'category')
         .prefetch_related('target_groups')
-        .annotate(recipient_count=Count('recipients', distinct=True))
+        .annotate(
+            recipient_count=Count('recipients', distinct=True),
+            display_date=Coalesce('published_at', 'publish_at', 'created_at'),
+        )
         .order_by(order)
     )
 
