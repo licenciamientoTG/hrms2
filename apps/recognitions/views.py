@@ -709,13 +709,23 @@ def editar_miembros_grupo(request, group_id):
 def recognition_list_admin(request):
     q = (request.GET.get('q') or '').strip()
     status_filter = request.GET.get('status', '')
+    order = request.GET.get('order', '-created_at')
+
+    VALID_ORDER_FIELDS = {
+        'status', '-status',
+        'category__title', '-category__title',
+        'author__first_name', '-author__first_name',
+        'created_at', '-created_at',
+    }
+    if order not in VALID_ORDER_FIELDS:
+        order = '-created_at'
 
     qs = (
         Recognition.objects
         .select_related('author', 'category')
         .prefetch_related('target_groups')
         .annotate(recipient_count=Count('recipients', distinct=True))
-        .order_by('-created_at')
+        .order_by(order)
     )
 
     if q:
@@ -745,6 +755,7 @@ def recognition_list_admin(request):
         'q':             q,
         'status_filter': status_filter,
         'counts':        counts,
+        'order':         order,
     })
 
 
