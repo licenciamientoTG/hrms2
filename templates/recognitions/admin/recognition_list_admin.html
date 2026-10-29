@@ -52,6 +52,7 @@
   <!-- Buscador -->
   <form class="mb-3" method="get">
     <input type="hidden" name="status" value="{{ status_filter }}">
+    <input type="hidden" name="order" value="{{ order }}">
     <div class="input-group">
       <input type="text" name="q" value="{{ q }}" class="form-control"
              placeholder="🔍 Buscar por mensaje, categoría o autor...">
@@ -66,16 +67,50 @@
   <div class="table-responsive">
     <table class="table table-hover align-middle">
       <thead class="table-light">
+        {% with base_qs="q="|add:q|add:"&status="|add:status_filter %}
         <tr>
-          <th>Estado</th>
-          <th>Categoría</th>
+          <th>
+            {% if order == 'status' %}
+              <a href="?{{ base_qs }}&order=-status" class="text-decoration-none text-dark">Estado <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-status' %}
+              <a href="?{{ base_qs }}&order=status" class="text-decoration-none text-dark">Estado <i class="fa fa-sort-down"></i></a>
+            {% else %}
+              <a href="?{{ base_qs }}&order=status" class="text-decoration-none text-muted">Estado <i class="fa fa-sort"></i></a>
+            {% endif %}
+          </th>
+          <th>
+            {% if order == 'category__title' %}
+              <a href="?{{ base_qs }}&order=-category__title" class="text-decoration-none text-dark">Categoría <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-category__title' %}
+              <a href="?{{ base_qs }}&order=category__title" class="text-decoration-none text-dark">Categoría <i class="fa fa-sort-down"></i></a>
+            {% else %}
+              <a href="?{{ base_qs }}&order=category__title" class="text-decoration-none text-muted">Categoría <i class="fa fa-sort"></i></a>
+            {% endif %}
+          </th>
           <th>Asunto del correo</th>
           <th>Mensaje</th>
-          <th>Autor</th>
+          <th>
+            {% if order == 'author__first_name' %}
+              <a href="?{{ base_qs }}&order=-author__first_name" class="text-decoration-none text-dark">Autor <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-author__first_name' %}
+              <a href="?{{ base_qs }}&order=author__first_name" class="text-decoration-none text-dark">Autor <i class="fa fa-sort-down"></i></a>
+            {% else %}
+              <a href="?{{ base_qs }}&order=author__first_name" class="text-decoration-none text-muted">Autor <i class="fa fa-sort"></i></a>
+            {% endif %}
+          </th>
           <th>Destinatarios</th>
-          <th>Fecha</th>
+          <th>
+            {% if order == 'created_at' %}
+              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-created_at' %}
+              <a href="?{{ base_qs }}&order=created_at" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-down"></i></a>
+            {% else %}
+              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-muted">Fecha <i class="fa fa-sort"></i></a>
+            {% endif %}
+          </th>
           <th>Acciones</th>
         </tr>
+        {% endwith %}
       </thead>
       <tbody>
         {% for rec in page_obj %}
@@ -183,7 +218,7 @@
     <ul class="pagination mb-0">
       {% if page_obj.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}">« Anterior</a>
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&order={{ order }}">« Anterior</a>
         </li>
       {% endif %}
       <li class="page-item disabled">
@@ -191,7 +226,7 @@
       </li>
       {% if page_obj.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}">Siguiente »</a>
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&order={{ order }}">Siguiente »</a>
         </li>
       {% endif %}
     </ul>
