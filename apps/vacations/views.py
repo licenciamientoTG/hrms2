@@ -519,6 +519,10 @@ def vacation_form_user(request):
         'correo_lider': correo_lider,
         'fechas_en_proceso_json': json.dumps(list(_en_proceso)),
         'fechas_aprobadas_json': json.dumps(list(_aprobadas)),
+        'fechas_inhabiles_json': json.dumps({
+            str(d.fecha): d.descripcion
+            for d in DiaInhabil.objects.all()
+        }),
     }
     return render(request, 'vacations/user/vacation_form_user.html', context)
 

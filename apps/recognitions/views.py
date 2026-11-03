@@ -20,6 +20,7 @@ from django.utils.timezone import now
 from django.utils.timesince import timesince
 from .models import RecognitionLike
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
+from django.db.models.functions import Coalesce
 from .emails import send_recognition_email
 from django.db import transaction
 from datetime import datetime
@@ -273,9 +274,10 @@ def recognition_dashboard_user(request):
 
     # --- GET: feed con scroll infinito (solo publicados) ---
     page = int(request.GET.get('page', 1))
+    q = (request.GET.get('q') or '').strip()
 
     user_groups = request.user.groups.all()
-    
+
     base_qs = (
         Recognition.objects
         .select_related('author', 'category')
@@ -303,6 +305,12 @@ def recognition_dashboard_user(request):
         )
         .order_by('-published_at')
     )
+
+    if q:
+        base_qs = base_qs.filter(
+            Q(message__icontains=q) |
+            Q(category__title__icontains=q)
+        )
 
     paginator = Paginator(base_qs, PAGE_SIZE)
     page_obj  = paginator.get_page(page)
@@ -715,16 +723,19 @@ def recognition_list_admin(request):
         'status', '-status',
         'category__title', '-category__title',
         'author__first_name', '-author__first_name',
-        'created_at', '-created_at',
+        'display_date', '-display_date',
     }
     if order not in VALID_ORDER_FIELDS:
-        order = '-created_at'
+        order = '-display_date'
 
     qs = (
         Recognition.objects
         .select_related('author', 'category')
         .prefetch_related('target_groups')
-        .annotate(recipient_count=Count('recipients', distinct=True))
+        .annotate(
+            recipient_count=Count('recipients', distinct=True),
+            display_date=Coalesce('published_at', 'publish_at', 'created_at'),
+        )
         .order_by(order)
     )
 

@@ -541,6 +541,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildNextUrl(page) {
     const url = new URL(window.location.href);
     url.searchParams.set('page', page);
+    // incluir búsqueda activa si existe
+    const searchInput = document.getElementById('feed-search');
+    const q = searchInput ? searchInput.value.trim() : '';
+    if (q) {
+      url.searchParams.set('q', q);
+    } else {
+      url.searchParams.delete('q');
+    }
     return url.pathname + url.search;
   }
 

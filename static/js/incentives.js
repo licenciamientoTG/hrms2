@@ -276,7 +276,17 @@ function cargarSemana(empId) {
       });
       actualizarBadgeVenta(empId, tieneVenta, ventaMonto, data.venta_no_aplica);
       actualizarBadgeMistery(empId, tieneMistery, misteryMonto);
-      _actualizarECVVentaEmp(empId);
+      // ECV venta: usar datos del DB si ya están disponibles (instantáneo), si no esperar syncVentaSemana
+      if (data.ecv_venta) {
+        var ev = data.ecv_venta;
+        var pctG = _pct(ev.vs_gas, ev.ps_gas);
+        actualizarIndicadorECV('venta_gas', ev.verde_gas, empId, pctG);
+        if (ev.verde_diesel !== null && ev.verde_diesel !== undefined) {
+          actualizarIndicadorECV('venta_diesel', ev.verde_diesel, empId, _pct(ev.vs_diesel, ev.ps_diesel));
+        }
+      } else {
+        _actualizarECVVentaEmp(empId);
+      }
       actualizarIndicadorECV('mistery', tieneMistery, empId);
       _actualizarIncidenciasEmp(empId, window._incidenciasEstaciones);
       if (data.comentarios) {
