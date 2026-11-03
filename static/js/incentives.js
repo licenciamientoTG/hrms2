@@ -303,13 +303,13 @@ function cargarSemana(empId) {
 
 // ── Toggle checkbox ──────────────────────────────────────────────────────────
 
-function _doToggleFetch(cb, empId, tipo) {
+function _doToggleFetch(cb, empId, tipo, forzar) {
   var cbRef = cb;
   var checkedState = cb.checked;
   fetch('/incentives/toggle/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body: JSON.stringify({ emp: empId, tipo: tipo, fecha: cb.dataset.fecha }),
+    body: JSON.stringify({ emp: empId, tipo: tipo, fecha: cb.dataset.fecha, forzar: !!forzar }),
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -317,7 +317,19 @@ function _doToggleFetch(cb, empId, tipo) {
       cbRef.checked = !cbRef.checked;
       if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
       else if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
-      else if (data.duplicado_estacion) Swal.fire({ icon: 'warning', title: 'Ya asignado', text: data.error, confirmButtonColor: '#0d6efd' });
+      else if (data.duplicado_estacion) {
+        Swal.fire({
+          icon: 'warning', title: 'Ya asignado',
+          text: data.error + '. ¿Deseas marcarlo también?',
+          showCancelButton: true, confirmButtonText: 'Sí, marcar ambos',
+          cancelButtonText: 'Cancelar', confirmButtonColor: '#0d6efd',
+        }).then(function(result) {
+          if (result.isConfirmed) {
+            cbRef.checked = true;
+            _doToggleFetch(cbRef, empId, tipo, true);
+          }
+        });
+      }
       else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
     } else {
       actualizarBadge(empId);
@@ -1042,24 +1054,39 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         var cbRef = this;
-        fetch('/incentives/toggle/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-          body: JSON.stringify({ emp: empId, tipo: tipo, fecha: fecha }),
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (!data.ok) {
-            cbRef.checked = !cbRef.checked;
-            if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
-            else if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
-            else if (data.duplicado_estacion) Swal.fire({ icon: 'warning', title: 'Ya asignado', text: data.error, confirmButtonColor: '#0d6efd' });
-            else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
-          } else {
-            actualizarTotal(tipo);
-          }
-        })
-        .catch(function() { cbRef.checked = !cbRef.checked; });
+        function _doToggleZona(forzar) {
+          fetch('/incentives/toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ emp: empId, tipo: tipo, fecha: fecha, forzar: !!forzar }),
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data.ok) {
+              cbRef.checked = !cbRef.checked;
+              if (data.max_diesel) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_DIESEL_MAX() + ' días de Diesel por semana (tope $' + _topeDiesel() + ')', confirmButtonColor: '#0d6efd' });
+              else if (data.max_encargado) Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Máximo ' + _CFG_ENC_MAX() + ' días de Encargado por semana (tope $' + _topeEncargado() + ')', confirmButtonColor: '#0d6efd' });
+              else if (data.duplicado_estacion) {
+                Swal.fire({
+                  icon: 'warning', title: 'Ya asignado',
+                  text: data.error + '. ¿Deseas marcarlo también?',
+                  showCancelButton: true, confirmButtonText: 'Sí, marcar ambos',
+                  cancelButtonText: 'Cancelar', confirmButtonColor: '#0d6efd',
+                }).then(function(result) {
+                  if (result.isConfirmed) {
+                    cbRef.checked = true;
+                    _doToggleZona(true);
+                  }
+                });
+              }
+              else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar', confirmButtonColor: '#0d6efd' });
+            } else {
+              actualizarTotal(tipo);
+            }
+          })
+          .catch(function() { cbRef.checked = !cbRef.checked; });
+        }
+        _doToggleZona(false);
       });
     });
 
