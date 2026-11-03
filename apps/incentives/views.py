@@ -1433,6 +1433,7 @@ def toggle_incentivo(request):
         emp_id = int(data['emp'])
         tipo = data['tipo'].strip()
         fecha = data['fecha']  # 'YYYY-MM-DD'
+        forzar = bool(data.get('forzar', False))
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
 
@@ -1504,8 +1505,8 @@ def toggle_incentivo(request):
                 {'ok': False, 'error': f'Máximo {cfg.encargado_max_dias} días de Encargado por semana (${encargado_max})', 'max_encargado': True},
                 status=400,
             )
-        # Solo una persona por estación por día
-        if emp.team:
+        # Solo una persona por estación por día (advertencia, se puede forzar)
+        if emp.team and not forzar:
             otro = IncentivoRegistro.objects.filter(
                 tipo='Encargado',
                 fecha=fecha_date,
@@ -1515,7 +1516,6 @@ def toggle_incentivo(request):
                 nombre = f"{otro.employee.first_name} {otro.employee.last_name}".strip()
                 return JsonResponse(
                     {'ok': False, 'error': f'Ya está marcado Encargado para {nombre} en esta fecha', 'duplicado_estacion': True},
-                    status=400,
                 )
 
     IncentivoRegistro.objects.create(employee=emp, tipo=tipo, fecha=fecha, registrado_por=request.user)
