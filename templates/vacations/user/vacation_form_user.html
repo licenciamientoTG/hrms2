@@ -41,6 +41,15 @@
       cursor: default !important;
       opacity: 1 !important;
     }
+    .flatpickr-day.dia-inhabil,
+    .flatpickr-day.dia-inhabil.flatpickr-disabled,
+    .flatpickr-day.dia-inhabil:hover {
+      background: #e9ecef !important;
+      border-color: #dee2e6 !important;
+      color: #adb5bd !important;
+      cursor: not-allowed !important;
+      opacity: 1 !important;
+    }
   </style>
 {% endblock %}
 
@@ -679,6 +688,15 @@
     });
   })();
 
+  // Variables globales para días inhábiles y formateador de fechas (usados en múltiples flatpickr)
+  // fechasInhabiles: objeto {fecha: descripcion}
+  const fechasInhabiles = {{ fechas_inhabiles_json|safe }};
+  function _vacFmtDate(d) {
+    return d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     const input      = document.getElementById('calendario-vacaciones');
     const hidden     = document.getElementById('dias-seleccionados-input');
@@ -691,12 +709,6 @@
     const fechasEnProceso = new Set({{ fechas_en_proceso_json|safe }});
     const fechasAprobadas = new Set({{ fechas_aprobadas_json|safe }});
 
-    function _vacFmtDate(d) {
-      return d.getFullYear() + '-'
-        + String(d.getMonth() + 1).padStart(2, '0') + '-'
-        + String(d.getDate()).padStart(2, '0');
-    }
-
     flatpickr(input, {
       mode: 'multiple',
       dateFormat: 'Y-m-d',
@@ -707,7 +719,7 @@
         {% if not es_aqua %}function(date) { return date.getDay() === 0 || date.getDay() === 6; },{% endif %}
         function(date) {
           const key = _vacFmtDate(date);
-          return fechasEnProceso.has(key) || fechasAprobadas.has(key);
+          return fechasEnProceso.has(key) || fechasAprobadas.has(key) || (key in fechasInhabiles);
         }
       ],
       onDayCreate: function(dObj, dStr, fp, dayElem) {
@@ -716,6 +728,9 @@
           dayElem.classList.add('vac-proceso');
         } else if (fechasAprobadas.has(key)) {
           dayElem.classList.add('vac-aprobada');
+        } else if (key in fechasInhabiles) {
+          dayElem.classList.add('dia-inhabil');
+          dayElem.title = fechasInhabiles[key];
         }
       },
       onChange: function (selectedDates) {
@@ -754,7 +769,10 @@
         minDate: 'today',
         locale: 'es',
         disableMobile: true,
-        disable: [function(date) { return date.getDay() === 0 || date.getDay() === 6; }],
+        disable: [
+          function(date) { return date.getDay() === 0 || date.getDay() === 6; },
+          function(date) { return _vacFmtDate(date) in fechasInhabiles; }
+        ],
         onChange: function(selectedDates, dateStr) {
           document.getElementById('ho-fecha').value    = dateStr;
           document.getElementById('ho-fecha-fin').value = dateStr;
@@ -790,7 +808,10 @@
         minDate: 'today',
         locale: 'es',
         disableMobile: true,
-        disable: [function(date) { return date.getDay() === 0 || date.getDay() === 6; }],
+        disable: [
+          function(date) { return date.getDay() === 0 || date.getDay() === 6; },
+          function(date) { return _vacFmtDate(date) in fechasInhabiles; }
+        ],
         onChange: function(selectedDates, dateStr) {
           document.getElementById('psgs-fecha').value     = dateStr;
           document.getElementById('psgs-fecha-fin').value = dateStr;
@@ -913,7 +934,10 @@
             locale: 'es',
             disableMobile: true,
             defaultDate: dates,
-            disable: [function(d) { return d.getDay() === 0 || d.getDay() === 6; }],
+            disable: [
+              function(d) { return d.getDay() === 0 || d.getDay() === 6; },
+              function(d) { return _vacFmtDate(d) in fechasInhabiles; }
+            ],
             onChange: function (sel) {
               const fechas = sel.map(d => d.toISOString().split('T')[0]).sort();
               hiddenInput.value = fechas.join(',');
@@ -947,7 +971,10 @@
           locale: 'es',
           disableMobile: true,
           defaultDate: fechaInicio,
-          disable: [function(d) { return d.getDay() === 0 || d.getDay() === 6; }],
+          disable: [
+            function(d) { return d.getDay() === 0 || d.getDay() === 6; },
+            function(d) { return _vacFmtDate(d) in fechasInhabiles; }
+          ],
           onChange: function (_, dateStr) {
             document.getElementById('edit-fecha-inicio').value = dateStr;
             document.getElementById('edit-fecha-fin').value = dateStr;

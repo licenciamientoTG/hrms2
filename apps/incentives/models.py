@@ -380,3 +380,24 @@ class ComentarioSemana(models.Model):
 
     def __str__(self):
         return f"{self.employee} — {self.tipo} — {self.week_start}"
+
+
+class IndicadorVentaSemanal(models.Model):
+    """Resultado de venta (verde/rojo) por estación y semana para los indicadores ECV."""
+    team_key   = models.CharField(max_length=50, verbose_name='Clave de estación')
+    week_start = models.DateField(verbose_name='Semana (lunes)')
+    verde_gas    = models.BooleanField(null=True, blank=True, verbose_name='Verde gasolina')
+    verde_diesel = models.BooleanField(null=True, blank=True, verbose_name='Verde diésel')
+    vs_gas    = models.IntegerField(null=True, blank=True, verbose_name='Venta real gasolina')
+    ps_gas    = models.IntegerField(null=True, blank=True, verbose_name='Presupuesto gasolina')
+    vs_diesel = models.IntegerField(null=True, blank=True, verbose_name='Venta real diésel')
+    ps_diesel = models.IntegerField(null=True, blank=True, verbose_name='Presupuesto diésel')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        unique_together = [('team_key', 'week_start')]
+        verbose_name = 'Indicador de venta semanal'
+        verbose_name_plural = 'Indicadores de venta semanal'
+
+    def __str__(self):
+        return f"{self.team_key} — {self.week_start}"

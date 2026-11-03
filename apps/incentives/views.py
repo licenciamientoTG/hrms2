@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload, IndicadorVentaSemanal
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
 
@@ -390,6 +390,7 @@ def incentives_dashboard_admin(request):
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
                 'team_key': tk,
                 '_tk': tk,
+                'excel_no': EXCEL_ORDER_LOOKUP.get(tk, (9999, ''))[1],
             }
             for tk, data in teams.items()
         ],
@@ -586,7 +587,9 @@ def incentives_dashboard_zona(request):
                 'subgerentes': data['subgerentes'],
                 'employees': data['employees'],
                 'tiene_captura': any(getattr(emp, 'incentivo_count', 0) > 0 for emp in data['employees']),
+                'team_key': tk,
                 '_tk': tk,
+                'excel_no': EXCEL_ORDER_LOOKUP.get(tk, (9999, ''))[1],
             }
             for tk, data in teams.items()
         ],
@@ -1549,9 +1552,28 @@ def semana_data(request):
 
     # Verificar si el empleado no califica para el bono de Venta por reglas de antigüedad
     venta_no_aplica = False
+    ecv_venta = None
     try:
-        emp_obj = Employee.objects.only('team', 'seniority_raw').get(pk=emp_id)
+        emp_obj = Employee.objects.select_related('job_position').only(
+            'team', 'seniority_raw', 'job_position__title'
+        ).get(pk=emp_id)
         venta_no_aplica = (_calcular_monto_venta(emp_obj.team or '', emp_obj.seniority_raw) is None)
+        # Para gerentes/subgerentes: devolver estado de venta desde DB (sin ir a SG12)
+        titulo = (emp_obj.job_position.title if emp_obj.job_position else '').lower()
+        if 'gerente de estaci' in titulo or 'subgerente de estaci' in titulo:
+            ind = IndicadorVentaSemanal.objects.filter(
+                team_key=(emp_obj.team or '').strip(),
+                week_start=semana_date,
+            ).first()
+            if ind:
+                ecv_venta = {
+                    'verde_gas':    ind.verde_gas,
+                    'verde_diesel': ind.verde_diesel,
+                    'vs_gas':       ind.vs_gas,
+                    'ps_gas':       ind.ps_gas,
+                    'vs_diesel':    ind.vs_diesel,
+                    'ps_diesel':    ind.ps_diesel,
+                }
     except Employee.DoesNotExist:
         pass
 
@@ -1567,6 +1589,7 @@ def semana_data(request):
         ],
         'comentarios': comentarios,
         'venta_no_aplica': venta_no_aplica,
+        'ecv_venta': ecv_venta,
     })
 
 
@@ -1728,9 +1751,8 @@ def sync_venta_semana(request):
 
     week_end = week_start + timedelta(days=6)
 
-    # Semana cerrada: no sincronizar (los registros ya están bloqueados)
-    if SemanaCerrada.objects.filter(week_start=week_start).exists():
-        return JsonResponse({'ok': True, 'cerrada': True, 'estaciones': {}})
+    # Semana cerrada: solo lectura — calculamos el estado para el ECV pero no tocamos registros
+    semana_cerrada = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
     # Team keys según rol
     if rol in ('gerente', 'user'):
@@ -1833,29 +1855,30 @@ def sync_venta_semana(request):
                 verde = vs_total >= ps_total_ov
                 resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override',
                                        'verde_gas': verde, 'verde_diesel': None}
-                empleados = list(Employee.objects.filter(is_active=True, team=team_key).values('id', 'seniority_raw'))
-                if empleados:
-                    if verde:
-                        for emp in empleados:
-                            monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                            if monto_base is None:
-                                IncentivoRegistro.objects.filter(employee_id=emp['id'], tipo='Venta', fecha=week_start).delete()
-                                continue
-                            monto = _monto_proporcional_prenomina(
-                                emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
-                            )
-                            obj, created = IncentivoRegistro.objects.get_or_create(
-                                employee_id=emp['id'], tipo='Venta', fecha=week_start,
-                                defaults={'registrado_por': request.user, 'monto': monto},
-                            )
-                            if not created and obj.monto != monto:
-                                obj.monto = monto
-                                obj.save(update_fields=['monto'])
-                    else:
-                        IncentivoRegistro.objects.filter(
-                            employee_id__in=[e['id'] for e in empleados],
-                            tipo='Venta', fecha=week_start,
-                        ).delete()
+                if not semana_cerrada:
+                    empleados = list(Employee.objects.filter(is_active=True, team=team_key).values('id', 'seniority_raw'))
+                    if empleados:
+                        if verde:
+                            for emp in empleados:
+                                monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                                if monto_base is None:
+                                    IncentivoRegistro.objects.filter(employee_id=emp['id'], tipo='Venta', fecha=week_start).delete()
+                                    continue
+                                monto = _monto_proporcional_prenomina(
+                                    emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                                )
+                                obj, created = IncentivoRegistro.objects.get_or_create(
+                                    employee_id=emp['id'], tipo='Venta', fecha=week_start,
+                                    defaults={'registrado_por': request.user, 'monto': monto},
+                                )
+                                if not created and obj.monto != monto:
+                                    obj.monto = monto
+                                    obj.save(update_fields=['monto'])
+                        else:
+                            IncentivoRegistro.objects.filter(
+                                employee_id__in=[e['id'] for e in empleados],
+                                tipo='Venta', fecha=week_start,
+                            ).delete()
                 continue
 
             sv = sheets_ventas.get(team_key) if sheets_ventas else None
@@ -1872,35 +1895,36 @@ def sync_venta_semana(request):
                 'verde': verde, 'vs': vs_total, 'ps': ps_total, 'fuente': 'sheets',
                 'verde_gas': verde, 'verde_diesel': None,
             }
-            empleados = list(
-                Employee.objects
-                .filter(is_active=True, team=team_key)
-                .values('id', 'seniority_raw')
-            )
-            if empleados:
-                if verde:
-                    for emp in empleados:
-                        monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                        if monto_base is None:
-                            IncentivoRegistro.objects.filter(
+            if not semana_cerrada:
+                empleados = list(
+                    Employee.objects
+                    .filter(is_active=True, team=team_key)
+                    .values('id', 'seniority_raw')
+                )
+                if empleados:
+                    if verde:
+                        for emp in empleados:
+                            monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                            if monto_base is None:
+                                IncentivoRegistro.objects.filter(
+                                    employee_id=emp['id'], tipo='Venta', fecha=week_start,
+                                ).delete()
+                                continue
+                            monto = _monto_proporcional_prenomina(
+                                emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                            )
+                            obj, created = IncentivoRegistro.objects.get_or_create(
                                 employee_id=emp['id'], tipo='Venta', fecha=week_start,
-                            ).delete()
-                            continue
-                        monto = _monto_proporcional_prenomina(
-                            emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
-                        )
-                        obj, created = IncentivoRegistro.objects.get_or_create(
-                            employee_id=emp['id'], tipo='Venta', fecha=week_start,
-                            defaults={'registrado_por': request.user, 'monto': monto},
-                        )
-                        if not created and obj.monto != monto:
-                            obj.monto = monto
-                            obj.save(update_fields=['monto'])
-                else:
-                    IncentivoRegistro.objects.filter(
-                        employee_id__in=[e['id'] for e in empleados],
-                        tipo='Venta', fecha=week_start,
-                    ).delete()
+                                defaults={'registrado_por': request.user, 'monto': monto},
+                            )
+                            if not created and obj.monto != monto:
+                                obj.monto = monto
+                                obj.save(update_fields=['monto'])
+                    else:
+                        IncentivoRegistro.objects.filter(
+                            employee_id__in=[e['id'] for e in empleados],
+                            tipo='Venta', fecha=week_start,
+                        ).delete()
             continue
 
         # ── Resto de estaciones: override semanal tiene prioridad sobre proporcional mensual ──
@@ -1943,44 +1967,60 @@ def sync_venta_semana(request):
             'verde_diesel': verde_diesel, 'vs_diesel': vs_diesel, 'ps_diesel': round(ps_diesel),
         }
 
-        empleados = list(
-            Employee.objects
-            .filter(is_active=True, team=team_key)
-            .values('id', 'seniority_raw')
-        )
-        if not empleados:
-            continue
+        if not semana_cerrada:
+            empleados = list(
+                Employee.objects
+                .filter(is_active=True, team=team_key)
+                .values('id', 'seniority_raw')
+            )
+            if not empleados:
+                continue
 
-        if verde:
-            for emp in empleados:
-                monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
-                if monto_base is None:
-                    IncentivoRegistro.objects.filter(
+            if verde:
+                for emp in empleados:
+                    monto_base = _calcular_monto_venta(team_key, emp['seniority_raw'], cfg)
+                    if monto_base is None:
+                        IncentivoRegistro.objects.filter(
+                            employee_id=emp['id'],
+                            tipo='Venta',
+                            fecha=week_start,
+                        ).delete()
+                        continue
+                    monto = _monto_proporcional_prenomina(
+                        emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
+                    )
+                    obj, created = IncentivoRegistro.objects.get_or_create(
                         employee_id=emp['id'],
                         tipo='Venta',
                         fecha=week_start,
-                    ).delete()
-                    continue
-                monto = _monto_proporcional_prenomina(
-                    emp_numbers.get(emp['id'], ''), prenomina_lookup, monto_base,
-                )
-                obj, created = IncentivoRegistro.objects.get_or_create(
-                    employee_id=emp['id'],
+                        defaults={'registrado_por': request.user, 'monto': monto},
+                    )
+                    if not created and obj.monto != monto:
+                        obj.monto = monto
+                        obj.save(update_fields=['monto'])
+            else:
+                IncentivoRegistro.objects.filter(
+                    employee_id__in=[e['id'] for e in empleados],
                     tipo='Venta',
                     fecha=week_start,
-                    defaults={'registrado_por': request.user, 'monto': monto},
-                )
-                if not created and obj.monto != monto:
-                    obj.monto = monto
-                    obj.save(update_fields=['monto'])
-        else:
-            IncentivoRegistro.objects.filter(
-                employee_id__in=[e['id'] for e in empleados],
-                tipo='Venta',
-                fecha=week_start,
-            ).delete()
+                ).delete()
 
-    return JsonResponse({'ok': True, 'estaciones': resultado})
+    # Persistir resultado en DB para que semana_data lo sirva instantáneamente
+    for tk, est in resultado.items():
+        IndicadorVentaSemanal.objects.update_or_create(
+            team_key=tk,
+            week_start=week_start,
+            defaults={
+                'verde_gas':    est.get('verde_gas'),
+                'verde_diesel': est.get('verde_diesel'),
+                'vs_gas':       est.get('vs_gas'),
+                'ps_gas':       est.get('ps_gas'),
+                'vs_diesel':    est.get('vs_diesel'),
+                'ps_diesel':    est.get('ps_diesel'),
+            },
+        )
+
+    return JsonResponse({'ok': True, 'cerrada': semana_cerrada, 'estaciones': resultado})
 
 
 @login_required
@@ -2010,8 +2050,8 @@ def sync_mistery_semana(request):
     except ValueError:
         return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
 
-    if SemanaCerrada.objects.filter(week_start=week_start).exists():
-        return JsonResponse({'ok': True, 'cerrada': True, 'estaciones': {}})
+    # Semana cerrada: solo lectura — calculamos el estado para el ECV pero no tocamos registros
+    semana_cerrada = SemanaCerrada.objects.filter(week_start=week_start).exists()
 
     # date_mistery en TGV2 es el domingo de la semana ISO
     date_mistery = week_start + timedelta(days=6)
@@ -2030,23 +2070,24 @@ def sync_mistery_semana(request):
     cfg = ConfiguracionIncentivos.get()
     resultado = {}
 
-    # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad, dias_falta)
-    prenomina_lookup = {}
-    try:
-        upload = PrenominaUpload.objects.get(semana=week_start)
-        for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad', 'dias_falta'):
-            prenomina_lookup[reg['numero']] = (
-                float(reg['dias_vacaciones']),
-                float(reg['dias_incapacidad']),
-                float(reg['dias_falta']),
-            )
-    except PrenominaUpload.DoesNotExist:
-        pass
+    if not semana_cerrada:
+        # Construir lookup de prenómina: employee_number → (dias_vacaciones, dias_incapacidad, dias_falta)
+        prenomina_lookup = {}
+        try:
+            upload = PrenominaUpload.objects.get(semana=week_start)
+            for reg in upload.registros.values('numero', 'dias_vacaciones', 'dias_incapacidad', 'dias_falta'):
+                prenomina_lookup[reg['numero']] = (
+                    float(reg['dias_vacaciones']),
+                    float(reg['dias_incapacidad']),
+                    float(reg['dias_falta']),
+                )
+        except PrenominaUpload.DoesNotExist:
+            pass
 
-    emp_numbers = {
-        e['id']: e['employee_number']
-        for e in Employee.objects.values('id', 'employee_number')
-    }
+        emp_numbers = {
+            e['id']: e['employee_number']
+            for e in Employee.objects.values('id', 'employee_number')
+        }
 
     for codgas, qualification in rows:
         team_key = SG12_COD_TO_TEAM_KEY.get(codgas)
@@ -2060,6 +2101,9 @@ def sync_mistery_semana(request):
 
         ganador = cal >= 100
         resultado[team_key] = {'qualification': cal, 'ganador': ganador}
+
+        if semana_cerrada:
+            continue
 
         empleados = list(
             Employee.objects.filter(is_active=True, team=team_key)
@@ -2092,7 +2136,7 @@ def sync_mistery_semana(request):
                 fecha=week_start,
             ).delete()
 
-    return JsonResponse({'ok': True, 'estaciones': resultado})
+    return JsonResponse({'ok': True, 'cerrada': semana_cerrada, 'estaciones': resultado})
 
 
 @login_required
@@ -2165,7 +2209,7 @@ def guardar_presupuesto_semana(request):
 def mistery_evaluado_json(request):
     """Devuelve el emp_id del evaluado de Mistery para la semana dada."""
     rol = _get_rol_incentivos(request.user)
-    if rol not in ('gerente', 'admin'):
+    if rol not in ('gerente', 'admin', 'zona'):
         return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
 
     from datetime import date
@@ -2178,7 +2222,7 @@ def mistery_evaluado_json(request):
     except ValueError:
         return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
 
-    if rol == 'admin' and team_key:
+    if rol in ('admin', 'zona') and team_key:
         emp_ids = list(
             Employee.objects.filter(team=team_key, is_active=True)
             .values_list('id', flat=True)
@@ -2207,9 +2251,9 @@ def mistery_evaluado_json(request):
 @login_required
 @require_POST
 def marcar_evaluado_mistery(request):
-    """Marca a un empleado como la persona evaluada en Mistery ($500). Gerente o admin."""
+    """Marca a un empleado como la persona evaluada en Mistery ($500). Gerente, admin o zona."""
     rol = _get_rol_incentivos(request.user)
-    if rol not in ('gerente', 'admin'):
+    if rol not in ('gerente', 'admin', 'zona'):
         return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
 
     try:
@@ -2229,7 +2273,7 @@ def marcar_evaluado_mistery(request):
     if SemanaCerrada.objects.filter(week_start=week_start).exists():
         return JsonResponse({'ok': False, 'error': 'Semana cerrada', 'cerrada': True}, status=403)
 
-    if rol == 'admin' and team_key:
+    if rol in ('admin', 'zona') and team_key:
         emp_ids = list(
             Employee.objects.filter(team=team_key, is_active=True)
             .values_list('id', flat=True)

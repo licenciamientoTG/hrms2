@@ -274,9 +274,10 @@ def recognition_dashboard_user(request):
 
     # --- GET: feed con scroll infinito (solo publicados) ---
     page = int(request.GET.get('page', 1))
+    q = (request.GET.get('q') or '').strip()
 
     user_groups = request.user.groups.all()
-    
+
     base_qs = (
         Recognition.objects
         .select_related('author', 'category')
@@ -304,6 +305,12 @@ def recognition_dashboard_user(request):
         )
         .order_by('-published_at')
     )
+
+    if q:
+        base_qs = base_qs.filter(
+            Q(message__icontains=q) |
+            Q(category__title__icontains=q)
+        )
 
     paginator = Paginator(base_qs, PAGE_SIZE)
     page_obj  = paginator.get_page(page)
