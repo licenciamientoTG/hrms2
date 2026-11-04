@@ -279,11 +279,15 @@
             pdfDoc.getPage(num).then(page => {
                 const scale    = getBaseScale() * zoomFactor;
                 const viewport = page.getViewport({ scale });
+                const dpr      = window.devicePixelRatio || 1;
 
                 const canvas  = document.createElement('canvas');
                 const ctx     = canvas.getContext('2d');
-                canvas.width  = viewport.width;
-                canvas.height = viewport.height;
+                canvas.width  = viewport.width * dpr;
+                canvas.height = viewport.height * dpr;
+                canvas.style.width  = viewport.width + 'px';
+                canvas.style.height = viewport.height + 'px';
+                ctx.scale(dpr, dpr);
 
                 container.innerHTML = '';
                 container.appendChild(canvas);

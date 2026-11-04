@@ -205,7 +205,9 @@ def checador_policy_view(request):
 
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
         profile.accepted_checador_policy = True
-        profile.accepted_checador_policy_at = timezone.now()
+        if not profile.accepted_checador_policy_at:
+            profile.accepted_checador_policy_at = timezone.now()
+        profile.last_checador_policy_at = timezone.now()
         profile.save()
         return redirect("home")
 

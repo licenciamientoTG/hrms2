@@ -1,5 +1,7 @@
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 
 class CheckTermsMiddleware:
     def __init__(self, get_response):
@@ -44,7 +46,14 @@ class CheckTermsMiddleware:
                     return redirect('terms_and_conditions')
 
                 # 4. Comunicado de checadores (solo puestos que aplican)
-                if not profile.accepted_checador_policy:
+                hace_4_meses = timezone.now() - timedelta(days=120)
+                fecha_referencia = profile.last_checador_policy_at or profile.accepted_checador_policy_at
+                checador_vencido = (
+                    not profile.accepted_checador_policy or
+                    not fecha_referencia or
+                    fecha_referencia < hace_4_meses
+                )
+                if checador_vencido:
                     from .views import usuario_requiere_checador
                     if usuario_requiere_checador(request.user):
                         return redirect('checador_policy')
