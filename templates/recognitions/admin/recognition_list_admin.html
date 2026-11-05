@@ -101,11 +101,20 @@
           <th>Destinatarios</th>
           <th>
             {% if order == 'display_date' %}
-              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-up"></i></a>
+              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-dark text-nowrap">Publicación <i class="fa fa-sort-up"></i></a>
             {% elif order == '-display_date' %}
-              <a href="?{{ base_qs }}&order=display_date" class="text-decoration-none text-dark">Fecha <i class="fa fa-sort-down"></i></a>
+              <a href="?{{ base_qs }}&order=display_date" class="text-decoration-none text-dark text-nowrap">Publicación <i class="fa fa-sort-down"></i></a>
             {% else %}
-              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-muted">Fecha <i class="fa fa-sort"></i></a>
+              <a href="?{{ base_qs }}&order=-display_date" class="text-decoration-none text-muted text-nowrap">Publicación <i class="fa fa-sort"></i></a>
+            {% endif %}
+          </th>
+          <th>
+            {% if order == 'created_at' %}
+              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-dark">Creado <i class="fa fa-sort-up"></i></a>
+            {% elif order == '-created_at' %}
+              <a href="?{{ base_qs }}&order=created_at" class="text-decoration-none text-dark">Creado <i class="fa fa-sort-down"></i></a>
+            {% else %}
+              <a href="?{{ base_qs }}&order=-created_at" class="text-decoration-none text-muted">Creado <i class="fa fa-sort"></i></a>
             {% endif %}
           </th>
           <th>Acciones</th>
@@ -182,6 +191,11 @@
               {% endif %}
             </td>
 
+            <!-- Fecha creación -->
+            <td class="small text-muted text-nowrap">
+              {{ rec.created_at|date:"d/m/Y H:i" }}
+            </td>
+
             <!-- Acciones -->
             <td>
               <div class="d-flex gap-1">
@@ -202,7 +216,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-5">
+            <td colspan="9" class="text-center text-muted py-5">
               <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
               No se encontraron comunicados.
             </td>

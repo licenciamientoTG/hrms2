@@ -9,6 +9,13 @@ from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
 from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload, IndicadorVentaSemanal
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
 
+# Puestos que no aplican para incentivos aunque estén en una estación
+PUESTOS_EXCLUIDOS_INCENTIVOS = (
+    'Gerente de Unidad de Negocio',
+    'Operador',
+    'Auxiliar De Limpieza',
+)
+
 
 def _monto_proporcional_prenomina(employee_number, prenomina_lookup, monto_base, check_faltas=False):
     """Calcula el monto proporcional según días trabajados en prenómina.
@@ -275,13 +282,14 @@ def incentives_dashboard_admin(request):
     rol = _get_rol_incentivos(request.user)
     if rol not in ('admin', 'operaciones'):
         return redirect('incentives_dashboard')
-    es_solo_lectura = (rol == 'operaciones')
+    es_solo_lectura = False
+    es_operaciones = (rol == 'operaciones')
     from datetime import date, timedelta
     from django.db.models import Count
     import json
     today = date.today()
 
-    session_key = 'incentivos_ops_admin_delta' if es_solo_lectura else 'incentivos_admin_delta'
+    session_key = 'incentivos_admin_delta'
     if 'reset' in request.GET:
         request.session[session_key] = 0
     elif 'delta' in request.GET:
@@ -345,6 +353,7 @@ def incentives_dashboard_admin(request):
         _deduplicar_por_tsa(list(
             Employee.objects
             .filter(team__in=STATION_TEAMS.keys())
+            .exclude(job_position__title__in=PUESTOS_EXCLUIDOS_INCENTIVOS)
             .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
             .select_related('job_position', 'leader_fk')
             .order_by('last_name', 'first_name')
@@ -445,6 +454,7 @@ def incentives_dashboard_admin(request):
         'semanas_con_prenomina_json': semanas_con_prenomina_json,
         'diesel_team_keys_json': json.dumps(list(DIESEL_TEAM_KEYS)),
         'es_solo_lectura': es_solo_lectura,
+        'es_operaciones': es_operaciones,
     })
 
 
@@ -549,6 +559,7 @@ def incentives_dashboard_zona(request):
         _deduplicar_por_tsa(list(
             Employee.objects
             .filter(team__in=teams_del_jefe)
+            .exclude(job_position__title__in=PUESTOS_EXCLUIDOS_INCENTIVOS)
             .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro_zona))
             .select_related('job_position')
             .order_by('last_name', 'first_name')
@@ -2401,6 +2412,7 @@ def desglose_bonos(request):
         _deduplicar_por_tsa(list(
             Employee.objects
             .filter(team__in=STATION_TEAMS.keys())
+            .exclude(job_position__title__in=PUESTOS_EXCLUIDOS_INCENTIVOS)
             .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
             .only('id', 'team', 'curp', 'company', 'seniority_raw', 'is_active')
         )),

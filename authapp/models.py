@@ -7,3 +7,4 @@ class UserProfile(models.Model):
     accepted_terms = models.BooleanField(default=False)
     accepted_checador_policy = models.BooleanField(default=False)
     accepted_checador_policy_at = models.DateTimeField(null=True, blank=True)
+    last_checador_policy_at = models.DateTimeField(null=True, blank=True)

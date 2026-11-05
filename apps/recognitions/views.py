@@ -724,6 +724,7 @@ def recognition_list_admin(request):
         'category__title', '-category__title',
         'author__first_name', '-author__first_name',
         'display_date', '-display_date',
+        'created_at', '-created_at',
     }
     if order not in VALID_ORDER_FIELDS:
         order = '-display_date'
