@@ -124,6 +124,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'apps.notifications.context_processors.notifications_context',
                 'apps.incentives.context_processors.auto_incentivos_permission',
+                'apps.users.context_processors.linked_account_context',
             ],
         },
     },

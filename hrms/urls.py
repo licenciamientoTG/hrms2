@@ -5,7 +5,8 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
 from apps.users.views import force_password_change
-from authapp.views import home 
+from authapp.views import home
+from authapp.forms import CustomPasswordResetForm
 
 
 urlpatterns = [
@@ -46,9 +47,10 @@ urlpatterns = [
 
     # Reset de contraseña (flujo estándar Django)
     path("password_reset/", auth_views.PasswordResetView.as_view(
-        template_name='registration/password_reset_form.html',           
+        template_name='registration/password_reset_form.html',
+        form_class=CustomPasswordResetForm,
         html_email_template_name='registration/password_reset_email.html',
-        subject_template_name='registration/password_reset_subject.txt'    
+        subject_template_name='registration/password_reset_subject.txt'
     ), name="password_reset"),    
     path("password_reset_done/", auth_views.PasswordResetDoneView.as_view(), name="password_reset_done"),
     path("reset/<uidb64>/<token>/", auth_views.PasswordResetConfirmView.as_view(), name="password_reset_confirm"),

@@ -7,6 +7,26 @@
     <div class="navbar-collapse collapse">
         <ul class="navbar-nav navbar-align">
 
+            <!-- Botón cambio de cuenta -->
+            {% if switch_mode == 'to_employee' %}
+            <li class="nav-item d-flex align-items-center me-2">
+                <form method="post" action="{% url 'switch_account' %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-dark"
+                            title="Cambiar a {{ switch_employee_user.get_full_name|default:switch_employee_user.username }}">
+                        <i class="fas fa-exchange-alt me-1"></i> Usuario
+                    </button>
+                </form>
+            </li>
+            {% elif switch_mode == 'back_to_admin' %}
+            <li class="nav-item d-flex align-items-center me-2">
+                <button type="button" class="btn btn-sm btn-outline-dark" id="btnBackToAdmin"
+                        title="Volver a {{ switch_admin_user.username }}">
+                    <i class="fas fa-undo me-1"></i> Admin
+                </button>
+            </li>
+            {% endif %}
+
             <!-- Ícono de configuración (engranaje) -->
             <li class="nav-item dropdown">
                 <a class="nav-icon dropdown-toggle" href="#" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -84,6 +104,38 @@
     </div>
 </nav>
 
+{% if switch_mode == 'back_to_admin' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('btnBackToAdmin').addEventListener('click', function() {
+    Swal.fire({
+      title: 'Volver a Admin',
+      input: 'password',
+      inputPlaceholder: 'Contraseña',
+      position: 'top',
+      width: '320px',
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      inputValidator: function(value) {
+        if (!value) return 'Ingresa la contraseña';
+      }
+    }).then(function(result) {
+      if (result.isConfirmed) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "switch_account" %}';
+        form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">' +
+                         '<input type="hidden" name="password" value="' + result.value.replace(/"/g, '&quot;') + '">';
+        document.body.appendChild(form);
+        form.submit();
+      }
+    });
+  });
+});
+</script>
+{% endif %}
+
 <!-- Modal -->
 <div class="modal fade" id="uiScaleModal" tabindex="-1" aria-labelledby="uiScaleLabel" aria-hidden="true">
   <div class="modal-dialog modal-sm">
@@ -112,4 +164,5 @@
     </div>
   </div>
 </div>
+
 

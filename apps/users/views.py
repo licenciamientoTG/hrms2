@@ -20,7 +20,8 @@ import chardet
 from .utils import parse_fecha
 from django.db.models import Prefetch
 from django.db.models import Q
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login, authenticate
+from .models import LinkedAccount
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)
@@ -825,3 +826,124 @@ def corporate_emails_view(request):
         'con_correo': con_correo,
         'sync_no_match': sync_no_match,
     })
+
+
+# ── Cuentas Vinculadas ──────────────────────────────────────────────
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def linked_accounts_view(request):
+    admins = User.objects.filter(
+        Q(is_staff=True) | Q(is_superuser=True)
+    ).order_by('username')
+
+    # Precargamos los vínculos existentes
+    links = {la.admin_user_id: la for la in LinkedAccount.objects.select_related('employee_user')}
+
+    # Empleados disponibles para vincular (no staff, no superuser, activos)
+    employees = User.objects.filter(
+        is_staff=False, is_superuser=False, is_active=True
+    ).select_related('employee').order_by('first_name', 'last_name')
+
+    rows = []
+    for admin in admins:
+        la = links.get(admin.id)
+        rows.append({
+            'admin': admin,
+            'link': la,
+            'employee_user': la.employee_user if la else None,
+        })
+
+    return render(request, 'users/linked_accounts.html', {
+        'rows': rows,
+        'employees': employees,
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def link_account(request):
+    admin_id = request.POST.get('admin_id')
+    employee_id = request.POST.get('employee_id')
+
+    if not admin_id or not employee_id:
+        messages.error(request, 'Faltan datos para vincular.')
+        return redirect('linked_accounts')
+
+    admin_user = get_object_or_404(User, pk=admin_id)
+    employee_user = get_object_or_404(User, pk=employee_id)
+
+    if not (admin_user.is_staff or admin_user.is_superuser):
+        messages.error(request, 'El usuario seleccionado no es admin/staff.')
+        return redirect('linked_accounts')
+
+    # Crear o actualizar
+    la, created = LinkedAccount.objects.update_or_create(
+        admin_user=admin_user,
+        defaults={
+            'employee_user': employee_user,
+            'created_by': request.user,
+        }
+    )
+    messages.success(request, f'{admin_user.username} vinculado a {employee_user.get_full_name() or employee_user.username}.')
+    return redirect('linked_accounts')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def unlink_account(request, link_id):
+    la = get_object_or_404(LinkedAccount, pk=link_id)
+    nombre = la.admin_user.username
+    la.delete()
+    messages.success(request, f'Vínculo de {nombre} eliminado.')
+    return redirect('linked_accounts')
+
+
+@login_required
+@require_POST
+def switch_account(request):
+    original_admin_id = request.session.get('original_admin_id')
+
+    # Determinar si es un empleado que quiere volver a admin
+    # (ya sea por sesión de switch o por vínculo directo)
+    admin_user = None
+    if original_admin_id:
+        admin_user = User.objects.filter(pk=original_admin_id).first()
+    else:
+        try:
+            la = request.user.linked_from_admin
+            admin_user = la.admin_user
+        except LinkedAccount.DoesNotExist:
+            pass
+
+    if admin_user:
+        # ── Empleado → Admin: requiere contraseña ──
+        password = request.POST.get('password', '')
+
+        auth_user = authenticate(request, username=admin_user.username, password=password)
+        if auth_user is None:
+            messages.error(request, 'Contraseña incorrecta.')
+            return redirect(request.META.get('HTTP_REFERER', '/home/'))
+
+        login(request, auth_user, backend='django.contrib.auth.backends.ModelBackend')
+        if 'original_admin_id' in request.session:
+            del request.session['original_admin_id']
+        return redirect('home')
+
+    else:
+        # ── Admin → Empleado: sin contraseña ──
+        try:
+            la = request.user.linked_account
+        except LinkedAccount.DoesNotExist:
+            messages.error(request, 'No tienes cuenta vinculada.')
+            return redirect('home')
+
+        admin_id = request.user.pk
+        employee_user = la.employee_user
+
+        login(request, employee_user, backend='django.contrib.auth.backends.ModelBackend')
+        # Guardar DESPUÉS del login (porque login regenera la sesión)
+        request.session['original_admin_id'] = admin_id
+        return redirect('home')
