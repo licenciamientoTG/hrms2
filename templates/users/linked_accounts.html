@@ -1,0 +1,99 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block page_title %}Cuentas Vinculadas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Cuentas Vinculadas</h2>
+  <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary">
+    <i class="fas fa-arrow-left"></i> Volver a Usuarios
+  </a>
+</div>
+
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Admin / Staff</th>
+          <th>Tipo</th>
+          <th>Cuenta Empleado Vinculada</th>
+          <th style="width: 320px;">Vincular a</th>
+          <th style="width: 120px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <strong>{{ row.admin.get_full_name|default:row.admin.username }}</strong>
+            <div class="text-muted small">{{ row.admin.username }}</div>
+          </td>
+          <td>
+            {% if row.admin.is_superuser %}
+              <span class="badge bg-danger">Superadmin</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Staff</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.employee_user %}
+              <span class="text-success">
+                <i class="fas fa-link me-1"></i>
+                {{ row.employee_user.get_full_name|default:row.employee_user.username }}
+              </span>
+              <div class="text-muted small">{{ row.employee_user.username }}</div>
+            {% else %}
+              <span class="text-muted">Sin vincular</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{% url 'link_account' %}" class="d-flex gap-2">
+              {% csrf_token %}
+              <input type="hidden" name="admin_id" value="{{ row.admin.id }}">
+              <select name="employee_id" class="form-select form-select-sm linked-account-select" style="min-width: 200px;">
+                <option value="">-- Seleccionar empleado --</option>
+                {% for emp in employees %}
+                  <option value="{{ emp.id }}"
+                    {% if row.employee_user and row.employee_user.id == emp.id %}selected{% endif %}>
+                    {{ emp.get_full_name|default:emp.username }} ({{ emp.username }})
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fas fa-link"></i> Vincular
+              </button>
+            </form>
+          </td>
+          <td>
+            {% if row.link %}
+              <form method="post" action="{% url 'unlink_account' row.link.id %}"
+                    onsubmit="return confirm('Desvincular {{ row.admin.username }}?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="fas fa-unlink"></i> Desvincular
+                </button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Búsqueda rápida en los selects de empleados
+document.querySelectorAll('.linked-account-select').forEach(function(select) {
+  select.addEventListener('focus', function() {
+    if (this.options.length > 20 && !this.dataset.searchReady) {
+      this.dataset.searchReady = '1';
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -13,6 +13,10 @@ from .views import (
     corregir_inconsistencia_view,
     my_profile,
     corporate_emails_view,
+    linked_accounts_view,
+    link_account,
+    unlink_account,
+    switch_account,
 )
 from apps.users.views import force_password_change, upload_user_photo
 
@@ -33,4 +37,8 @@ urlpatterns = [
     path('upload-photo/<int:user_id>/', upload_user_photo, name='upload_user_photo'),
     path('mi-perfil/', my_profile, name='my_profile'),
     path('correos-corporativos/', corporate_emails_view, name='corporate_emails'),
+    path('linked-accounts/', linked_accounts_view, name='linked_accounts'),
+    path('linked-accounts/link/', link_account, name='link_account'),
+    path('linked-accounts/unlink/<int:link_id>/', unlink_account, name='unlink_account'),
+    path('switch-account/', switch_account, name='switch_account'),
 ]

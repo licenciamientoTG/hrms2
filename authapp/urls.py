@@ -1,5 +1,6 @@
 from django.urls import path, include
 from .views import login_view, register_view, logout_view, terms_and_conditions_view, checador_policy_view
+from .forms import CustomPasswordResetForm
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
@@ -11,8 +12,12 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path("auth/accounts/login/", login_view, name="login"),
     # 1. Formulario para pedir correo
-    path('reset_password/', 
-         auth_views.PasswordResetView.as_view(template_name="registration/password_reset_form.html"), 
+    path('reset_password/',
+         auth_views.PasswordResetView.as_view(
+             template_name="registration/password_reset_form.html",
+             form_class=CustomPasswordResetForm,
+             html_email_template_name="registration/password_reset_email.html",
+         ),
          name='password_reset'),
 
     # 2. Confirmación de envío

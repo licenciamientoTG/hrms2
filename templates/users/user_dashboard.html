@@ -26,6 +26,11 @@
         <i class="fas fa-exclamation-triangle"></i> Inconsistencias
       </a>
     {% endif %}
+    {% if request.user.is_superuser %}
+      <a href="{% url 'linked_accounts' %}" class="btn btn-outline-info">
+        <i class="fas fa-exchange-alt"></i> Cuentas Vinculadas
+      </a>
+    {% endif %}
   </div>
 </div>
 
