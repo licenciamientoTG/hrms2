@@ -289,6 +289,7 @@ function cargarSemana(empId) {
       }
       actualizarIndicadorECV('mistery', tieneMistery, empId);
       _actualizarIncidenciasEmp(empId, window._incidenciasEstaciones);
+      _actualizarFaltantesEmp(empId, window._faltantesEstaciones);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -825,15 +826,55 @@ function syncIncidenciasSemana() {
     });
 }
 
+// ── Sincronización de Faltantes ──────────────────────────────────────────────
+
+function _actualizarFaltantesEmp(empId, estaciones) {
+  var row = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
+  if (!row) return;
+  var teamKey = row.dataset.teamKey;
+  if (!teamKey || !estaciones) return;
+  var est = estaciones[teamKey];
+  if (!est) return;
+  actualizarIndicadorECV('faltante', est.verde, empId, est.total > 0 ? Math.round(est.total) : null);
+}
+
+function syncFaltantesSemana() {
+  fetch('/incentives/sync-faltantes/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+      var estaciones = data.estaciones || {};
+
+      // Vista gerente: actualizar badge de faltante
+      if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
+        var est = estaciones[MANAGER_TEAM_KEY];
+        if (est) {
+          actualizarIndicadorECV('faltante', est.verde, null, est.total > 0 ? Math.round(est.total) : null);
+        } else {
+          // Sin faltantes registrados → verde
+          actualizarIndicadorECV('faltante', true, null, null);
+        }
+      }
+
+      // Vista admin/zona: actualizar filas ya expandidas
+      window._faltantesEstaciones = estaciones;
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (empId) _actualizarFaltantesEmp(empId, estaciones);
+      });
+    });
+}
+
 // ── DOM Ready ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
 
-  // Sincronizar bono de Venta, Mistery e Incidencias según datos externos
+  // Sincronizar bono de Venta, Mistery, Incidencias y Faltantes según datos externos
   if (typeof SEMANA_INICIO !== 'undefined') {
     syncVentaSemana();
     syncMisterySemana();
     syncIncidenciasSemana();
+    syncFaltantesSemana();
   }
 
   // Accordion de estaciones

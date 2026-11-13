@@ -6,9 +6,122 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Cuentas Vinculadas</h2>
-  <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary">
-    <i class="fas fa-arrow-left"></i> Volver a Usuarios
-  </a>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevoAdmin">
+      <i class="fas fa-user-plus"></i> Nuevo Admin
+    </button>
+    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Volver a Usuarios
+    </a>
+  </div>
+</div>
+
+<!-- Modal Nuevo Admin -->
+<div class="modal fade" id="modalNuevoAdmin" tabindex="-1" aria-labelledby="modalNuevoAdminLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'create_admin_user' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalNuevoAdminLabel">Crear Usuario Admin</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Nombre</label>
+              <input type="text" name="first_name" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Apellido</label>
+              <input type="text" name="last_name" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Usuario <span class="text-danger">*</span></label>
+              <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Correo</label>
+              <input type="email" name="email" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+              <input type="password" name="password" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Confirmar contraseña <span class="text-danger">*</span></label>
+              <input type="password" name="confirm_password" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Tipo</label>
+              <select name="user_type" class="form-select">
+                <option value="staff">Staff (Admin)</option>
+                <option value="superuser">Superadmin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Admin -->
+<div class="modal fade" id="modalEditarAdmin" tabindex="-1" aria-labelledby="modalEditarAdminLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="formEditarAdmin" action="">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalEditarAdminLabel">Editar Usuario Admin</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Nombre</label>
+              <input type="text" name="first_name" id="edit_first_name" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Apellido</label>
+              <input type="text" name="last_name" id="edit_last_name" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Usuario <span class="text-danger">*</span></label>
+              <input type="text" name="username" id="edit_username" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Correo</label>
+              <input type="email" name="email" id="edit_email" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Nueva contraseña <span class="text-muted small">(dejar vacío para no cambiar)</span></label>
+              <input type="password" name="password" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Confirmar contraseña</label>
+              <input type="password" name="confirm_password" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Tipo</label>
+              <select name="user_type" id="edit_user_type" class="form-select">
+                <option value="staff">Staff (Admin)</option>
+                <option value="superuser">Superadmin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <div class="card p-3">
@@ -67,15 +180,35 @@
             </form>
           </td>
           <td>
-            {% if row.link %}
-              <form method="post" action="{% url 'unlink_account' row.link.id %}"
-                    onsubmit="return confirm('Desvincular {{ row.admin.username }}?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <i class="fas fa-unlink"></i> Desvincular
-                </button>
-              </form>
-            {% endif %}
+            <div class="d-flex gap-1">
+              {% if row.link %}
+                <form method="post" action="{% url 'unlink_account' row.link.id %}"
+                      onsubmit="return confirm('Desvincular {{ row.admin.username }}?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <i class="fas fa-unlink"></i> Desvincular
+                  </button>
+                </form>
+              {% endif %}
+              <button type="button" class="btn btn-sm btn-outline-primary btn-edit-admin"
+                      data-id="{{ row.admin.id }}"
+                      data-username="{{ row.admin.username }}"
+                      data-first-name="{{ row.admin.first_name }}"
+                      data-last-name="{{ row.admin.last_name }}"
+                      data-email="{{ row.admin.email }}"
+                      data-type="{% if row.admin.is_superuser %}superuser{% else %}staff{% endif %}">
+                <i class="fas fa-edit"></i>
+              </button>
+              {% if not row.admin == request.user %}
+                <form method="post" action="{% url 'delete_admin_user' row.admin.id %}" class="form-delete-admin">
+                  {% csrf_token %}
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-delete-admin"
+                          data-username="{{ row.admin.username }}">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -93,6 +226,44 @@ document.querySelectorAll('.linked-account-select').forEach(function(select) {
     if (this.options.length > 20 && !this.dataset.searchReady) {
       this.dataset.searchReady = '1';
     }
+  });
+});
+
+// Poblar modal de edición
+document.querySelectorAll('.btn-edit-admin').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const editUrl = "{% url 'edit_admin_user' 0 %}".replace('/0/', '/' + this.dataset.id + '/');
+    document.getElementById('formEditarAdmin').action = editUrl;
+    document.getElementById('edit_first_name').value = this.dataset.firstName;
+    document.getElementById('edit_last_name').value = this.dataset.lastName;
+    document.getElementById('edit_username').value = this.dataset.username;
+    document.getElementById('edit_email').value = this.dataset.email;
+    document.getElementById('edit_user_type').value = this.dataset.type;
+    // Limpiar contraseñas
+    document.querySelectorAll('#formEditarAdmin input[type="password"]').forEach(function(el) { el.value = ''; });
+    new bootstrap.Modal(document.getElementById('modalEditarAdmin')).show();
+  });
+});
+
+// Confirmar eliminación con SweetAlert2
+document.querySelectorAll('.btn-delete-admin').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const username = this.dataset.username;
+    const form = this.closest('form');
+    Swal.fire({
+      title: `¿Eliminar al usuario ${username}?`,
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    }).then(function(result) {
+      if (result.isConfirmed) {
+        form.submit();
+      }
+    });
   });
 });
 </script>

@@ -902,6 +902,108 @@ def unlink_account(request, link_id):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def create_admin_user(request):
+    username = request.POST.get('username', '').strip()
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
+    email = request.POST.get('email', '').strip()
+    password = request.POST.get('password', '')
+    confirm_password = request.POST.get('confirm_password', '')
+    user_type = request.POST.get('user_type', 'staff')
+
+    if not username or not password:
+        messages.error(request, 'El usuario y contraseña son obligatorios.')
+        return redirect('linked_accounts')
+
+    if password != confirm_password:
+        messages.error(request, 'Las contraseñas no coinciden.')
+        return redirect('linked_accounts')
+
+    if User.objects.filter(username=username).exists():
+        messages.error(request, f'El usuario "{username}" ya existe.')
+        return redirect('linked_accounts')
+
+    user = User.objects.create_user(
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        password=password,
+        is_staff=True,
+        is_superuser=(user_type == 'superuser'),
+    )
+    tipo = 'Superadmin' if user.is_superuser else 'Staff'
+    messages.success(request, f'Usuario {tipo} "{username}" creado correctamente.')
+    return redirect('linked_accounts')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def delete_admin_user(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+
+    if not (user.is_staff or user.is_superuser):
+        messages.error(request, 'Solo se pueden eliminar usuarios admin/staff desde aquí.')
+        return redirect('linked_accounts')
+
+    if user == request.user:
+        messages.error(request, 'No puedes eliminar tu propia cuenta.')
+        return redirect('linked_accounts')
+
+    username = user.username
+    user.delete()
+    messages.success(request, f'Usuario "{username}" eliminado.')
+    return redirect('linked_accounts')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def edit_admin_user(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+
+    if not (user.is_staff or user.is_superuser):
+        messages.error(request, 'Solo se pueden editar usuarios admin/staff desde aquí.')
+        return redirect('linked_accounts')
+
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
+    email = request.POST.get('email', '').strip()
+    new_username = request.POST.get('username', '').strip()
+    user_type = request.POST.get('user_type', 'staff')
+    password = request.POST.get('password', '')
+    confirm_password = request.POST.get('confirm_password', '')
+
+    if not new_username:
+        messages.error(request, 'El usuario es obligatorio.')
+        return redirect('linked_accounts')
+
+    if User.objects.filter(username=new_username).exclude(pk=user_id).exists():
+        messages.error(request, f'El usuario "{new_username}" ya está en uso.')
+        return redirect('linked_accounts')
+
+    if password:
+        if password != confirm_password:
+            messages.error(request, 'Las contraseñas no coinciden.')
+            return redirect('linked_accounts')
+        user.set_password(password)
+
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
+    user.username = new_username
+    user.is_superuser = (user_type == 'superuser')
+    user.is_staff = True
+    user.save()
+
+    messages.success(request, f'Usuario "{new_username}" actualizado.')
+    return redirect('linked_accounts')
+
+
+@login_required
 @require_POST
 def switch_account(request):
     original_admin_id = request.session.get('original_admin_id')

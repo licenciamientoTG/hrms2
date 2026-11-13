@@ -27,6 +27,7 @@ from .views import (
     guardar_prenomina,
     prenomina_semana_json,
     sync_incidencias_semana,
+    sync_faltantes_semana,
 )
 
 urlpatterns = [
@@ -57,4 +58,5 @@ urlpatterns = [
     path('guardar-prenomina/', guardar_prenomina, name='guardar_prenomina'),
     path('prenomina-semana/', prenomina_semana_json, name='prenomina_semana_json'),
     path('sync-incidencias/', sync_incidencias_semana, name='sync_incidencias_semana'),
+    path('sync-faltantes/', sync_faltantes_semana, name='sync_faltantes_semana'),
 ]

@@ -1867,7 +1867,7 @@ def sync_venta_semana(request):
                 resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override',
                                        'verde_gas': verde, 'verde_diesel': None}
                 if not semana_cerrada:
-                    empleados = list(Employee.objects.filter(is_active=True, team=team_key).values('id', 'seniority_raw'))
+                    empleados = list(Employee.objects.filter(is_active=True, team=team_key).exclude(job_position__title__icontains='gerente de estaci').values('id', 'seniority_raw'))
                     if empleados:
                         if verde:
                             for emp in empleados:
@@ -1910,6 +1910,7 @@ def sync_venta_semana(request):
                 empleados = list(
                     Employee.objects
                     .filter(is_active=True, team=team_key)
+                    .exclude(job_position__title__icontains='gerente de estaci')
                     .values('id', 'seniority_raw')
                 )
                 if empleados:
@@ -1982,6 +1983,7 @@ def sync_venta_semana(request):
             empleados = list(
                 Employee.objects
                 .filter(is_active=True, team=team_key)
+                .exclude(job_position__title__icontains='gerente de estaci')
                 .values('id', 'seniority_raw')
             )
             if not empleados:
@@ -2641,3 +2643,28 @@ def sync_incidencias_semana(request):
         'semana_cargada': resultado['semana_cargada'],
         'estaciones': estaciones_json,
     })
+
+
+@login_required
+def sync_faltantes_semana(request):
+    """API: devuelve el total de faltantes por estación leído desde Google Sheets."""
+    from apps.incentives.faltantes_service import leer_faltantes_por_estacion
+    from apps.incentives.models import IndicadorECV
+
+    # Umbral mínimo configurable desde IndicadorECV (dirección: menor es mejor)
+    ind = IndicadorECV.objects.filter(nombre='faltante').first()
+    umbral = float(ind.umbral_minimo) if ind else 500.0
+
+    totales, error = leer_faltantes_por_estacion()
+    if error:
+        return JsonResponse({'ok': False, 'error': error})
+
+    estaciones_json = {
+        team_key: {
+            'total':  round(monto, 2),
+            'verde':  monto <= umbral,
+        }
+        for team_key, monto in totales.items()
+    }
+
+    return JsonResponse({'ok': True, 'estaciones': estaciones_json})
