@@ -1,4 +1,5 @@
 import json
+import logging
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -6,8 +7,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from departments.models import Department
 from apps.employee.models import Employee
 from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
-from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload, IndicadorVentaSemanal
+from apps.incentives.models import IncentivoRegistro, ComentarioSemana, SemanaCerrada, PresupuestoVenta, PresupuestoVentaSemanal, ConfiguracionIncentivos, CategoriaECV, IndicadorECV, PrenominaUpload, PrenominaRegistro, IncidenciaRegistro, IncidenciaUpload, IndicadorVentaSemanal, FaltanteEstacionSemanal
 from apps.incentives.sheets_service import leer_ventas_praxedis_colosio, SHEETS_TEAM_KEYS
+
+logger = logging.getLogger(__name__)
 
 # Puestos que no aplican para incentivos aunque estén en una estación
 PUESTOS_EXCLUIDOS_INCENTIVOS = (
@@ -96,14 +99,56 @@ def _deduplicar_por_tsa(employees):
     return result
 
 
+def _score_mayor(alcance, umbral_min, umbral_obj, umbral_exc):
+    """Score (0–120) para indicadores donde mayor valor es mejor.
+    Interpolación lineal continua de umbral_min (→80) a umbral_exc (→120),
+    igual que la fórmula del Excel ECV. Score 0 si alcance < umbral_min.
+    umbral_obj no afecta el cálculo pero se conserva para compatibilidad.
+    """
+    if umbral_exc <= umbral_min:
+        return 0.0
+    calculo = 80.0 + (alcance - umbral_min) / (umbral_exc - umbral_min) * 40.0
+    if calculo >= 120.0:
+        return 120.0
+    if calculo >= 80.0:
+        return calculo
+    return 0.0
+
+
+def _score_menor(alcance, umbral_min, umbral_obj, umbral_exc):
+    """Score (0–120) para indicadores donde menor valor es mejor. Escalonado por umbrales."""
+    if alcance <= umbral_exc:
+        return 120.0
+    if alcance <= umbral_obj:
+        return 100.0
+    if alcance <= umbral_min:
+        return 80.0
+    return 0.0
+
+
+def _calc_indicador(nombre, alcance_val, score_fn, inds_dict):
+    """Calcula calculo (0–120) y valor (% ponderado) para un indicador ECV."""
+    ind = inds_dict.get(nombre)
+    if ind is None or alcance_val is None:
+        return {'alcance': alcance_val, 'calculo': None, 'valor': None}
+    calculo = score_fn(
+        alcance_val,
+        float(ind.umbral_minimo),
+        float(ind.umbral_objetivo),
+        float(ind.umbral_excelente),
+    )
+    valor = round(calculo * float(ind.ponderacion) / 100, 4)
+    return {'alcance': round(alcance_val, 2), 'calculo': round(calculo, 2), 'valor': valor}
+
+
 def _calcular_incidencias_semana(week_start):
     """
     Calcula el indicador de incidencias en cortes para todas las estaciones
     en la semana dada.
 
-    El domingo de la semana (week_start + 6) es la clave usada en
-    IncidenciaRegistro.semana, ya que el periodo del bono va viernes→jueves
-    y ese domingo siempre cae dentro de él.
+    El upload que se usa es el de la semana ANTERIOR (week_start - 1 = domingo previo):
+    las incidencias se envían el lunes siguiente al cierre de la semana anterior,
+    por lo que al calcular el ECV de la semana N ya están disponibles las de N-1.
 
     Returns:
         {
@@ -123,7 +168,10 @@ def _calcular_incidencias_semana(week_start):
     from django.db.models import Count as _Count
     from apps.incentives.constants import STATION_TEAMS, DIESEL_TEAM_KEYS
 
-    semana_domingo = week_start + timedelta(days=6)
+    # El ECV de la semana N usa el upload de la semana anterior (N-1):
+    # las incidencias se reportan el lunes siguiente al cierre de semana,
+    # así que al calcular el ECV de la semana N ya están disponibles las de N-1.
+    semana_domingo = week_start - timedelta(days=1)
     semana_cargada = IncidenciaUpload.objects.filter(semana=semana_domingo).exists()
 
     # Conteo por estación para ese domingo
@@ -667,12 +715,15 @@ def incentives_dashboard_manager(request):
             inactivos_con_registro,
         )
         tiene_diesel = team_key in DIESEL_TEAM_KEYS
+        titulo_emp = (gerente_emp.job_position.title if gerente_emp.job_position else '').lower()
+        es_subgerente_manager = 'subgerente' in titulo_emp
     except Employee.DoesNotExist:
         department = None
         team_key = ''
         station_name = ''
         colaboradores = Employee.objects.none()
         tiene_diesel = False
+        es_subgerente_manager = False
 
     # TODO: agregar cuando estén listos: 'Auditoría', 'Rotación', 'Inventario', 'Otros'
     TIPOS = ['Diesel', 'Encargado', 'Venta', 'Mistery', 'ECV']
@@ -694,6 +745,7 @@ def incentives_dashboard_manager(request):
         'periodo_cerrado': periodo_cerrado,
         'cfg': ConfiguracionIncentivos.get(),
         'sin_permiso_subgerente': sin_permiso_subgerente,
+        'es_subgerente_manager': es_subgerente_manager,
     })
 
 
@@ -2647,24 +2699,226 @@ def sync_incidencias_semana(request):
 
 @login_required
 def sync_faltantes_semana(request):
-    """API: devuelve el total de faltantes por estación leído desde Google Sheets."""
+    """
+    API: devuelve el total de faltantes por estación leído desde Google Sheets
+    y persiste el snapshot en FaltanteEstacionSemanal para consultas históricas.
+    """
+    from datetime import date
     from apps.incentives.faltantes_service import leer_faltantes_por_estacion
-    from apps.incentives.models import IndicadorECV
 
-    # Umbral mínimo configurable desde IndicadorECV (dirección: menor es mejor)
+    semana_str = request.GET.get('semana')
+    try:
+        week_start = date.fromisoformat(semana_str) if semana_str else None
+    except ValueError:
+        week_start = None
+
     ind = IndicadorECV.objects.filter(nombre='faltante').first()
-    umbral = float(ind.umbral_minimo) if ind else 500.0
+    umbral_min = float(ind.umbral_minimo)  if ind else 500.0
+    umbral_obj = float(ind.umbral_objetivo) if ind else 100.0
+    umbral_exc = float(ind.umbral_excelente) if ind else 0.0
 
     totales, error = leer_faltantes_por_estacion()
     if error:
         return JsonResponse({'ok': False, 'error': error})
 
-    estaciones_json = {
-        team_key: {
-            'total':  round(monto, 2),
-            'verde':  monto <= umbral,
+    # Persistir snapshot si se recibió semana
+    if week_start:
+        for team_key, monto in totales.items():
+            FaltanteEstacionSemanal.objects.update_or_create(
+                team_key=team_key,
+                week_start=week_start,
+                defaults={'monto': monto},
+            )
+
+    def _nivel(monto):
+        calculo = _score_menor(monto, umbral_min, umbral_obj, umbral_exc)
+        if calculo >= 120:
+            nivel = 'excelente'
+        elif calculo >= 100:
+            nivel = 'objetivo'
+        elif calculo >= 80:
+            nivel = 'minimo'
+        else:
+            nivel = 'no_cumple'
+        return nivel, calculo
+
+    estaciones_json = {}
+    for team_key, monto in totales.items():
+        nivel, calculo = _nivel(monto)
+        estaciones_json[team_key] = {
+            'total':   round(monto, 2),
+            'verde':   monto <= umbral_min,
+            'nivel':   nivel,
+            'calculo': calculo,
         }
-        for team_key, monto in totales.items()
-    }
 
     return JsonResponse({'ok': True, 'estaciones': estaciones_json})
+
+
+@login_required
+def sync_ecv_semana(request):
+    """
+    Calcula el score ECV (en puntos %) por estación combinando los 5 indicadores.
+    Solo lectura — no crea ni modifica IncentivoRegistro.
+    """
+    from datetime import date, timedelta
+    from django.db import connections
+    from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos
+    from apps.incentives.constants import DIESEL_TEAM_KEYS, SG12_COD_TO_TEAM_KEY, CATEGORIA_BONO_ESTACION
+
+    rol = _get_rol_incentivos(request.user)
+    if not rol:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    semana_str = request.GET.get('semana')
+    if not semana_str:
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+    try:
+        week_start = date.fromisoformat(semana_str)
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    # Indicadores ECV agrupados por categoría
+    inds_cat = {}
+    for ind in IndicadorECV.objects.select_related('categoria').all():
+        inds_cat.setdefault(ind.categoria.nombre, {})[ind.nombre] = ind
+
+    # Venta desde IndicadorVentaSemanal (ya calculado por sync_venta_semana)
+    ventas_db = {v.team_key: v for v in IndicadorVentaSemanal.objects.filter(week_start=week_start)}
+
+    # Mistery: qualification real desde TGV2
+    date_mistery = week_start + timedelta(days=6)
+    mistery_qual = {}
+    try:
+        with connections['default'].cursor() as cursor:
+            cursor.execute(
+                "SELECT codgas, qualification FROM TGV2.dbo.AuditoriaMystery WHERE date_mistery = %s",
+                [date_mistery.isoformat()],
+            )
+            for codgas, qual in cursor.fetchall():
+                tk = SG12_COD_TO_TEAM_KEY.get(codgas)
+                if tk:
+                    mistery_qual[tk] = float(qual or 0)
+    except Exception:
+        pass
+
+    # Faltantes:
+    #   - Semana cerrada → usar snapshot fijo (no releer F8)
+    #   - Semana abierta → siempre leer F8 abiertos y actualizar snapshot
+    semana_cerrada_obj = SemanaCerrada.objects.filter(week_start=week_start).first()
+    if semana_cerrada_obj:
+        faltantes = {
+            r.team_key: float(r.monto)
+            for r in FaltanteEstacionSemanal.objects.filter(week_start=week_start)
+        }
+    else:
+        faltantes, faltantes_error = leer_faltantes_f8_abiertos()
+        if faltantes_error:
+            logger.warning("sync_ecv_semana: faltantes F8 error: %s", faltantes_error)
+            faltantes = {}
+        else:
+            # Reemplazar snapshot con datos frescos del F8
+            FaltanteEstacionSemanal.objects.filter(week_start=week_start).delete()
+            for team_key, monto in faltantes.items():
+                FaltanteEstacionSemanal.objects.create(
+                    team_key=team_key,
+                    week_start=week_start,
+                    monto=monto,
+                )
+
+    # Incidencias desde DB
+    inc_data = _calcular_incidencias_semana(week_start)
+    inc_estaciones = inc_data['estaciones']
+
+    # Configuración de montos de bono ECV
+    cfg = ConfiguracionIncentivos.objects.first()
+
+    # Travel Center usa ponderaciones distintas al estándar Cat-B
+    # (gas=30%, diesel=25%, mistery=20%, faltante=15%, incidencia=10%)
+    from types import SimpleNamespace
+    from decimal import Decimal as _D
+    _TC_INDS = {
+        'venta_gas':    SimpleNamespace(ponderacion=_D('30'), umbral_minimo=_D('97'),  umbral_objetivo=_D('100'), umbral_excelente=_D('103')),
+        'venta_diesel': SimpleNamespace(ponderacion=_D('25'), umbral_minimo=_D('97'),  umbral_objetivo=_D('100'), umbral_excelente=_D('103')),
+        'mistery':      SimpleNamespace(ponderacion=_D('20'), umbral_minimo=_D('92'),  umbral_objetivo=_D('100'), umbral_excelente=_D('103')),
+        'faltante':     SimpleNamespace(ponderacion=_D('15'), umbral_minimo=_D('500'), umbral_objetivo=_D('100'), umbral_excelente=_D('0')),
+        'incidencia':   SimpleNamespace(ponderacion=_D('10'), umbral_minimo=_D('3'),   umbral_objetivo=_D('2'),   umbral_excelente=_D('0')),
+    }
+
+    resultado = {}
+    for team_key in STATION_TEAMS:
+        es_travel = (team_key == 'Travel Center')
+        cat = 'B' if (team_key in DIESEL_TEAM_KEYS or es_travel) else 'A'
+        inds = _TC_INDS if es_travel else inds_cat.get(cat, {})
+        total_puntos = 0.0
+        detalle = {}
+
+        # Venta Gasolina
+        v = ventas_db.get(team_key)
+        alcance_gas = (v.vs_gas / v.ps_gas * 100) if (v and v.vs_gas is not None and v.ps_gas) else None
+        d = _calc_indicador('venta_gas', alcance_gas, _score_mayor, inds)
+        detalle['venta_gas'] = d
+        if d['valor'] is not None:
+            total_puntos += d['valor']
+
+        # Venta Diésel (Cat B y Travel Center)
+        if cat == 'B':
+            alcance_die = (v.vs_diesel / v.ps_diesel * 100) if (v and v.vs_diesel is not None and v.ps_diesel) else None
+            d = _calc_indicador('venta_diesel', alcance_die, _score_mayor, inds)
+            detalle['venta_diesel'] = d
+            if d['valor'] is not None:
+                total_puntos += d['valor']
+
+        # Mistery Shopper (qualification %)
+        d = _calc_indicador('mistery', mistery_qual.get(team_key), _score_mayor, inds)
+        detalle['mistery'] = d
+        if d['valor'] is not None:
+            total_puntos += d['valor']
+
+        # Faltante (0 si no aparece en Sheet = sin faltantes = Excelente)
+        d = _calc_indicador('faltante', faltantes.get(team_key, 0.0), _score_menor, inds)
+        detalle['faltante'] = d
+        if d['valor'] is not None:
+            total_puntos += d['valor']
+
+        # Incidencia en cortes
+        inc_est = inc_estaciones.get(team_key)
+        if inc_est and inc_est['logro'] is not None:
+            ind_inc = inds.get('incidencia')
+            if ind_inc:
+                calculo_inc = float(inc_est['logro']) * 100  # 0.0–1.2 → 0–120
+                valor_inc = round(calculo_inc * float(ind_inc.ponderacion) / 100, 4)
+                detalle['incidencia'] = {
+                    'alcance': inc_est['count'],
+                    'calculo': round(calculo_inc, 2),
+                    'valor': valor_inc,
+                }
+                total_puntos += valor_inc
+            else:
+                detalle['incidencia'] = {'alcance': inc_est['count'], 'calculo': None, 'valor': None}
+        else:
+            detalle['incidencia'] = {'alcance': None, 'calculo': None, 'valor': None}
+
+        # Bono gerente/subgerente según categoría A/B/C (Travel Center usa montos especiales)
+        cat_bono = CATEGORIA_BONO_ESTACION.get(team_key)
+        bono_gerente = bono_subgerente = 0.0
+        if es_travel and total_puntos >= 80:
+            # Travel Center: 12 000 / 6 000 mensuales (distintos al estándar A/B/C)
+            bono_gerente    = round(12000 * 7 / 30.4 * total_puntos / 100, 2)
+            bono_subgerente = round( 6000 * 7 / 30.4 * total_puntos / 100, 2)
+        elif cfg and cat_bono and total_puntos >= 80:
+            monto_g  = getattr(cfg, f'bono_gerente_cat_{cat_bono.lower()}', 0)
+            monto_sg = getattr(cfg, f'bono_subgerente_cat_{cat_bono.lower()}', 0)
+            bono_gerente    = round(monto_g  * 7 / 30.4 * total_puntos / 100, 2)
+            bono_subgerente = round(monto_sg * 7 / 30.4 * total_puntos / 100, 2)
+
+        resultado[team_key] = {
+            'categoria': cat,
+            'indicadores': detalle,
+            'total_puntos': round(total_puntos, 2),
+            'categoria_bono': cat_bono or ('Travel' if es_travel else None),
+            'bono_gerente': bono_gerente,
+            'bono_subgerente': bono_subgerente,
+        }
+
+    return JsonResponse({'ok': True, 'estaciones': resultado})

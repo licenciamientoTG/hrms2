@@ -1,14 +1,14 @@
 """
 Servicio para leer faltantes de gerentes/subgerentes desde Google Sheets.
 
-Hoja: "Faltantes" (ID: 1HwJWddOpVvegUpolrxpX12M07fsyvhNp5slhO1muCgk)
-Pestañas usadas: FALTANTES Z1, FALTANTES Z2, FALTANTES Z3, FALTANTES Z4
+Hoja DIARIOS: "Faltantes" (ID: 1HwJWddOpVvegUpolrxpX12M07fsyvhNp5slhO1muCgk)
+  Pestañas: FALTANTES Z1 … Z4
+  Uso: vista en tiempo real; entradas se eliminan al pagar.
 
-Estructura de cada pestaña (encabezado en fila 2, datos desde fila 3):
-  Col A: ESTACION   Col B: GERENTE   Col C: IMPORTE FALTANTE
-  Col O: CLASIFICACION
-
-Solo se suman clasificaciones: REAL, DESCUENTO VIA NOMINA
+Hoja F8:  "F8 FALTANTES (Respuestas)" (ID: 1tCKyJw-CUCuAR-pNBfYK0rJv600MXzVnyslrEHscFj0)
+  Pestañas por año: '2026', '2027', …
+  Columnas: A=ESTACION  C=IMPORTE  G=FECHA  O=REAL (SI/NO)
+  Uso: histórico completo del año — fuente correcta para ECV semanal.
 """
 
 import os
@@ -23,7 +23,8 @@ from apps.incentives.constants import STATION_TEAMS, EXCEL_CODE_TO_TEAM_KEY
 
 logger = logging.getLogger(__name__)
 
-SHEET_ID   = '1HwJWddOpVvegUpolrxpX12M07fsyvhNp5slhO1muCgk'
+SHEET_ID    = '1HwJWddOpVvegUpolrxpX12M07fsyvhNp5slhO1muCgk'
+F8_SHEET_ID = '1tCKyJw-CUCuAR-pNBfYK0rJv600MXzVnyslrEHscFj0'
 _CREDS_PATH = os.path.join(
     os.path.dirname(__file__), '..', '..', 'credentials', 'hrms-incentivos-90f7092e0790.json'
 )
@@ -124,4 +125,95 @@ def leer_faltantes_por_estacion():
         return {}, f"Error de Google Sheets API: {e.reason}"
     except Exception as e:
         logger.exception("Error leyendo faltantes del sheet")
+        return {}, str(e)
+
+
+# Estatus que indican faltante activo/pendiente de cobro
+ESTATUS_ACTIVOS_F8 = {'ABIERTO', 'DESCONTANDOSE VIA NOMINA'}
+
+
+def leer_faltantes_f8_abiertos():
+    """
+    Lee del F8 todos los faltantes actualmente abiertos o en proceso de descuento.
+
+    Filtra por:
+      - REAL   (Col O) == 'SI'
+      - ESTATUS (Col M) ∈ ESTATUS_ACTIVOS_F8
+
+    No filtra por fecha — devuelve el estado actual de faltantes sin pagar,
+    equivalente a lo que mostraría FALTANTES DIARIOS en el momento del cálculo.
+    La pestaña se determina por el año actual.
+
+    Returns
+    -------
+    (totales_dict, error_str)
+      totales_dict : {team_key: float}
+      error_str    : None si OK, mensaje si ocurrió error
+    """
+    from datetime import date as _date
+    tab = str(_date.today().year)
+
+    try:
+        service = _get_service()
+        sheets  = service.spreadsheets()
+
+        meta = sheets.get(
+            spreadsheetId=F8_SHEET_ID,
+            fields='sheets.properties.title',
+        ).execute()
+        disponibles = {s['properties']['title'] for s in meta.get('sheets', [])}
+        if tab not in disponibles:
+            return {}, f"Pestaña '{tab}' no encontrada en F8 FALTANTES"
+
+        rng    = f"'{tab}'!A2:O20000"
+        result = sheets.values().get(
+            spreadsheetId=F8_SHEET_ID,
+            range=rng,
+            valueRenderOption='UNFORMATTED_VALUE',
+        ).execute()
+        rows = result.get('values', [])
+
+        totales = {}
+        for row in rows:
+            if len(row) < 3:
+                continue
+
+            # Col O (índice 14): REAL
+            real = str(row[14]).strip().upper() if len(row) > 14 else ''
+            if real != 'SI':
+                continue
+
+            # Col M (índice 12): ESTATUS — solo activos/abiertos
+            estatus = str(row[12]).strip() if len(row) > 12 else ''
+            if estatus not in ESTATUS_ACTIVOS_F8:
+                continue
+
+            # Col A (índice 0): ESTACION
+            cod_raw = row[0]
+            if cod_raw is None or cod_raw == '':
+                continue
+            if isinstance(cod_raw, (int, float)):
+                cod = str(int(cod_raw))
+            else:
+                cod = str(cod_raw).strip()
+
+            team_key = _estacion_to_team_key(cod)
+            if team_key is None:
+                logger.debug("F8: Estación sin mapeo: %s", cod)
+                continue
+
+            # Col C (índice 2): IMPORTE
+            importe = _parse_monto(row[2]) if len(row) > 2 else 0.0
+            if importe <= 0:
+                continue
+
+            totales[team_key] = totales.get(team_key, 0.0) + importe
+
+        return totales, None
+
+    except HttpError as e:
+        logger.error("Sheets API HttpError (F8 faltantes abiertos): %s", e)
+        return {}, f"Error de Google Sheets API: {e.reason}"
+    except Exception as e:
+        logger.exception("Error leyendo F8 faltantes abiertos")
         return {}, str(e)

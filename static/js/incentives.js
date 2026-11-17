@@ -158,6 +158,8 @@ function buildEmpTable(empId) {
       html += '<td class="text-center fw-semibold text-muted" id="total-' + empId + '-Venta">—</td>';
     } else if (tipo === 'Mistery') {
       html += '<td class="text-center fw-semibold text-muted" id="total-' + empId + '-Mistery">—</td>';
+    } else if (tipo === 'ECV') {
+      html += '<td class="text-center fw-semibold text-muted" id="ecv-total-emp-' + empId + '">—</td>';
     } else {
       html += '<td class="text-center text-muted">—</td>';
     }
@@ -290,6 +292,7 @@ function cargarSemana(empId) {
       actualizarIndicadorECV('mistery', tieneMistery, empId);
       _actualizarIncidenciasEmp(empId, window._incidenciasEstaciones);
       _actualizarFaltantesEmp(empId, window._faltantesEstaciones);
+      _actualizarECVEmp(empId, window._ecvScoreEstaciones);
       if (data.comentarios) {
         Object.keys(data.comentarios).forEach(function(tipo) {
           var ta = document.querySelector(
@@ -490,7 +493,8 @@ function actualizarGranTotal() {
 }
 
 function actualizarBadgeMisteryManager(ganado, monto) {
-  actualizarIndicadorECV('mistery', ganado ? true : false);
+  // Nota: NO actualizamos ecv-ind-mistery aquí porque usa datos del empleado individual,
+  // mientras que el ECV de Mistery es a nivel estación. Lo maneja syncMisterySemana/syncECVSemana.
   var cell = document.getElementById('mistery-status-cell');
   var evaluadoRow = document.getElementById('mistery-evaluado-row');
   if (!cell) return;
@@ -628,6 +632,11 @@ function actualizarTabla(select) {
     else row.classList.add('d-none');
   });
 
+  // Actualizar bono ECV según si el empleado seleccionado es subgerente
+  if (esManager && window._ecvScoreEstaciones && typeof MANAGER_TEAM_KEY !== 'undefined') {
+    _mostrarBonoECVManager(opt.dataset.esSubgerente === '1');
+  }
+
   cargarSemanaManager(empId);
 }
 
@@ -635,7 +644,7 @@ function actualizarTabla(select) {
 
 // ── Actualiza un indicador ECV (activo/inactivo) ─────────────────────────────
 
-function actualizarIndicadorECV(indId, activo, empId, pct) {
+function actualizarIndicadorECV(indId, activo, empId, pct, calculo) {
   // Manager: id="ecv-ind-venta-gas"  (sin empId)
   // Admin/zona: id="ecv-ind-venta_gas-123"  (con empId)
   var elId = empId ? ('ecv-ind-' + indId + '-' + empId) : ('ecv-ind-' + indId);
@@ -645,7 +654,7 @@ function actualizarIndicadorECV(indId, activo, empId, pct) {
   el.style.background = '';
   el.style.color = '';
   el.style.boxShadow = '';
-  if (activo === null || activo === undefined) { el.classList.add('inactivo'); return; } // sin datos → gris neutro
+  if (activo === null || activo === undefined) { el.classList.add('inactivo'); el.title = ''; el.style.cursor = 'default'; return; } // sin datos → gris neutro
   if (activo === true) {
     el.classList.add('activo');
   } else {
@@ -658,6 +667,25 @@ function actualizarIndicadorECV(indId, activo, empId, pct) {
     el.style.background = bg;
     el.style.color = textColor;
     el.style.boxShadow = '0 0 0 2px hsla(354,60%,' + lightness + '%,0.4)';
+  }
+  // Tooltip con el alcance al pasar el mouse
+  if (pct !== null && pct !== undefined) {
+    var indName = indId.replace(/-/g, '_');
+    var tooltipText;
+    if (indName === 'faltante') {
+      tooltipText = 'Faltante: $' + pct;
+      if (calculo !== null && calculo !== undefined) tooltipText += ' · ' + Math.round(calculo) + '% logro';
+    } else if (indName === 'incidencia') {
+      tooltipText = pct + ' corte' + (pct !== 1 ? 's' : '');
+      if (calculo !== null && calculo !== undefined) tooltipText += ' · ' + Math.round(calculo) + '% logro';
+    } else {
+      tooltipText = 'Alcance: ' + pct + '%';
+    }
+    el.title = tooltipText;
+    el.style.cursor = 'help';
+  } else {
+    el.title = '';
+    el.style.cursor = 'default';
   }
 }
 
@@ -770,7 +798,15 @@ function syncMisterySemana() {
           });
       });
 
-      // Gerente: actualizar badge si hay un empleado seleccionado
+      // Gerente: indicador ECV de Mistery con datos de estación (qualification real)
+      if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
+        var estMistery = (data.estaciones || {})[MANAGER_TEAM_KEY];
+        if (estMistery) {
+          actualizarIndicadorECV('mistery', estMistery.ganador, null, estMistery.qualification, null);
+        }
+      }
+
+      // Gerente: actualizar badge del incentivo Mistery del empleado seleccionado
       var selector = document.getElementById('selector-colaborador');
       if (selector && selector.value) {
         var empId = selector.value;
@@ -796,8 +832,8 @@ function _actualizarIncidenciasEmp(empId, estaciones) {
   if (!est) return;
   var logro = est.logro;
   var verde = est.verde;
-  var pct = logro !== null ? Math.round(logro * 100) : null;
-  actualizarIndicadorECV('incidencia', verde === true ? true : (logro === null ? null : false), empId, pct);
+  var calculoPct = logro !== null ? Math.round(logro * 100) : null;
+  actualizarIndicadorECV('incidencia', verde === true ? true : (logro === null ? null : false), empId, est.count, calculoPct);
 }
 
 function syncIncidenciasSemana() {
@@ -812,8 +848,8 @@ function syncIncidenciasSemana() {
         var est = estaciones[MANAGER_TEAM_KEY];
         if (est) {
           var logro = est.logro;
-          var pct = logro !== null ? Math.round(logro * 100) : null;
-          actualizarIndicadorECV('incidencia', est.verde ? true : (logro === null ? null : false), null, pct);
+          var calculoPct = logro !== null ? Math.round(logro * 100) : null;
+          actualizarIndicadorECV('incidencia', est.verde ? true : (logro === null ? null : false), null, est.count, calculoPct);
         }
       }
 
@@ -835,24 +871,22 @@ function _actualizarFaltantesEmp(empId, estaciones) {
   if (!teamKey || !estaciones) return;
   var est = estaciones[teamKey];
   if (!est) return;
-  actualizarIndicadorECV('faltante', est.verde, empId, est.total > 0 ? Math.round(est.total) : null);
+  actualizarIndicadorECV('faltante', est.verde, empId, est.total > 0 ? Math.round(est.total) : null, est.calculo !== undefined ? est.calculo : null);
 }
 
 function syncFaltantesSemana() {
-  fetch('/incentives/sync-faltantes/')
+  fetch('/incentives/sync-faltantes/?semana=' + SEMANA_INICIO)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok) return;
       var estaciones = data.estaciones || {};
 
-      // Vista gerente: actualizar badge de faltante
+      // Vista gerente: actualizar badge de faltante solo si hay dato en el Sheet
+      // Si no aparece (ej. semana pasada ya no está en el Sheet), syncECVSemana lo maneja
       if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
         var est = estaciones[MANAGER_TEAM_KEY];
         if (est) {
-          actualizarIndicadorECV('faltante', est.verde, null, est.total > 0 ? Math.round(est.total) : null);
-        } else {
-          // Sin faltantes registrados → verde
-          actualizarIndicadorECV('faltante', true, null, null);
+          actualizarIndicadorECV('faltante', est.verde, null, est.total > 0 ? Math.round(est.total) : null, est.calculo !== undefined ? est.calculo : null);
         }
       }
 
@@ -861,6 +895,131 @@ function syncFaltantesSemana() {
       document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
         var empId = row.dataset.empId;
         if (empId) _actualizarFaltantesEmp(empId, estaciones);
+      });
+    });
+}
+
+// ── Helper: actualiza fila de bono ECV en vista manager ──────────────────────
+function _mostrarBonoECVManager(esSubgerente) {
+  if (!window._ecvScoreEstaciones || typeof MANAGER_TEAM_KEY === 'undefined') return;
+  var est = window._ecvScoreEstaciones[MANAGER_TEAM_KEY];
+  if (!est) return;
+
+  var filaECVBono = document.getElementById('fila-ecv-bono');
+  var bonoDisplay = document.getElementById('ecv-bono-display');
+  var bonoMonto   = document.getElementById('ecv-bono-monto');
+  var bonoCat     = document.getElementById('ecv-bono-categoria');
+  var bonoNa      = document.getElementById('ecv-bono-na');
+  if (filaECVBono) filaECVBono.classList.remove('d-none');
+  if (bonoDisplay && bonoMonto) {
+    var monto = esSubgerente ? est.bono_subgerente : est.bono_gerente;
+    var cat   = est.categoria_bono || '';
+    if (monto && monto > 0) {
+      bonoMonto.textContent = '$' + monto.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+      bonoCat.textContent   = cat ? 'Cat. ' + cat : '';
+      bonoDisplay.style.display = '';
+      if (bonoNa) bonoNa.style.display = 'none';
+    } else {
+      bonoDisplay.style.display = 'none';
+      if (bonoNa) {
+        bonoNa.style.display = '';
+        bonoNa.textContent = est.total_puntos < 80 ? 'Bono: $0 (puntaje < 80%)' : 'Sin categoría asignada';
+      }
+    }
+  }
+}
+
+// ── Sincronización de ECV (score total en puntos %) ──────────────────────────
+
+function _actualizarECVEmp(empId, ecvEstaciones) {
+  var row = document.querySelector('.zona-emp-row[data-emp-id="' + empId + '"]');
+  if (!row || !ecvEstaciones) return;
+  var teamKey = row.dataset.teamKey;
+  if (!teamKey) return;
+  var est = ecvEstaciones[teamKey];
+  if (!est) return;
+
+  var inds = est.indicadores;
+
+  function _activo(d) {
+    if (!d || d.calculo === null || d.calculo === undefined) return null;
+    return d.calculo > 0;
+  }
+
+  if (inds.venta_gas)    actualizarIndicadorECV('venta_gas',    _activo(inds.venta_gas),    empId, inds.venta_gas.alcance    !== null ? inds.venta_gas.alcance    : null);
+  if (inds.venta_diesel) actualizarIndicadorECV('venta_diesel', _activo(inds.venta_diesel), empId, inds.venta_diesel.alcance !== null ? inds.venta_diesel.alcance : null);
+  if (inds.mistery)      actualizarIndicadorECV('mistery',      _activo(inds.mistery),      empId, inds.mistery.alcance      !== null ? inds.mistery.alcance      : null);
+  if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     empId, inds.faltante.alcance     !== null ? Math.round(inds.faltante.alcance)     : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
+  if (inds.incidencia)   actualizarIndicadorECV('incidencia',   _activo(inds.incidencia),   empId, inds.incidencia.alcance   !== null ? inds.incidencia.alcance               : null, inds.incidencia.calculo   !== null ? Math.round(inds.incidencia.calculo)   : null);
+
+  var totalCell = document.getElementById('ecv-total-emp-' + empId);
+  if (totalCell) {
+    totalCell.textContent = est.total_puntos.toFixed(2) + '%';
+    totalCell.classList.remove('text-muted');
+    totalCell.style.color = est.total_puntos >= 80 ? '#198754' : (est.total_puntos >= 40 ? '#fd7e14' : '#dc3545');
+
+    // Para gerentes/subgerentes: mostrar bono debajo del % en la celda total
+    if (row.classList.contains('emp-manager-row') && est.categoria_bono) {
+      var esSubger = row.dataset.esSubgerente === '1';
+      var monto = esSubger ? est.bono_subgerente : est.bono_gerente;
+      var bonoHtml = '';
+      if (monto && monto > 0) {
+        bonoHtml = '<br><small style="font-size:11px; font-weight:600; color:#198754;">$' +
+          monto.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2}) +
+          ' <span style="color:#6c757d; font-weight:400;">Cat.' + est.categoria_bono + '</span></small>';
+      } else if (est.total_puntos < 80) {
+        bonoHtml = '<br><small style="font-size:11px; color:#dc3545;">Bono: $0</small>';
+      }
+      totalCell.innerHTML = est.total_puntos.toFixed(2) + '%' + bonoHtml;
+    }
+  }
+}
+
+function syncECVSemana() {
+  fetch('/incentives/sync-ecv/?semana=' + SEMANA_INICIO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+      var estaciones = data.estaciones || {};
+
+      // Guardar siempre primero para que _mostrarBonoECVManager pueda leerlo
+      window._ecvScoreEstaciones = estaciones;
+
+      // Vista gerente: actualizar badges y total de la fila ECV
+      if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
+        var est = estaciones[MANAGER_TEAM_KEY];
+        if (est) {
+          var inds = est.indicadores;
+          function _activo(d) {
+            if (!d || d.calculo === null || d.calculo === undefined) return null;
+            return d.calculo > 0;
+          }
+          if (inds.venta_gas)    actualizarIndicadorECV('venta-gas',    _activo(inds.venta_gas),    null, inds.venta_gas.alcance    !== null ? inds.venta_gas.alcance    : null);
+          if (inds.venta_diesel) actualizarIndicadorECV('venta-diesel', _activo(inds.venta_diesel), null, inds.venta_diesel.alcance !== null ? inds.venta_diesel.alcance : null);
+          if (inds.mistery)      actualizarIndicadorECV('mistery',      _activo(inds.mistery),      null, inds.mistery.alcance      !== null ? inds.mistery.alcance      : null);
+          if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     null, inds.faltante.alcance     !== null ? Math.round(inds.faltante.alcance)     : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
+          if (inds.incidencia)   actualizarIndicadorECV('incidencia',   _activo(inds.incidencia),   null, inds.incidencia.alcance   !== null ? inds.incidencia.alcance               : null, inds.incidencia.calculo   !== null ? Math.round(inds.incidencia.calculo)   : null);
+
+          var totalCell = document.getElementById('ecv-total-cell');
+          if (totalCell) {
+            totalCell.textContent = est.total_puntos.toFixed(2) + '%';
+            totalCell.classList.remove('text-muted');
+            totalCell.style.color = est.total_puntos >= 80 ? '#198754' : (est.total_puntos >= 40 ? '#fd7e14' : '#dc3545');
+            totalCell.style.fontWeight = '700';
+          }
+
+          // Mostrar bono calculado según el empleado actualmente seleccionado
+          var colSel = document.getElementById('selector-colaborador');
+          var selOpt = colSel ? colSel.options[colSel.selectedIndex] : null;
+          var esSubger = selOpt ? selOpt.dataset.esSubgerente === '1' : (typeof MANAGER_ES_SUBGERENTE !== 'undefined' && MANAGER_ES_SUBGERENTE);
+          _mostrarBonoECVManager(esSubger);
+        }
+      }
+
+      // Vista admin/zona: guardar para filas ya expandidas y futuras expansiones
+      document.querySelectorAll('.zona-emp-row.zona-expanded').forEach(function(row) {
+        var empId = row.dataset.empId;
+        if (empId) _actualizarECVEmp(empId, estaciones);
       });
     });
 }
@@ -875,6 +1034,7 @@ document.addEventListener('DOMContentLoaded', function () {
     syncMisterySemana();
     syncIncidenciasSemana();
     syncFaltantesSemana();
+    syncECVSemana();
   }
 
   // Accordion de estaciones

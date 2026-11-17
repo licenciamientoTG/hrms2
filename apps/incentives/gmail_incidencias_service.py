@@ -16,7 +16,7 @@ import re
 import base64
 import logging
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import openpyxl
 from google.oauth2.credentials import Credentials
@@ -34,6 +34,16 @@ _CLIENT_FILE = os.path.join(_CREDS_DIR, 'gmail_oauth_client.json')
 _TOKEN_FILE  = os.path.join(_CREDS_DIR, 'gmail_token.json')
 
 REMITENTE = 'walter.quezada@totalgas.com'
+
+def _to_sunday(d: date) -> date:
+    """Devuelve el domingo de la semana que contiene d (semana lunes-domingo).
+    Si d es lunes (día de envío del reporte), retrocede al domingo anterior
+    ya que el reporte cubre la semana previa.
+    """
+    if d.weekday() == 0:  # lunes → domingo anterior
+        return d - timedelta(days=1)
+    return d + timedelta(days=(6 - d.weekday()))
+
 
 MESES_ES = {
     'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4,
@@ -308,6 +318,11 @@ def parsear_excel_incidencias(xlsx_bytes: bytes) -> dict:
             fecha_semana = _fecha_de_hoja(nombre_hoja, año=año_actual)
 
         if fecha_semana:
+            # Normalizar siempre al domingo de la semana (el ECV busca por week_start + 6)
+            fecha_semana = _to_sunday(fecha_semana)
+            for reg in registros:
+                if reg.get('semana'):
+                    reg['semana'] = _to_sunday(reg['semana'])
             semanas[fecha_semana] = registros
 
     if not semanas:
