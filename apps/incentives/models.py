@@ -64,6 +64,14 @@ class ConfiguracionIncentivos(models.Model):
         verbose_name='Mistery — monto persona evaluada ($)',
         help_text='Monto para la persona que fue evaluada en el Mistery.',
     )
+    # Montos mensuales del bono ECV por categoría de estación y puesto
+    bono_gerente_cat_a     = models.IntegerField(default=7500, verbose_name='Bono ECV Gerente — Categoría A ($)')
+    bono_gerente_cat_b     = models.IntegerField(default=6500, verbose_name='Bono ECV Gerente — Categoría B ($)')
+    bono_gerente_cat_c     = models.IntegerField(default=5000, verbose_name='Bono ECV Gerente — Categoría C ($)')
+    bono_subgerente_cat_a  = models.IntegerField(default=4500, verbose_name='Bono ECV Subgerente — Categoría A ($)')
+    bono_subgerente_cat_b  = models.IntegerField(default=3900, verbose_name='Bono ECV Subgerente — Categoría B ($)')
+    bono_subgerente_cat_c  = models.IntegerField(default=3000, verbose_name='Bono ECV Subgerente — Categoría C ($)')
+
     actualizado_por = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -380,6 +388,22 @@ class ComentarioSemana(models.Model):
 
     def __str__(self):
         return f"{self.employee} — {self.tipo} — {self.week_start}"
+
+
+class FaltanteEstacionSemanal(models.Model):
+    """Snapshot de faltante total (REAL + DESCUENTO VIA NOMINA) por estación y semana."""
+    team_key   = models.CharField(max_length=50, verbose_name='Clave de estación')
+    week_start = models.DateField(verbose_name='Semana (lunes)')
+    monto      = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Monto faltante ($)')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        unique_together = [('team_key', 'week_start')]
+        verbose_name = 'Faltante de estación semanal'
+        verbose_name_plural = 'Faltantes de estación semanales'
+
+    def __str__(self):
+        return f"{self.team_key} — {self.week_start} — ${self.monto}"
 
 
 class IndicadorVentaSemanal(models.Model):

@@ -17,6 +17,9 @@ from .views import (
     link_account,
     unlink_account,
     switch_account,
+    create_admin_user,
+    delete_admin_user,
+    edit_admin_user,
 )
 from apps.users.views import force_password_change, upload_user_photo
 
@@ -40,5 +43,8 @@ urlpatterns = [
     path('linked-accounts/', linked_accounts_view, name='linked_accounts'),
     path('linked-accounts/link/', link_account, name='link_account'),
     path('linked-accounts/unlink/<int:link_id>/', unlink_account, name='unlink_account'),
+    path('linked-accounts/create-admin/', create_admin_user, name='create_admin_user'),
+    path('linked-accounts/delete-admin/<int:user_id>/', delete_admin_user, name='delete_admin_user'),
+    path('linked-accounts/edit-admin/<int:user_id>/', edit_admin_user, name='edit_admin_user'),
     path('switch-account/', switch_account, name='switch_account'),
 ]

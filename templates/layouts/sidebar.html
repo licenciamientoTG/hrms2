@@ -142,7 +142,7 @@
 
             {% if not user.is_staff or perms.org_chart.Modulo_organigrama %}
                 <li class="sidebar-item {% if 'org_chart' in request.resolver_match.url_name %}active{% endif %}">
-                    <a class="sidebar-link" href="{% url 'org_chart' %}">
+                    <a id="sidebar-link-organigrama" class="sidebar-link" href="{% url 'org_chart' %}">
                         <i class="fa-solid fa-sitemap"></i>
                         <span class="align-middle">
                             Organigrama

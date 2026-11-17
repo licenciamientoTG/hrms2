@@ -81,6 +81,152 @@ var HRMS_GUIDES = [
       }
     ]
   },
+  // ── Navegar por los módulos ──
+  {
+    id: 'navegar_modulos',
+    title: 'Navegar por los módulos',
+    description: 'Conoce las partes principales de la interfaz y cómo moverte por el sistema.',
+    icon: 'fa-compass',
+    category: 'general',
+    requiredPerms: [],
+    requiredStaff: false,
+    pages: [
+      {
+        path: null,
+        steps: [
+          {
+            element: '.js-sidebar-toggle',
+            skipIf: function () {
+              var sidebar = document.getElementById('sidebar');
+              if (!sidebar) return false;
+              var rect = sidebar.getBoundingClientRect();
+              return rect.right > 50; // ya está visible, saltar este paso
+            },
+            popover: {
+              title: 'Abrir el menú',
+              description: 'El menú lateral está oculto. Haz clic en este botón para <b>desplegarlo</b> y ver los módulos del sistema.',
+              side: 'bottom', align: 'start',
+            },
+            interactive: true,
+            clickAndWait: 450,
+          },
+          {
+            element: '#sidebar',
+            popover: {
+              title: 'Menú lateral',
+              description: 'Este es el <b>menú lateral</b>. Desde aquí accedes a todos los módulos disponibles según tu perfil. Los módulos que ves dependen de los permisos de tu puesto.',
+              side: 'right', align: 'start',
+            },
+          },
+          {
+            element: '.sidebar-nav',
+            popover: {
+              title: 'Lista de módulos',
+              description: 'Cada elemento de la lista es un <b>módulo del sistema</b>. Haz clic en cualquiera para abrirlo. Si aparece un <span class="badge bg-danger">número</span> rojo, significa que tienes elementos pendientes de atender en ese módulo.',
+              side: 'right', align: 'start',
+            },
+          },
+          {
+            element: '#alertsDropdown',
+            popover: {
+              title: 'Notificaciones',
+              description: 'La <b>campana</b> muestra tus notificaciones recientes: nuevos cursos, comunicados, solicitudes, entre otros. El punto rojo indica que tienes notificaciones sin leer.',
+              side: 'bottom', align: 'end',
+            },
+          },
+          {
+            element: '#settingsDropdown',
+            popover: {
+              title: 'Configuración',
+              description: 'El <b>engranaje</b> abre el menú de configuración, donde puedes cambiar tu contraseña o ajustar el tamaño de la interfaz.',
+              side: 'bottom', align: 'end',
+            },
+          },
+          {
+            element: '#nav-user-dropdown',
+            popover: {
+              title: 'Tu perfil y sesión',
+              description: 'Haz clic en tu nombre para acceder a <b>Mi Perfil</b> o para <b>cerrar sesión</b> de forma segura.<br><br><i class="fa-solid fa-circle-info text-info"></i> <em>¡Listo! Ya conoces las partes principales del sistema.</em>',
+              side: 'bottom', align: 'end',
+            },
+          },
+        ]
+      },
+    ]
+  },
+
+  // ── Ver el organigrama ──
+  {
+    id: 'ver_organigrama',
+    title: 'Ver el organigrama',
+    description: 'Aprende a navegar la estructura organizacional de la empresa.',
+    icon: 'fa-sitemap',
+    category: 'general',
+    requiredPerms: [],
+    requiredStaff: false,
+    pages: [
+      {
+        path: null,
+        steps: [
+          {
+            element: '#sidebar-link-organigrama',
+            popover: {
+              title: 'Paso 1: Acceder al organigrama',
+              description: 'En el menú lateral encontrarás el módulo <b>Organigrama</b>. Haz clic aquí para abrirlo.',
+              side: 'right', align: 'start',
+            },
+            interactive: true,
+            navigates: true,
+          },
+        ]
+      },
+      {
+        path: '/org_chart/',
+        steps: [
+          {
+            element: '#orgchart-search-input',
+            popover: {
+              title: 'Paso 2: Buscar un colaborador',
+              description: 'Puedes escribir el nombre de cualquier colaborador para localizarlo dentro del organigrama.',
+              side: 'bottom', align: 'start',
+            },
+          },
+          {
+            element: '#orgchart-search-btn',
+            popover: {
+              title: 'Paso 3: Ejecutar la búsqueda',
+              description: 'Haz clic en <b>Buscar</b> y el organigrama se moverá automáticamente al colaborador encontrado.',
+              side: 'bottom', align: 'start',
+            },
+          },
+          {
+            element: '#oc-center-me',
+            popover: {
+              title: 'Paso 4: Ir a mi posición',
+              description: 'Este botón centra el organigrama en <b>tu propia tarjeta</b>, útil para ubicarte rápidamente.',
+              side: 'left', align: 'start',
+            },
+          },
+          {
+            element: '#oc-toggle-peers',
+            popover: {
+              title: 'Paso 5: Mostrar / ocultar compañeros',
+              description: 'Con este botón puedes <b>mostrar u ocultar</b> a los compañeros que tienen el mismo jefe directo que tú.',
+              side: 'left', align: 'start',
+            },
+          },
+          {
+            element: '#oc-zoom-in',
+            popover: {
+              title: 'Paso 6: Zoom',
+              description: 'Usa los botones <b>+ / −</b> para acercar o alejar el organigrama, y el botón de <b>expandir</b> para ajustarlo a la pantalla.<br><br><i class="fa-solid fa-circle-info text-info"></i> <em>También puedes hacer clic en cualquier tarjeta para ver el perfil del colaborador.</em>',
+              side: 'left', align: 'start',
+            },
+          },
+        ]
+      },
+    ]
+  },
 ];
 
 
@@ -210,12 +356,20 @@ function startGuide(guideId, pageIndex, stepIndex) {
     return;
   }
 
-  var steps = page.steps;
+  // Filtrar pasos con skipIf (ej. hamburguesa cuando el sidebar ya está abierto)
+  var steps = page.steps.filter(function (s) {
+    return !s.skipIf || !s.skipIf();
+  });
+
   var totalStepsAllPages = 0;
   var stepsBeforeThisPage = 0;
   for (var p = 0; p < guide.pages.length; p++) {
-    totalStepsAllPages += guide.pages[p].steps.length;
-    if (p < pageIndex) stepsBeforeThisPage += guide.pages[p].steps.length;
+    // Contar solo los pasos que no se saltan
+    var pageSteps = guide.pages[p].steps.filter(function (s) {
+      return !s.skipIf || !s.skipIf();
+    });
+    totalStepsAllPages += pageSteps.length;
+    if (p < pageIndex) stepsBeforeThisPage += pageSteps.length;
   }
 
   // Construir los steps para Driver.js
@@ -264,11 +418,17 @@ function startGuide(guideId, pageIndex, stepIndex) {
         return;
       }
 
+      // Si el paso hace clic y espera (ej. hamburguesa que abre sidebar)
+      if (stepDef && stepDef.clickAndWait && el) {
+        el.click();
+        setTimeout(function () { _driverObj.moveNext(); }, stepDef.clickAndWait);
+        return;
+      }
+
       // Si el paso navega a otra página, guardar estado y navegar
       if (stepDef && stepDef.navigates && el) {
         var href = el.getAttribute('href');
         if (href) {
-          // Guardar que el siguiente paso es el primer step de la siguiente página
           sessionStorage.setItem('hrms_guide_state', JSON.stringify({
             id: guideId,
             pageIndex: pageIndex + 1,
@@ -282,7 +442,6 @@ function startGuide(guideId, pageIndex, stepIndex) {
 
       // Avance normal
       if (_driverObj.isLastStep()) {
-        // Si hay más páginas, ir a la siguiente
         if (pageIndex < guide.pages.length - 1) {
           _driverObj.destroy();
           startGuide(guideId, pageIndex + 1, 0);
@@ -302,7 +461,6 @@ function startGuide(guideId, pageIndex, stepIndex) {
     }
   });
 
-  // Si debemos empezar en un step específico (no el primero)
   _driverObj.drive(stepIndex);
 }
 

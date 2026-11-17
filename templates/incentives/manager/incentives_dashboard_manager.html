@@ -82,7 +82,7 @@
     <select id="selector-colaborador" class="form-select">
       {% for emp in colaboradores %}
       {% with initials=emp.first_name|slice:":1"|add:emp.last_name|slice:":1" title=emp.job_position.title|default:""|lower %}
-      {% if 'gerente de estaci' in title or 'gerente de estacion' in title %}
+      {% if 'subgerente de estaci' in title or 'subgerente de estacion' in title %}
       <option
         value="{{ emp.id }}"
         data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
@@ -90,17 +90,19 @@
         data-num="{{ emp.employee_number }}"
         data-iniciales="{{ initials|upper }}"
         data-es-manager="true"
-        style="background-color:#dbeafe; color:#1e3a5f; font-weight:600;"
-      >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
-      {% elif 'subgerente de estaci' in title or 'subgerente de estacion' in title %}
-      <option
-        value="{{ emp.id }}"
-        data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
-        data-puesto="{{ emp.job_position.title|default:'—' }}"
-        data-num="{{ emp.employee_number }}"
-        data-iniciales="{{ initials|upper }}"
-        data-es-manager="true"
+        data-es-subgerente="1"
         style="background-color:#e0f2fe; color:#0c4a6e; font-weight:500;"
+      >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
+      {% elif 'gerente de estaci' in title or 'gerente de estacion' in title %}
+      <option
+        value="{{ emp.id }}"
+        data-nombre="{{ emp.last_name }} {{ emp.first_name }}"
+        data-puesto="{{ emp.job_position.title|default:'—' }}"
+        data-num="{{ emp.employee_number }}"
+        data-iniciales="{{ initials|upper }}"
+        data-es-manager="true"
+        data-es-subgerente="0"
+        style="background-color:#dbeafe; color:#1e3a5f; font-weight:600;"
       >{{ emp.last_name }} {{ emp.first_name }} — {{ emp.job_position.title|default:"—" }}</option>
       {% else %}
       <option
@@ -235,6 +237,20 @@
             <td>—</td>
             <td class="text-center fw-semibold text-muted" id="ecv-total-cell">—</td>
           </tr>
+          {% if tipo == "ECV" %}
+          <tr class="tipo-manager-only d-none" id="fila-ecv-bono">
+            <td class="text-muted" style="font-size:12px;">Bono ECV</td>
+            <td colspan="8" class="py-1 px-3">
+              <span class="badge rounded-pill text-bg-success" id="ecv-bono-display"
+                    style="font-size:13px; padding:5px 14px; display:none;">
+                <i class="fas fa-dollar-sign me-1"></i>
+                <span id="ecv-bono-monto">—</span>
+                <small class="ms-1 text-white-50" id="ecv-bono-categoria"></small>
+              </span>
+              <span class="text-muted" id="ecv-bono-na" style="font-size:12px;">—</span>
+            </td>
+          </tr>
+          {% endif %}
           {# TODO: agregar cuando estén listos: Auditoría, Rotación, Inventario, Otros #}
           {% endif %}
           {% endfor %}
@@ -278,6 +294,7 @@
     var CFG_MISTERY_MONTO_EVALUADO = {{ cfg.mistery_monto_evaluado }};
     var MANAGER_TEAM_KEY = "{{ team_key }}";
     var MANAGER_TIENE_DIESEL = {{ tiene_diesel|yesno:"true,false" }};
+    var MANAGER_ES_SUBGERENTE = {{ es_subgerente_manager|yesno:"true,false" }};
   </script>
   <script src="{% static 'js/incentives.js' %}"></script>
 {% endblock %}

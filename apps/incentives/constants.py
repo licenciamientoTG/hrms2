@@ -7,7 +7,7 @@ DIESEL_TEAM_KEYS = {
     '4179',           # Gemela Chica
     '4188',           # Gemela Grande
     '5465',           # Aztecas
-    '6947',           # Puerto de Palos
+    # '6947' eliminado: Puerto de Palos usa Categoría A (sin indicador Venta Diésel)
     '8244',           # Permuta
     '9191',           # Electrolux
     '9235',           # Aeronáutica
@@ -24,6 +24,51 @@ DIESEL_TEAM_KEYS = {
     'Picachos',       # Picachos
     'San Rafael',     # San Rafael
     'Praxedis',       # Praxedis
+}
+
+# Categoría de bono ECV (A/B/C) por estación — determina el monto mensual del gerente/subgerente
+CATEGORIA_BONO_ESTACION = {
+    # Zona 1
+    '6947': 'A',   # Puerto de Palos
+    '7167': 'A',   # Miguel de la Madrid
+    '8244': 'A',   # Permuta
+    '9191': 'A',   # Electrolux
+    '9235': 'A',   # Aeronáutica
+    '9885': 'B',   # Custodia
+    '2172': 'C',   # Parral
+    '1376': 'C',   # Delicias
+    'Villahumada': 'C',  # Villa Ahumada
+    # Zona 2
+    '1149': 'C',   # Lerdo
+    '2526': 'B',   # López Mateos
+    '4179': 'A',   # Gemela Chica
+    '4188': 'A',   # Gemela Grande
+    '5170': 'B',   # Plutarco
+    '5317': 'A',   # Municipio Libre
+    '5465': 'A',   # Aztecas
+    '9893': 'A',   # Anapra
+    '23214': 'B',  # Hermanos Escobar
+    # Zona 3
+    'Jarudo': 'B',
+    'Fuentes': 'B',
+    'Clara': 'C',
+    '1163': 'B',   # Tecnológico
+    'Satelite': 'A',
+    '6410': 'A',   # Misiones
+    'Ejercito': 'B',
+    'Solis': 'B',
+    'Santiago': 'B',
+    'Praxedis': 'B',
+    # Zona 4
+    '11007': 'A',  # Independencia/Aguascalientes
+    '12900': 'C',  # El Castaño
+    'Ventanas': 'B',         # Excel confirma Cat B (era C por error)
+    'Picachos': 'B',
+    'Puertecito': 'C',
+    'Jesus Maria': 'C',
+    'San Rafael': 'C',
+    'Gabriela Mistral': 'C',
+    'Colosio': 'C',
 }
 
 # Team keys de estaciones del Bajío (reciben $240 de bono de venta, sin importar antigüedad)
