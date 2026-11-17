@@ -2721,14 +2721,7 @@ def sync_faltantes_semana(request):
     if error:
         return JsonResponse({'ok': False, 'error': error})
 
-    # Persistir snapshot si se recibió semana
-    if week_start:
-        for team_key, monto in totales.items():
-            FaltanteEstacionSemanal.objects.update_or_create(
-                team_key=team_key,
-                week_start=week_start,
-                defaults={'monto': monto},
-            )
+    # No persistir automáticamente — el snapshot solo se llena de forma manual.
 
     def _nivel(monto):
         calculo = _score_menor(monto, umbral_min, umbral_obj, umbral_exc)
@@ -2763,7 +2756,6 @@ def sync_ecv_semana(request):
     """
     from datetime import date, timedelta
     from django.db import connections
-    from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos
     from apps.incentives.constants import DIESEL_TEAM_KEYS, SG12_COD_TO_TEAM_KEY, CATEGORIA_BONO_ESTACION
 
     rol = _get_rol_incentivos(request.user)
@@ -2802,29 +2794,13 @@ def sync_ecv_semana(request):
     except Exception:
         pass
 
-    # Faltantes:
-    #   - Semana cerrada → usar snapshot fijo (no releer F8)
-    #   - Semana abierta → siempre leer F8 abiertos y actualizar snapshot
-    semana_cerrada_obj = SemanaCerrada.objects.filter(week_start=week_start).first()
-    if semana_cerrada_obj:
-        faltantes = {
-            r.team_key: float(r.monto)
-            for r in FaltanteEstacionSemanal.objects.filter(week_start=week_start)
-        }
-    else:
-        faltantes, faltantes_error = leer_faltantes_f8_abiertos()
-        if faltantes_error:
-            logger.warning("sync_ecv_semana: faltantes F8 error: %s", faltantes_error)
-            faltantes = {}
-        else:
-            # Reemplazar snapshot con datos frescos del F8
-            FaltanteEstacionSemanal.objects.filter(week_start=week_start).delete()
-            for team_key, monto in faltantes.items():
-                FaltanteEstacionSemanal.objects.create(
-                    team_key=team_key,
-                    week_start=week_start,
-                    monto=monto,
-                )
+    # Faltantes: siempre usar el snapshot guardado en BD.
+    # Semanas abiertas muestran lo que haya en snapshot (vacío = $0).
+    # El F8 ya NO se lee automáticamente al abrir el dashboard.
+    faltantes = {
+        r.team_key: float(r.monto)
+        for r in FaltanteEstacionSemanal.objects.filter(week_start=week_start)
+    }
 
     # Incidencias desde DB
     inc_data = _calcular_incidencias_semana(week_start)
