@@ -78,20 +78,14 @@ def _get_service():
 # Búsqueda del correo
 # ---------------------------------------------------------------------------
 
-def _build_query(semana: date, remitente: str = None) -> str:
-    """Query para una semana específica."""
-    from_addr = remitente or REMITENTE
-    dia = semana.day
-    mes_abrev = [k for k, v in MESES_ES.items() if v == semana.month and len(k) == 3][0]
-    return (
-        f'from:{from_addr} '
-        f'subject:"correcciones e incidencias" '
-        f'subject:"{dia} de {mes_abrev}"'
-    )
-
-
 def _build_query_broad(remitente: str = None) -> str:
-    """Query amplio para traer los correos más recientes de incidencias."""
+    """
+    Query para traer los correos más recientes de incidencias.
+
+    No se filtra por la fecha del asunto: su formato varía ("01" vs "1",
+    domingo vs lunes de corte cuando el lunes es inhábil) y el Excel del
+    correo más reciente ya trae todas las semanas.
+    """
     from_addr = remitente or REMITENTE
     return f'from:{from_addr} subject:"correcciones e incidencias"'
 
@@ -335,10 +329,11 @@ def parsear_excel_incidencias(xlsx_bytes: bytes) -> dict:
 # Función principal
 # ---------------------------------------------------------------------------
 
-def importar_incidencias(semana: date = None, remitente: str = None) -> dict:
+def importar_incidencias(remitente: str = None) -> dict:
     """
-    Busca en Gmail el correo de incidencias (para la semana dada o el más reciente)
-    y retorna los datos parseados del Excel adjunto.
+    Busca en Gmail el correo de incidencias más reciente y retorna los datos
+    parseados del Excel adjunto (todas las semanas que contenga). El filtrado
+    por semana lo hace quien llama.
 
     Returns:
         {
@@ -352,7 +347,7 @@ def importar_incidencias(semana: date = None, remitente: str = None) -> dict:
     except Exception as exc:
         return {'semanas': {}, 'msg_id': None, 'error': f'Error de autenticación: {exc}'}
 
-    query = _build_query(semana, remitente=remitente) if semana else _build_query_broad(remitente=remitente)
+    query = _build_query_broad(remitente=remitente)
     logger.info("Gmail query incidencias: %s", query)
 
     try:
