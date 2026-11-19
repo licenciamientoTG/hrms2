@@ -116,7 +116,6 @@ class Command(BaseCommand):
         self.stdout.write('Buscando correo de incidencias en Gmail...')
 
         resultado = importar_incidencias(
-            semana=semana_filtro,
             remitente=options.get('remitente'),
         )
 
