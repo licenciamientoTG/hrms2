@@ -2717,17 +2717,25 @@ def sync_faltantes_semana(request):
     umbral_obj = float(ind.umbral_objetivo) if ind else 100.0
     umbral_exc = float(ind.umbral_excelente) if ind else 0.0
 
-    totales, error = leer_faltantes_por_estacion()
-    if error:
-        return JsonResponse({'ok': False, 'error': error})
+    # Si la semana ya tiene snapshot guardado (manual o de un sync previo),
+    # usar ese snapshot y no pisarlo con el estado actual de la hoja DIARIOS
+    # (que es "faltantes pendientes ahora", no el histórico de esa semana).
+    snapshot_qs = FaltanteEstacionSemanal.objects.filter(week_start=week_start) if week_start else None
+    if snapshot_qs is not None and snapshot_qs.exists():
+        totales = {r.team_key: float(r.monto) for r in snapshot_qs}
+        error = None
+    else:
+        totales, error = leer_faltantes_por_estacion()
+        if error:
+            return JsonResponse({'ok': False, 'error': error})
 
-    if week_start:
-        for team_key, monto in totales.items():
-            FaltanteEstacionSemanal.objects.update_or_create(
-                team_key=team_key,
-                week_start=week_start,
-                defaults={'monto': monto},
-            )
+        if week_start:
+            for team_key, monto in totales.items():
+                FaltanteEstacionSemanal.objects.update_or_create(
+                    team_key=team_key,
+                    week_start=week_start,
+                    defaults={'monto': monto},
+                )
 
     def _nivel(monto):
         calculo = _score_menor(monto, umbral_min, umbral_obj, umbral_exc)
