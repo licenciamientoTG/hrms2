@@ -29,6 +29,8 @@ from .views import (
     sync_incidencias_semana,
     sync_faltantes_semana,
     sync_ecv_semana,
+    capturar_faltantes_f8,
+    exportar_ecv_excel,
 )
 
 urlpatterns = [
@@ -61,4 +63,6 @@ urlpatterns = [
     path('sync-incidencias/', sync_incidencias_semana, name='sync_incidencias_semana'),
     path('sync-faltantes/', sync_faltantes_semana, name='sync_faltantes_semana'),
     path('sync-ecv/', sync_ecv_semana, name='sync_ecv_semana'),
+    path('capturar-faltantes-f8/', capturar_faltantes_f8, name='capturar_faltantes_f8'),
+    path('exportar-ecv/', exportar_ecv_excel, name='exportar_ecv_excel'),
 ]
