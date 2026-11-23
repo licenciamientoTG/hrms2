@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from apps.employee.models import Employee, JobPosition
@@ -228,19 +229,10 @@ def reset_password_to_default(request, user_id):
         messages.error(request, f"El usuario {target_user.username} no tiene un empleado asignado. No se puede calcular la contraseña default.")
         return redirect('admin_reset_password', user_id=user_id)
 
-    # 3. Lógica matemática de la contraseña (ID + CURP)
     try:
-        emp_number = str(employee.employee_number)
-        
-        # Validamos que tenga CURP para evitar errores
-        curp_fragment = "000000"
-        if employee.curp and len(employee.curp) >= 10:
-            # Tomamos dígitos del 4 al 10 (YYMMDD)
-            curp_fragment = employee.curp[4:10]
-        
-        default_password = f"{emp_number}{curp_fragment}"
-        
-        # 4. Establecemos la contraseña
+        default_password = settings.DEFAULT_EMPLOYEE_PASSWORD
+
+        # Establecemos la contraseña
         target_user.set_password(default_password)
         target_user.save()
 

@@ -673,7 +673,7 @@ function actualizarIndicadorECV(indId, activo, empId, pct, calculo) {
     var indName = indId.replace(/-/g, '_');
     var tooltipText;
     if (indName === 'faltante') {
-      tooltipText = 'Faltante: $' + pct;
+      tooltipText = 'Faltante: $' + pct.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       if (calculo !== null && calculo !== undefined) tooltipText += ' · ' + Math.round(calculo) + '% logro';
     } else if (indName === 'incidencia') {
       tooltipText = pct + ' corte' + (pct !== 1 ? 's' : '');
@@ -871,7 +871,7 @@ function _actualizarFaltantesEmp(empId, estaciones) {
   if (!teamKey || !estaciones) return;
   var est = estaciones[teamKey];
   if (!est) return;
-  actualizarIndicadorECV('faltante', est.verde, empId, est.total > 0 ? Math.round(est.total) : null, est.calculo !== undefined ? est.calculo : null);
+  actualizarIndicadorECV('faltante', est.verde, empId, est.total > 0 ? est.total : null, est.calculo !== undefined ? est.calculo : null);
 }
 
 function syncFaltantesSemana() {
@@ -886,7 +886,7 @@ function syncFaltantesSemana() {
       if (typeof MANAGER_TEAM_KEY !== 'undefined' && MANAGER_TEAM_KEY) {
         var est = estaciones[MANAGER_TEAM_KEY];
         if (est) {
-          actualizarIndicadorECV('faltante', est.verde, null, est.total > 0 ? Math.round(est.total) : null, est.calculo !== undefined ? est.calculo : null);
+          actualizarIndicadorECV('faltante', est.verde, null, est.total > 0 ? est.total : null, est.calculo !== undefined ? est.calculo : null);
         }
       }
 
@@ -949,7 +949,7 @@ function _actualizarECVEmp(empId, ecvEstaciones) {
   if (inds.venta_gas)    actualizarIndicadorECV('venta_gas',    _activo(inds.venta_gas),    empId, inds.venta_gas.alcance    !== null ? inds.venta_gas.alcance    : null);
   if (inds.venta_diesel) actualizarIndicadorECV('venta_diesel', _activo(inds.venta_diesel), empId, inds.venta_diesel.alcance !== null ? inds.venta_diesel.alcance : null);
   if (inds.mistery)      actualizarIndicadorECV('mistery',      _activo(inds.mistery),      empId, inds.mistery.alcance      !== null ? inds.mistery.alcance      : null);
-  if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     empId, inds.faltante.alcance     !== null ? Math.round(inds.faltante.alcance)     : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
+  if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     empId, inds.faltante.alcance     !== null ? inds.faltante.alcance                  : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
   if (inds.incidencia)   actualizarIndicadorECV('incidencia',   _activo(inds.incidencia),   empId, inds.incidencia.alcance   !== null ? inds.incidencia.alcance               : null, inds.incidencia.calculo   !== null ? Math.round(inds.incidencia.calculo)   : null);
 
   var totalCell = document.getElementById('ecv-total-emp-' + empId);
@@ -997,7 +997,7 @@ function syncECVSemana() {
           if (inds.venta_gas)    actualizarIndicadorECV('venta-gas',    _activo(inds.venta_gas),    null, inds.venta_gas.alcance    !== null ? inds.venta_gas.alcance    : null);
           if (inds.venta_diesel) actualizarIndicadorECV('venta-diesel', _activo(inds.venta_diesel), null, inds.venta_diesel.alcance !== null ? inds.venta_diesel.alcance : null);
           if (inds.mistery)      actualizarIndicadorECV('mistery',      _activo(inds.mistery),      null, inds.mistery.alcance      !== null ? inds.mistery.alcance      : null);
-          if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     null, inds.faltante.alcance     !== null ? Math.round(inds.faltante.alcance)     : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
+          if (inds.faltante)     actualizarIndicadorECV('faltante',     _activo(inds.faltante),     null, inds.faltante.alcance     !== null ? inds.faltante.alcance                  : null, inds.faltante.calculo     !== null ? Math.round(inds.faltante.calculo)     : null);
           if (inds.incidencia)   actualizarIndicadorECV('incidencia',   _activo(inds.incidencia),   null, inds.incidencia.alcance   !== null ? inds.incidencia.alcance               : null, inds.incidencia.calculo   !== null ? Math.round(inds.incidencia.calculo)   : null);
 
           var totalCell = document.getElementById('ecv-total-cell');
@@ -1097,6 +1097,50 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+
+  // Capturar faltantes del F8 FALTANTES (Respuestas) para la semana actual
+  var btnCapturarFaltantesF8 = document.getElementById('btn-capturar-faltantes-f8');
+  if (btnCapturarFaltantesF8) {
+    btnCapturarFaltantesF8.addEventListener('click', function() {
+      if (!window.Swal) return;
+      Swal.fire({
+        title: '¿Capturar faltantes del F8?',
+        text: 'Se reemplazará el snapshot de faltantes de esta semana con lo que esté abierto ahora en el F8 FALTANTES (Respuestas).',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, capturar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d6efd',
+      }).then(function(result) {
+        if (!result.isConfirmed) return;
+        btnCapturarFaltantesF8.disabled = true;
+        var icon = btnCapturarFaltantesF8.querySelector('i');
+        if (icon) icon.className = 'fas fa-spinner fa-spin';
+        fetch('/incentives/capturar-faltantes-f8/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ semana: SEMANA_INICIO }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.ok) {
+              Swal.fire({ icon: 'success', title: 'Capturado', text: data.total_estaciones + ' estaciones actualizadas.', confirmButtonColor: '#0d6efd' });
+              syncFaltantesSemana();
+              syncECVSemana();
+            } else {
+              Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo capturar', confirmButtonColor: '#0d6efd' });
+            }
+          })
+          .catch(function() {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión', confirmButtonColor: '#0d6efd' });
+          })
+          .finally(function() {
+            btnCapturarFaltantesF8.disabled = false;
+            if (icon) icon.className = 'fas fa-cloud-download-alt';
+          });
+      });
+    });
+  }
 
   // Filtro de búsqueda en la tabla de estaciones
   var searchInput = document.getElementById('incentives-search');

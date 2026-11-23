@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils.timezone import now
@@ -201,11 +202,9 @@ def _create_user_for_employee(employee):
         
         emp_number = str(employee.employee_number).strip()
         curp = (employee.curp or "").strip().upper()
-        # Contraseña basada en CURP (posiciones 4 a 10)
-        birth_date_part = curp[4:10] if len(curp) >= 10 else "000000"
-        
+
         base_username = emp_number
-        password = f"{emp_number}{birth_date_part}"
+        password = settings.DEFAULT_EMPLOYEE_PASSWORD
 
         # --- BUSCAR SI ESTA PERSONA YA TIENE UN USUARIO EN OTRO REGISTRO ---
         existing_user_for_person = User.objects.filter(

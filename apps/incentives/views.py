@@ -129,8 +129,14 @@ def _score_menor(alcance, umbral_min, umbral_obj, umbral_exc):
 def _calc_indicador(nombre, alcance_val, score_fn, inds_dict):
     """Calcula calculo (0–120) y valor (% ponderado) para un indicador ECV."""
     ind = inds_dict.get(nombre)
+    umbrales = {
+        'ponderacion':      float(ind.ponderacion)      if ind else None,
+        'umbral_minimo':    float(ind.umbral_minimo)    if ind else None,
+        'umbral_objetivo':  float(ind.umbral_objetivo)  if ind else None,
+        'umbral_excelente': float(ind.umbral_excelente) if ind else None,
+    }
     if ind is None or alcance_val is None:
-        return {'alcance': alcance_val, 'calculo': None, 'valor': None}
+        return {'alcance': alcance_val, 'calculo': None, 'valor': None, **umbrales}
     calculo = score_fn(
         alcance_val,
         float(ind.umbral_minimo),
@@ -138,7 +144,7 @@ def _calc_indicador(nombre, alcance_val, score_fn, inds_dict):
         float(ind.umbral_excelente),
     )
     valor = round(calculo * float(ind.ponderacion) / 100, 4)
-    return {'alcance': round(alcance_val, 2), 'calculo': round(calculo, 2), 'valor': valor}
+    return {'alcance': round(alcance_val, 2), 'calculo': round(calculo, 2), 'valor': valor, **umbrales}
 
 
 def _calcular_incidencias_semana(week_start):
@@ -2700,11 +2706,10 @@ def sync_incidencias_semana(request):
 @login_required
 def sync_faltantes_semana(request):
     """
-    API: devuelve el total de faltantes por estación leído desde Google Sheets
-    y persiste el snapshot en FaltanteEstacionSemanal para consultas históricas.
+    API: devuelve el total de faltantes por estación a partir del snapshot
+    guardado en FaltanteEstacionSemanal (captura manual o import de Excel).
     """
     from datetime import date
-    from apps.incentives.faltantes_service import leer_faltantes_por_estacion
 
     semana_str = request.GET.get('semana')
     try:
@@ -2717,25 +2722,15 @@ def sync_faltantes_semana(request):
     umbral_obj = float(ind.umbral_objetivo) if ind else 100.0
     umbral_exc = float(ind.umbral_excelente) if ind else 0.0
 
-    # Si la semana ya tiene snapshot guardado (manual o de un sync previo),
-    # usar ese snapshot y no pisarlo con el estado actual de la hoja DIARIOS
-    # (que es "faltantes pendientes ahora", no el histórico de esa semana).
+    # El snapshot solo se llena de forma manual (captura o import de Excel).
+    # Si la semana no tiene snapshot guardado, no hay faltantes que mostrar
+    # (nunca se lee ni se persiste automáticamente el F8 abierto, ya que eso
+    # refleja "faltantes pendientes ahora", no el histórico de esa semana).
     snapshot_qs = FaltanteEstacionSemanal.objects.filter(week_start=week_start) if week_start else None
-    if snapshot_qs is not None and snapshot_qs.exists():
+    if snapshot_qs is not None:
         totales = {r.team_key: float(r.monto) for r in snapshot_qs}
-        error = None
     else:
-        totales, error = leer_faltantes_por_estacion()
-        if error:
-            return JsonResponse({'ok': False, 'error': error})
-
-        if week_start:
-            for team_key, monto in totales.items():
-                FaltanteEstacionSemanal.objects.update_or_create(
-                    team_key=team_key,
-                    week_start=week_start,
-                    defaults={'monto': monto},
-                )
+        totales = {}
 
     def _nivel(monto):
         calculo = _score_menor(monto, umbral_min, umbral_obj, umbral_exc)
@@ -2763,14 +2758,50 @@ def sync_faltantes_semana(request):
 
 
 @login_required
+@require_POST
+def capturar_faltantes_f8(request):
+    """
+    Acción manual: lee el F8 "FALTANTES (Respuestas)" en este momento
+    (faltantes actualmente abiertos o en descuento vía nómina) y reemplaza
+    el snapshot de FaltanteEstacionSemanal de la semana indicada con ese dato.
+    No se ejecuta automáticamente — solo vía este botón.
+    """
+    from datetime import date
+    from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos
+
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('admin', 'operaciones'):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        week_start = date.fromisoformat(data['semana'])
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Falta parámetro semana'}, status=400)
+
+    if SemanaCerrada.objects.filter(week_start=week_start).exists():
+        return JsonResponse({'ok': False, 'error': 'La semana está cerrada'}, status=400)
+
+    totales, error = leer_faltantes_f8_abiertos()
+    if error:
+        return JsonResponse({'ok': False, 'error': error})
+
+    FaltanteEstacionSemanal.objects.filter(week_start=week_start).delete()
+    FaltanteEstacionSemanal.objects.bulk_create([
+        FaltanteEstacionSemanal(team_key=team_key, week_start=week_start, monto=monto)
+        for team_key, monto in totales.items()
+    ])
+
+    return JsonResponse({'ok': True, 'total_estaciones': len(totales)})
+
+
+@login_required
 def sync_ecv_semana(request):
     """
     Calcula el score ECV (en puntos %) por estación combinando los 5 indicadores.
     Solo lectura — no crea ni modifica IncentivoRegistro.
     """
-    from datetime import date, timedelta
-    from django.db import connections
-    from apps.incentives.constants import DIESEL_TEAM_KEYS, SG12_COD_TO_TEAM_KEY, CATEGORIA_BONO_ESTACION
+    from datetime import date
 
     rol = _get_rol_incentivos(request.user)
     if not rol:
@@ -2783,6 +2814,18 @@ def sync_ecv_semana(request):
         week_start = date.fromisoformat(semana_str)
     except ValueError:
         return JsonResponse({'ok': False, 'error': 'Fecha inválida'}, status=400)
+
+    resultado = _calcular_ecv_semana(week_start)
+    return JsonResponse({'ok': True, 'estaciones': resultado})
+
+
+def _calcular_ecv_semana(week_start):
+    """Calcula el score ECV (en puntos %) por estación combinando los 5 indicadores.
+    Compartido por sync_ecv_semana (JSON para el dashboard) y exportar_ecv_excel
+    (descarga .xlsx con el resumen por estación)."""
+    from datetime import timedelta
+    from django.db import connections
+    from apps.incentives.constants import DIESEL_TEAM_KEYS, SG12_COD_TO_TEAM_KEY, CATEGORIA_BONO_ESTACION
 
     # Indicadores ECV agrupados por categoría
     inds_cat = {}
@@ -2808,21 +2851,14 @@ def sync_ecv_semana(request):
     except Exception:
         pass
 
-    # Faltantes: si hay snapshot guardado (manual o previo), usarlo.
-    # Solo leer del F8 si no hay ningún dato guardado para esta semana.
-    snapshot_qs = FaltanteEstacionSemanal.objects.filter(week_start=week_start)
-    if snapshot_qs.exists():
-        faltantes = {r.team_key: float(r.monto) for r in snapshot_qs}
-    else:
-        from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos
-        faltantes_raw, _err = leer_faltantes_f8_abiertos()
-        faltantes = {k: float(v) for k, v in faltantes_raw.items()}
-        for team_key, monto in faltantes.items():
-            FaltanteEstacionSemanal.objects.update_or_create(
-                team_key=team_key,
-                week_start=week_start,
-                defaults={'monto': monto},
-            )
+    # Faltantes: siempre usar el snapshot guardado en BD.
+    # Semanas sin snapshot muestran $0 (vacío) — el F8 abierto ya NO se lee
+    # ni se persiste automáticamente, porque refleja "faltantes pendientes
+    # ahora", no el histórico de la semana consultada.
+    faltantes = {
+        r.team_key: float(r.monto)
+        for r in FaltanteEstacionSemanal.objects.filter(week_start=week_start)
+    }
 
     # Incidencias desde DB
     inc_data = _calcular_incidencias_semana(week_start)
@@ -2855,6 +2891,8 @@ def sync_ecv_semana(request):
         v = ventas_db.get(team_key)
         alcance_gas = (v.vs_gas / v.ps_gas * 100) if (v and v.vs_gas is not None and v.ps_gas) else None
         d = _calc_indicador('venta_gas', alcance_gas, _score_mayor, inds)
+        d['alcance_raw'] = v.vs_gas if v else None
+        d['objetivo_raw'] = v.ps_gas if v else None
         detalle['venta_gas'] = d
         if d['valor'] is not None:
             total_puntos += d['valor']
@@ -2863,26 +2901,36 @@ def sync_ecv_semana(request):
         if cat == 'B':
             alcance_die = (v.vs_diesel / v.ps_diesel * 100) if (v and v.vs_diesel is not None and v.ps_diesel) else None
             d = _calc_indicador('venta_diesel', alcance_die, _score_mayor, inds)
+            d['alcance_raw'] = v.vs_diesel if v else None
+            d['objetivo_raw'] = v.ps_diesel if v else None
             detalle['venta_diesel'] = d
             if d['valor'] is not None:
                 total_puntos += d['valor']
 
         # Mistery Shopper (qualification %)
         d = _calc_indicador('mistery', mistery_qual.get(team_key), _score_mayor, inds)
+        d['alcance_raw'] = mistery_qual.get(team_key)
+        d['objetivo_raw'] = 100.0
         detalle['mistery'] = d
         if d['valor'] is not None:
             total_puntos += d['valor']
 
-        # Faltante (0 si no aparece en Sheet = sin faltantes = Excelente)
-        d = _calc_indicador('faltante', faltantes.get(team_key, 0.0), _score_menor, inds)
+        # Faltante: sin snapshot guardado para la estación/semana = sin dato (no asumir Excelente)
+        d = _calc_indicador('faltante', faltantes.get(team_key), _score_menor, inds)
         detalle['faltante'] = d
         if d['valor'] is not None:
             total_puntos += d['valor']
 
         # Incidencia en cortes
+        ind_inc = inds.get('incidencia')
+        umbrales_inc = {
+            'ponderacion':      float(ind_inc.ponderacion)      if ind_inc else None,
+            'umbral_minimo':    float(ind_inc.umbral_minimo)    if ind_inc else None,
+            'umbral_objetivo':  float(ind_inc.umbral_objetivo)  if ind_inc else None,
+            'umbral_excelente': float(ind_inc.umbral_excelente) if ind_inc else None,
+        }
         inc_est = inc_estaciones.get(team_key)
         if inc_est and inc_est['logro'] is not None:
-            ind_inc = inds.get('incidencia')
             if ind_inc:
                 calculo_inc = float(inc_est['logro']) * 100  # 0.0–1.2 → 0–120
                 valor_inc = round(calculo_inc * float(ind_inc.ponderacion) / 100, 4)
@@ -2890,23 +2938,26 @@ def sync_ecv_semana(request):
                     'alcance': inc_est['count'],
                     'calculo': round(calculo_inc, 2),
                     'valor': valor_inc,
+                    **umbrales_inc,
                 }
                 total_puntos += valor_inc
             else:
-                detalle['incidencia'] = {'alcance': inc_est['count'], 'calculo': None, 'valor': None}
+                detalle['incidencia'] = {'alcance': inc_est['count'], 'calculo': None, 'valor': None, **umbrales_inc}
         else:
-            detalle['incidencia'] = {'alcance': None, 'calculo': None, 'valor': None}
+            detalle['incidencia'] = {'alcance': None, 'calculo': None, 'valor': None, **umbrales_inc}
 
         # Bono gerente/subgerente según categoría A/B/C (Travel Center usa montos especiales)
         cat_bono = CATEGORIA_BONO_ESTACION.get(team_key)
         bono_gerente = bono_subgerente = 0.0
-        if es_travel and total_puntos >= 80:
+        if es_travel:
             # Travel Center: 12 000 / 6 000 mensuales (distintos al estándar A/B/C)
-            bono_gerente    = round(12000 * 7 / 30.4 * total_puntos / 100, 2)
-            bono_subgerente = round( 6000 * 7 / 30.4 * total_puntos / 100, 2)
-        elif cfg and cat_bono and total_puntos >= 80:
-            monto_g  = getattr(cfg, f'bono_gerente_cat_{cat_bono.lower()}', 0)
-            monto_sg = getattr(cfg, f'bono_subgerente_cat_{cat_bono.lower()}', 0)
+            monto_g, monto_sg = 12000, 6000
+        elif cat_bono:
+            monto_g  = getattr(cfg, f'bono_gerente_cat_{cat_bono.lower()}', 0) if cfg else 0
+            monto_sg = getattr(cfg, f'bono_subgerente_cat_{cat_bono.lower()}', 0) if cfg else 0
+        else:
+            monto_g = monto_sg = 0
+        if total_puntos >= 80:
             bono_gerente    = round(monto_g  * 7 / 30.4 * total_puntos / 100, 2)
             bono_subgerente = round(monto_sg * 7 / 30.4 * total_puntos / 100, 2)
 
@@ -2915,8 +2966,278 @@ def sync_ecv_semana(request):
             'indicadores': detalle,
             'total_puntos': round(total_puntos, 2),
             'categoria_bono': cat_bono or ('Travel' if es_travel else None),
+            'monto_base_gerente': monto_g,
+            'monto_base_subgerente': monto_sg,
             'bono_gerente': bono_gerente,
             'bono_subgerente': bono_subgerente,
         }
 
-    return JsonResponse({'ok': True, 'estaciones': resultado})
+    return resultado
+
+
+@login_required
+def exportar_ecv_excel(request):
+    """Descarga un Excel con el resumen de Compensación Variable (ECV) de la
+    semana: una hoja por estación, igual al bloque 'Cálculo de Compensación
+    Variable' de los Excel ECV Zona que se entregan manualmente."""
+    from datetime import date, timedelta
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from django.http import HttpResponse
+    from apps.incentives.constants import EXCEL_ORDER_LOOKUP
+
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('admin', 'operaciones'):
+        return redirect('incentives_dashboard')
+
+    semana_str = request.GET.get('semana')
+    today = date.today()
+    if semana_str:
+        try:
+            week_start = date.fromisoformat(semana_str)
+        except ValueError:
+            week_start = today - timedelta(days=today.weekday())
+    else:
+        week_start = today - timedelta(days=today.weekday())
+
+    resultado = _calcular_ecv_semana(week_start)
+    semana_num = week_start.isocalendar()[1]
+
+    INDICADORES = [
+        ('venta_gas',    'Venta Gasolina',       'num'),
+        ('venta_diesel', 'Venta Diésel',         'num'),
+        ('mistery',      'Mistery Shopper',      'pct'),
+        ('faltante',     'Faltante',             'money'),
+        ('incidencia',   'Incidencia en cortes', 'count'),
+    ]
+
+    bold = Font(bold=True)
+    title_font = Font(bold=True, size=14, color='FFFFFF')
+    white_bold = Font(bold=True, color='FFFFFF')
+    right = Alignment(horizontal='right')
+    center = Alignment(horizontal='center')
+
+    FILL_TITLE   = PatternFill('solid', fgColor='002060')
+    FILL_HEADER1 = PatternFill('solid', fgColor='002060')
+    FILL_HEADER2 = PatternFill('solid', fgColor='023874')
+    FILL_LABEL   = PatternFill('solid', fgColor='ECF5D7')
+    FILL_INFO    = PatternFill('solid', fgColor='E5FCFF')
+    FILL_BONO    = PatternFill('solid', fgColor='034EA2')
+    FILL_MIN     = PatternFill('solid', fgColor='FFEB9C')
+    FILL_OBJ     = PatternFill('solid', fgColor='C6EFCE')
+    FILL_BUENO   = PatternFill('solid', fgColor='C6EFCE')
+    FILL_REGULAR = PatternFill('solid', fgColor='FFEB9C')
+    FILL_MALO    = PatternFill('solid', fgColor='FFC7CE')
+    FONT_MIN  = Font(bold=True, color='9C5700')
+    FONT_OBJ  = Font(bold=True, color='006100')
+    FONT_EXC  = Font(bold=True, color='002060')
+    FONT_BUENO   = Font(bold=True, color='006100')
+    FONT_REGULAR = Font(bold=True, color='9C5700')
+    FONT_MALO    = Font(bold=True, color='9C0006')
+
+    def _set(ws, row, col, value, number_format=None, font=None, align=None, fill=None):
+        cell = ws.cell(row=row, column=col, value=value)
+        if number_format:
+            cell.number_format = number_format
+        if font:
+            cell.font = font
+        if align:
+            cell.alignment = align
+        if fill:
+            cell.fill = fill
+        return cell
+
+    def _fill_row(ws, row, cols, fill):
+        for col in cols:
+            ws.cell(row=row, column=col).fill = fill
+
+    def _semaforo_logro(alcance, umin, uobj, uexc, mayor_es_mejor):
+        """Replica el formato condicional real del Excel ECV en la columna % Logro:
+        rojo/amarillo/verde/excelente según la posición del alcance frente a los
+        umbrales Mínimo/Objetivo/Excelente del indicador."""
+        if alcance is None or umin is None or uobj is None or uexc is None:
+            return None, None
+        if mayor_es_mejor:
+            if alcance < umin:
+                return FILL_MALO, FONT_MALO
+            if alcance < uobj:
+                return FILL_REGULAR, FONT_REGULAR
+            if alcance < uexc:
+                return FILL_BUENO, FONT_BUENO
+            return None, FONT_EXC
+        else:
+            if alcance <= uexc:
+                return None, FONT_EXC
+            if alcance <= uobj:
+                return FILL_BUENO, FONT_BUENO
+            if alcance <= umin:
+                return FILL_REGULAR, FONT_REGULAR
+            return FILL_MALO, FONT_MALO
+
+    def _pct(ws, row, col, value, font=None, fill=None):
+        if value is None:
+            _set(ws, row, col, 'N/A', font=font, fill=fill)
+        else:
+            _set(ws, row, col, round(value / 100, 4), number_format='0.00%', font=font, align=right, fill=fill)
+
+    def _num(ws, row, col, value, tipo, font=None, fill=None):
+        if value is None:
+            _set(ws, row, col, 'N/A', font=font, fill=fill)
+        elif tipo == 'pct':
+            _pct(ws, row, col, value, font=font, fill=fill)
+        elif tipo == 'money':
+            _set(ws, row, col, round(value, 2), number_format='"$"#,##0.00', font=font, align=right, fill=fill)
+        elif tipo == 'count':
+            _set(ws, row, col, round(value, 2), number_format='0', font=font, align=right, fill=fill)
+        else:
+            _set(ws, row, col, round(value, 2), number_format='#,##0', font=font, align=right, fill=fill)
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    team_keys = sorted(STATION_TEAMS.keys(), key=lambda tk: EXCEL_ORDER_LOOKUP.get(tk, (9999, tk))[0])
+    hojas_usadas = set()
+
+    for team_key in team_keys:
+        est = resultado.get(team_key)
+        if not est:
+            continue
+        nombre = STATION_TEAMS[team_key]
+
+        # Nombre de hoja único, máx 31 caracteres (límite de Excel)
+        base_nombre = ''.join(c for c in nombre if c not in '[]:*?/\\')[:28]
+        hoja_nombre = base_nombre
+        n = 2
+        while hoja_nombre in hojas_usadas:
+            hoja_nombre = f"{base_nombre[:26]} {n}"
+            n += 1
+        hojas_usadas.add(hoja_nombre)
+
+        ws = wb.create_sheet(hoja_nombre)
+        ws.sheet_view.showGridLines = False
+
+        # Columnas: A margen, B etiqueta, C espaciador, D-E Ponderación, F-H Resultados,
+        # I espaciador, J-L Mínimo/Objetivo/Excelente, M espaciador, N oculta (helper
+        # heredado del Excel original), O-P Evaluación Final, Q monto base.
+        for col, width in zip('ABCDEFGHIJKLMNOPQ',
+                               [2, 26, 2, 13, 9, 18, 10, 18, 2, 18, 10, 10, 2, 10, 14, 16, 9]):
+            ws.column_dimensions[col].width = width
+        ws.column_dimensions['N'].hidden = True
+        for r, h in [(2, 30), (3, 19), (4, 6), (5, 27), (6, 27), (7, 6), (8, 19),
+                     (9, 37), (10, 26), (11, 30), (12, 30), (13, 30), (14, 30), (15, 30), (17, 24)]:
+            ws.row_dimensions[r].height = h
+
+        ws.merge_cells(start_row=2, start_column=2, end_row=2, end_column=17)
+        _fill_row(ws, 2, range(2, 18), FILL_TITLE)
+        _set(ws, 2, 2, 'Cálculo de Compensación Variable', font=title_font, align=center)
+
+        _set(ws, 3, 10, 'Periodo Evaluado:', font=bold)
+        ws.merge_cells(start_row=3, start_column=11, end_row=3, end_column=12)
+        _set(ws, 3, 11, f'Semana: {semana_num}', font=bold)
+
+        cat_bono = est['categoria_bono'] or est['categoria']
+
+        ws.merge_cells(start_row=5, start_column=6, end_row=5, end_column=8)
+        ws.merge_cells(start_row=5, start_column=10, end_row=5, end_column=13)
+        _set(ws, 5, 6, 'Departamento:', font=bold)
+        _set(ws, 5, 10, team_key, fill=FILL_INFO)
+        _set(ws, 5, 15, round(est['bono_gerente'], 2), number_format='"$"#,##0.00', font=white_bold, fill=FILL_BONO, align=center)
+        _set(ws, 5, 16, 'Gerente', font=white_bold, fill=FILL_BONO, align=center)
+        _set(ws, 5, 17, est['monto_base_gerente'], align=center)
+
+        ws.merge_cells(start_row=6, start_column=6, end_row=6, end_column=8)
+        ws.merge_cells(start_row=6, start_column=10, end_row=6, end_column=13)
+        _set(ws, 6, 6, 'Estación:', font=bold)
+        _set(ws, 6, 10, nombre, fill=FILL_INFO)
+        _set(ws, 6, 15, round(est['bono_subgerente'], 2), number_format='"$"#,##0.00', font=white_bold, fill=FILL_BONO, align=center)
+        _set(ws, 6, 16, 'Subgerente', font=white_bold, fill=FILL_BONO, align=center)
+        _set(ws, 6, 17, est['monto_base_subgerente'], align=center)
+
+        header_row = 9
+        ws.merge_cells(start_row=header_row, start_column=4, end_row=header_row, end_column=5)
+        ws.merge_cells(start_row=header_row, start_column=6, end_row=header_row, end_column=8)
+        ws.merge_cells(start_row=header_row, start_column=15, end_row=header_row, end_column=16)
+        _fill_row(ws, header_row, range(2, 17), FILL_HEADER1)
+        _set(ws, header_row, 2, f'Categoría ({cat_bono})', font=white_bold)
+        _set(ws, header_row, 4, 'Ponderación', font=white_bold, align=center)
+        _set(ws, header_row, 6, 'Resultados', font=white_bold, align=center)
+        _set(ws, header_row, 10, 'Mínimo', font=white_bold, align=center)
+        _set(ws, header_row, 11, 'Objetivo', font=white_bold, align=center)
+        _set(ws, header_row, 12, 'Excelente', font=white_bold, align=center)
+        _set(ws, header_row, 15, 'Evaluación Final', font=white_bold, align=center)
+
+        sub_row = header_row + 1
+        _fill_row(ws, sub_row, range(2, 17), FILL_HEADER2)
+        for col, label in [(2, 'Indicador (KPI)'), (4, 'Valor %'), (5, 'Valor %'), (6, 'Alcance'),
+                            (7, 'Objetivo'), (8, '% Logro'), (10, '80%'), (11, '100%'), (12, '120%'),
+                            (15, 'Cálculo'), (16, 'Valor (%)')]:
+            _set(ws, sub_row, col, label, font=white_bold, align=center)
+
+        row = sub_row + 1
+        sum_ponderacion = 0.0
+        indicadores = est['indicadores']
+        for key, label, tipo in INDICADORES:
+            d = indicadores.get(key)
+            if d is None:
+                continue
+
+            ponderacion = d.get('ponderacion')
+            if ponderacion is not None:
+                sum_ponderacion += ponderacion
+
+            mayor_es_mejor = key in ('venta_gas', 'venta_diesel', 'mistery')
+            valor_logro = d.get('alcance') if key in ('venta_gas', 'venta_diesel', 'mistery') else d.get('calculo')
+            fill_sem, font_sem = _semaforo_logro(
+                valor_logro, d.get('umbral_minimo'), d.get('umbral_objetivo'), d.get('umbral_excelente'), mayor_es_mejor,
+            )
+
+            _fill_row(ws, row, [2, 4, 5, 15, 16], FILL_LABEL)
+            _set(ws, row, 2, label, font=bold)
+            _pct(ws, row, 4, ponderacion, font=bold)
+            _pct(ws, row, 5, ponderacion * 1.2 if ponderacion is not None else None, font=bold)
+
+            if key in ('venta_gas', 'venta_diesel'):
+                _num(ws, row, 6, d.get('alcance_raw'), 'num')
+                _num(ws, row, 7, d.get('objetivo_raw'), 'num')
+                _pct(ws, row, 8, d.get('alcance'), fill=fill_sem, font=font_sem)
+                _pct(ws, row, 10, d.get('umbral_minimo'), font=FONT_MIN, fill=FILL_MIN)
+                _pct(ws, row, 11, d.get('umbral_objetivo'), font=FONT_OBJ, fill=FILL_OBJ)
+                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC)
+            elif key == 'mistery':
+                _pct(ws, row, 6, d.get('alcance_raw'))
+                _pct(ws, row, 7, d.get('objetivo_raw'))
+                _pct(ws, row, 8, d.get('alcance'), fill=fill_sem, font=font_sem)
+                _pct(ws, row, 10, d.get('umbral_minimo'), font=FONT_MIN, fill=FILL_MIN)
+                _pct(ws, row, 11, d.get('umbral_objetivo'), font=FONT_OBJ, fill=FILL_OBJ)
+                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC)
+            elif key == 'faltante':
+                _num(ws, row, 6, d.get('alcance'), 'money')
+                _num(ws, row, 7, d.get('umbral_objetivo'), 'money')
+                _pct(ws, row, 8, d.get('calculo'), fill=fill_sem, font=font_sem)
+                _num(ws, row, 10, d.get('umbral_minimo'), 'money', font=FONT_MIN, fill=FILL_MIN)
+                _num(ws, row, 11, d.get('umbral_objetivo'), 'money', font=FONT_OBJ, fill=FILL_OBJ)
+                _num(ws, row, 12, d.get('umbral_excelente'), 'money', font=FONT_EXC)
+            else:  # incidencia
+                _num(ws, row, 6, d.get('alcance'), 'count')
+                _num(ws, row, 7, d.get('umbral_objetivo'), 'count')
+                _pct(ws, row, 8, d.get('calculo'), fill=fill_sem, font=font_sem)
+                _num(ws, row, 10, d.get('umbral_minimo'), 'count', font=FONT_MIN, fill=FILL_MIN)
+                _num(ws, row, 11, d.get('umbral_objetivo'), 'count', font=FONT_OBJ, fill=FILL_OBJ)
+                _num(ws, row, 12, d.get('umbral_excelente'), 'count', font=FONT_EXC)
+
+            _pct(ws, row, 15, d.get('calculo'))
+            _pct(ws, row, 16, d.get('valor'))
+            row += 1
+
+        row += 1
+        _fill_row(ws, row, [4, 5, 15, 16], FILL_LABEL)
+        _pct(ws, row, 4, sum_ponderacion, font=bold)
+        _pct(ws, row, 5, sum_ponderacion * 1.2, font=bold)
+        _set(ws, row, 15, 'Puntos', font=bold)
+        _pct(ws, row, 16, est['total_puntos'], font=bold)
+
+    filename = f"ECV Sem {semana_num} ({week_start.isoformat()}).xlsx"
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
@@ -31,9 +32,8 @@ def create_user_for_employee(sender, instance, created, **kwargs):
             if duplicado:
                 instance.photo = duplicado.photo
 
-        birth_date_part = instance.curp[4:10] if instance.curp and len(instance.curp) >= 11 else "000000"
         username = emp_number
-        password = f"{emp_number}{birth_date_part}"
+        password = settings.DEFAULT_EMPLOYEE_PASSWORD
 
         base_username = username
         counter = 1
