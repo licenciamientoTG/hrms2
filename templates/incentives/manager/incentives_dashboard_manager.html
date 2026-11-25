@@ -268,6 +268,14 @@
       <div class="h4 mb-0 text-success" id="gran-total-semana">$0</div>
     </div>
   </div>
+  <div class="col-auto">
+    <div class="summary-card p-3 d-flex flex-column justify-content-center h-100">
+      <small class="text-muted d-block mb-1">DESGLOSE ECV</small>
+      <a href="{% url 'exportar_ecv_excel' %}?semana={{ week_start|date:'Y-m-d' }}" class="btn btn-outline-success btn-sm">
+        <i class="fas fa-file-excel me-1"></i>Descargar Excel ECV
+      </a>
+    </div>
+  </div>
 </div>
 
 {% else %}

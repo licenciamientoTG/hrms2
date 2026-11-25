@@ -264,6 +264,70 @@ def _get_rol_incentivos(user):
     return None
 
 
+def _teams_del_jefe_zona(jefe):
+    """Devuelve el set de team_keys (estaciones) a cargo de un jefe de zona
+    (o gerente de operaciones), siguiendo gerentes/subgerentes que le
+    reportan directa o indirectamente. Compartida por incentives_dashboard_zona
+    (qué estaciones mostrar) y exportar_ecv_excel (a qué estaciones limitar
+    la descarga del Excel ECV cuando la pide un jefe de zona)."""
+    from django.db.models import Q
+
+    primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
+    busqueda = f"{jefe.first_name} {primer_apellido}".strip()
+
+    # ── Nivel 1: gerentes que reportan directamente al jefe (por FK o texto) ──
+    teams_con_gerente = set(
+        Employee.objects.filter(
+            team__in=STATION_TEAMS.keys(),
+            job_position__title__icontains='gerente de estaci',
+            is_active=True,
+        ).exclude(
+            job_position__title__icontains='sub'
+        ).filter(
+            Q(leader_fk=jefe) | Q(leader__icontains=busqueda)
+        ).values_list('team', flat=True)
+    )
+
+    # ── Nivel 2: gerentes/subgerentes que reportan a un intermedio que reporta al jefe ──
+    intermedios_ids = set(
+        Employee.objects.filter(
+            Q(leader_fk=jefe) | Q(leader__icontains=busqueda),
+            is_active=True,
+        ).values_list('id', flat=True)
+    )
+    teams_via_intermedio = set(
+        Employee.objects.filter(
+            team__in=STATION_TEAMS.keys(),
+            job_position__title__icontains='gerente de estaci',
+            leader_fk__in=intermedios_ids,
+            is_active=True,
+        ).values_list('team', flat=True)
+    )
+
+    # Estaciones sin gerente activo: buscar vía subgerentes (nivel 1 y 2)
+    teams_con_gerente_any = set(
+        Employee.objects.filter(
+            team__in=STATION_TEAMS.keys(),
+            job_position__title__icontains='gerente de estaci',
+            is_active=True,
+        ).exclude(
+            job_position__title__icontains='sub'
+        ).values_list('team', flat=True)
+    )
+    teams_sin_gerente = set(STATION_TEAMS.keys()) - teams_con_gerente_any
+    teams_por_subgerente = set(
+        Employee.objects.filter(
+            team__in=teams_sin_gerente,
+            job_position__title__icontains='subgerente de estaci',
+            is_active=True,
+        ).filter(
+            Q(leader_fk=jefe) | Q(leader__icontains=busqueda) | Q(leader_fk__in=intermedios_ids)
+        ).values_list('team', flat=True)
+    )
+
+    return teams_con_gerente | teams_via_intermedio | teams_por_subgerente
+
+
 def _subgerente_tiene_gerente(user):
     """
     Retorna True si el usuario es subgerente Y su estación tiene un gerente activo.
@@ -540,60 +604,7 @@ def incentives_dashboard_zona(request):
 
     try:
         jefe = Employee.objects.select_related('job_position').get(user=request.user)
-        primer_apellido = jefe.last_name.split()[0] if jefe.last_name else ''
-        busqueda = f"{jefe.first_name} {primer_apellido}".strip()
-
-        # ── Nivel 1: gerentes que reportan directamente al jefe (por FK o texto) ──
-        teams_con_gerente = set(
-            Employee.objects.filter(
-                team__in=STATION_TEAMS.keys(),
-                job_position__title__icontains='gerente de estaci',
-                is_active=True,
-            ).exclude(
-                job_position__title__icontains='sub'
-            ).filter(
-                Q(leader_fk=jefe) | Q(leader__icontains=busqueda)
-            ).values_list('team', flat=True)
-        )
-
-        # ── Nivel 2: gerentes/subgerentes que reportan a un intermedio que reporta al jefe ──
-        intermedios_ids = set(
-            Employee.objects.filter(
-                Q(leader_fk=jefe) | Q(leader__icontains=busqueda),
-                is_active=True,
-            ).values_list('id', flat=True)
-        )
-        teams_via_intermedio = set(
-            Employee.objects.filter(
-                team__in=STATION_TEAMS.keys(),
-                job_position__title__icontains='gerente de estaci',
-                leader_fk__in=intermedios_ids,
-                is_active=True,
-            ).values_list('team', flat=True)
-        )
-
-        # Estaciones sin gerente activo: buscar vía subgerentes (nivel 1 y 2)
-        teams_con_gerente_any = set(
-            Employee.objects.filter(
-                team__in=STATION_TEAMS.keys(),
-                job_position__title__icontains='gerente de estaci',
-                is_active=True,
-            ).exclude(
-                job_position__title__icontains='sub'
-            ).values_list('team', flat=True)
-        )
-        teams_sin_gerente = set(STATION_TEAMS.keys()) - teams_con_gerente_any
-        teams_por_subgerente = set(
-            Employee.objects.filter(
-                team__in=teams_sin_gerente,
-                job_position__title__icontains='subgerente de estaci',
-                is_active=True,
-            ).filter(
-                Q(leader_fk=jefe) | Q(leader__icontains=busqueda) | Q(leader_fk__in=intermedios_ids)
-            ).values_list('team', flat=True)
-        )
-
-        teams_del_jefe = teams_con_gerente | teams_via_intermedio | teams_por_subgerente
+        teams_del_jefe = _teams_del_jefe_zona(jefe)
     except Employee.DoesNotExist:
         teams_del_jefe = set()
 
@@ -1916,14 +1927,23 @@ def sync_venta_semana(request):
             override = PresupuestoVentaSemanal.objects.filter(team_key=team_key, semana=week_start).first()
             if override:
                 sv = sheets_ventas.get(team_key) if sheets_ventas else None
-                vs_total = sv['total'] if sv else 0
-                ps_total_ov = float(override.total)
+                vs_total    = sv['total'] if sv else 0
+                vs_gas      = sv['gas'] if sv else 0
+                vs_diesel   = sv['diesel'] if sv else 0
+                ps_total_ov  = float(override.total)
+                ps_gas_ov    = float(override.gas)
+                ps_diesel_ov = float(override.diesel)
                 if ps_total_ov == 0:
                     resultado[team_key] = {'verde': None, 'sin_presupuesto': True, 'fuente': 'override'}
                     continue
                 verde = vs_total >= ps_total_ov
-                resultado[team_key] = {'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override',
-                                       'verde_gas': verde, 'verde_diesel': None}
+                verde_gas    = (vs_gas >= ps_gas_ov)       if ps_gas_ov    > 0 else None
+                verde_diesel = (vs_diesel >= ps_diesel_ov) if ps_diesel_ov > 0 else None
+                resultado[team_key] = {
+                    'verde': verde, 'vs': vs_total, 'ps': ps_total_ov, 'fuente': 'override',
+                    'verde_gas': verde_gas, 'vs_gas': vs_gas, 'ps_gas': ps_gas_ov,
+                    'verde_diesel': verde_diesel, 'vs_diesel': vs_diesel, 'ps_diesel': ps_diesel_ov,
+                }
                 if not semana_cerrada:
                     empleados = list(Employee.objects.filter(is_active=True, team=team_key).exclude(job_position__title__icontains='gerente de estaci').values('id', 'seniority_raw'))
                     if empleados:
@@ -1956,13 +1976,20 @@ def sync_venta_semana(request):
                 continue
             vs_total  = sv['total']
             ps_total  = sv['ppto_total']
+            vs_gas    = sv['gas']
+            ps_gas    = sv['ppto_gas']
+            vs_diesel = sv['diesel']
+            ps_diesel = sv['ppto_diesel']
             if ps_total == 0:
                 resultado[team_key] = {'verde': None, 'sin_presupuesto': True, 'fuente': 'sheets'}
                 continue
             verde = vs_total >= ps_total
+            verde_gas    = (vs_gas >= ps_gas)       if ps_gas    > 0 else None
+            verde_diesel = (vs_diesel >= ps_diesel) if ps_diesel > 0 else None
             resultado[team_key] = {
                 'verde': verde, 'vs': vs_total, 'ps': ps_total, 'fuente': 'sheets',
-                'verde_gas': verde, 'verde_diesel': None,
+                'verde_gas': verde_gas, 'vs_gas': vs_gas, 'ps_gas': ps_gas,
+                'verde_diesel': verde_diesel, 'vs_diesel': vs_diesel, 'ps_diesel': ps_diesel,
             }
             if not semana_cerrada:
                 empleados = list(
@@ -2726,11 +2753,16 @@ def sync_faltantes_semana(request):
     # Si la semana no tiene snapshot guardado, no hay faltantes que mostrar
     # (nunca se lee ni se persiste automáticamente el F8 abierto, ya que eso
     # refleja "faltantes pendientes ahora", no el histórico de esa semana).
+    # Si la semana SÍ tiene snapshot (al menos una estación capturada), una
+    # estación que no aparece en él es porque no tuvo faltantes ese registro
+    # ($0, verde) — no porque falte el dato.
     snapshot_qs = FaltanteEstacionSemanal.objects.filter(week_start=week_start) if week_start else None
     if snapshot_qs is not None:
         totales = {r.team_key: float(r.monto) for r in snapshot_qs}
+        semana_capturada = bool(totales)
     else:
         totales = {}
+        semana_capturada = False
 
     def _nivel(monto):
         calculo = _score_menor(monto, umbral_min, umbral_obj, umbral_exc)
@@ -2745,7 +2777,9 @@ def sync_faltantes_semana(request):
         return nivel, calculo
 
     estaciones_json = {}
-    for team_key, monto in totales.items():
+    team_keys_a_mostrar = set(totales) | (set(STATION_TEAMS) if semana_capturada else set())
+    for team_key in team_keys_a_mostrar:
+        monto = totales.get(team_key, 0.0)
         nivel, calculo = _nivel(monto)
         estaciones_json[team_key] = {
             'total':   round(monto, 2),
@@ -2762,9 +2796,9 @@ def sync_faltantes_semana(request):
 def capturar_faltantes_f8(request):
     """
     Acción manual: lee el F8 "FALTANTES (Respuestas)" en este momento
-    (faltantes actualmente abiertos o en descuento vía nómina) y reemplaza
-    el snapshot de FaltanteEstacionSemanal de la semana indicada con ese dato.
-    No se ejecuta automáticamente — solo vía este botón.
+    (faltantes actualmente abiertos, igual que el reporte oficial F8 SEMANAL)
+    y reemplaza el snapshot de FaltanteEstacionSemanal de la semana indicada
+    con ese dato. No se ejecuta automáticamente — solo vía este botón.
     """
     from datetime import date
     from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos
@@ -2852,13 +2886,17 @@ def _calcular_ecv_semana(week_start):
         pass
 
     # Faltantes: siempre usar el snapshot guardado en BD.
-    # Semanas sin snapshot muestran $0 (vacío) — el F8 abierto ya NO se lee
+    # Semanas sin snapshot muestran "sin dato" — el F8 abierto ya NO se lee
     # ni se persiste automáticamente, porque refleja "faltantes pendientes
-    # ahora", no el histórico de la semana consultada.
+    # ahora", no el histórico de la semana consultada. Pero si la semana SÍ
+    # tiene snapshot (al menos una estación capturada), una estación que no
+    # aparece en él es porque no tuvo faltantes ($0, verde) — no porque
+    # falte el dato.
     faltantes = {
         r.team_key: float(r.monto)
         for r in FaltanteEstacionSemanal.objects.filter(week_start=week_start)
     }
+    semana_faltantes_capturada = bool(faltantes)
 
     # Incidencias desde DB
     inc_data = _calcular_incidencias_semana(week_start)
@@ -2915,8 +2953,10 @@ def _calcular_ecv_semana(week_start):
         if d['valor'] is not None:
             total_puntos += d['valor']
 
-        # Faltante: sin snapshot guardado para la estación/semana = sin dato (no asumir Excelente)
-        d = _calc_indicador('faltante', faltantes.get(team_key), _score_menor, inds)
+        # Faltante: sin snapshot guardado para la estación/semana = sin dato (no asumir Excelente).
+        # Si la semana ya tiene snapshot en otras estaciones, no aparecer = $0 de faltante (verde).
+        alcance_falt = faltantes.get(team_key, 0.0 if semana_faltantes_capturada else None)
+        d = _calc_indicador('faltante', alcance_falt, _score_menor, inds)
         detalle['faltante'] = d
         if d['valor'] is not None:
             total_puntos += d['valor']
@@ -2982,13 +3022,37 @@ def exportar_ecv_excel(request):
     Variable' de los Excel ECV Zona que se entregan manualmente."""
     from datetime import date, timedelta
     import openpyxl
-    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
+    from openpyxl.drawing.xdr import XDRPositiveSize2D
     from django.http import HttpResponse
+    from django.contrib.staticfiles import finders
     from apps.incentives.constants import EXCEL_ORDER_LOOKUP
 
+    logo_path = finders.find('template/img/logos/logo_sencillo.png')
+    isologo_path = finders.find('template/img/logos/ISOLOGO.png')
+
     rol = _get_rol_incentivos(request.user)
-    if rol not in ('admin', 'operaciones'):
+    if rol not in ('admin', 'operaciones', 'zona', 'gerente'):
         return redirect('incentives_dashboard')
+
+    # Límite de estaciones permitidas: None = sin límite (admin/operaciones);
+    # un set = solo esas (jefe de zona: su zona; gerente/subgerente: su estación).
+    teams_permitidos = None
+    if rol == 'zona':
+        try:
+            jefe = Employee.objects.select_related('job_position').get(user=request.user)
+            teams_permitidos = _teams_del_jefe_zona(jefe)
+        except Employee.DoesNotExist:
+            teams_permitidos = set()
+    elif rol == 'gerente':
+        try:
+            gerente_emp = Employee.objects.get(user=request.user)
+            team_key_propio = (gerente_emp.team or '').strip()
+            teams_permitidos = {team_key_propio} if team_key_propio else set()
+        except Employee.DoesNotExist:
+            teams_permitidos = set()
 
     semana_str = request.GET.get('semana')
     today = date.today()
@@ -3014,8 +3078,9 @@ def exportar_ecv_excel(request):
     bold = Font(bold=True)
     title_font = Font(bold=True, size=14, color='FFFFFF')
     white_bold = Font(bold=True, color='FFFFFF')
-    right = Alignment(horizontal='right')
-    center = Alignment(horizontal='center')
+    right = Alignment(horizontal='right', vertical='center')
+    center = Alignment(horizontal='center', vertical='center')
+    vcenter = Alignment(vertical='center')
 
     FILL_TITLE   = PatternFill('solid', fgColor='002060')
     FILL_HEADER1 = PatternFill('solid', fgColor='002060')
@@ -3025,15 +3090,18 @@ def exportar_ecv_excel(request):
     FILL_BONO    = PatternFill('solid', fgColor='034EA2')
     FILL_MIN     = PatternFill('solid', fgColor='FFEB9C')
     FILL_OBJ     = PatternFill('solid', fgColor='C6EFCE')
+    FILL_EXC     = PatternFill('solid', fgColor='8EA9DB')
     FILL_BUENO   = PatternFill('solid', fgColor='C6EFCE')
     FILL_REGULAR = PatternFill('solid', fgColor='FFEB9C')
     FILL_MALO    = PatternFill('solid', fgColor='FFC7CE')
+    FILL_AZUL    = PatternFill('solid', fgColor='B4C6E7')
     FONT_MIN  = Font(bold=True, color='9C5700')
     FONT_OBJ  = Font(bold=True, color='006100')
-    FONT_EXC  = Font(bold=True, color='002060')
+    FONT_EXC  = Font(bold=True, color='1F3864')
     FONT_BUENO   = Font(bold=True, color='006100')
     FONT_REGULAR = Font(bold=True, color='9C5700')
     FONT_MALO    = Font(bold=True, color='9C0006')
+    FONT_AZUL    = Font(bold=True, color='1F3864')
 
     def _set(ws, row, col, value, number_format=None, font=None, align=None, fill=None):
         cell = ws.cell(row=row, column=col, value=value)
@@ -3041,20 +3109,50 @@ def exportar_ecv_excel(request):
             cell.number_format = number_format
         if font:
             cell.font = font
-        if align:
-            cell.alignment = align
+        cell.alignment = align if align else vcenter
         if fill:
             cell.fill = fill
         return cell
 
+    SPACER_COLS = {3, 9, 13}  # C, I, M — columnas espaciadoras, nunca llevan color
+
     def _fill_row(ws, row, cols, fill):
         for col in cols:
+            if col in SPACER_COLS:
+                continue
             ws.cell(row=row, column=col).fill = fill
 
+    thick_black = Side(style='medium', color='000000')
+    border_black = Border(left=thick_black, right=thick_black, top=thick_black, bottom=thick_black)
+
+    def _border_range(ws, row1, col1, row2, col2):
+        """Cuadrícula: borde grueso en TODAS las celdas del rango."""
+        for r in range(row1, row2 + 1):
+            for c in range(col1, col2 + 1):
+                ws.cell(row=r, column=c).border = border_black
+
+    def _center_range(ws, row1, col1, row2, col2):
+        for r in range(row1, row2 + 1):
+            for c in range(col1, col2 + 1):
+                ws.cell(row=r, column=c).alignment = center
+
+    def _border_outline(ws, row1, col1, row2, col2):
+        """Un solo cuadro alrededor del rango — sin líneas internas entre celdas."""
+        for r in range(row1, row2 + 1):
+            for c in range(col1, col2 + 1):
+                ws.cell(row=r, column=c).border = Border(
+                    top=thick_black if r == row1 else None,
+                    bottom=thick_black if r == row2 else None,
+                    left=thick_black if c == col1 else None,
+                    right=thick_black if c == col2 else None,
+                )
+
     def _semaforo_logro(alcance, umin, uobj, uexc, mayor_es_mejor):
-        """Replica el formato condicional real del Excel ECV en la columna % Logro:
-        rojo/amarillo/verde/excelente según la posición del alcance frente a los
-        umbrales Mínimo/Objetivo/Excelente del indicador."""
+        """Color de la columna % Logro (H): 4 tramos (Rojo/Amarillo/Verde/Azul)
+        según la posición del Alcance real frente a los umbrales Mínimo/
+        Objetivo/Excelente de ESE indicador (columnas J/K/L de la misma fila
+        — 97/100/103 en venta, 92/100/103 en mistery, 500/100/0 en faltante,
+        etc.), no un estándar fijo: cada indicador tiene su propia escala."""
         if alcance is None or umin is None or uobj is None or uexc is None:
             return None, None
         if mayor_es_mejor:
@@ -3064,10 +3162,10 @@ def exportar_ecv_excel(request):
                 return FILL_REGULAR, FONT_REGULAR
             if alcance < uexc:
                 return FILL_BUENO, FONT_BUENO
-            return None, FONT_EXC
+            return FILL_AZUL, FONT_AZUL
         else:
             if alcance <= uexc:
-                return None, FONT_EXC
+                return FILL_AZUL, FONT_AZUL
             if alcance <= uobj:
                 return FILL_BUENO, FONT_BUENO
             if alcance <= umin:
@@ -3096,7 +3194,420 @@ def exportar_ecv_excel(request):
     wb.remove(wb.active)
 
     team_keys = sorted(STATION_TEAMS.keys(), key=lambda tk: EXCEL_ORDER_LOOKUP.get(tk, (9999, tk))[0])
+
+    # Jefe de zona / gerente / subgerente: nunca pueden ver estaciones fuera
+    # de las suyas, sin importar lo que venga en el query param (no es un
+    # filtro, es un límite).
+    if teams_permitidos is not None:
+        team_keys = [tk for tk in team_keys if tk in teams_permitidos]
+
+    # Si la vista tenía un filtro de búsqueda activo, solo exportar las
+    # estaciones que quedaron visibles (mismas que mandó el JS).
+    estaciones_filtro = request.GET.get('estaciones')
+    if estaciones_filtro:
+        filtro_set = {tk for tk in estaciones_filtro.split(',') if tk}
+        team_keys = [tk for tk in team_keys if tk in filtro_set]
+
     hojas_usadas = set()
+
+    # Fill de columnas sin el "skip" de SPACER_COLS (ese skip es específico
+    # del layout de la hoja por estación; aquí C/I/M sí llevan color).
+    def _fill_cols(ws, row, cols, fill):
+        for col in cols:
+            ws.cell(row=row, column=col).fill = fill
+
+    # Bandeado (zebra) de filas de datos — usado en "Ventas y Mistery",
+    # "Incidencias" y "Faltantes" para distinguir renglones. No pisa celdas
+    # que ya tengan un color con significado propio (ej. diferencias en
+    # rojo/verde, estatus en amarillo).
+    FILL_BANDA = PatternFill('solid', fgColor='D9E1F2')
+
+    def _bandear_filas(ws, row1, row2, col1, col2):
+        for i, r in enumerate(range(row1, row2 + 1)):
+            if i % 2 == 1:
+                for c in range(col1, col2 + 1):
+                    cell = ws.cell(row=r, column=c)
+                    if cell.fill is None or cell.fill.fill_type is None:
+                        cell.fill = FILL_BANDA
+
+    # Hoja "Ventas y Mistery" (primera del libro): réplica exacta (colores,
+    # fuentes, formatos de número y layout de columnas) de la hoja "Ventas y
+    # Mystery" del Excel ECV Zona que se entrega manualmente — presupuesto
+    # mensual/semanal, venta real semanal (con diferencia contra presupuesto)
+    # y mistery shopper, una fila por estación.
+    import calendar
+    MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
+                'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    week_end = week_start + timedelta(days=6)
+    if week_start.month == week_end.month:
+        mes_principal = week_start.replace(day=1)
+        dias_semana_mes = 7
+    else:
+        inicio_mes2 = (date(week_start.year + 1, 1, 1) if week_start.month == 12
+                        else date(week_start.year, week_start.month + 1, 1))
+        dias_mes1 = (inicio_mes2 - week_start).days
+        dias_mes2 = 7 - dias_mes1
+        if dias_mes1 >= dias_mes2:
+            mes_principal, dias_semana_mes = week_start.replace(day=1), dias_mes1
+        else:
+            mes_principal, dias_semana_mes = week_end.replace(day=1), dias_mes2
+    dias_del_mes = calendar.monthrange(mes_principal.year, mes_principal.month)[1]
+
+    ppto_mes = {r.team_key: r for r in PresupuestoVenta.objects.filter(mes=mes_principal)}
+    ventas_sem = {v.team_key: v for v in IndicadorVentaSemanal.objects.filter(week_start=week_start)}
+
+    FILL_VYM_TITLE = PatternFill('solid', fgColor='9CD044')
+    FILL_VYM_BLUE  = PatternFill('solid', fgColor='004E99')
+    FILL_VYM_GREEN = PatternFill('solid', fgColor='009558')
+    FILL_VYM_TOTAL = PatternFill('solid', fgColor='DCE6F1')
+    FONT_VYM_TITLE = Font(bold=True, size=20, color='FFFFFF')
+    font_arial      = Font(name='Arial', size=11)
+    font_arial_bold = Font(name='Arial', size=11, bold=True)
+    ACC_FMT = '_-* #,##0_-;\\-* #,##0_-;_-* "-"??_-;_-@_-'
+    thin_black = Side(style='thin', color='000000')
+    border_thin = Border(left=thin_black, right=thin_black, top=thin_black, bottom=thin_black)
+
+    def _border_thin_range(ws, row1, col1, row2, col2):
+        for r in range(row1, row2 + 1):
+            for c in range(col1, col2 + 1):
+                ws.cell(row=r, column=c).border = border_thin
+
+    ws_v = wb.create_sheet('Ventas y Mistery')
+    ws_v.sheet_view.showGridLines = False
+
+    SPACER_COLS_VYM = {6, 11, 20}  # F, K, T
+    for col, width in zip('ABCDEFGHIJKLMNOPQRSTUVWX',
+                           [16, 18, 17, 16, 22, 3, 11, 16, 14, 16, 3, 18, 11, 16, 13, 14, 13, 14, 13, 3, 23, 20, 14, 11]):
+        ws_v.column_dimensions[col].width = width
+    ws_v.column_dimensions['X'].hidden = True
+    for r, h in [(1, 30), (5, 30)]:
+        ws_v.row_dimensions[r].height = h
+
+    # Fila 1: título "Semana N" — barra verde-oliva.
+    ws_v.merge_cells('A1:X1')
+    _fill_cols(ws_v, 1, range(1, 25), FILL_VYM_TITLE)
+    _set(ws_v, 1, 1, f'Semana {semana_num}', font=FONT_VYM_TITLE, align=center)
+
+    # Filas 2-3: cuadro "Mes" / "Días del mes" (azul) + cuadro "Promedio" mistery (sin relleno).
+    ws_v.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2)
+    ws_v.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
+    ws_v.merge_cells(start_row=2, start_column=4, end_row=3, end_column=4)
+    _fill_cols(ws_v, 2, range(1, 6), FILL_VYM_BLUE)
+    _fill_cols(ws_v, 3, range(1, 6), FILL_VYM_BLUE)
+    _set(ws_v, 2, 1, 'Mes', font=white_bold, align=center)
+    _set(ws_v, 2, 3, MESES_ES[mes_principal.month - 1], font=white_bold, align=center)
+    _set(ws_v, 2, 4, 'Días de la semana', font=white_bold, align=center)
+    _set(ws_v, 2, 5, dias_semana_mes, font=white_bold, align=center)
+    _set(ws_v, 3, 1, 'Días del mes', font=white_bold, align=center)
+    _set(ws_v, 3, 3, dias_del_mes, font=white_bold, align=center)
+    _border_thin_range(ws_v, 2, 1, 3, 5)
+
+    todas_calificaciones = [
+        resultado[tk]['indicadores'].get('mistery', {}).get('alcance_raw')
+        for tk in team_keys if resultado.get(tk) and resultado[tk]['indicadores'].get('mistery', {}).get('alcance_raw') is not None
+    ]
+    promedio_mistery = sum(todas_calificaciones) / len(todas_calificaciones) if todas_calificaciones else None
+
+    _set(ws_v, 3, 21, 'Promedio', font=bold, align=center)
+    _set(ws_v, 3, 23, round(promedio_mistery, 1) if promedio_mistery is not None else 'N/A',
+         font=bold, align=center, number_format='0.0' if promedio_mistery is not None else 'General')
+    _border_thin_range(ws_v, 3, 21, 3, 23)
+
+    # Fila 4: encabezados de grupo (azul) — Indicadores / Presupuesto Mensual / Presupuesto Semanal / Venta Semanal / Mystery Shopper.
+    header_r1, header_r2 = 4, 5
+    _fill_cols(ws_v, header_r1, range(1, 25), FILL_VYM_BLUE)
+    for col1, col2, label in [(1, 2, 'Indicadores'), (3, 5, 'Presupuesto Mensual'), (8, 10, 'Presupuesto Semanal'),
+                               (12, 19, 'Venta Semanal'), (21, 24, 'Mystery Shopper')]:
+        ws_v.merge_cells(start_row=header_r1, start_column=col1, end_row=header_r1, end_column=col2)
+        _set(ws_v, header_r1, col1, label, font=white_bold, align=center)
+
+    # Fila 5: sub-encabezados — N°/Estación en azul, columnas de métrica en verde.
+    # Columnas: A=N°  B=Estación | C-E PM Gas/Diesel/Total | G=N° H-J PS Gas/Diesel/Total
+    # | L=Estación M=N° N-S VS Gas/Dif/Diesel/Dif2/Total/Dif3 | U=N° V=Estación W=Calificación X=Columna1
+    blue_cols  = {1: 'N°', 2: 'Estación', 7: 'N°', 12: 'Estación', 13: 'N°', 21: 'N°', 22: 'Estación'}
+    green_cols = {
+        3: 'Gasolinas (Máxima-Super)', 4: 'Diesel', 5: 'Total',
+        8: 'Gasolinas (Máxima-Super)', 9: 'Diesel', 10: 'Total',
+        14: 'Gasolinas (Máxima-Super)', 15: 'Dif / Ppto.', 16: 'Diesel', 17: 'Dif / Ppto.2',
+        18: 'Total', 19: 'Dif / Ppto.3', 23: 'Calificación', 24: 'Columna1',
+    }
+    for col, label in blue_cols.items():
+        _set(ws_v, header_r2, col, label, font=white_bold, align=center, fill=FILL_VYM_BLUE)
+    for col, label in green_cols.items():
+        _set(ws_v, header_r2, col, label, font=white_bold, align=center, fill=FILL_VYM_GREEN)
+    _border_thin_range(ws_v, header_r1, 1, header_r2, 24)
+
+    MONEY_COLS_VYM = [3, 4, 5, 8, 9, 10, 14, 15, 16, 17, 18, 19]
+
+    row = header_r2 + 1
+    first_data_row = row
+    totales = dict.fromkeys(MONEY_COLS_VYM, 0.0)
+    for team_key in team_keys:
+        est = resultado.get(team_key)
+        if not est:
+            continue
+        nombre = STATION_TEAMS[team_key]
+        ppto = ppto_mes.get(team_key)
+        v = ventas_sem.get(team_key)
+        mistery = est['indicadores'].get('mistery') or {}
+
+        pm_gas    = float((ppto.maxima or 0) + (ppto.gasolina_super or 0)) if ppto else 0.0
+        pm_diesel = float(ppto.diesel or 0) if ppto else 0.0
+        pm_total  = float(ppto.total or 0) if ppto else (pm_gas + pm_diesel)
+
+        ps_gas    = float(v.ps_gas or 0) if v else 0.0
+        ps_diesel = float(v.ps_diesel or 0) if v else 0.0
+        ps_total  = ps_gas + ps_diesel
+
+        vs_gas    = float(v.vs_gas or 0) if v else 0.0
+        vs_diesel = float(v.vs_diesel or 0) if v else 0.0
+        vs_total  = vs_gas + vs_diesel
+
+        dif_gas, dif_diesel, dif_total = vs_gas - ps_gas, vs_diesel - ps_diesel, vs_total - ps_total
+
+        def _acc(col, value, font=font_arial, fill=None):
+            _set(ws_v, row, col, round(value, 2), number_format=ACC_FMT, font=font, align=center, fill=fill)
+
+        def _dif(col, value):
+            fill, font = (FILL_BUENO, FONT_BUENO) if value > 0 else (FILL_MALO, FONT_MALO) if value < 0 else (None, font_arial)
+            _acc(col, value, font=font, fill=fill)
+
+        _set(ws_v, row, 1, team_key, font=font_arial, align=center)
+        _set(ws_v, row, 2, nombre, font=font_arial_bold)
+
+        _acc(3, pm_gas); _acc(4, pm_diesel); _acc(5, pm_total)
+
+        _set(ws_v, row, 7, team_key, font=font_arial, align=center)
+        _acc(8, ps_gas); _acc(9, ps_diesel); _acc(10, ps_total)
+
+        _set(ws_v, row, 12, nombre, font=font_arial, align=center)
+        _set(ws_v, row, 13, team_key, font=font_arial, align=center)
+        _acc(14, vs_gas); _dif(15, dif_gas)
+        _acc(16, vs_diesel); _dif(17, dif_diesel)
+        _acc(18, vs_total); _dif(19, dif_total)
+
+        calificacion = mistery.get('alcance_raw')
+        _set(ws_v, row, 21, team_key, font=font_arial, align=center)
+        _set(ws_v, row, 22, nombre, font=font_arial, align=center)
+        if calificacion is None:
+            _set(ws_v, row, 23, 'N/A', font=font_arial, align=center)
+            _set(ws_v, row, 24, 'N/A', font=font_arial, align=center)
+        else:
+            _set(ws_v, row, 23, round(calificacion), number_format='0', font=font_arial, align=center)
+            _set(ws_v, row, 24, round(calificacion / 100, 2), font=font_arial, align=center)
+
+        for c, val in zip(MONEY_COLS_VYM,
+                           [pm_gas, pm_diesel, pm_total, ps_gas, ps_diesel, ps_total,
+                            vs_gas, dif_gas, vs_diesel, dif_diesel, vs_total, dif_total]):
+            totales[c] += val
+
+        _border_range(ws_v, row, 1, row, 24)
+        row += 1
+
+    last_data_row = row - 1
+    _bandear_filas(ws_v, first_data_row, last_data_row, 1, 24)
+    total_row = row
+    _set(ws_v, total_row, 2, 'Total', font=font_arial_bold)
+    for c in MONEY_COLS_VYM:
+        _set(ws_v, total_row, c, round(totales[c], 2), number_format=ACC_FMT, font=font_arial_bold,
+             align=center, fill=FILL_VYM_TOTAL)
+    _set(ws_v, total_row, 21, 'Promedio', font=font_arial_bold, align=center)
+    _set(ws_v, total_row, 23, round(promedio_mistery, 1) if promedio_mistery is not None else 'N/A',
+         font=font_arial_bold, align=center, number_format='0.0' if promedio_mistery is not None else 'General')
+    _border_thin_range(ws_v, total_row, 1, total_row, 24)
+
+    for col in SPACER_COLS_VYM:
+        for r in range(header_r1, last_data_row + 1):
+            ws_v.cell(row=r, column=col).fill = PatternFill(fill_type=None)
+            ws_v.cell(row=r, column=col).border = Border()
+
+    # Constante compartida por las hojas "Incidencias" y "Faltantes".
+    FONT_FALT_TITLE = Font(bold=True, size=20, color='FFFFFF')
+
+    # Hoja "Incidencias" (al final, entre "Ventas y Mistery" y "Faltantes"):
+    # resumen por estación (mismo conteo que ya alimenta el indicador
+    # Incidencia del ECV) y detalle fila por fila de los cortes de la
+    # semana usada para ese ECV — a diferencia de Faltantes, esto SÍ está
+    # guardado en BD (IncidenciaRegistro), no hay que leerlo en vivo.
+    semana_domingo_inc = week_start - timedelta(days=1)
+    incidencias_detalle = list(
+        IncidenciaRegistro.objects
+        .filter(semana=semana_domingo_inc, estacion_key__in=team_keys)
+        .order_by('estacion_key', 'fecha')
+    )
+
+    # Resumen en A-C; columna D vacía como separador; detalle (desglose) a
+    # la derecha a partir de la columna E, alineado con el mismo renglón.
+    INC_DET_COL = 5  # E
+
+    ws_i = wb.create_sheet('Incidencias')
+    ws_i.sheet_view.showGridLines = False
+    for col, width in zip('ABCDEFGHIJK', [14, 28, 14, 3, 28, 14, 10, 22, 26, 50, 22]):
+        ws_i.column_dimensions[col].width = width
+
+    # Resumen por estación — mismo conteo que ya usa el ECV.
+    ws_i.merge_cells('A1:C1')
+    _fill_cols(ws_i, 1, range(1, 4), FILL_HEADER1)
+    _set(ws_i, 1, 1, 'Resumen por estación (incidencias en cortes)', font=FONT_FALT_TITLE, align=center)
+    _set(ws_i, 2, 1, 'N° Estación', font=white_bold, align=center, fill=FILL_HEADER1)
+    _set(ws_i, 2, 2, 'Estación', font=white_bold, align=center, fill=FILL_HEADER1)
+    _set(ws_i, 2, 3, 'Incidencias', font=white_bold, align=center, fill=FILL_HEADER1)
+
+    row_i = 3
+    total_incidencias = 0
+    for team_key in team_keys:
+        est = resultado.get(team_key)
+        if not est:
+            continue
+        count = (est['indicadores'].get('incidencia') or {}).get('alcance')
+        if count is None:
+            continue
+        _set(ws_i, row_i, 1, team_key, font=font_arial, align=center)
+        _set(ws_i, row_i, 2, STATION_TEAMS[team_key], font=font_arial)
+        _set(ws_i, row_i, 3, count, font=font_arial, align=center)
+        total_incidencias += count
+        row_i += 1
+    _bandear_filas(ws_i, 3, row_i - 1, 1, 3)
+    _set(ws_i, row_i, 2, 'Total', font=font_arial_bold)
+    _set(ws_i, row_i, 3, total_incidencias, font=font_arial_bold, align=center, fill=FILL_VYM_TOTAL)
+    _border_thin_range(ws_i, 2, 1, row_i, 3)
+
+    # Detalle — cortes individuales de la semana usada para este ECV, a la
+    # derecha del resumen, empezando en el mismo renglón (fila 1).
+    inc_title_row  = 1
+    inc_header_row = 2
+    inc_start_row  = 3
+
+    _fill_cols(ws_i, inc_title_row, range(INC_DET_COL, INC_DET_COL + 7), FILL_HEADER1)
+    ws_i.merge_cells(start_row=inc_title_row, start_column=INC_DET_COL, end_row=inc_title_row, end_column=INC_DET_COL + 3)
+    _set(ws_i, inc_title_row, INC_DET_COL, 'INCIDENCIAS EN CORTES', font=FONT_FALT_TITLE, align=center)
+    _set(ws_i, inc_title_row, INC_DET_COL + 4, 'Semana de corte:', font=white_bold, align=right)
+    _set(ws_i, inc_title_row, INC_DET_COL + 5, semana_domingo_inc, number_format='dd/mm/yyyy', font=white_bold)
+
+    inc_cols = ['Estación', 'Fecha', 'Turno', 'Tipo de incidencia', 'Sub-detalle', 'Detalle', 'Problema']
+    for i, label in enumerate(inc_cols):
+        _set(ws_i, inc_header_row, INC_DET_COL + i, label, font=white_bold, align=center, fill=FILL_HEADER1)
+
+    if not incidencias_detalle:
+        ws_i.merge_cells(start_row=inc_start_row, start_column=INC_DET_COL, end_row=inc_start_row, end_column=INC_DET_COL + 6)
+        _set(ws_i, inc_start_row, INC_DET_COL, 'Sin incidencias registradas para esta semana.', font=font_arial)
+        inc_last_row = inc_start_row
+    else:
+        row_id = inc_start_row
+        for r in incidencias_detalle:
+            _set(ws_i, row_id, INC_DET_COL, STATION_TEAMS.get(r.estacion_key, r.estacion_key), font=font_arial)
+            _set(ws_i, row_id, INC_DET_COL + 1, r.fecha, number_format='dd/mm/yyyy', font=font_arial, align=center)
+            _set(ws_i, row_id, INC_DET_COL + 2, r.turno, font=font_arial, align=center)
+            _set(ws_i, row_id, INC_DET_COL + 3, r.tipo_incidencia, font=font_arial)
+            _set(ws_i, row_id, INC_DET_COL + 4, r.sub_detalle, font=font_arial)
+            _set(ws_i, row_id, INC_DET_COL + 5, r.detalle, font=font_arial)
+            _set(ws_i, row_id, INC_DET_COL + 6, r.problema, font=font_arial)
+            row_id += 1
+        inc_last_row = row_id - 1
+        _bandear_filas(ws_i, inc_start_row, inc_last_row, INC_DET_COL, INC_DET_COL + 6)
+    _border_thin_range(ws_i, inc_header_row, INC_DET_COL, inc_last_row, INC_DET_COL + 6)
+
+    # Hoja "Faltantes" (al final, junto a "Ventas y Mistery"): réplica del
+    # Excel ECV Zona manual — resumen por estación (mismo monto que ya
+    # alimenta el indicador Faltante del ECV) y detalle fila por fila de
+    # los faltantes actualmente abiertos en el F8, igual que el reporte
+    # oficial "F8 SEMANAL" (no filtra por fecha de la semana consultada).
+    from apps.incentives.faltantes_service import leer_faltantes_f8_abiertos_detalle
+
+    filas_falt, error_falt = leer_faltantes_f8_abiertos_detalle()
+
+    FILL_FALT         = PatternFill('solid', fgColor='E64646')
+    FILL_FALT_ABIERTO = PatternFill('solid', fgColor='FFFF00')
+
+    # Resumen en A-C; columna D vacía como separador; detalle (desglose) a
+    # la derecha a partir de la columna E, alineado con el mismo renglón.
+    FALT_DET_COL = 5  # E
+
+    ws_f = wb.create_sheet('Faltantes')
+    ws_f.sheet_view.showGridLines = False
+    for col, width in zip('ABCDEFGHIJKLMNOP', [14, 28, 14, 3, 26, 26, 14, 26, 30, 8, 16, 32, 12, 24, 10, 16]):
+        ws_f.column_dimensions[col].width = width
+
+    # Resumen por estación — mismo monto que ya usa el ECV (snapshot guardado).
+    ws_f.merge_cells('A1:C1')
+    _fill_cols(ws_f, 1, range(1, 4), FILL_FALT)
+    _set(ws_f, 1, 1, 'Resumen por estación (snapshot ECV)', font=FONT_FALT_TITLE, align=center)
+    _set(ws_f, 2, 1, 'N° Estación', font=white_bold, align=center, fill=FILL_FALT)
+    _set(ws_f, 2, 2, 'Estación', font=white_bold, align=center, fill=FILL_FALT)
+    _set(ws_f, 2, 3, 'Faltantes', font=white_bold, align=center, fill=FILL_FALT)
+
+    row_f = 3
+    total_snapshot = 0.0
+    for team_key in team_keys:
+        est = resultado.get(team_key)
+        if not est:
+            continue
+        monto = (est['indicadores'].get('faltante') or {}).get('alcance')
+        if monto is None:
+            continue
+        _set(ws_f, row_f, 1, team_key, font=font_arial, align=center)
+        _set(ws_f, row_f, 2, STATION_TEAMS[team_key], font=font_arial)
+        _set(ws_f, row_f, 3, round(monto, 2), number_format='"$"#,##0.00', font=font_arial, align=right)
+        total_snapshot += monto
+        row_f += 1
+    _bandear_filas(ws_f, 3, row_f - 1, 1, 3)
+    _set(ws_f, row_f, 2, 'Total', font=font_arial_bold)
+    _set(ws_f, row_f, 3, round(total_snapshot, 2), number_format='"$"#,##0.00',
+         font=font_arial_bold, align=right, fill=FILL_VYM_TOTAL)
+    _border_thin_range(ws_f, 2, 1, row_f, 3)
+
+    # Detalle crudo — faltantes abiertos en el F8 ahora mismo, a la derecha
+    # del resumen, empezando en el mismo renglón (fila 1).
+    detalle_title_row  = 1
+    detalle_header_row = 2
+    detalle_start_row  = 3
+
+    _fill_cols(ws_f, detalle_title_row, range(FALT_DET_COL, FALT_DET_COL + 12), FILL_FALT)
+    ws_f.merge_cells(start_row=detalle_title_row, start_column=FALT_DET_COL, end_row=detalle_title_row, end_column=FALT_DET_COL + 4)
+    _set(ws_f, detalle_title_row, FALT_DET_COL, 'FALTANTES', font=FONT_FALT_TITLE, align=center)
+    _set(ws_f, detalle_title_row, FALT_DET_COL + 8, 'Fuente:', font=white_bold, align=right)
+    _set(ws_f, detalle_title_row, FALT_DET_COL + 9, 'F8 SEMANAL', font=white_bold)
+
+    detalle_cols = ['Estación', 'Gerente', 'Importe', 'Responsable', 'Motivo', 'Turno',
+                    'Fecha de faltante', 'Observaciones', 'Días vigentes', 'Razón social', 'Zona', 'Estatus']
+    for i, label in enumerate(detalle_cols):
+        _set(ws_f, detalle_header_row, FALT_DET_COL + i, label, font=white_bold, align=center, fill=FILL_FALT)
+
+    if error_falt:
+        ws_f.merge_cells(start_row=detalle_start_row, start_column=FALT_DET_COL, end_row=detalle_start_row, end_column=FALT_DET_COL + 11)
+        _set(ws_f, detalle_start_row, FALT_DET_COL, f'No se pudo leer el detalle del F8: {error_falt}', font=FONT_MALO)
+        detalle_last_row = detalle_start_row
+    else:
+        filas_falt = [f for f in filas_falt if f['team_key'] in team_keys]
+        filas_falt.sort(key=lambda f: (f['team_key'], f['fecha'] or date.min))
+        row_d = detalle_start_row
+        total_detalle = 0.0
+        for f in filas_falt:
+            estatus_fill = FILL_FALT_ABIERTO if f['estatus'] == 'ABIERTO' else None
+            _set(ws_f, row_d, FALT_DET_COL, STATION_TEAMS.get(f['team_key'], f['team_key']), font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 1, f['gerente'], font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 2, round(f['importe'], 2), number_format='"$"#,##0.00', font=font_arial, align=right)
+            _set(ws_f, row_d, FALT_DET_COL + 3, f['responsable'], font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 4, f['motivo'], font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 5, f['turno'], font=font_arial, align=center)
+            _set(ws_f, row_d, FALT_DET_COL + 6, f['fecha'], number_format='dd/mm/yyyy', font=font_arial, align=center)
+            _set(ws_f, row_d, FALT_DET_COL + 7, f['observaciones'], font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 8, f['dias_vigentes'], font=font_arial, align=center)
+            _set(ws_f, row_d, FALT_DET_COL + 9, f['razon_social'], font=font_arial)
+            _set(ws_f, row_d, FALT_DET_COL + 10, f['zona'], font=font_arial, align=center)
+            _set(ws_f, row_d, FALT_DET_COL + 11, f['estatus'], font=font_arial_bold, align=center, fill=estatus_fill)
+            total_detalle += f['importe']
+            row_d += 1
+
+        _bandear_filas(ws_f, detalle_start_row, row_d - 1, FALT_DET_COL, FALT_DET_COL + 11)
+        total_row_f = row_d
+        _set(ws_f, total_row_f, FALT_DET_COL + 1, 'Total', font=font_arial_bold)
+        _set(ws_f, total_row_f, FALT_DET_COL + 2, round(total_detalle, 2), number_format='"$"#,##0.00',
+             font=font_arial_bold, align=right, fill=FILL_VYM_TOTAL)
+        detalle_last_row = total_row_f
+
+    _border_thin_range(ws_f, detalle_header_row, FALT_DET_COL, detalle_last_row, FALT_DET_COL + 11)
 
     for team_key in team_keys:
         est = resultado.get(team_key)
@@ -3116,6 +3627,46 @@ def exportar_ecv_excel(request):
         ws = wb.create_sheet(hoja_nombre)
         ws.sheet_view.showGridLines = False
 
+        # Logos: una sola celda fusionada B3:G7, con logo_sencillo e ISOLOGO
+        # flotando dentro, del mismo alto, centrados como una sola unidad.
+        ws.merge_cells(start_row=3, start_column=2, end_row=7, end_column=7)
+
+        col_widths_px = [187, 19, 96, 68, 131, 75]  # B,C,D,E,F,G
+        row_heights_px = [25, 8, 36, 36, 8]         # filas 3,4,5,6,7
+        avail_w, avail_h = sum(col_widths_px), sum(row_heights_px)
+
+        def _anchor_offset(offset_px, start_idx, sizes_px):
+            idx, remaining = start_idx, offset_px
+            for size in sizes_px:
+                if remaining < size:
+                    break
+                remaining -= size
+                idx += 1
+            return idx, round(remaining * 9525)
+
+        logo_h = iso_h = 90
+        logo_w = 90
+        iso_w = round(logo_h * 341 / 94)
+        gap = 15
+        total_w = logo_w + gap + iso_w
+        offset_x = (avail_w - total_w) / 2
+        offset_y = (avail_h - logo_h) / 2
+
+        col0, colOff0 = _anchor_offset(offset_x, 1, col_widths_px)      # col B = índice 1
+        row0, rowOff0 = _anchor_offset(offset_y, 2, row_heights_px)    # fila 3 = índice 2
+        col1, colOff1 = _anchor_offset(offset_x + logo_w + gap, 1, col_widths_px)
+
+        if logo_path:
+            img_logo = XLImage(logo_path)
+            marker = AnchorMarker(col=col0, colOff=colOff0, row=row0, rowOff=rowOff0)
+            img_logo.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(cx=logo_w * 9525, cy=logo_h * 9525))
+            ws.add_image(img_logo)
+        if isologo_path:
+            img_iso = XLImage(isologo_path)
+            marker = AnchorMarker(col=col1, colOff=colOff1, row=row0, rowOff=rowOff0)
+            img_iso.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(cx=iso_w * 9525, cy=iso_h * 9525))
+            ws.add_image(img_iso)
+
         # Columnas: A margen, B etiqueta, C espaciador, D-E Ponderación, F-H Resultados,
         # I espaciador, J-L Mínimo/Objetivo/Excelente, M espaciador, N oculta (helper
         # heredado del Excel original), O-P Evaluación Final, Q monto base.
@@ -3127,31 +3678,31 @@ def exportar_ecv_excel(request):
                      (9, 37), (10, 26), (11, 30), (12, 30), (13, 30), (14, 30), (15, 30), (17, 24)]:
             ws.row_dimensions[r].height = h
 
-        ws.merge_cells(start_row=2, start_column=2, end_row=2, end_column=17)
-        _fill_row(ws, 2, range(2, 18), FILL_TITLE)
+        ws.merge_cells(start_row=2, start_column=2, end_row=2, end_column=16)
+        _fill_row(ws, 2, range(2, 17), FILL_TITLE)
         _set(ws, 2, 2, 'Cálculo de Compensación Variable', font=title_font, align=center)
 
         _set(ws, 3, 10, 'Periodo Evaluado:', font=bold)
         ws.merge_cells(start_row=3, start_column=11, end_row=3, end_column=12)
-        _set(ws, 3, 11, f'Semana: {semana_num}', font=bold)
+        _set(ws, 3, 11, f'Semana: {semana_num}', font=bold, align=center)
+        _border_outline(ws, 3, 10, 3, 10)
+        _border_outline(ws, 3, 11, 3, 12)
 
         cat_bono = est['categoria_bono'] or est['categoria']
 
-        ws.merge_cells(start_row=5, start_column=6, end_row=5, end_column=8)
         ws.merge_cells(start_row=5, start_column=10, end_row=5, end_column=13)
-        _set(ws, 5, 6, 'Departamento:', font=bold)
+        _set(ws, 5, 8, 'Departamento:', font=bold, align=right)
         _set(ws, 5, 10, team_key, fill=FILL_INFO)
         _set(ws, 5, 15, round(est['bono_gerente'], 2), number_format='"$"#,##0.00', font=white_bold, fill=FILL_BONO, align=center)
         _set(ws, 5, 16, 'Gerente', font=white_bold, fill=FILL_BONO, align=center)
-        _set(ws, 5, 17, est['monto_base_gerente'], align=center)
+        _border_outline(ws, 5, 10, 5, 13)
 
-        ws.merge_cells(start_row=6, start_column=6, end_row=6, end_column=8)
         ws.merge_cells(start_row=6, start_column=10, end_row=6, end_column=13)
-        _set(ws, 6, 6, 'Estación:', font=bold)
+        _set(ws, 6, 8, 'Estación:', font=bold, align=right)
         _set(ws, 6, 10, nombre, fill=FILL_INFO)
         _set(ws, 6, 15, round(est['bono_subgerente'], 2), number_format='"$"#,##0.00', font=white_bold, fill=FILL_BONO, align=center)
         _set(ws, 6, 16, 'Subgerente', font=white_bold, fill=FILL_BONO, align=center)
-        _set(ws, 6, 17, est['monto_base_subgerente'], align=center)
+        _border_outline(ws, 6, 10, 6, 13)
 
         header_row = 9
         ws.merge_cells(start_row=header_row, start_column=4, end_row=header_row, end_column=5)
@@ -3186,9 +3737,8 @@ def exportar_ecv_excel(request):
                 sum_ponderacion += ponderacion
 
             mayor_es_mejor = key in ('venta_gas', 'venta_diesel', 'mistery')
-            valor_logro = d.get('alcance') if key in ('venta_gas', 'venta_diesel', 'mistery') else d.get('calculo')
             fill_sem, font_sem = _semaforo_logro(
-                valor_logro, d.get('umbral_minimo'), d.get('umbral_objetivo'), d.get('umbral_excelente'), mayor_es_mejor,
+                d.get('alcance'), d.get('umbral_minimo'), d.get('umbral_objetivo'), d.get('umbral_excelente'), mayor_es_mejor,
             )
 
             _fill_row(ws, row, [2, 4, 5, 15, 16], FILL_LABEL)
@@ -3202,39 +3752,74 @@ def exportar_ecv_excel(request):
                 _pct(ws, row, 8, d.get('alcance'), fill=fill_sem, font=font_sem)
                 _pct(ws, row, 10, d.get('umbral_minimo'), font=FONT_MIN, fill=FILL_MIN)
                 _pct(ws, row, 11, d.get('umbral_objetivo'), font=FONT_OBJ, fill=FILL_OBJ)
-                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC)
+                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC, fill=FILL_EXC)
             elif key == 'mistery':
                 _pct(ws, row, 6, d.get('alcance_raw'))
                 _pct(ws, row, 7, d.get('objetivo_raw'))
                 _pct(ws, row, 8, d.get('alcance'), fill=fill_sem, font=font_sem)
                 _pct(ws, row, 10, d.get('umbral_minimo'), font=FONT_MIN, fill=FILL_MIN)
                 _pct(ws, row, 11, d.get('umbral_objetivo'), font=FONT_OBJ, fill=FILL_OBJ)
-                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC)
+                _pct(ws, row, 12, d.get('umbral_excelente'), font=FONT_EXC, fill=FILL_EXC)
             elif key == 'faltante':
                 _num(ws, row, 6, d.get('alcance'), 'money')
                 _num(ws, row, 7, d.get('umbral_objetivo'), 'money')
                 _pct(ws, row, 8, d.get('calculo'), fill=fill_sem, font=font_sem)
                 _num(ws, row, 10, d.get('umbral_minimo'), 'money', font=FONT_MIN, fill=FILL_MIN)
                 _num(ws, row, 11, d.get('umbral_objetivo'), 'money', font=FONT_OBJ, fill=FILL_OBJ)
-                _num(ws, row, 12, d.get('umbral_excelente'), 'money', font=FONT_EXC)
+                _num(ws, row, 12, d.get('umbral_excelente'), 'money', font=FONT_EXC, fill=FILL_EXC)
             else:  # incidencia
                 _num(ws, row, 6, d.get('alcance'), 'count')
                 _num(ws, row, 7, d.get('umbral_objetivo'), 'count')
                 _pct(ws, row, 8, d.get('calculo'), fill=fill_sem, font=font_sem)
                 _num(ws, row, 10, d.get('umbral_minimo'), 'count', font=FONT_MIN, fill=FILL_MIN)
                 _num(ws, row, 11, d.get('umbral_objetivo'), 'count', font=FONT_OBJ, fill=FILL_OBJ)
-                _num(ws, row, 12, d.get('umbral_excelente'), 'count', font=FONT_EXC)
+                _num(ws, row, 12, d.get('umbral_excelente'), 'count', font=FONT_EXC, fill=FILL_EXC)
 
             _pct(ws, row, 15, d.get('calculo'))
             _pct(ws, row, 16, d.get('valor'))
             row += 1
 
+        last_data_row = row - 1
+
         row += 1
+        total_row = row
         _fill_row(ws, row, [4, 5, 15, 16], FILL_LABEL)
         _pct(ws, row, 4, sum_ponderacion, font=bold)
         _pct(ws, row, 5, sum_ponderacion * 1.2, font=bold)
-        _set(ws, row, 15, 'Puntos', font=bold)
+        _set(ws, row, 15, 'Puntos', font=bold, align=center)
         _pct(ws, row, 16, est['total_puntos'], font=bold)
+        ws.cell(row=row, column=16).alignment = center
+
+        # Bordes: el número de filas de indicadores varía según si la estación
+        # tiene venta de diésel (Categoría B) o no, así que las filas con/sin
+        # borde se calculan a partir de last_data_row / total_row, no fijas.
+        _border_range(ws, 9, 2, last_data_row, 2)
+        _border_range(ws, 11, 4, last_data_row, 8)
+        _border_range(ws, 11, 10, last_data_row, 12)
+        _border_range(ws, 11, 15, last_data_row, 16)
+        _border_range(ws, 5, 15, 6, 16)
+        _border_outline(ws, total_row, 15, total_row, 16)
+        _border_range(ws, total_row, 4, total_row, 5)
+
+        # Fila de encabezados "Ponderación"/"Resultados" (9) y sub-encabezados (10):
+        # un solo cuadro por grupo, sin separar internamente.
+        _border_outline(ws, 9, 4, 9, 8)
+        _border_outline(ws, 10, 4, 10, 5)
+        _border_outline(ws, 10, 6, 10, 8)
+
+        # Centrado horizontal (además del vertical ya aplicado) en las celdas
+        # de datos — mismos rangos dinámicos que los bordes.
+        _center_range(ws, 9, 2, 9, 2)
+        _center_range(ws, 11, 4, last_data_row, 8)
+        _center_range(ws, total_row, 4, total_row, 5)
+        _center_range(ws, 11, 10, last_data_row, 12)
+        _center_range(ws, 11, 15, last_data_row, 16)
+
+    # "Ventas y Mistery", "Incidencias" y "Faltantes" van al final del libro,
+    # después de todas las estaciones — igual que en el Excel ECV Zona manual.
+    for ws_final in (ws_v, ws_i, ws_f):
+        wb._sheets.remove(ws_final)
+        wb._sheets.append(ws_final)
 
     filename = f"ECV Sem {semana_num} ({week_start.isoformat()}).xlsx"
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

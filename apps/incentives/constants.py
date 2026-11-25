@@ -263,4 +263,5 @@ SG12_COD_TO_TEAM_KEY = {
     38: 'Jesus Maria',   # Jesús María
     39: 'Gabriela Mistral', # Gabriela Mistral
     40: 'Praxedis',     # PRAXEDIS
+    333: 'Colosio',     # Colosio
 }

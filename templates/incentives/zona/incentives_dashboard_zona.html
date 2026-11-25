@@ -190,6 +190,17 @@
   </div>
 </div>
 
+<div class="row g-3">
+  <div class="col-auto">
+    <div class="summary-card p-3 d-flex flex-column justify-content-center h-100">
+      <small class="text-muted d-block mb-1">DESGLOSE ECV</small>
+      <a href="{% url 'exportar_ecv_excel' %}?semana={{ week_start|date:'Y-m-d' }}" id="btn-descargar-ecv-excel" class="btn btn-outline-success btn-sm">
+        <i class="fas fa-file-excel me-1"></i>Descargar Excel ECV
+      </a>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
   <script>
