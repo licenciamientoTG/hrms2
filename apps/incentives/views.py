@@ -3826,3 +3826,116 @@ def exportar_ecv_excel(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
+
+
+@login_required
+def exportar_layout_incentivos(request):
+    """Descarga el layout plano para carga a nómina: una fila por empleado y
+    concepto (ConceptoID, Monto, Observa, Referencia). Por ahora cubre
+    Diesel (610), Encargado (609), Mistery (608) y Venta (607)."""
+    from datetime import date, timedelta
+    import openpyxl
+    from django.db.models import Count, Sum, Q
+    from django.http import HttpResponse
+
+    rol = _get_rol_incentivos(request.user)
+    if rol not in ('admin', 'operaciones'):
+        return redirect('incentives_dashboard')
+
+    CONCEPTOS = {
+        'Diesel':    610,
+        'Encargado': 609,
+        'Mistery':   608,
+        'Venta':     607,
+    }
+
+    semana_str = request.GET.get('semana')
+    today = date.today()
+    if semana_str:
+        try:
+            week_start = date.fromisoformat(semana_str)
+        except ValueError:
+            week_start = today - timedelta(days=today.weekday())
+    else:
+        week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    cfg = ConfiguracionIncentivos.get()
+
+    # Si la vista tenía un filtro de búsqueda activo, solo exportar las
+    # estaciones que quedaron visibles (mismas que mandó el JS) — igual
+    # que exportar_ecv_excel.
+    team_keys = set(STATION_TEAMS.keys())
+    estaciones_filtro = request.GET.get('estaciones')
+    if estaciones_filtro:
+        filtro_set = {tk for tk in estaciones_filtro.split(',') if tk}
+        team_keys = {tk for tk in team_keys if tk in filtro_set}
+
+    # Mismo universo de empleados que el panel admin (dedup por TSA,
+    # puestos excluidos, filtro por semana) para que el layout solo
+    # incluya lo que se ve en esa vista.
+    inactivos_con_registro = set(
+        IncentivoRegistro.objects
+        .filter(fecha__range=(week_start, week_end), employee__is_active=False,
+                employee__team__in=team_keys)
+        .values_list('employee_id', flat=True)
+    )
+    employees = _filtrar_empleados_por_semana(
+        _deduplicar_por_tsa(list(
+            Employee.objects
+            .filter(team__in=team_keys)
+            .exclude(job_position__title__in=PUESTOS_EXCLUIDOS_INCENTIVOS)
+            .filter(Q(is_active=True) | Q(id__in=inactivos_con_registro))
+            .only('id', 'team', 'curp', 'company', 'seniority_raw', 'is_active', 'employee_number')
+        )),
+        week_end,
+        inactivos_con_registro,
+    )
+    emp_ids = [emp.id for emp in employees]
+    emp_numero = {emp.id: emp.employee_number for emp in employees}
+
+    registros = (
+        IncentivoRegistro.objects
+        .filter(tipo__in=CONCEPTOS.keys(), fecha__range=(week_start, week_end), employee_id__in=emp_ids)
+        .values('employee_id', 'tipo')
+        .annotate(count=Count('id'), suma_monto=Sum('monto'))
+    )
+
+    filas = []
+    for r in registros:
+        numero = emp_numero.get(r['employee_id'])
+        if not numero:
+            continue
+        count = r['count'] or 0
+        if r['tipo'] == 'Diesel':
+            monto = count * cfg.diesel_por_dia
+        elif r['tipo'] == 'Encargado':
+            monto = (cfg.encargado_primer_dia + (count - 1) * cfg.encargado_incremento) if count > 0 else 0
+        else:
+            monto = int(r['suma_monto'] or 0)
+        if monto <= 0:
+            continue
+        filas.append((CONCEPTOS[r['tipo']], monto, numero))
+
+    filas.sort(key=lambda f: (f[0], f[2]))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Layout'
+
+    headers = ['ConceptoID', 'Monto', 'Observa', 'Referencia', 'Empleado']
+    for col, h in enumerate(headers, start=1):
+        ws.cell(row=1, column=col, value=h)
+
+    for row, (concepto_id, monto, numero) in enumerate(filas, start=2):
+        ws.cell(row=row, column=1, value=concepto_id)
+        ws.cell(row=row, column=2, value=monto)
+        ws.cell(row=row, column=3, value='')
+        ws.cell(row=row, column=4, value='')
+        ws.cell(row=row, column=5, value=numero)
+
+    filename = f"Layout Incentivos ({week_start.isoformat()}).xlsx"
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response

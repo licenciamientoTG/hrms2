@@ -246,10 +246,14 @@
   </div>
   <div class="col-md-4">
     <div class="summary-card p-3 d-flex flex-column justify-content-center h-100">
-      <small class="text-muted d-block mb-1">DESGLOSE ECV</small>
-      <a href="{% url 'exportar_ecv_excel' %}?semana={{ week_start|date:'Y-m-d' }}" id="btn-descargar-ecv-excel" class="btn btn-outline-success btn-sm">
-        <i class="fas fa-file-excel me-1"></i>Descargar Excel ECV
-      </a>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'exportar_ecv_excel' %}?semana={{ week_start|date:'Y-m-d' }}" id="btn-descargar-ecv-excel" class="btn btn-outline-success btn-sm">
+          <i class="fas fa-file-excel me-1"></i>Descargar Excel ECV
+        </a>
+        <a href="{% url 'exportar_layout_incentivos' %}?semana={{ week_start|date:'Y-m-d' }}" id="btn-descargar-layout-incentivos" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-file-excel me-1"></i>Descargar Layout
+        </a>
+      </div>
     </div>
   </div>
 </div>
