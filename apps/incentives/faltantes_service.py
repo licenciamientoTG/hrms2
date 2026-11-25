@@ -14,6 +14,7 @@ Hoja F8:  "F8 FALTANTES (Respuestas)" (ID: 1tCKyJw-CUCuAR-pNBfYK0rJv600MXzVnyslr
 import os
 import logging
 import re
+from datetime import date, timedelta
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -128,17 +129,19 @@ def leer_faltantes_por_estacion():
         return {}, str(e)
 
 
-# Estatus que indican faltante activo/pendiente de cobro
-ESTATUS_ACTIVOS_F8 = {'ABIERTO', 'DESCONTANDOSE VIA NOMINA'}
+# Estatus que indican faltante activo/pendiente de cobro.
+# "DESCONTANDOSE VIA NOMINA" se excluye a propósito: una vez que el faltante
+# ya se está cobrando vía nómina, el reporte oficial F8 SEMANAL deja de
+# contarlo como pendiente — solo cuenta lo que sigue genuinamente abierto.
+ESTATUS_ACTIVOS_F8 = {'ABIERTO'}
 
 
-def leer_faltantes_f8_abiertos():
+def _leer_filas_f8_abiertas():
     """
-    Lee del F8 todos los faltantes actualmente abiertos o en proceso de descuento.
-
-    Filtra por:
-      - REAL   (Col O) == 'SI'
-      - ESTATUS (Col M) ∈ ESTATUS_ACTIVOS_F8
+    Lee del F8 las filas crudas de faltantes actualmente abiertos, ya
+    filtradas (REAL=SI, ESTATUS ∈ ESTATUS_ACTIVOS_F8) y con el team_key
+    resuelto. Compartida por leer_faltantes_f8_abiertos() (totales por
+    estación) y leer_faltantes_f8_abiertos_detalle() (fila por fila).
 
     No filtra por fecha — devuelve el estado actual de faltantes sin pagar,
     equivalente a lo que mostraría FALTANTES DIARIOS en el momento del cálculo.
@@ -146,12 +149,12 @@ def leer_faltantes_f8_abiertos():
 
     Returns
     -------
-    (totales_dict, error_str)
-      totales_dict : {team_key: float}
-      error_str    : None si OK, mensaje si ocurrió error
+    (filas, error_str)
+      filas: lista de (team_key, row, importe, estatus) — row es la fila
+             cruda del sheet (para leer gerente/responsable/motivo/etc.)
+      error_str: None si OK, mensaje si ocurrió error
     """
-    from datetime import date as _date
-    tab = str(_date.today().year)
+    tab = str(date.today().year)
 
     try:
         service = _get_service()
@@ -163,7 +166,7 @@ def leer_faltantes_f8_abiertos():
         ).execute()
         disponibles = {s['properties']['title'] for s in meta.get('sheets', [])}
         if tab not in disponibles:
-            return {}, f"Pestaña '{tab}' no encontrada en F8 FALTANTES"
+            return [], f"Pestaña '{tab}' no encontrada en F8 FALTANTES"
 
         rng    = f"'{tab}'!A2:O20000"
         result = sheets.values().get(
@@ -173,7 +176,7 @@ def leer_faltantes_f8_abiertos():
         ).execute()
         rows = result.get('values', [])
 
-        totales = {}
+        filas = []
         for row in rows:
             if len(row) < 3:
                 continue
@@ -207,13 +210,84 @@ def leer_faltantes_f8_abiertos():
             if importe <= 0:
                 continue
 
-            totales[team_key] = totales.get(team_key, 0.0) + importe
+            filas.append((team_key, row, importe, estatus))
 
-        return totales, None
+        return filas, None
 
     except HttpError as e:
         logger.error("Sheets API HttpError (F8 faltantes abiertos): %s", e)
-        return {}, f"Error de Google Sheets API: {e.reason}"
+        return [], f"Error de Google Sheets API: {e.reason}"
     except Exception as e:
         logger.exception("Error leyendo F8 faltantes abiertos")
-        return {}, str(e)
+        return [], str(e)
+
+
+def leer_faltantes_f8_abiertos():
+    """
+    Lee del F8 todos los faltantes actualmente abiertos (sin contar los que
+    ya están en descuento vía nómina — ver nota en ESTATUS_ACTIVOS_F8) y
+    devuelve el total por estación.
+
+    Returns
+    -------
+    (totales_dict, error_str)
+      totales_dict : {team_key: float}
+      error_str    : None si OK, mensaje si ocurrió error
+    """
+    filas, error = _leer_filas_f8_abiertas()
+    if error:
+        return {}, error
+    totales = {}
+    for team_key, _row, importe, _estatus in filas:
+        totales[team_key] = totales.get(team_key, 0.0) + importe
+    return totales, None
+
+
+_EXCEL_EPOCH = date(1899, 12, 30)
+
+
+def _serial_to_date(value):
+    """Convierte un serial de fecha de Excel/Sheets (UNFORMATTED_VALUE) a date."""
+    if isinstance(value, (int, float)):
+        try:
+            return _EXCEL_EPOCH + timedelta(days=int(value))
+        except (OverflowError, ValueError):
+            return None
+    return None
+
+
+def leer_faltantes_f8_abiertos_detalle():
+    """
+    Igual que leer_faltantes_f8_abiertos() pero devuelve el detalle fila
+    por fila (gerente, responsable, motivo, fecha, etc.) en vez de solo el
+    total por estación. Se usa para la hoja "Faltantes" del Excel ECV,
+    réplica del detalle crudo que trae el Excel ECV Zona manual.
+
+    Returns
+    -------
+    (filas, error_str)
+      filas: lista de dicts con team_key, gerente, importe, responsable,
+             motivo, turno, fecha (date|None), observaciones,
+             dias_vigentes, razon_social, zona, estatus
+      error_str: None si OK, mensaje si ocurrió error
+    """
+    filas_raw, error = _leer_filas_f8_abiertas()
+    if error:
+        return [], error
+    return [
+        {
+            'team_key':      team_key,
+            'gerente':       row[1]  if len(row) > 1  else '',
+            'importe':       importe,
+            'responsable':   row[3]  if len(row) > 3  else '',
+            'motivo':        row[4]  if len(row) > 4  else '',
+            'turno':         row[5]  if len(row) > 5  else '',
+            'fecha':         _serial_to_date(row[6]) if len(row) > 6 else None,
+            'observaciones': row[8]  if len(row) > 8  else '',
+            'dias_vigentes': row[9]  if len(row) > 9  else None,
+            'razon_social':  row[10] if len(row) > 10 else '',
+            'zona':          row[11] if len(row) > 11 else '',
+            'estatus':       estatus,
+        }
+        for team_key, row, importe, estatus in filas_raw
+    ], None

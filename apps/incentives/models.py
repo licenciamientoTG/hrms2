@@ -391,7 +391,7 @@ class ComentarioSemana(models.Model):
 
 
 class FaltanteEstacionSemanal(models.Model):
-    """Snapshot de faltante total (REAL + DESCUENTO VIA NOMINA) por estación y semana."""
+    """Snapshot del total de faltantes ABIERTOS (ver ESTATUS_ACTIVOS_F8) por estación y semana."""
     team_key   = models.CharField(max_length=50, verbose_name='Clave de estación')
     week_start = models.DateField(verbose_name='Semana (lunes)')
     monto      = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Monto faltante ($)')
@@ -404,6 +404,34 @@ class FaltanteEstacionSemanal(models.Model):
 
     def __str__(self):
         return f"{self.team_key} — {self.week_start} — ${self.monto}"
+
+
+class FaltanteDetalleSemanal(models.Model):
+    """Snapshot del detalle (fila por fila) de los faltantes ABIERTOS del F8
+    que compone el monto de FaltanteEstacionSemanal para esa estación/semana.
+    Se captura junto con el snapshot agregado (mismo botón) para que la hoja
+    "Faltantes" del Excel ECV muestre exactamente lo que se congeló esa
+    semana, no el estado actual (cambiante) del F8."""
+    team_key       = models.CharField(max_length=50, verbose_name='Clave de estación')
+    week_start     = models.DateField(verbose_name='Semana (lunes)')
+    gerente        = models.CharField(max_length=150, blank=True, default='')
+    importe        = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    responsable    = models.CharField(max_length=150, blank=True, default='')
+    motivo         = models.CharField(max_length=150, blank=True, default='')
+    turno          = models.CharField(max_length=50, blank=True, default='')
+    fecha          = models.DateField(null=True, blank=True, verbose_name='Fecha de faltante')
+    observaciones  = models.CharField(max_length=255, blank=True, default='')
+    dias_vigentes  = models.IntegerField(null=True, blank=True)
+    razon_social   = models.CharField(max_length=150, blank=True, default='')
+    zona           = models.CharField(max_length=50, blank=True, default='')
+    estatus        = models.CharField(max_length=50, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Detalle de faltante semanal'
+        verbose_name_plural = 'Detalles de faltantes semanales'
+
+    def __str__(self):
+        return f"{self.team_key} — {self.week_start} — {self.responsable} — ${self.importe}"
 
 
 class IndicadorVentaSemanal(models.Model):

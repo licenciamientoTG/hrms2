@@ -1158,6 +1158,27 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Descargar Excel ECV: si el buscador tiene algo escrito, solo manda las
+  // estaciones que quedaron visibles en la tabla (mismo filtro de la vista).
+  var btnDescargarEcv = document.getElementById('btn-descargar-ecv-excel');
+  if (btnDescargarEcv) {
+    btnDescargarEcv.addEventListener('click', function(e) {
+      var visibles = [];
+      document.querySelectorAll('.incentives-table tbody .incentives-detail-row').forEach(function(detailRow) {
+        if (detailRow.style.display !== 'none' && detailRow.dataset.teamKey) {
+          visibles.push(detailRow.dataset.teamKey);
+        }
+      });
+      var total = document.querySelectorAll('.incentives-table tbody .incentives-detail-row').length;
+      if (visibles.length > 0 && visibles.length < total) {
+        e.preventDefault();
+        var url = new URL(btnDescargarEcv.href, window.location.origin);
+        url.searchParams.set('estaciones', visibles.join(','));
+        window.location.href = url.toString();
+      }
+    });
+  }
+
   // Cerrar estación
   document.querySelectorAll('.btn-close-station').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
